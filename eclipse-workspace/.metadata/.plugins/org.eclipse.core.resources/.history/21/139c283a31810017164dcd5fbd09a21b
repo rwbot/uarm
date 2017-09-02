@@ -1,0 +1,732 @@
+package jogamp.opengl.glu.tessellator;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class Mesh
+{
+  private Mesh() {}
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  static GLUhalfEdge MakeEdge(GLUhalfEdge paramGLUhalfEdge)
+  {
+    GLUhalfEdge localGLUhalfEdge1 = new GLUhalfEdge(true);
+    
+    GLUhalfEdge localGLUhalfEdge2 = new GLUhalfEdge(false);
+    
+
+
+    if (!first) {
+      paramGLUhalfEdge = Sym;
+    }
+    
+
+
+
+    GLUhalfEdge localGLUhalfEdge3 = Sym.next;
+    next = localGLUhalfEdge3;
+    Sym.next = localGLUhalfEdge1;
+    next = paramGLUhalfEdge;
+    Sym.next = localGLUhalfEdge2;
+    
+    Sym = localGLUhalfEdge2;
+    Onext = localGLUhalfEdge1;
+    Lnext = localGLUhalfEdge2;
+    Org = null;
+    Lface = null;
+    winding = 0;
+    activeRegion = null;
+    
+    Sym = localGLUhalfEdge1;
+    Onext = localGLUhalfEdge2;
+    Lnext = localGLUhalfEdge1;
+    Org = null;
+    Lface = null;
+    winding = 0;
+    activeRegion = null;
+    
+    return localGLUhalfEdge1;
+  }
+  
+
+
+
+
+
+  static void Splice(GLUhalfEdge paramGLUhalfEdge1, GLUhalfEdge paramGLUhalfEdge2)
+  {
+    GLUhalfEdge localGLUhalfEdge1 = Onext;
+    GLUhalfEdge localGLUhalfEdge2 = Onext;
+    
+    Sym.Lnext = paramGLUhalfEdge2;
+    Sym.Lnext = paramGLUhalfEdge1;
+    Onext = localGLUhalfEdge2;
+    Onext = localGLUhalfEdge1;
+  }
+  
+
+
+
+
+
+
+
+
+  static void MakeVertex(GLUvertex paramGLUvertex1, GLUhalfEdge paramGLUhalfEdge, GLUvertex paramGLUvertex2)
+  {
+    GLUvertex localGLUvertex2 = paramGLUvertex1;
+    
+    assert (localGLUvertex2 != null);
+    
+
+    GLUvertex localGLUvertex1 = prev;
+    prev = localGLUvertex1;
+    next = localGLUvertex2;
+    next = paramGLUvertex2;
+    prev = localGLUvertex2;
+    
+    anEdge = paramGLUhalfEdge;
+    data = null;
+    
+
+
+    GLUhalfEdge localGLUhalfEdge = paramGLUhalfEdge;
+    do {
+      Org = localGLUvertex2;
+      localGLUhalfEdge = Onext;
+    } while (localGLUhalfEdge != paramGLUhalfEdge);
+  }
+  
+
+
+
+
+
+
+
+  static void MakeFace(GLUface paramGLUface1, GLUhalfEdge paramGLUhalfEdge, GLUface paramGLUface2)
+  {
+    GLUface localGLUface2 = paramGLUface1;
+    
+    assert (localGLUface2 != null);
+    
+
+    GLUface localGLUface1 = prev;
+    prev = localGLUface1;
+    next = localGLUface2;
+    next = paramGLUface2;
+    prev = localGLUface2;
+    
+    anEdge = paramGLUhalfEdge;
+    data = null;
+    trail = null;
+    marked = false;
+    
+
+
+
+    inside = inside;
+    
+
+    GLUhalfEdge localGLUhalfEdge = paramGLUhalfEdge;
+    do {
+      Lface = localGLUface2;
+      localGLUhalfEdge = Lnext;
+    } while (localGLUhalfEdge != paramGLUhalfEdge);
+  }
+  
+
+
+
+
+
+  static void KillEdge(GLUhalfEdge paramGLUhalfEdge)
+  {
+    if (!first) {
+      paramGLUhalfEdge = Sym;
+    }
+    
+
+    GLUhalfEdge localGLUhalfEdge2 = next;
+    GLUhalfEdge localGLUhalfEdge1 = Sym.next;
+    Sym.next = localGLUhalfEdge1;
+    Sym.next = localGLUhalfEdge2;
+  }
+  
+
+
+
+
+  static void KillVertex(GLUvertex paramGLUvertex1, GLUvertex paramGLUvertex2)
+  {
+    GLUhalfEdge localGLUhalfEdge2 = anEdge;
+    
+
+
+    GLUhalfEdge localGLUhalfEdge1 = localGLUhalfEdge2;
+    do {
+      Org = paramGLUvertex2;
+      localGLUhalfEdge1 = Onext;
+    } while (localGLUhalfEdge1 != localGLUhalfEdge2);
+    
+
+    GLUvertex localGLUvertex1 = prev;
+    GLUvertex localGLUvertex2 = next;
+    prev = localGLUvertex1;
+    next = localGLUvertex2;
+  }
+  
+
+
+
+  static void KillFace(GLUface paramGLUface1, GLUface paramGLUface2)
+  {
+    GLUhalfEdge localGLUhalfEdge2 = anEdge;
+    
+
+
+    GLUhalfEdge localGLUhalfEdge1 = localGLUhalfEdge2;
+    do {
+      Lface = paramGLUface2;
+      localGLUhalfEdge1 = Lnext;
+    } while (localGLUhalfEdge1 != localGLUhalfEdge2);
+    
+
+    GLUface localGLUface1 = prev;
+    GLUface localGLUface2 = next;
+    prev = localGLUface1;
+    next = localGLUface2;
+  }
+  
+
+
+
+
+
+  public static GLUhalfEdge __gl_meshMakeEdge(GLUmesh paramGLUmesh)
+  {
+    GLUvertex localGLUvertex1 = new GLUvertex();
+    GLUvertex localGLUvertex2 = new GLUvertex();
+    GLUface localGLUface = new GLUface();
+    
+
+    GLUhalfEdge localGLUhalfEdge = MakeEdge(eHead);
+    if (localGLUhalfEdge == null) { return null;
+    }
+    MakeVertex(localGLUvertex1, localGLUhalfEdge, vHead);
+    MakeVertex(localGLUvertex2, Sym, vHead);
+    MakeFace(localGLUface, localGLUhalfEdge, fHead);
+    return localGLUhalfEdge;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static boolean __gl_meshSplice(GLUhalfEdge paramGLUhalfEdge1, GLUhalfEdge paramGLUhalfEdge2)
+  {
+    int i = 0;
+    int j = 0;
+    
+    if (paramGLUhalfEdge1 == paramGLUhalfEdge2) { return true;
+    }
+    if (Org != Org)
+    {
+      j = 1;
+      KillVertex(Org, Org);
+    }
+    if (Lface != Lface)
+    {
+      i = 1;
+      KillFace(Lface, Lface);
+    }
+    
+
+    Splice(paramGLUhalfEdge2, paramGLUhalfEdge1);
+    Object localObject;
+    if (j == 0) {
+      localObject = new GLUvertex();
+      
+
+
+
+      MakeVertex((GLUvertex)localObject, paramGLUhalfEdge2, Org);
+      Org.anEdge = paramGLUhalfEdge1;
+    }
+    if (i == 0) {
+      localObject = new GLUface();
+      
+
+
+
+      MakeFace((GLUface)localObject, paramGLUhalfEdge2, Lface);
+      Lface.anEdge = paramGLUhalfEdge1;
+    }
+    
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  static boolean __gl_meshDelete(GLUhalfEdge paramGLUhalfEdge)
+  {
+    GLUhalfEdge localGLUhalfEdge = Sym;
+    int i = 0;
+    
+
+
+
+    if (Lface != Sym.Lface)
+    {
+      i = 1;
+      KillFace(Lface, Sym.Lface);
+    }
+    
+    if (Onext == paramGLUhalfEdge) {
+      KillVertex(Org, null);
+    }
+    else {
+      Sym.Lface.anEdge = Sym.Lnext;
+      Org.anEdge = Onext;
+      
+      Splice(paramGLUhalfEdge, Sym.Lnext);
+      if (i == 0) {
+        GLUface localGLUface = new GLUface();
+        
+
+        MakeFace(localGLUface, paramGLUhalfEdge, Lface);
+      }
+    }
+    
+
+
+
+    if (Onext == localGLUhalfEdge) {
+      KillVertex(Org, null);
+      KillFace(Lface, null);
+    }
+    else {
+      Lface.anEdge = Sym.Lnext;
+      Org.anEdge = Onext;
+      Splice(localGLUhalfEdge, Sym.Lnext);
+    }
+    
+
+    KillEdge(paramGLUhalfEdge);
+    
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  static GLUhalfEdge __gl_meshAddEdgeVertex(GLUhalfEdge paramGLUhalfEdge)
+  {
+    GLUhalfEdge localGLUhalfEdge2 = MakeEdge(paramGLUhalfEdge);
+    
+    GLUhalfEdge localGLUhalfEdge1 = Sym;
+    
+
+    Splice(localGLUhalfEdge2, Lnext);
+    
+
+    Org = Sym.Org;
+    
+    GLUvertex localGLUvertex = new GLUvertex();
+    
+    MakeVertex(localGLUvertex, localGLUhalfEdge1, Org);
+    
+    Lface = (localGLUhalfEdge1.Lface = Lface);
+    
+    return localGLUhalfEdge2;
+  }
+  
+
+
+
+
+
+  public static GLUhalfEdge __gl_meshSplitEdge(GLUhalfEdge paramGLUhalfEdge)
+  {
+    GLUhalfEdge localGLUhalfEdge2 = __gl_meshAddEdgeVertex(paramGLUhalfEdge);
+    
+    GLUhalfEdge localGLUhalfEdge1 = Sym;
+    
+
+    Splice(Sym, Sym.Sym.Lnext);
+    Splice(Sym, localGLUhalfEdge1);
+    
+
+    Sym.Org = Org;
+    Sym.Org.anEdge = Sym;
+    Sym.Lface = Sym.Lface;
+    winding = winding;
+    Sym.winding = Sym.winding;
+    
+    return localGLUhalfEdge1;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  static GLUhalfEdge __gl_meshConnect(GLUhalfEdge paramGLUhalfEdge1, GLUhalfEdge paramGLUhalfEdge2)
+  {
+    int i = 0;
+    GLUhalfEdge localGLUhalfEdge2 = MakeEdge(paramGLUhalfEdge1);
+    
+    GLUhalfEdge localGLUhalfEdge1 = Sym;
+    
+    if (Lface != Lface)
+    {
+      i = 1;
+      KillFace(Lface, Lface);
+    }
+    
+
+    Splice(localGLUhalfEdge2, Lnext);
+    Splice(localGLUhalfEdge1, paramGLUhalfEdge2);
+    
+
+    Org = Sym.Org;
+    Org = Org;
+    Lface = (localGLUhalfEdge1.Lface = Lface);
+    
+
+    Lface.anEdge = localGLUhalfEdge1;
+    
+    if (i == 0) {
+      GLUface localGLUface = new GLUface();
+      
+
+      MakeFace(localGLUface, localGLUhalfEdge2, Lface);
+    }
+    return localGLUhalfEdge2;
+  }
+  
+
+
+
+
+
+
+
+
+
+  static void __gl_meshZapFace(GLUface paramGLUface)
+  {
+    GLUhalfEdge localGLUhalfEdge1 = anEdge;
+    
+
+
+
+    GLUhalfEdge localGLUhalfEdge3 = Lnext;
+    GLUhalfEdge localGLUhalfEdge2;
+    do { localGLUhalfEdge2 = localGLUhalfEdge3;
+      localGLUhalfEdge3 = Lnext;
+      
+      Lface = null;
+      if (Sym.Lface == null)
+      {
+
+        if (Onext == localGLUhalfEdge2) {
+          KillVertex(Org, null);
+        }
+        else {
+          Org.anEdge = Onext;
+          Splice(localGLUhalfEdge2, Sym.Lnext);
+        }
+        GLUhalfEdge localGLUhalfEdge4 = Sym;
+        if (Onext == localGLUhalfEdge4) {
+          KillVertex(Org, null);
+        }
+        else {
+          Org.anEdge = Onext;
+          Splice(localGLUhalfEdge4, Sym.Lnext);
+        }
+        KillEdge(localGLUhalfEdge2);
+      }
+    } while (localGLUhalfEdge2 != localGLUhalfEdge1);
+    
+
+    GLUface localGLUface1 = prev;
+    GLUface localGLUface2 = next;
+    prev = localGLUface1;
+    next = localGLUface2;
+  }
+  
+
+
+
+
+
+
+
+  public static GLUmesh __gl_meshNewMesh()
+  {
+    GLUmesh localGLUmesh = new GLUmesh();
+    
+    GLUvertex localGLUvertex = vHead;
+    GLUface localGLUface = fHead;
+    GLUhalfEdge localGLUhalfEdge1 = eHead;
+    GLUhalfEdge localGLUhalfEdge2 = eHeadSym;
+    
+    prev = localGLUvertex;next = localGLUvertex;
+    anEdge = null;
+    data = null;
+    
+    next = (localGLUface.prev = localGLUface);
+    anEdge = null;
+    data = null;
+    trail = null;
+    marked = false;
+    inside = false;
+    
+    next = localGLUhalfEdge1;
+    Sym = localGLUhalfEdge2;
+    Onext = null;
+    Lnext = null;
+    Org = null;
+    Lface = null;
+    winding = 0;
+    activeRegion = null;
+    
+    next = localGLUhalfEdge2;
+    Sym = localGLUhalfEdge1;
+    Onext = null;
+    Lnext = null;
+    Org = null;
+    Lface = null;
+    winding = 0;
+    activeRegion = null;
+    
+    return localGLUmesh;
+  }
+  
+
+
+
+  static GLUmesh __gl_meshUnion(GLUmesh paramGLUmesh1, GLUmesh paramGLUmesh2)
+  {
+    GLUface localGLUface1 = fHead;
+    GLUvertex localGLUvertex1 = vHead;
+    GLUhalfEdge localGLUhalfEdge1 = eHead;
+    GLUface localGLUface2 = fHead;
+    GLUvertex localGLUvertex2 = vHead;
+    GLUhalfEdge localGLUhalfEdge2 = eHead;
+    
+
+    if (next != localGLUface2) {
+      prev.next = next;
+      next.prev = prev;
+      prev.next = localGLUface1;
+      prev = prev;
+    }
+    
+    if (next != localGLUvertex2) {
+      prev.next = next;
+      next.prev = prev;
+      prev.next = localGLUvertex1;
+      prev = prev;
+    }
+    
+    if (next != localGLUhalfEdge2) {
+      Sym.next.Sym.next = next;
+      next.Sym.next = Sym.next;
+      Sym.next.Sym.next = localGLUhalfEdge1;
+      Sym.next = Sym.next;
+    }
+    
+    return paramGLUmesh1;
+  }
+  
+
+
+  static void __gl_meshDeleteMeshZap(GLUmesh paramGLUmesh)
+  {
+    GLUface localGLUface = fHead;
+    
+    while (next != localGLUface) {
+      __gl_meshZapFace(next);
+    }
+    assert (vHead.next == vHead);
+  }
+  
+
+
+  public static void __gl_meshDeleteMesh(GLUmesh paramGLUmesh)
+  {
+    GLUface localGLUface;
+    
+
+    for (Object localObject1 = fHead.next; localObject1 != fHead; localObject1 = localGLUface) {
+      localGLUface = next;
+    }
+    GLUvertex localGLUvertex;
+    for (Object localObject2 = vHead.next; localObject2 != vHead; localObject2 = localGLUvertex) {
+      localGLUvertex = next;
+    }
+    GLUhalfEdge localGLUhalfEdge;
+    for (Object localObject3 = eHead.next; localObject3 != eHead; localObject3 = localGLUhalfEdge)
+    {
+      localGLUhalfEdge = next;
+    }
+  }
+  
+
+  public static void __gl_meshCheckMesh(GLUmesh paramGLUmesh)
+  {
+    GLUface localGLUface1 = fHead;
+    GLUvertex localGLUvertex1 = vHead;
+    GLUhalfEdge localGLUhalfEdge1 = eHead;
+    
+
+
+
+    Object localObject1 = localGLUface1;
+    GLUface localGLUface2; GLUhalfEdge localGLUhalfEdge2; for (localObject1 = localGLUface1; (localGLUface2 = next) != localGLUface1; localObject1 = localGLUface2) {
+      assert (prev == localObject1);
+      localGLUhalfEdge2 = anEdge;
+      do {
+        assert (Sym != localGLUhalfEdge2);
+        assert (Sym.Sym == localGLUhalfEdge2);
+        assert (Lnext.Onext.Sym == localGLUhalfEdge2);
+        assert (Onext.Sym.Lnext == localGLUhalfEdge2);
+        assert (Lface == localGLUface2);
+        localGLUhalfEdge2 = Lnext;
+      } while (localGLUhalfEdge2 != anEdge);
+    }
+    assert ((prev == localObject1) && (anEdge == null) && (data == null));
+    
+    Object localObject2 = localGLUvertex1;
+    GLUvertex localGLUvertex2; for (localObject2 = localGLUvertex1; (localGLUvertex2 = next) != localGLUvertex1; localObject2 = localGLUvertex2) {
+      assert (prev == localObject2);
+      localGLUhalfEdge2 = anEdge;
+      do {
+        assert (Sym != localGLUhalfEdge2);
+        assert (Sym.Sym == localGLUhalfEdge2);
+        assert (Lnext.Onext.Sym == localGLUhalfEdge2);
+        assert (Onext.Sym.Lnext == localGLUhalfEdge2);
+        assert (Org == localGLUvertex2);
+        localGLUhalfEdge2 = Onext;
+      } while (localGLUhalfEdge2 != anEdge);
+    }
+    assert ((prev == localObject2) && (anEdge == null) && (data == null));
+    
+    GLUhalfEdge localGLUhalfEdge3 = localGLUhalfEdge1;
+    for (localGLUhalfEdge3 = localGLUhalfEdge1; (localGLUhalfEdge2 = next) != localGLUhalfEdge1; localGLUhalfEdge3 = localGLUhalfEdge2) {
+      assert (Sym.next == Sym);
+      assert (Sym != localGLUhalfEdge2);
+      assert (Sym.Sym == localGLUhalfEdge2);
+      assert (Org != null);
+      assert (Sym.Org != null);
+      assert (Lnext.Onext.Sym == localGLUhalfEdge2);
+      assert (Onext.Sym.Lnext == localGLUhalfEdge2);
+    }
+    assert ((Sym.next == Sym) && (Sym == eHeadSym) && (Sym.Sym == localGLUhalfEdge2) && (Org == null) && (Sym.Org == null) && (Lface == null) && (Sym.Lface == null));
+  }
+}

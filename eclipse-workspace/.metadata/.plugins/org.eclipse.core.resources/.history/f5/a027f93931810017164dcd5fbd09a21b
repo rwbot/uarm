@@ -1,0 +1,361 @@
+package jogamp.graph.font.typecast;
+
+import com.jogamp.common.util.IntObjectHashMap;
+import com.jogamp.graph.curve.OutlineShape;
+import com.jogamp.graph.font.Font;
+import com.jogamp.graph.font.Font.Glyph;
+import com.jogamp.graph.font.Font.Metrics;
+import com.jogamp.graph.font.FontFactory;
+import com.jogamp.graph.geom.SVertex;
+import com.jogamp.graph.geom.Vertex.Factory;
+import com.jogamp.opengl.math.geom.AABBox;
+import jogamp.graph.font.typecast.ot.OTFont;
+import jogamp.graph.font.typecast.ot.OTFontCollection;
+import jogamp.graph.font.typecast.ot.OTGlyph;
+import jogamp.graph.font.typecast.ot.table.CmapFormat;
+import jogamp.graph.font.typecast.ot.table.CmapFormat.Range;
+import jogamp.graph.font.typecast.ot.table.CmapIndexEntry;
+import jogamp.graph.font.typecast.ot.table.CmapTable;
+import jogamp.graph.font.typecast.ot.table.HdmxTable;
+import jogamp.graph.font.typecast.ot.table.HdmxTable.DeviceRecord;
+import jogamp.graph.font.typecast.ot.table.HmtxTable;
+import jogamp.graph.geom.plane.AffineTransform;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class TypecastFont
+  implements Font
+{
+  static final boolean DEBUG = false;
+  private static final Vertex.Factory<SVertex> vertexFactory = ;
+  
+  final OTFont font;
+  
+  private final CmapFormat cmapFormat;
+  private final int cmapentries;
+  private final IntObjectHashMap char2Glyph;
+  private final TypecastHMetrics metrics;
+  private final float[] tmpV3 = new float[3];
+  
+
+  public TypecastFont(OTFontCollection paramOTFontCollection)
+  {
+    font = paramOTFontCollection.getFont(0);
+    
+
+
+    CmapTable localCmapTable = font.getCmapTable();
+    CmapFormat[] arrayOfCmapFormat = { null, null, null, null };
+    int i = -1;
+    int j = -1;
+    int k = -1;
+    for (int m = 0; m < localCmapTable.getNumTables(); m++) {
+      CmapIndexEntry localCmapIndexEntry = localCmapTable.getCmapIndexEntry(m);
+      int i2 = localCmapIndexEntry.getPlatformId();
+      CmapFormat localCmapFormat2 = localCmapIndexEntry.getFormat();
+      
+
+
+
+      if ((arrayOfCmapFormat[i2] == null) || 
+        (arrayOfCmapFormat[i2].getLength() < localCmapFormat2.getLength())) {
+        arrayOfCmapFormat[i2] = localCmapFormat2;
+        if (localCmapFormat2.getLength() > j) {
+          j = localCmapFormat2.getLength();
+          i = i2;
+          k = localCmapIndexEntry.getEncodingId();
+        }
+      }
+    }
+    if (0 <= i) {
+      cmapFormat = arrayOfCmapFormat[i];
+
+    }
+    else
+    {
+
+      CmapFormat localCmapFormat1 = null;
+      
+
+
+
+
+      if (null == localCmapFormat1)
+      {
+        i = 3;
+        k = 1;
+        localCmapFormat1 = localCmapTable.getCmapFormat((short)i, (short)k);
+      }
+      if (null == localCmapFormat1)
+      {
+        i = 3;
+        k = 0;
+        localCmapFormat1 = localCmapTable.getCmapFormat((short)i, (short)k);
+      }
+      if (null == localCmapFormat1) {
+        throw new RuntimeException("Cannot find a suitable cmap table for font " + font);
+      }
+      cmapFormat = localCmapFormat1;
+    }
+    
+
+
+
+
+    int n = 0;
+    for (int i1 = 0; i1 < cmapFormat.getRangeCount(); i1++) {
+      CmapFormat.Range localRange = cmapFormat.getRange(i1);
+      n += localRange.getEndCode() - localRange.getStartCode() + 1;
+    }
+    cmapentries = n;
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    char2Glyph = new IntObjectHashMap(cmapentries + cmapentries / 4);
+    metrics = new TypecastHMetrics(this);
+  }
+  
+  public StringBuilder getName(StringBuilder paramStringBuilder, int paramInt)
+  {
+    return font.getName(paramInt, paramStringBuilder);
+  }
+  
+  public String getName(int paramInt) {
+    return getName(null, paramInt).toString();
+  }
+  
+  public StringBuilder getAllNames(StringBuilder paramStringBuilder, String paramString) {
+    return font.getAllNames(paramStringBuilder, paramString);
+  }
+  
+  public StringBuilder getFullFamilyName(StringBuilder paramStringBuilder) {
+    paramStringBuilder = getName(paramStringBuilder, 1).append("-");
+    getName(paramStringBuilder, 2);
+    return paramStringBuilder;
+  }
+  
+  public float getAdvanceWidth(int paramInt, float paramFloat)
+  {
+    return font.getHmtxTable().getAdvanceWidth(paramInt) * metrics.getScale(paramFloat);
+  }
+  
+  public final Font.Metrics getMetrics()
+  {
+    return metrics;
+  }
+  
+  public Font.Glyph getGlyph(char paramChar)
+  {
+    TypecastGlyph localTypecastGlyph = (TypecastGlyph)char2Glyph.get(paramChar);
+    if (null == localTypecastGlyph)
+    {
+      short s = (short)cmapFormat.mapCharCode(paramChar);
+      if ((0 == s) && ('\000' != paramChar))
+      {
+        switch (paramChar) {
+        case ' ':  s = 3; break;
+        case '\n':  s = 2; break;
+        default:  s = 0;
+        }
+        
+      }
+      OTGlyph localOTGlyph = font.getGlyph(s);
+      if (null == localOTGlyph) {
+        localOTGlyph = font.getGlyph(0);
+      }
+      if (null == localOTGlyph) {
+        throw new RuntimeException("Could not retrieve glyph for symbol: <" + paramChar + "> " + paramChar + " -> glyph id " + s);
+      }
+      OutlineShape localOutlineShape = TypecastRenderer.buildShape(paramChar, localOTGlyph, vertexFactory);
+      localTypecastGlyph = new TypecastGlyph(this, paramChar, s, localOTGlyph.getBBox(), localOTGlyph.getAdvanceWidth(), localOutlineShape);
+      
+
+
+      localOTGlyph.clearPointData();
+      
+      HdmxTable localHdmxTable = font.getHdmxTable();
+      if ((null != localTypecastGlyph) && (null != localHdmxTable))
+      {
+
+
+        for (int i = 0; i < localHdmxTable.getNumberOfRecords(); i++)
+        {
+          HdmxTable.DeviceRecord localDeviceRecord = localHdmxTable.getRecord(i);
+          localTypecastGlyph.addAdvance(localDeviceRecord.getWidth(s), localDeviceRecord.getPixelSize());
+        }
+      }
+      
+
+
+      char2Glyph.put(paramChar, localTypecastGlyph);
+    }
+    return localTypecastGlyph;
+  }
+  
+  public final float getPixelSize(float paramFloat1, float paramFloat2)
+  {
+    return paramFloat1 * paramFloat2 / 72.0F;
+  }
+  
+  public float getLineHeight(float paramFloat)
+  {
+    Font.Metrics localMetrics = getMetrics();
+    float f1 = localMetrics.getLineGap(paramFloat);
+    float f2 = localMetrics.getAscent(paramFloat);
+    float f3 = localMetrics.getDescent(paramFloat);
+    float f4 = f1 - f3 + f2;
+    return -f4;
+  }
+  
+  public float getMetricWidth(CharSequence paramCharSequence, float paramFloat)
+  {
+    float f = 0.0F;
+    int i = paramCharSequence.length();
+    for (int j = 0; j < i; j++) {
+      char c = paramCharSequence.charAt(j);
+      if (c == '\n') {
+        f = 0.0F;
+      } else {
+        Font.Glyph localGlyph = getGlyph(c);
+        f += localGlyph.getAdvance(paramFloat, false);
+      }
+    }
+    return (int)(f + 0.5F);
+  }
+  
+  public float getMetricHeight(CharSequence paramCharSequence, float paramFloat, AABBox paramAABBox)
+  {
+    int i = 0;
+    
+    for (int j = 0; j < paramCharSequence.length(); j++) {
+      char c = paramCharSequence.charAt(j);
+      if (c != ' ') {
+        Font.Glyph localGlyph = getGlyph(c);
+        AABBox localAABBox = localGlyph.getBBox(paramAABBox, paramFloat, tmpV3);
+        i = (int)Math.ceil(Math.max(localAABBox.getHeight(), i));
+      }
+    }
+    return i;
+  }
+  
+  public AABBox getMetricBounds(CharSequence paramCharSequence, float paramFloat)
+  {
+    if (paramCharSequence == null) {
+      return new AABBox();
+    }
+    int i = paramCharSequence.length();
+    float f1 = getLineHeight(paramFloat);
+    float f2 = 0.0F;
+    float f3 = 0.0F;
+    float f4 = 0.0F;
+    for (int j = 0; j < i; j++) {
+      char c = paramCharSequence.charAt(j);
+      if (c == '\n') {
+        f3 = Math.max(f4, f3);
+        f4 = 0.0F;
+        f2 += f1;
+      }
+      else {
+        Font.Glyph localGlyph = getGlyph(c);
+        f4 += localGlyph.getAdvance(paramFloat, true);
+      } }
+    if (f4 > 0.0F) {
+      f2 += f1;
+      f3 = Math.max(f4, f3);
+    }
+    return new AABBox(0.0F, 0.0F, 0.0F, f3, f2, 0.0F);
+  }
+  
+  public AABBox getPointsBounds(AffineTransform paramAffineTransform1, CharSequence paramCharSequence, float paramFloat, AffineTransform paramAffineTransform2, AffineTransform paramAffineTransform3)
+  {
+    if (paramCharSequence == null) {
+      return new AABBox();
+    }
+    int i = paramCharSequence.length();
+    float f1 = getLineHeight(paramFloat);
+    float f2 = getMetrics().getScale(paramFloat);
+    AABBox localAABBox1 = new AABBox();
+    AABBox localAABBox2 = new AABBox();
+    
+    float f3 = 0.0F;
+    float f4 = 0.0F;
+    
+    for (int j = 0; j < i; j++) {
+      char c = paramCharSequence.charAt(j);
+      if ('\n' == c) {
+        f3 -= f1;
+        f4 = 0.0F;
+      } else if (c == ' ') {
+        f4 += getAdvanceWidth(3, paramFloat);
+      }
+      else {
+        if (null != paramAffineTransform1) {
+          paramAffineTransform2.setTransform(paramAffineTransform1);
+        } else {
+          paramAffineTransform2.setToIdentity();
+        }
+        paramAffineTransform2.translate(f4, f3, paramAffineTransform3);
+        paramAffineTransform2.scale(f2, f2, paramAffineTransform3);
+        localAABBox1.reset();
+        
+        Font.Glyph localGlyph = getGlyph(c);
+        localAABBox2.resize(paramAffineTransform2.transform(localGlyph.getBBox(), localAABBox1));
+        
+        OutlineShape localOutlineShape = localGlyph.getShape();
+        if (null != localOutlineShape)
+        {
+
+          f4 += localGlyph.getAdvance(paramFloat, true); }
+      }
+    }
+    return localAABBox2;
+  }
+  
+  public final int getNumGlyphs()
+  {
+    return font.getNumGlyphs();
+  }
+  
+  public boolean isPrintableChar(char paramChar)
+  {
+    return FontFactory.isPrintableChar(paramChar);
+  }
+  
+  public String toString()
+  {
+    return getFullFamilyName(null).toString();
+  }
+}

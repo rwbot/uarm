@@ -1,0 +1,552 @@
+package com.jogamp.opengl;
+
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.DefaultGraphicsDevice;
+import com.jogamp.nativewindow.MutableGraphicsConfiguration;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.ProxySurface;
+import com.jogamp.opengl.util.GLDrawableUtil.ReshapeGLEventListener;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.List;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLEventListenerState
+{
+  private static final boolean DEBUG = (Debug.debug("GLDrawable")) || (Debug.debug("GLEventListenerState"));
+  public final AbstractGraphicsDevice upstreamDevice;
+  public final boolean proxyOwnsUpstreamDevice;
+  public final AbstractGraphicsDevice device;
+  
+  private GLEventListenerState(AbstractGraphicsDevice paramAbstractGraphicsDevice1, boolean paramBoolean1, AbstractGraphicsDevice paramAbstractGraphicsDevice2, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, RecursiveLock paramRecursiveLock, NativeSurface paramNativeSurface, GLContext paramGLContext, int paramInt, GLAnimatorControl paramGLAnimatorControl, boolean paramBoolean2) {
+    upstreamDevice = paramAbstractGraphicsDevice1;
+    proxyOwnsUpstreamDevice = paramBoolean1;
+    device = paramAbstractGraphicsDevice2;
+    caps = paramGLCapabilitiesImmutable;
+    upstreamLock = paramRecursiveLock;
+    lockedSurface = paramNativeSurface;
+    context = paramGLContext;
+    listeners = new GLEventListener[paramInt];
+    listenersInit = new boolean[paramInt];
+    anim = paramGLAnimatorControl;
+    animStarted = paramBoolean2;
+    
+    owner = true;
+  }
+  
+
+  public final GLCapabilitiesImmutable caps;
+  
+  public final GLContext context;
+  public final GLEventListener[] listeners;
+  public final boolean isOwner()
+  {
+    return owner; }
+  
+  public final int listenerCount() { return listeners.length; }
+  
+
+
+  public final boolean[] listenersInit;
+  
+
+  public final GLAnimatorControl anim;
+  
+
+  public final boolean animStarted;
+  
+  private volatile RecursiveLock upstreamLock;
+  
+  private volatile NativeSurface lockedSurface;
+  
+  private volatile boolean owner;
+  
+  public Runnable getUnlockSurfaceOp()
+  {
+    return unlockOp; }
+  
+  private final Runnable unlockOp = new Runnable() {
+    public void run() {
+      RecursiveLock localRecursiveLock = upstreamLock;
+      NativeSurface localNativeSurface = lockedSurface;
+      upstreamLock = null;
+      lockedSurface = null;
+      if (null != localRecursiveLock) {
+        localRecursiveLock.unlock();
+      }
+      if (null != localNativeSurface) {
+        localNativeSurface.unlockSurface();
+      }
+    }
+  };
+  
+
+  public void destroy()
+  {
+    if (owner) {
+      int i = listenerCount();
+      for (int j = 0; j < i; j++) {
+        listeners[j] = null;
+      }
+      
+      unlockOp.run();
+      device.close();
+      owner = false;
+    }
+  }
+  
+  private static AbstractGraphicsDevice cloneDevice(AbstractGraphicsDevice paramAbstractGraphicsDevice) {
+    return (AbstractGraphicsDevice)paramAbstractGraphicsDevice.clone();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static GLEventListenerState moveFrom(GLAutoDrawable paramGLAutoDrawable)
+  {
+    return moveFrom(paramGLAutoDrawable, false);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static GLEventListenerState moveFrom(GLAutoDrawable paramGLAutoDrawable, boolean paramBoolean)
+  {
+    GLAnimatorControl localGLAnimatorControl = paramGLAutoDrawable.getAnimator();
+    boolean bool1;
+    if (null != localGLAnimatorControl) {
+      bool1 = localGLAnimatorControl.isStarted();
+      localGLAnimatorControl.remove(paramGLAutoDrawable);
+    } else {
+      bool1 = false;
+    }
+    
+
+    RecursiveLock localRecursiveLock = paramGLAutoDrawable.getUpstreamLock();
+    localRecursiveLock.lock();
+    GLEventListenerState localGLEventListenerState;
+    try { NativeSurface localNativeSurface1 = paramGLAutoDrawable.getNativeSurface();
+      int i = 1 < localNativeSurface1.lockSurface() ? 1 : 0;
+      if ((paramGLAutoDrawable.isRealized()) && (i == 0)) {
+        throw new GLException("Could not lock realized surface " + paramGLAutoDrawable);
+      }
+      try
+      {
+        int j = paramGLAutoDrawable.getGLEventListenerCount();
+        
+
+
+        AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = localNativeSurface1.getGraphicsConfiguration();
+        GLCapabilitiesImmutable localGLCapabilitiesImmutable = (GLCapabilitiesImmutable)localAbstractGraphicsConfiguration.getChosenCapabilities();
+        AbstractGraphicsDevice localAbstractGraphicsDevice1 = localAbstractGraphicsConfiguration.getScreen().getDevice();
+        AbstractGraphicsDevice localAbstractGraphicsDevice2 = cloneDevice(localAbstractGraphicsDevice1);
+        localAbstractGraphicsDevice1.clearHandleOwner();
+        if (DEBUG) {
+          System.err.println("GLEventListenerState.moveFrom.0a: orig 0x" + Integer.toHexString(localAbstractGraphicsDevice1.hashCode()) + ", " + localAbstractGraphicsDevice1);
+          System.err.println("GLEventListenerState.moveFrom.0b: pres 0x" + Integer.toHexString(localAbstractGraphicsDevice2.hashCode()) + ", " + localAbstractGraphicsDevice2);
+          System.err.println("GLEventListenerState.moveFrom.1: " + localNativeSurface1.getClass().getName());
+        }
+        
+
+
+        AbstractGraphicsDevice localAbstractGraphicsDevice4 = null;
+        Object localObject1; boolean bool2; if ((localNativeSurface1 instanceof ProxySurface)) {
+          localObject1 = (ProxySurface)localNativeSurface1;
+          bool2 = ((ProxySurface)localObject1).containsUpstreamOptionBits(128);
+          NativeSurface localNativeSurface2 = ((ProxySurface)localObject1).getUpstreamSurface();
+          if ((DEBUG) && (null != localNativeSurface2)) {
+            System.err.println("GLEventListenerState.moveFrom.2: " + localNativeSurface2.getClass().getName() + ", " + localNativeSurface2);
+          }
+          if (null != localNativeSurface2) {
+            AbstractGraphicsDevice localAbstractGraphicsDevice5 = localNativeSurface2.getGraphicsConfiguration().getScreen().getDevice();
+            localAbstractGraphicsDevice4 = cloneDevice(localAbstractGraphicsDevice5);
+            localAbstractGraphicsDevice5.clearHandleOwner();
+            if (DEBUG) {
+              System.err.println("GLEventListenerState.moveFrom.3a: up-orig 0x" + Integer.toHexString(localAbstractGraphicsDevice5.hashCode()) + ", " + localAbstractGraphicsDevice5);
+              System.err.println("GLEventListenerState.moveFrom.3b: up-pres 0x" + Integer.toHexString(localAbstractGraphicsDevice4.hashCode()) + ", " + localAbstractGraphicsDevice4);
+              System.err.println("GLEventListenerState.moveFrom.3c: " + localNativeSurface1.getClass().getName() + ", " + localNativeSurface1);
+              System.err.println("GLEventListenerState.moveFrom.3d: " + localNativeSurface2.getClass().getName() + ((ProxySurface)localObject1).getUpstreamOptionBits(null).toString());
+            }
+          }
+        } else {
+          bool2 = false;
+        }
+        AbstractGraphicsDevice localAbstractGraphicsDevice3 = localAbstractGraphicsDevice4;
+        
+
+
+
+
+        localGLEventListenerState = new GLEventListenerState(localAbstractGraphicsDevice3, bool2, localAbstractGraphicsDevice2, localGLCapabilitiesImmutable, paramBoolean ? localRecursiveLock : null, (i != 0) && (paramBoolean) ? localNativeSurface1 : null, paramGLAutoDrawable.getContext(), j, localGLAnimatorControl, bool1);
+        
+
+
+
+        for (int k = 0; k < j; k++) {
+          localObject1 = paramGLAutoDrawable.getGLEventListener(0);
+          listenersInit[k] = paramGLAutoDrawable.getGLEventListenerInitState((GLEventListener)localObject1);
+          listeners[k] = paramGLAutoDrawable.removeGLEventListener((GLEventListener)localObject1);
+        }
+        
+        paramGLAutoDrawable.setContext(null, false);
+      }
+      finally {
+        if ((i != 0) && (!paramBoolean)) {
+          localNativeSurface1.unlockSurface();
+        }
+      }
+    } finally {
+      if (!paramBoolean) {
+        localRecursiveLock.unlock();
+      }
+    }
+    return localGLEventListenerState;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void moveTo(GLAutoDrawable paramGLAutoDrawable)
+    throws GLException
+  {
+    moveTo(paramGLAutoDrawable, null);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void moveTo(GLAutoDrawable paramGLAutoDrawable, Runnable paramRunnable)
+    throws GLException
+  {
+    GLAnimatorControl localGLAnimatorControl = paramGLAutoDrawable.getAnimator();
+    boolean bool1;
+    if (null != localGLAnimatorControl) {
+      bool1 = localGLAnimatorControl.pause();
+      localGLAnimatorControl.remove(paramGLAutoDrawable);
+    } else {
+      bool1 = false;
+    }
+    
+    ArrayList localArrayList = new ArrayList();
+    int i = listenerCount();
+    
+    RecursiveLock localRecursiveLock = paramGLAutoDrawable.getUpstreamLock();
+    localRecursiveLock.lock();
+    boolean bool2;
+    try {
+      NativeSurface localNativeSurface1 = paramGLAutoDrawable.getNativeSurface();
+      int k = 1 < localNativeSurface1.lockSurface() ? 1 : 0;
+      if ((paramGLAutoDrawable.isRealized()) && (k == 0)) {
+        throw new GLException("Could not lock realized surface " + paramGLAutoDrawable);
+      }
+      try
+      {
+        MutableGraphicsConfiguration localMutableGraphicsConfiguration1 = (MutableGraphicsConfiguration)localNativeSurface1.getGraphicsConfiguration();
+        
+
+
+
+
+
+        DefaultGraphicsDevice localDefaultGraphicsDevice1 = (DefaultGraphicsDevice)localMutableGraphicsConfiguration1.getScreen().getDevice();
+        DefaultGraphicsDevice localDefaultGraphicsDevice2 = (DefaultGraphicsDevice)device;
+        if (!localDefaultGraphicsDevice1.getUniqueID().equals(localDefaultGraphicsDevice2.getUniqueID())) {
+          throw new GLException("Incompatible devices: Preserved <" + localDefaultGraphicsDevice2.getUniqueID() + ">, target <" + localDefaultGraphicsDevice1.getUniqueID() + ">");
+        }
+        
+        ProxySurface localProxySurface;
+        
+        NativeSurface localNativeSurface2;
+        if ((localNativeSurface1 instanceof ProxySurface)) {
+          localProxySurface = (ProxySurface)localNativeSurface1;
+          localNativeSurface2 = localProxySurface.getUpstreamSurface();
+        } else {
+          localProxySurface = null;
+          localNativeSurface2 = null;
+        }
+        if (DEBUG) {
+          System.err.println("GLEventListenerState.moveTo.0 : has aProxy " + (null != localProxySurface));
+          System.err.println("GLEventListenerState.moveTo.0 : has aUpSurface " + (null != localNativeSurface2));
+        }
+        if ((null == localNativeSurface2) && (null != upstreamDevice)) {
+          throw new GLException("Incompatible Surface config - Has Upstream-Surface: Prev-Holder = true, New-Holder = false");
+        }
+        
+
+        paramGLAutoDrawable.setContext(null, true);
+        bool2 = paramGLAutoDrawable.isRealized();
+        if ((bool2) && (null != localNativeSurface2))
+        {
+          paramGLAutoDrawable.getDelegatedDrawable().setRealized(false);
+        }
+        
+
+
+        if (DEBUG) {
+          System.err.println("GLEventListenerState.moveTo.0a: orig 0x" + Integer.toHexString(localDefaultGraphicsDevice1.hashCode()) + ", " + localDefaultGraphicsDevice1);
+          System.err.println("GLEventListenerState.moveTo.0b: pres 0x" + Integer.toHexString(localDefaultGraphicsDevice2.hashCode()) + ", " + localDefaultGraphicsDevice2);
+        }
+        DefaultGraphicsDevice.swapDeviceHandleAndOwnership(localDefaultGraphicsDevice1, localDefaultGraphicsDevice2);
+        localDefaultGraphicsDevice2.close();
+        if (DEBUG) {
+          System.err.println("GLEventListenerState.moveTo.1a: orig 0x" + Integer.toHexString(localDefaultGraphicsDevice1.hashCode()) + ", " + localDefaultGraphicsDevice1);
+          System.err.println("GLEventListenerState.moveTo.1b: pres 0x" + Integer.toHexString(localDefaultGraphicsDevice2.hashCode()) + ", " + localDefaultGraphicsDevice2);
+        }
+        
+
+
+        if (null != localNativeSurface2) {
+          MutableGraphicsConfiguration localMutableGraphicsConfiguration2 = (MutableGraphicsConfiguration)localNativeSurface2.getGraphicsConfiguration();
+          if (null != upstreamDevice) {
+            DefaultGraphicsDevice localDefaultGraphicsDevice3 = (DefaultGraphicsDevice)localMutableGraphicsConfiguration2.getScreen().getDevice();
+            DefaultGraphicsDevice localDefaultGraphicsDevice4 = (DefaultGraphicsDevice)upstreamDevice;
+            if (!localDefaultGraphicsDevice3.getUniqueID().equals(localDefaultGraphicsDevice4.getUniqueID())) {
+              throw new GLException("Incompatible updtream devices: Preserved <" + localDefaultGraphicsDevice4.getUniqueID() + ">, target <" + localDefaultGraphicsDevice3.getUniqueID() + ">");
+            }
+            if (DEBUG) {
+              System.err.println("GLEventListenerState.moveTo.2a: up-orig 0x" + Integer.toHexString(localDefaultGraphicsDevice3.hashCode()) + ", " + localDefaultGraphicsDevice3);
+              System.err.println("GLEventListenerState.moveTo.2b: up-pres 0x" + Integer.toHexString(localDefaultGraphicsDevice4.hashCode()) + ", " + localDefaultGraphicsDevice4);
+              System.err.println("GLEventListenerState.moveTo.2c:  " + localNativeSurface2.getClass().getName() + localProxySurface.getUpstreamOptionBits(null).toString());
+            }
+            DefaultGraphicsDevice.swapDeviceHandleAndOwnership(localDefaultGraphicsDevice3, localDefaultGraphicsDevice4);
+            localDefaultGraphicsDevice4.close();
+            if (proxyOwnsUpstreamDevice) {
+              localProxySurface.addUpstreamOptionBits(128);
+            }
+            if (DEBUG) {
+              System.err.println("GLEventListenerState.moveTo.3a: up-orig 0x" + Integer.toHexString(localDefaultGraphicsDevice3.hashCode()) + ", " + localDefaultGraphicsDevice3);
+              System.err.println("GLEventListenerState.moveTo.3b: up-pres 0x" + Integer.toHexString(localDefaultGraphicsDevice4.hashCode()) + ", " + localDefaultGraphicsDevice4);
+              System.err.println("GLEventListenerState.moveTo.3c:  " + localNativeSurface2.getClass().getName() + localProxySurface.getUpstreamOptionBits(null).toString());
+            }
+          } else {
+            throw new GLException("Incompatible Surface config - Has Upstream-Surface: Prev-Holder = false, New-Holder = true");
+          }
+        }
+        
+        if ((bool2) && (null != localNativeSurface2)) {
+          paramGLAutoDrawable.getDelegatedDrawable().setRealized(true);
+        }
+        if (DEBUG) {
+          System.err.println("GLEventListenerState.moveTo.X : has aProxy " + (null != localProxySurface));
+          System.err.println("GLEventListenerState.moveTo.X : has aUpSurface " + (null != localNativeSurface2));
+        }
+        paramGLAutoDrawable.setContext(context, false);
+      } finally {
+        if (k == 0) {}
+      }
+    }
+    finally
+    {
+      localRecursiveLock.unlock();
+    }
+    if (null != paramRunnable) {
+      paramRunnable.run();
+    }
+    
+    owner = false;
+    
+
+
+
+    localArrayList.add(setViewport);
+    for (int j = 0; j < i; j++) {
+      if (listenersInit[j] != 0) {
+        localArrayList.add(new GLDrawableUtil.ReshapeGLEventListener(listeners[j], false));
+      }
+    }
+    localArrayList.add(glFinish);
+    paramGLAutoDrawable.invoke(bool2, localArrayList);
+    
+
+    for (j = 0; j < i; j++) {
+      GLEventListener localGLEventListener = listeners[j];
+      paramGLAutoDrawable.addGLEventListener(localGLEventListener);
+      paramGLAutoDrawable.setGLEventListenerInitState(localGLEventListener, listenersInit[j]);
+      listeners[j] = null;
+    }
+    
+    if (null != localGLAnimatorControl)
+    {
+      localGLAnimatorControl.add(paramGLAutoDrawable);
+      if (bool1) {
+        localGLAnimatorControl.resume();
+      }
+    } else if (null != anim)
+    {
+      anim.add(paramGLAutoDrawable);
+      if (animStarted) {
+        anim.start();
+      }
+    }
+  }
+  
+  private static final GLRunnable setViewport = new GLRunnable()
+  {
+    public boolean run(GLAutoDrawable paramAnonymousGLAutoDrawable) {
+      paramAnonymousGLAutoDrawable.getGL().glViewport(0, 0, paramAnonymousGLAutoDrawable.getSurfaceWidth(), paramAnonymousGLAutoDrawable.getSurfaceHeight());
+      return true;
+    }
+  };
+  
+  private static final GLRunnable glFinish = new GLRunnable()
+  {
+    public boolean run(GLAutoDrawable paramAnonymousGLAutoDrawable) {
+      paramAnonymousGLAutoDrawable.getGL().glFinish();
+      return true;
+    }
+  };
+}

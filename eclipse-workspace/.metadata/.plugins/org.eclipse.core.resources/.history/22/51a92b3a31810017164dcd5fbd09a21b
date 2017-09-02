@@ -1,0 +1,103 @@
+package jogamp.opengl.util.glsl;
+
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.util.GLArrayDataWrapper;
+import com.jogamp.opengl.util.glsl.ShaderState;
+import jogamp.opengl.util.GLArrayHandlerFlat;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLSLArrayHandlerFlat
+  implements GLArrayHandlerFlat
+{
+  private final GLArrayDataWrapper ad;
+  
+  public GLSLArrayHandlerFlat(GLArrayDataWrapper paramGLArrayDataWrapper)
+  {
+    ad = paramGLArrayDataWrapper;
+  }
+  
+  public GLArrayDataWrapper getData()
+  {
+    return ad;
+  }
+  
+  public final void syncData(GL paramGL, Object paramObject)
+  {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    if (null != paramObject) {
+      ((ShaderState)paramObject).vertexAttribPointer(localGL2ES2, ad);
+    }
+    else if (0 <= ad.getLocation()) {
+      localGL2ES2.glVertexAttribPointer(ad);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void enableState(GL paramGL, boolean paramBoolean, Object paramObject)
+  {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    if (null != paramObject) {
+      ShaderState localShaderState = (ShaderState)paramObject;
+      if (paramBoolean) {
+        localShaderState.enableVertexAttribArray(localGL2ES2, ad);
+      } else {
+        localShaderState.disableVertexAttribArray(localGL2ES2, ad);
+      }
+    } else {
+      int i = ad.getLocation();
+      if (0 <= i) {
+        if (paramBoolean) {
+          localGL2ES2.glEnableVertexAttribArray(i);
+        } else {
+          localGL2ES2.glDisableVertexAttribArray(i);
+        }
+      }
+    }
+  }
+}

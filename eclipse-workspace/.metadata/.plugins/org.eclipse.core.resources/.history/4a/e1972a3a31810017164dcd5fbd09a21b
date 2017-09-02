@@ -1,0 +1,188 @@
+package jogamp.opengl.util.av;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.util.IOUtil;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.util.av.GLMediaPlayer.State;
+import com.jogamp.opengl.util.texture.Texture;
+import com.jogamp.opengl.util.texture.TextureData;
+import com.jogamp.opengl.util.texture.TextureIO;
+import com.jogamp.opengl.util.texture.TextureSequence.TextureFrame;
+import java.io.IOException;
+import java.net.URLConnection;
+import java.nio.ByteBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class NullGLMediaPlayer
+  extends GLMediaPlayerImpl
+{
+  private TextureData texData = null;
+  private int pos_ms = 0;
+  private long pos_start = 0L;
+  
+
+
+  public NullGLMediaPlayer() {}
+  
+
+  protected final boolean setPlaySpeedImpl(float paramFloat)
+  {
+    return false;
+  }
+  
+  protected final boolean playImpl()
+  {
+    pos_start = Platform.currentTimeMillis();
+    return true;
+  }
+  
+  protected final boolean pauseImpl()
+  {
+    return true;
+  }
+  
+  protected final int seekImpl(int paramInt)
+  {
+    pos_ms = paramInt;
+    validatePos();
+    return pos_ms;
+  }
+  
+  protected final int getNextTextureImpl(GL paramGL, TextureSequence.TextureFrame paramTextureFrame)
+  {
+    int i = getAudioPTSImpl();
+    paramTextureFrame.setPTS(i);
+    return i;
+  }
+  
+  protected final int getAudioPTSImpl()
+  {
+    pos_ms = ((int)(Platform.currentTimeMillis() - pos_start));
+    validatePos();
+    return pos_ms;
+  }
+  
+  protected final void destroyImpl(GL paramGL)
+  {
+    if (null != texData) {
+      texData.destroy();
+      texData = null;
+    }
+  }
+  
+  public static final TextureData createTestTextureData() {
+    TextureData localTextureData = null;
+    try {
+      URLConnection localURLConnection = IOUtil.getResource("jogl/util/data/av/test-ntsc01-28x16.png", NullGLMediaPlayer.class.getClassLoader());
+      if (null != localURLConnection) {
+        localTextureData = TextureIO.newTextureData(GLProfile.getGL2ES2(), localURLConnection.getInputStream(), false, "png");
+      }
+    } catch (Exception localException) {
+      localException.printStackTrace();
+    }
+    if (null == localTextureData)
+    {
+
+      ByteBuffer localByteBuffer = Buffers.newDirectByteBuffer(57600);
+      for (; localByteBuffer.hasRemaining(); 
+          localByteBuffer.put((byte)-22)) { localByteBuffer.put((byte)-22);localByteBuffer.put((byte)-22);localByteBuffer.put((byte)-22);
+      }
+      localByteBuffer.rewind();
+      localTextureData = new TextureData(GLProfile.getGL2ES2(), 6408, 160, 90, 0, 6408, 5121, false, false, false, localByteBuffer, null);
+    }
+    
+
+
+    return localTextureData;
+  }
+  
+  protected final void initStreamImpl(int paramInt1, int paramInt2) throws IOException
+  {
+    texData = createTestTextureData();
+    
+
+
+    updateAttributes(0, -2, texData
+      .getWidth(), texData.getHeight(), 0, 0, 0, 24.0F, 14400, 0, 600000, "png-static", null);
+  }
+  
+  protected final void initGLImpl(GL paramGL)
+    throws IOException, GLException
+  {
+    setIsGLOriented(true);
+  }
+  
+
+
+
+
+
+
+  protected int validateTextureCount(int paramInt)
+  {
+    return 1;
+  }
+  
+  protected final TextureSequence.TextureFrame createTexImage(GL paramGL, int paramInt)
+  {
+    Texture localTexture = super.createTexImageImpl(paramGL, paramInt, getWidth(), getHeight());
+    if (null != texData) {
+      localTexture.updateImage(paramGL, texData);
+    }
+    return new TextureSequence.TextureFrame(localTexture);
+  }
+  
+  protected final void destroyTexFrame(GL paramGL, TextureSequence.TextureFrame paramTextureFrame)
+  {
+    super.destroyTexFrame(paramGL, paramTextureFrame);
+  }
+  
+  private void validatePos() {
+    int i = 0;
+    if (0 > pos_ms) {
+      pos_ms = 0;
+      i = 1;
+    } else if (pos_ms > getDuration()) {
+      pos_ms = getDuration();
+      i = 1;
+    }
+    if ((i != 0) && (GLMediaPlayer.State.Playing == getState())) {
+      setState(GLMediaPlayer.State.Paused);
+    }
+  }
+}

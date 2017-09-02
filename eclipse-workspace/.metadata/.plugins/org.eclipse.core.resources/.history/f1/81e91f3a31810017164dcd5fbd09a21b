@@ -1,0 +1,261 @@
+package jogamp.opengl;
+
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2ES3;
+import com.jogamp.opengl.GLContext;
+import java.io.PrintStream;
+import java.util.HashMap;
+import java.util.StringTokenizer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+final class ExtensionAvailabilityCache
+{
+  protected static final boolean DEBUG = GLContextImpl.DEBUG;
+  
+  ExtensionAvailabilityCache() {
+    flush();
+  }
+  
+
+
+
+  final void flush()
+  {
+    initialized = false;
+    glExtensions = null;
+    glExtensionCount = 0;
+    glXExtensions = null;
+    glXExtensionCount = 0;
+    availableExtensionCache.clear();
+  }
+  
+
+
+  final void reset(GLContextImpl paramGLContextImpl)
+  {
+    flush();
+    initAvailableExtensions(paramGLContextImpl);
+  }
+  
+  final boolean isInitialized() {
+    return initialized;
+  }
+  
+  final int getTotalExtensionCount() {
+    validateInitialization();
+    return availableExtensionCache.size();
+  }
+  
+  final boolean isExtensionAvailable(String paramString) {
+    validateInitialization();
+    return null != availableExtensionCache.get(paramString);
+  }
+  
+  final int getPlatformExtensionCount() {
+    validateInitialization();
+    return glXExtensionCount;
+  }
+  
+  final String getPlatformExtensionsString() {
+    validateInitialization();
+    return glXExtensions;
+  }
+  
+  final int getGLExtensionCount() {
+    validateInitialization();
+    return glExtensionCount;
+  }
+  
+  final String getGLExtensionsString() {
+    validateInitialization();
+    if (DEBUG) {
+      System.err.println("ExtensionAvailabilityCache: getGLExtensions() called");
+    }
+    return glExtensions;
+  }
+  
+  private final void validateInitialization() {
+    if (!isInitialized())
+      throw new InternalError("ExtensionAvailabilityCache not initialized!");
+  }
+  
+  private final void initAvailableExtensions(GLContextImpl paramGLContextImpl) {
+    GL localGL = paramGLContextImpl.getGL();
+    
+
+    if (isInitialized()) {
+      throw new InternalError("ExtensionAvailabilityCache already initialized!");
+    }
+    if (DEBUG) {
+      System.err.println(getThreadName() + ":ExtensionAvailabilityCache: Pre-caching init " + localGL + ", OpenGL " + paramGLContextImpl.getGLVersion());
+    }
+    
+    int i = 0;
+    
+
+
+    if ((paramGLContextImpl.isGL3()) || (paramGLContextImpl.isGLES3())) {
+      if (!paramGLContextImpl.isFunctionAvailable("glGetStringi")) {
+        if (DEBUG) {
+          System.err.println("GLContext: GL >= 3.1 usage, but no glGetStringi");
+        }
+      } else {
+        i = 1;
+      }
+    }
+    
+    if (DEBUG)
+      System.err.println(getThreadName() + ":ExtensionAvailabilityCache: Pre-caching extension availability OpenGL " + paramGLContextImpl.getGLVersion() + ", use " + (i != 0 ? "glGetStringi" : "glGetString"));
+    Object localObject3;
+    int k;
+    String str;
+    if (i != 0) {
+      localObject1 = (GL2ES3)localGL;
+      
+
+      localObject3 = new int[] { 0 };
+      ((GL2ES3)localObject1).glGetIntegerv(33309, (int[])localObject3, 0);
+      k = localObject3[0];
+      
+      localObject3 = new StringBuilder();
+      for (int n = 0; n < k; n++) {
+        str = ((GL2ES3)localObject1).glGetStringi(7939, n);
+        if (null == availableExtensionCache.put(str, str))
+        {
+          if (0 < n) {
+            ((StringBuilder)localObject3).append(" ");
+          }
+          ((StringBuilder)localObject3).append(str);
+        }
+      }
+      if ((0 == k) || (((StringBuilder)localObject3).length() == 0))
+      {
+        i = 0;
+      } else {
+        glExtensions = ((StringBuilder)localObject3).toString();
+        glExtensionCount = k;
+      }
+    }
+    if (i == 0) {
+      glExtensions = localGL.glGetString(7939);
+      if (null != glExtensions) {
+        localObject1 = new StringTokenizer(glExtensions);
+        k = 0;
+        while (((StringTokenizer)localObject1).hasMoreTokens()) {
+          localObject3 = ((StringTokenizer)localObject1).nextToken().trim();
+          if (null == availableExtensionCache.put(localObject3, localObject3)) {
+            k++;
+          }
+        }
+        glExtensionCount = k;
+      }
+    }
+    if (DEBUG) {
+      System.err.println(getThreadName() + ":ExtensionAvailabilityCache: GL_EXTENSIONS: " + glExtensionCount + ", used " + (i != 0 ? "glGetStringi" : "glGetString"));
+    }
+    
+
+
+
+
+    Object localObject1 = new StringBuilder();
+    Object localObject2 = new StringTokenizer(paramGLContextImpl.getPlatformExtensionsStringImpl().toString());
+    int m = 0;
+    while (((StringTokenizer)localObject2).hasMoreTokens()) {
+      localObject4 = ((StringTokenizer)localObject2).nextToken().trim();
+      if (null == availableExtensionCache.put(localObject4, localObject4))
+      {
+        if (0 < m) {
+          ((StringBuilder)localObject1).append(" ");
+        }
+        ((StringBuilder)localObject1).append((String)localObject4);
+        m++;
+      }
+    }
+    glXExtensions = ((StringBuilder)localObject1).toString();
+    glXExtensionCount = m;
+    
+
+    if (DEBUG) {
+      System.err.println(getThreadName() + ":ExtensionAvailabilityCache: GLX_EXTENSIONS: " + glXExtensionCount);
+      System.err.println(getThreadName() + ":ExtensionAvailabilityCache: GL vendor: " + localGL.glGetString(7936));
+      System.err.println(getThreadName() + ":ExtensionAvailabilityCache: ALL EXTENSIONS: " + availableExtensionCache.size());
+    }
+    
+    int j = paramGLContextImpl.getCtxOptions();
+    localObject2 = paramGLContextImpl.getGLVersionNumber();
+    int[] arrayOfInt = { ((VersionNumber)localObject2).getMajor() };
+    Object localObject4 = { ((VersionNumber)localObject2).getMinor() };
+    do {
+      str = (paramGLContextImpl.isGLES() ? "GL_ES_VERSION_" : "GL_VERSION_") + arrayOfInt[0] + "_" + localObject4[0];
+      availableExtensionCache.put(str, str);
+      if (DEBUG) {
+        System.err.println(getThreadName() + ":ExtensionAvailabilityCache: Added " + str + " to known extensions");
+      }
+    } while (GLContext.decrementGLVersion(j, arrayOfInt, (int[])localObject4));
+    
+
+
+    availableExtensionCache.put("<INTERNAL_DUMMY_PLACEHOLDER>", "<INTERNAL_DUMMY_PLACEHOLDER>");
+    
+    initialized = true;
+  }
+  
+
+
+
+
+  private boolean initialized = false;
+  private String glExtensions = null;
+  private int glExtensionCount = 0;
+  private String glXExtensions = null;
+  private int glXExtensionCount = 0;
+  private final HashMap<String, String> availableExtensionCache = new HashMap(100);
+  
+  static String getThreadName() { return Thread.currentThread().getName(); }
+}

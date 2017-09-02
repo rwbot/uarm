@@ -1,0 +1,166 @@
+package jogamp.opengl.util.av;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.egl.EGL;
+import com.jogamp.opengl.egl.EGLExt;
+import com.jogamp.opengl.util.texture.Texture;
+import com.jogamp.opengl.util.texture.TextureSequence.TextureFrame;
+import java.nio.Buffer;
+import java.nio.IntBuffer;
+import jogamp.opengl.egl.EGLContext;
+import jogamp.opengl.egl.EGLDrawable;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class EGLMediaPlayerImpl
+  extends GLMediaPlayerImpl
+{
+  protected final TextureType texType;
+  protected final boolean useKHRSync;
+  
+  public static enum TextureType
+  {
+    GL(0),  KHRImage(1);
+    
+
+    public final int id;
+    
+    private TextureType(int paramInt) { id = paramInt; }
+  }
+  
+  public static class EGLTextureFrame extends TextureSequence.TextureFrame { protected final Buffer clientBuffer;
+    protected final long image;
+    protected final long sync;
+    
+    public EGLTextureFrame(Buffer paramBuffer, Texture paramTexture, long paramLong1, long paramLong2) { super();
+      clientBuffer = paramBuffer;
+      image = paramLong1;
+      sync = paramLong2;
+    }
+    
+    public final Buffer getClientBuffer() { return clientBuffer; }
+    public final long getImage() { return image; }
+    public final long getSync() { return sync; }
+    
+    public String toString()
+    {
+      return "EGLTextureFrame[pts " + pts + " ms, l " + duration + " ms, texID " + texture.getTextureObject() + ", img " + image + ", sync " + sync + ", clientBuffer " + clientBuffer + "]";
+    }
+  }
+  
+
+
+
+
+  protected EGLMediaPlayerImpl(TextureType paramTextureType, boolean paramBoolean)
+  {
+    texType = paramTextureType;
+    useKHRSync = paramBoolean;
+  }
+  
+  protected TextureSequence.TextureFrame createTexImage(GL paramGL, int paramInt)
+  {
+    Texture localTexture = super.createTexImageImpl(paramGL, paramInt, getWidth(), getHeight());
+    
+
+
+    int i = (TextureType.KHRImage == texType) || (useKHRSync) ? 1 : 0;
+    
+    EGLContext localEGLContext;
+    EGLExt localEGLExt;
+    EGLDrawable localEGLDrawable;
+    if (i != 0) {
+      localEGLContext = (EGLContext)paramGL.getContext();
+      localEGLExt = localEGLContext.getEGLExt();
+      localEGLDrawable = (EGLDrawable)localEGLContext.getGLDrawable();
+    } else {
+      localEGLContext = null;
+      localEGLExt = null;
+      localEGLDrawable = null; }
+    IntBuffer localIntBuffer;
+    Buffer localBuffer;
+    long l1; if (TextureType.KHRImage == texType) {
+      localIntBuffer = Buffers.newDirectIntBuffer(1);
+      
+      localBuffer = null;
+      localIntBuffer.put(0, 12344);
+      l1 = localEGLExt.eglCreateImageKHR(localEGLDrawable.getNativeSurface().getDisplayHandle(), localEGLContext.getHandle(), 12465, localBuffer, localIntBuffer);
+      
+
+      if (0L == l1) {
+        throw new RuntimeException("EGLImage creation failed: " + EGL.eglGetError() + ", ctx " + localEGLContext + ", tex " + paramInt + ", err " + toHexString(EGL.eglGetError()));
+      }
+    } else {
+      localBuffer = null;
+      l1 = 0L;
+    }
+    long l2;
+    if (useKHRSync) {
+      localIntBuffer = Buffers.newDirectIntBuffer(1);
+      
+
+
+      localIntBuffer.put(0, 12344);
+      l2 = localEGLExt.eglCreateSyncKHR(localEGLDrawable.getNativeSurface().getDisplayHandle(), 12537, localIntBuffer);
+      if (0L == l2) {
+        throw new RuntimeException("EGLSync creation failed: " + EGL.eglGetError() + ", ctx " + localEGLContext + ", err " + toHexString(EGL.eglGetError()));
+      }
+    } else {
+      l2 = 0L;
+    }
+    return new EGLTextureFrame(localBuffer, localTexture, l1, l2);
+  }
+  
+  protected void destroyTexFrame(GL paramGL, TextureSequence.TextureFrame paramTextureFrame)
+  {
+    int i = (TextureType.KHRImage == texType) || (useKHRSync) ? 1 : 0;
+    
+    EGLContext localEGLContext;
+    EGLExt localEGLExt;
+    EGLDrawable localEGLDrawable;
+    if (i != 0) {
+      localEGLContext = (EGLContext)paramGL.getContext();
+      localEGLExt = localEGLContext.getEGLExt();
+      localEGLDrawable = (EGLDrawable)localEGLContext.getGLDrawable();
+    } else {
+      localEGLContext = null;
+      localEGLExt = null;
+      localEGLDrawable = null;
+    }
+    EGLTextureFrame localEGLTextureFrame = (EGLTextureFrame)paramTextureFrame;
+    
+    if (0L != localEGLTextureFrame.getImage()) {
+      localEGLExt.eglDestroyImageKHR(localEGLDrawable.getNativeSurface().getDisplayHandle(), localEGLTextureFrame.getImage());
+    }
+    if (0L != localEGLTextureFrame.getSync()) {
+      localEGLExt.eglDestroySyncKHR(localEGLDrawable.getNativeSurface().getDisplayHandle(), localEGLTextureFrame.getSync());
+    }
+    super.destroyTexFrame(paramGL, paramTextureFrame);
+  }
+}

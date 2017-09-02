@@ -1,0 +1,157 @@
+package jogamp.opengl.x11.glx;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.x11.X11GraphicsScreen;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import java.io.PrintStream;
+import java.nio.IntBuffer;
+import jogamp.nativewindow.WrappedSurface;
+import jogamp.opengl.GLContextShareSet;
+import jogamp.opengl.GLStateTracker;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class X11ExternalGLXContext
+  extends X11GLXContext
+{
+  private X11ExternalGLXContext(Drawable paramDrawable, long paramLong)
+  {
+    super(paramDrawable, null);
+    contextHandle = paramLong;
+    GLContextShareSet.contextCreated(this);
+    if (!setGLFunctionAvailability(false, 0, 0, 2, false, false)) {
+      throw new InternalError("setGLFunctionAvailability !strictMatch failed");
+    }
+    getGLStateTracker().setEnabled(false);
+  }
+  
+  protected static X11ExternalGLXContext create(GLDrawableFactory paramGLDrawableFactory, GLProfile paramGLProfile) {
+    long l1 = GLX.glXGetCurrentContext();
+    if (l1 == 0L) {
+      throw new GLException("Error: current context null");
+    }
+    long l2 = GLX.glXGetCurrentDisplay();
+    if (l2 == 0L) {
+      throw new GLException("Error: current display null");
+    }
+    long l3 = GLX.glXGetCurrentDrawable();
+    if (l3 == 0L) {
+      throw new GLException("Error: attempted to make an external GLDrawable without a drawable/context current");
+    }
+    IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(1);
+    
+
+    GLX.glXQueryDrawable(l2, l3, 32797, localIntBuffer);
+    int i = localIntBuffer.get(0);
+    GLX.glXQueryDrawable(l2, l3, 32798, localIntBuffer);
+    int j = localIntBuffer.get(0);
+    
+    GLX.glXQueryContext(l2, l1, 32780, localIntBuffer);
+    X11GraphicsScreen localX11GraphicsScreen = (X11GraphicsScreen)X11GraphicsScreen.createScreenDevice(l2, localIntBuffer.get(0), false);
+    
+    GLX.glXQueryContext(l2, l1, 32787, localIntBuffer);
+    X11GLXGraphicsConfiguration localX11GLXGraphicsConfiguration = null;
+    
+
+
+
+    if ((0 == localIntBuffer.get(0)) || (!X11GLXGraphicsConfiguration.GLXFBConfigIDValid(l2, localX11GraphicsScreen.getIndex(), localIntBuffer.get(0)))) {
+      localObject = new GLCapabilities(GLProfile.getDefault());
+      localX11GLXGraphicsConfiguration = X11GLXGraphicsConfigurationFactory.chooseGraphicsConfigurationStatic((GLCapabilitiesImmutable)localObject, (GLCapabilitiesImmutable)localObject, null, localX11GraphicsScreen, 0);
+      if (DEBUG) {
+        System.err.println("X11ExternalGLXContext invalid FBCONFIG_ID " + localIntBuffer.get(0) + ", using default cfg: " + localX11GLXGraphicsConfiguration);
+      }
+    } else {
+      localX11GLXGraphicsConfiguration = X11GLXGraphicsConfiguration.create(paramGLProfile, localX11GraphicsScreen, localIntBuffer.get(0));
+    }
+    
+    Object localObject = new WrappedSurface(localX11GLXGraphicsConfiguration, l3, i, j, true);
+    return new X11ExternalGLXContext(new Drawable(paramGLDrawableFactory, (NativeSurface)localObject), l1);
+  }
+  
+  protected boolean createImpl(long paramLong) throws GLException
+  {
+    return true;
+  }
+  
+  protected void makeCurrentImpl()
+    throws GLException
+  {}
+  
+  protected void releaseImpl() throws GLException
+  {}
+  
+  protected void destroyImpl() throws GLException
+  {}
+  
+  static class Drawable
+    extends X11GLXDrawable
+  {
+    Drawable(GLDrawableFactory paramGLDrawableFactory, NativeSurface paramNativeSurface)
+    {
+      super(paramNativeSurface, true);
+    }
+    
+    public GLContext createContext(GLContext paramGLContext)
+    {
+      throw new GLException("Should not call this");
+    }
+    
+    public int getSurfaceWidth()
+    {
+      throw new GLException("Should not call this");
+    }
+    
+    public int getSurfaceHeight()
+    {
+      throw new GLException("Should not call this");
+    }
+    
+    public void setSize(int paramInt1, int paramInt2) {
+      throw new GLException("Should not call this");
+    }
+  }
+}

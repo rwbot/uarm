@@ -1,0 +1,161 @@
+package com.jogamp.common;
+
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ExceptionUtils
+{
+  public ExceptionUtils() {}
+  
+  public static void dumpStack(PrintStream paramPrintStream)
+  {
+    dumpStack(paramPrintStream, 1, -1);
+  }
+  
+  public static void dumpStack(PrintStream paramPrintStream, int paramInt1, int paramInt2) { dumpStack(paramPrintStream, new Exception(""), paramInt1 + 1, paramInt2); }
+  
+
+  public static void dumpStack(PrintStream paramPrintStream, Throwable paramThrowable, int paramInt1, int paramInt2) { dumpStack(paramPrintStream, paramThrowable.getStackTrace(), paramInt1, paramInt2); }
+  
+  public static void dumpStack(PrintStream paramPrintStream, StackTraceElement[] paramArrayOfStackTraceElement, int paramInt1, int paramInt2) {
+    if (null == paramArrayOfStackTraceElement) {
+      return;
+    }
+    int i;
+    if (0 > paramInt2) {
+      i = paramArrayOfStackTraceElement.length;
+    } else {
+      i = Math.min(paramInt2 + paramInt1, paramArrayOfStackTraceElement.length);
+    }
+    for (int j = paramInt1; j < i; j++) {
+      paramPrintStream.println("    [" + j + "]: " + paramArrayOfStackTraceElement[j]);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static int printCause(PrintStream paramPrintStream, String paramString, Throwable paramThrowable, int paramInt1, int paramInt2, int paramInt3)
+  {
+    int i = paramInt1;
+    for (; (null != paramThrowable) && ((-1 == paramInt2) || (i < paramInt2)); paramThrowable = paramThrowable.getCause()) {
+      if ((paramThrowable instanceof CustomStackTrace)) {
+        ((CustomStackTrace)paramThrowable).printCauseStack(paramPrintStream, paramString, i, paramInt3);
+      } else {
+        paramPrintStream.println(paramString + "[" + i + "] by " + paramThrowable.getClass().getSimpleName() + ": " + paramThrowable.getMessage() + " on thread " + Thread.currentThread().getName());
+        dumpStack(paramPrintStream, paramThrowable.getStackTrace(), 0, paramInt3);
+      }
+      i++;
+    }
+    return i;
+  }
+  
+
+
+
+
+
+
+
+  public static void printStackTrace(PrintStream paramPrintStream, Throwable paramThrowable, int paramInt1, int paramInt2)
+  {
+    if ((paramThrowable instanceof CustomStackTrace)) {
+      ((CustomStackTrace)paramThrowable).printStackTrace(paramPrintStream, paramInt1, paramInt2);
+    } else {
+      paramPrintStream.println(paramThrowable.getClass().getSimpleName() + ": " + paramThrowable.getMessage() + " on thread " + Thread.currentThread().getName());
+      dumpStack(paramPrintStream, paramThrowable.getStackTrace(), 0, paramInt2);
+      printCause(paramPrintStream, "Caused", paramThrowable.getCause(), 0, paramInt1, paramInt2);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public static void dumpThrowable(String paramString, Throwable paramThrowable)
+  {
+    dumpThrowable(paramString, paramThrowable, -1, -1);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static void dumpThrowable(String paramString, Throwable paramThrowable, int paramInt1, int paramInt2)
+  {
+    System.err.print("Caught " + paramString + " ");
+    printStackTrace(System.err, paramThrowable, paramInt1, paramInt2);
+  }
+  
+  public static abstract interface CustomStackTrace
+  {
+    public abstract void printCauseStack(PrintStream paramPrintStream, String paramString, int paramInt1, int paramInt2);
+    
+    public abstract void printStackTrace(PrintStream paramPrintStream, int paramInt1, int paramInt2);
+  }
+}

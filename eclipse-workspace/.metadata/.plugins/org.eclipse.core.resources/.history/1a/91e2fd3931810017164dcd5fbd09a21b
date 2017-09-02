@@ -1,0 +1,96 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInputStream;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class LigatureSubstFormat1
+  extends LigatureSubst
+{
+  private final int _coverageOffset;
+  private final int _ligSetCount;
+  private final int[] _ligatureSetOffsets;
+  private final Coverage _coverage;
+  private final LigatureSet[] _ligatureSets;
+  
+  protected LigatureSubstFormat1(DataInputStream paramDataInputStream, int paramInt)
+    throws IOException
+  {
+    _coverageOffset = paramDataInputStream.readUnsignedShort();
+    _ligSetCount = paramDataInputStream.readUnsignedShort();
+    _ligatureSetOffsets = new int[_ligSetCount];
+    _ligatureSets = new LigatureSet[_ligSetCount];
+    for (int i = 0; i < _ligSetCount; i++) {
+      _ligatureSetOffsets[i] = paramDataInputStream.readUnsignedShort();
+    }
+    paramDataInputStream.reset();
+    paramDataInputStream.skipBytes(paramInt + _coverageOffset);
+    _coverage = Coverage.read(paramDataInputStream);
+    for (i = 0; i < _ligSetCount; i++) {
+      _ligatureSets[i] = new LigatureSet(paramDataInputStream, paramInt + _ligatureSetOffsets[i]);
+    }
+  }
+  
+  public int getFormat() {
+    return 1;
+  }
+  
+  public String getTypeAsString()
+  {
+    return "LigatureSubstFormat1";
+  }
+}

@@ -1,0 +1,152 @@
+package com.jogamp.common.nio;
+
+import com.jogamp.common.os.Platform;
+import java.nio.Buffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class AbstractBuffer<B extends AbstractBuffer>
+  implements NativeBuffer<B>
+{
+  protected final Buffer buffer;
+  protected final int elementSize;
+  protected final int capacity;
+  protected int position;
+  
+  protected AbstractBuffer(Buffer paramBuffer, int paramInt1, int paramInt2)
+  {
+    buffer = paramBuffer;
+    elementSize = paramInt1;
+    capacity = paramInt2;
+    
+    position = 0;
+  }
+  
+  public final int elementSize()
+  {
+    return elementSize;
+  }
+  
+  public final int limit()
+  {
+    return capacity;
+  }
+  
+  public final int capacity()
+  {
+    return capacity;
+  }
+  
+  public final int position()
+  {
+    return position;
+  }
+  
+  public final B position(int paramInt)
+  {
+    if ((0 > paramInt) || (paramInt >= capacity))
+    {
+      throw new IndexOutOfBoundsException("Sorry to interrupt, but the position " + paramInt + " was out of bounds. " + "My capacity is " + capacity() + ".");
+    }
+    position = paramInt;
+    return this;
+  }
+  
+  public final int remaining()
+  {
+    return capacity - position;
+  }
+  
+  public final boolean hasRemaining()
+  {
+    return position < capacity;
+  }
+  
+  public final B rewind()
+  {
+    position = 0;
+    return this;
+  }
+  
+  public final Buffer getBuffer()
+  {
+    return buffer;
+  }
+  
+  public final boolean isDirect()
+  {
+    return buffer.isDirect();
+  }
+  
+  public final boolean hasArray()
+  {
+    return buffer.hasArray();
+  }
+  
+  public final int arrayOffset()
+  {
+    if (hasArray()) {
+      return buffer.arrayOffset();
+    }
+    return 0;
+  }
+  
+  public Object array()
+    throws UnsupportedOperationException
+  {
+    return buffer.array();
+  }
+  
+  public String toString()
+  {
+    return "AbstractBuffer[direct " + isDirect() + ", hasArray " + hasArray() + ", capacity " + capacity + ", position " + position + ", elementSize " + elementSize + ", buffer[capacity " + buffer.capacity() + ", lim " + buffer.limit() + ", pos " + buffer.position() + "]]";
+  }
+  
+  static {}
+}

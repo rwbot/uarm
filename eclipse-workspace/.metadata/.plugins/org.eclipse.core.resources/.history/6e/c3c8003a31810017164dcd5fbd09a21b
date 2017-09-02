@@ -1,0 +1,434 @@
+package jogamp.graph.geom.plane;
+
+import com.jogamp.graph.geom.SVertex;
+import com.jogamp.graph.geom.Vertex;
+import com.jogamp.opengl.math.geom.AABBox;
+import java.util.NoSuchElementException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public final class Path2D
+  implements Cloneable
+{
+  public static final int WIND_EVEN_ODD = 0;
+  public static final int WIND_NON_ZERO = 1;
+  static final String invalidWindingRuleValue = "Invalid winding rule value";
+  static final String iteratorOutOfBounds = "Iterator out of bounds";
+  private static final int BUFFER_SIZE = 10;
+  private static final int BUFFER_CAPACITY = 10;
+  byte[] types;
+  float[] points;
+  int typeSize;
+  int pointSize;
+  int rule;
+  static int[] pointShift = { 2, 2, 4, 6, 0 };
+  
+
+
+
+
+
+  static class Iterator
+    implements PathIterator
+  {
+    int typeIndex;
+    
+
+
+
+
+    int pointIndex;
+    
+
+
+
+
+    Path2D p;
+    
+
+
+
+
+    AffineTransform t;
+    
+
+
+
+
+
+    Iterator(Path2D paramPath2D)
+    {
+      this(paramPath2D, null);
+    }
+    
+
+
+
+
+    Iterator(Path2D paramPath2D, AffineTransform paramAffineTransform)
+    {
+      p = paramPath2D;
+      t = paramAffineTransform;
+    }
+    
+    public int getWindingRule()
+    {
+      return p.getWindingRule();
+    }
+    
+    public boolean isDone()
+    {
+      return typeIndex >= p.typeSize;
+    }
+    
+    public void next()
+    {
+      typeIndex += 1;
+    }
+    
+    public int currentSegment(float[] paramArrayOfFloat)
+    {
+      if (isDone()) {
+        throw new NoSuchElementException("Iterator out of bounds");
+      }
+      int i = p.types[typeIndex];
+      int j = Path2D.pointShift[i];
+      System.arraycopy(p.points, pointIndex, paramArrayOfFloat, 0, j);
+      if (t != null) {
+        t.transform(paramArrayOfFloat, 0, paramArrayOfFloat, 0, j / 2);
+      }
+      pointIndex += j;
+      return i;
+    }
+  }
+  
+  public Path2D()
+  {
+    this(1, 10);
+  }
+  
+  public Path2D(int paramInt) {
+    this(paramInt, 10);
+  }
+  
+  public Path2D(int paramInt1, int paramInt2) {
+    setWindingRule(paramInt1);
+    types = new byte[paramInt2];
+    points = new float[paramInt2 * 2];
+  }
+  
+  public Path2D(Path2D paramPath2D) {
+    this(1, 10);
+    PathIterator localPathIterator = paramPath2D.iterator(null);
+    setWindingRule(localPathIterator.getWindingRule());
+    append(localPathIterator, false);
+  }
+  
+  public void setWindingRule(int paramInt) {
+    if ((paramInt != 0) && (paramInt != 1)) {
+      throw new NoSuchElementException("Invalid winding rule value");
+    }
+    rule = paramInt;
+  }
+  
+  public int getWindingRule() {
+    return rule;
+  }
+  
+
+
+
+  void checkBuf(int paramInt, boolean paramBoolean)
+  {
+    if ((paramBoolean) && (typeSize == 0))
+      throw new IllegalPathStateException("First segment should be SEG_MOVETO type");
+    Object localObject;
+    if (typeSize == types.length) {
+      localObject = new byte[typeSize + 10];
+      System.arraycopy(types, 0, localObject, 0, typeSize);
+      types = ((byte[])localObject);
+    }
+    if (pointSize + paramInt > points.length) {
+      localObject = new float[pointSize + Math.max(20, paramInt)];
+      System.arraycopy(points, 0, localObject, 0, pointSize);
+      points = ((float[])localObject);
+    }
+  }
+  
+  public void moveTo(float paramFloat1, float paramFloat2) {
+    if ((typeSize > 0) && (types[(typeSize - 1)] == 0)) {
+      points[(pointSize - 2)] = paramFloat1;
+      points[(pointSize - 1)] = paramFloat2;
+    } else {
+      checkBuf(2, false);
+      types[(typeSize++)] = 0;
+      points[(pointSize++)] = paramFloat1;
+      points[(pointSize++)] = paramFloat2;
+    }
+  }
+  
+  public void lineTo(float paramFloat1, float paramFloat2) {
+    checkBuf(2, true);
+    types[(typeSize++)] = 1;
+    points[(pointSize++)] = paramFloat1;
+    points[(pointSize++)] = paramFloat2;
+  }
+  
+  public void quadTo(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4) {
+    checkBuf(4, true);
+    types[(typeSize++)] = 2;
+    points[(pointSize++)] = paramFloat1;
+    points[(pointSize++)] = paramFloat2;
+    points[(pointSize++)] = paramFloat3;
+    points[(pointSize++)] = paramFloat4;
+  }
+  
+  public void curveTo(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6) {
+    checkBuf(6, true);
+    types[(typeSize++)] = 3;
+    points[(pointSize++)] = paramFloat1;
+    points[(pointSize++)] = paramFloat2;
+    points[(pointSize++)] = paramFloat3;
+    points[(pointSize++)] = paramFloat4;
+    points[(pointSize++)] = paramFloat5;
+    points[(pointSize++)] = paramFloat6;
+  }
+  
+  public final int size() {
+    return typeSize;
+  }
+  
+  public final boolean isClosed() {
+    return (typeSize > 0) && (types[(typeSize - 1)] == 4);
+  }
+  
+  public void closePath() {
+    if (!isClosed()) {
+      checkBuf(0, true);
+      types[(typeSize++)] = 4;
+    }
+  }
+  
+  public String toString()
+  {
+    return "[size " + size() + ", closed " + isClosed() + "]";
+  }
+  
+  public void append(Path2D paramPath2D, boolean paramBoolean) {
+    PathIterator localPathIterator = paramPath2D.iterator(null);
+    append(localPathIterator, paramBoolean);
+  }
+  
+  public void append(PathIterator paramPathIterator, boolean paramBoolean) {
+    while (!paramPathIterator.isDone()) {
+      float[] arrayOfFloat = new float[6];
+      int i = paramPathIterator.currentSegment(arrayOfFloat);
+      switch (i) {
+      case 0: 
+        if ((!paramBoolean) || (typeSize == 0)) {
+          moveTo(arrayOfFloat[0], arrayOfFloat[1]);
+        }
+        else {
+          if ((types[(typeSize - 1)] != 4) && (points[(pointSize - 2)] == arrayOfFloat[0]) && (points[(pointSize - 1)] == arrayOfFloat[1])) {
+            break;
+          }
+        }
+        
+
+        break;
+      case 1: 
+        lineTo(arrayOfFloat[0], arrayOfFloat[1]);
+        break;
+      case 2: 
+        quadTo(arrayOfFloat[0], arrayOfFloat[1], arrayOfFloat[2], arrayOfFloat[3]);
+        break;
+      case 3: 
+        curveTo(arrayOfFloat[0], arrayOfFloat[1], arrayOfFloat[2], arrayOfFloat[3], arrayOfFloat[4], arrayOfFloat[5]);
+        break;
+      case 4: 
+        closePath();
+        break;
+      default: 
+        throw new IllegalArgumentException("Unhandled Segment Type: " + i);
+      }
+      paramPathIterator.next();
+      paramBoolean = false;
+    }
+  }
+  
+  public SVertex getCurrentPoint() {
+    if (typeSize == 0) {
+      return null;
+    }
+    int i = pointSize - 2;
+    if (types[(typeSize - 1)] == 4)
+    {
+      for (int j = typeSize - 2; j > 0; j--) {
+        int k = types[j];
+        if (k == 0) {
+          break;
+        }
+        i -= pointShift[k];
+      }
+    }
+    return new SVertex(points[i], points[(i + 1)], 0.0F, true);
+  }
+  
+  public void reset() {
+    typeSize = 0;
+    pointSize = 0;
+  }
+  
+  public void transform(AffineTransform paramAffineTransform) {
+    paramAffineTransform.transform(points, 0, points, 0, pointSize / 2);
+  }
+  
+  public Path2D createTransformedShape(AffineTransform paramAffineTransform) {
+    Path2D localPath2D = (Path2D)clone();
+    if (paramAffineTransform != null) {
+      localPath2D.transform(paramAffineTransform);
+    }
+    return localPath2D; }
+  
+  public final synchronized AABBox getBounds2D() { float f4;
+    float f3;
+    float f2;
+    float f1; if (pointSize == 0) {
+      f1 = f2 = f3 = f4 = 0.0F;
+    } else {
+      int i = pointSize - 1;
+      f2 = f4 = points[(i--)];
+      f1 = f3 = points[(i--)];
+      while (i > 0) {
+        float f5 = points[(i--)];
+        float f6 = points[(i--)];
+        if (f6 < f1) {
+          f1 = f6;
+        }
+        else if (f6 > f3) {
+          f3 = f6;
+        }
+        if (f5 < f2) {
+          f2 = f5;
+        }
+        else if (f5 > f4) {
+          f4 = f5;
+        }
+      }
+    }
+    return new AABBox(f1, f2, 0.0F, f3, f4, 0.0F);
+  }
+  
+
+
+
+
+  boolean isInside(int paramInt)
+  {
+    if (rule == 1) {
+      return Crossing.isInsideNonZero(paramInt);
+    }
+    return Crossing.isInsideEvenOdd(paramInt);
+  }
+  
+  public boolean contains(float paramFloat1, float paramFloat2) {
+    return isInside(Crossing.crossShape(this, paramFloat1, paramFloat2));
+  }
+  
+  public boolean contains(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4) {
+    int i = Crossing.intersectShape(this, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+    return (i != 255) && (isInside(i));
+  }
+  
+  public boolean intersects(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4) {
+    int i = Crossing.intersectShape(this, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+    return (i == 255) || (isInside(i));
+  }
+  
+  public boolean contains(Vertex paramVertex) {
+    return contains(paramVertex.getX(), paramVertex.getY());
+  }
+  
+  public boolean contains(AABBox paramAABBox) {
+    return contains(paramAABBox.getMinX(), paramAABBox.getMinY(), paramAABBox.getWidth(), paramAABBox.getHeight());
+  }
+  
+  public boolean intersects(AABBox paramAABBox) {
+    return intersects(paramAABBox.getMinX(), paramAABBox.getMinY(), paramAABBox.getWidth(), paramAABBox.getHeight());
+  }
+  
+  public PathIterator iterator() {
+    return new Iterator(this);
+  }
+  
+  public PathIterator iterator(AffineTransform paramAffineTransform) {
+    return new Iterator(this, paramAffineTransform);
+  }
+  
+
+
+
+  public Object clone()
+  {
+    try
+    {
+      Path2D localPath2D = (Path2D)super.clone();
+      types = ((byte[])types.clone());
+      points = ((float[])points.clone());
+      return localPath2D;
+    } catch (CloneNotSupportedException localCloneNotSupportedException) {
+      throw new InternalError();
+    }
+  }
+}

@@ -1,0 +1,61 @@
+package com.jogamp.gluegen.runtime.opengl;
+
+import com.jogamp.common.os.DynamicLookupHelper;
+import com.jogamp.gluegen.runtime.FunctionAddressResolver;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLProcAddressResolver
+  implements FunctionAddressResolver
+{
+  public static final boolean DEBUG = false;
+  
+  public GLProcAddressResolver() {}
+  
+  public long resolve(String paramString, DynamicLookupHelper paramDynamicLookupHelper)
+    throws SecurityException
+  {
+    long l = 0L;
+    int i = GLNameResolver.getFuncNamePermutationNumber(paramString);
+    
+    for (int j = 0; (0L == l) && (j < i); j++) {
+      String str = GLNameResolver.getFuncNamePermutation(paramString, j);
+      try {
+        l = paramDynamicLookupHelper.dynamicLookupFunction(str);
+      }
+      catch (Exception localException) {}
+    }
+    
+
+
+    return l;
+  }
+}

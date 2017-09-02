@@ -1,0 +1,1354 @@
+package jogamp.opengl.glu.tessellator;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class Sweep
+{
+  private static final boolean TOLERANCE_NONZERO = false;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private static final double SENTINEL_COORD = 4.0E150D;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private Sweep() {}
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private static void DebugEvent(GLUtessellatorImpl paramGLUtessellatorImpl) {}
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private static void AddWinding(GLUhalfEdge paramGLUhalfEdge1, GLUhalfEdge paramGLUhalfEdge2)
+  {
+    winding += winding;
+    Sym.winding += Sym.winding;
+  }
+  
+  private static ActiveRegion RegionBelow(ActiveRegion paramActiveRegion)
+  {
+    return (ActiveRegion)Dict.dictKey(Dict.dictPred(nodeUp));
+  }
+  
+  private static ActiveRegion RegionAbove(ActiveRegion paramActiveRegion) {
+    return (ActiveRegion)Dict.dictKey(Dict.dictSucc(nodeUp));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  static boolean EdgeLeq(GLUtessellatorImpl paramGLUtessellatorImpl, ActiveRegion paramActiveRegion1, ActiveRegion paramActiveRegion2)
+  {
+    GLUvertex localGLUvertex = event;
+    
+
+
+    GLUhalfEdge localGLUhalfEdge1 = eUp;
+    GLUhalfEdge localGLUhalfEdge2 = eUp;
+    
+    if (Sym.Org == localGLUvertex) {
+      if (Sym.Org == localGLUvertex)
+      {
+
+
+        if (Geom.VertLeq(Org, Org)) {
+          return Geom.EdgeSign(Sym.Org, Org, Org) <= 0.0D;
+        }
+        return Geom.EdgeSign(Sym.Org, Org, Org) >= 0.0D;
+      }
+      return Geom.EdgeSign(Sym.Org, localGLUvertex, Org) <= 0.0D;
+    }
+    if (Sym.Org == localGLUvertex) {
+      return Geom.EdgeSign(Sym.Org, localGLUvertex, Org) >= 0.0D;
+    }
+    
+
+    double d1 = Geom.EdgeEval(Sym.Org, localGLUvertex, Org);
+    double d2 = Geom.EdgeEval(Sym.Org, localGLUvertex, Org);
+    return d1 >= d2;
+  }
+  
+  static void DeleteRegion(GLUtessellatorImpl paramGLUtessellatorImpl, ActiveRegion paramActiveRegion)
+  {
+    if (fixUpperEdge)
+    {
+
+
+
+      assert (eUp.winding == 0);
+    }
+    eUp.activeRegion = null;
+    Dict.dictDelete(dict, nodeUp);
+  }
+  
+
+
+
+  static boolean FixUpperEdge(ActiveRegion paramActiveRegion, GLUhalfEdge paramGLUhalfEdge)
+  {
+    assert (fixUpperEdge);
+    if (!Mesh.__gl_meshDelete(eUp)) return false;
+    fixUpperEdge = false;
+    eUp = paramGLUhalfEdge;
+    activeRegion = paramActiveRegion;
+    
+    return true;
+  }
+  
+  static ActiveRegion TopLeftRegion(ActiveRegion paramActiveRegion) {
+    GLUvertex localGLUvertex = eUp.Org;
+    
+
+    do
+    {
+      paramActiveRegion = RegionAbove(paramActiveRegion);
+    } while (eUp.Org == localGLUvertex);
+    
+
+
+
+    if (fixUpperEdge) {
+      GLUhalfEdge localGLUhalfEdge = Mesh.__gl_meshConnect(RegionBeloweUp.Sym, eUp.Lnext);
+      if (localGLUhalfEdge == null) return null;
+      if (!FixUpperEdge(paramActiveRegion, localGLUhalfEdge)) return null;
+      paramActiveRegion = RegionAbove(paramActiveRegion);
+    }
+    return paramActiveRegion;
+  }
+  
+  static ActiveRegion TopRightRegion(ActiveRegion paramActiveRegion) {
+    GLUvertex localGLUvertex = eUp.Sym.Org;
+    
+    do
+    {
+      paramActiveRegion = RegionAbove(paramActiveRegion);
+    } while (eUp.Sym.Org == localGLUvertex);
+    return paramActiveRegion;
+  }
+  
+
+
+
+
+
+
+
+  static ActiveRegion AddRegionBelow(GLUtessellatorImpl paramGLUtessellatorImpl, ActiveRegion paramActiveRegion, GLUhalfEdge paramGLUhalfEdge)
+  {
+    ActiveRegion localActiveRegion = new ActiveRegion();
+    if (localActiveRegion == null) { throw new RuntimeException();
+    }
+    eUp = paramGLUhalfEdge;
+    
+    nodeUp = Dict.dictInsertBefore(dict, nodeUp, localActiveRegion);
+    if (nodeUp == null) throw new RuntimeException();
+    fixUpperEdge = false;
+    sentinel = false;
+    dirty = false;
+    
+    activeRegion = localActiveRegion;
+    return localActiveRegion;
+  }
+  
+  static boolean IsWindingInside(GLUtessellatorImpl paramGLUtessellatorImpl, int paramInt) {
+    switch (windingRule) {
+    case 100130: 
+      return (paramInt & 0x1) != 0;
+    case 100131: 
+      return paramInt != 0;
+    case 100132: 
+      return paramInt > 0;
+    case 100133: 
+      return paramInt < 0;
+    case 100134: 
+      return (paramInt >= 2) || (paramInt <= -2);
+    }
+    
+    
+    throw new InternalError();
+  }
+  
+
+  static void ComputeWinding(GLUtessellatorImpl paramGLUtessellatorImpl, ActiveRegion paramActiveRegion)
+  {
+    windingNumber = (RegionAbovewindingNumber + eUp.winding);
+    inside = IsWindingInside(paramGLUtessellatorImpl, windingNumber);
+  }
+  
+
+
+
+
+
+
+
+  static void FinishRegion(GLUtessellatorImpl paramGLUtessellatorImpl, ActiveRegion paramActiveRegion)
+  {
+    GLUhalfEdge localGLUhalfEdge = eUp;
+    GLUface localGLUface = Lface;
+    
+    inside = inside;
+    anEdge = localGLUhalfEdge;
+    DeleteRegion(paramGLUtessellatorImpl, paramActiveRegion);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  static GLUhalfEdge FinishLeftRegions(GLUtessellatorImpl paramGLUtessellatorImpl, ActiveRegion paramActiveRegion1, ActiveRegion paramActiveRegion2)
+  {
+    Object localObject = paramActiveRegion1;
+    GLUhalfEdge localGLUhalfEdge2 = eUp;
+    while (localObject != paramActiveRegion2) {
+      fixUpperEdge = false;
+      ActiveRegion localActiveRegion = RegionBelow((ActiveRegion)localObject);
+      GLUhalfEdge localGLUhalfEdge1 = eUp;
+      if (Org != Org) {
+        if (!fixUpperEdge)
+        {
+
+
+
+
+
+          FinishRegion(paramGLUtessellatorImpl, (ActiveRegion)localObject);
+          break;
+        }
+        
+
+
+        localGLUhalfEdge1 = Mesh.__gl_meshConnect(Onext.Sym, Sym);
+        if (localGLUhalfEdge1 == null) throw new RuntimeException();
+        if (!FixUpperEdge(localActiveRegion, localGLUhalfEdge1)) { throw new RuntimeException();
+        }
+      }
+      
+      if (Onext != localGLUhalfEdge1) {
+        if (!Mesh.__gl_meshSplice(Sym.Lnext, localGLUhalfEdge1)) throw new RuntimeException();
+        if (!Mesh.__gl_meshSplice(localGLUhalfEdge2, localGLUhalfEdge1)) throw new RuntimeException();
+      }
+      FinishRegion(paramGLUtessellatorImpl, (ActiveRegion)localObject);
+      localGLUhalfEdge2 = eUp;
+      localObject = localActiveRegion;
+    }
+    return localGLUhalfEdge2;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  static void AddRightEdges(GLUtessellatorImpl paramGLUtessellatorImpl, ActiveRegion paramActiveRegion, GLUhalfEdge paramGLUhalfEdge1, GLUhalfEdge paramGLUhalfEdge2, GLUhalfEdge paramGLUhalfEdge3, boolean paramBoolean)
+  {
+    int i = 1;
+    
+
+    GLUhalfEdge localGLUhalfEdge1 = paramGLUhalfEdge1;
+    do {
+      assert (Geom.VertLeq(Org, Sym.Org));
+      AddRegionBelow(paramGLUtessellatorImpl, paramActiveRegion, Sym);
+      localGLUhalfEdge1 = Onext;
+    } while (localGLUhalfEdge1 != paramGLUhalfEdge2);
+    
+
+
+
+
+    if (paramGLUhalfEdge3 == null) {
+      paramGLUhalfEdge3 = RegionBeloweUp.Sym.Onext;
+    }
+    Object localObject = paramActiveRegion;
+    GLUhalfEdge localGLUhalfEdge2 = paramGLUhalfEdge3;
+    ActiveRegion localActiveRegion;
+    for (;;) { localActiveRegion = RegionBelow((ActiveRegion)localObject);
+      localGLUhalfEdge1 = eUp.Sym;
+      if (Org != Org)
+        break;
+      if (Onext != localGLUhalfEdge2)
+      {
+        if (!Mesh.__gl_meshSplice(Sym.Lnext, localGLUhalfEdge1)) throw new RuntimeException();
+        if (!Mesh.__gl_meshSplice(Sym.Lnext, localGLUhalfEdge1)) { throw new RuntimeException();
+        }
+      }
+      windingNumber = (windingNumber - winding);
+      inside = IsWindingInside(paramGLUtessellatorImpl, windingNumber);
+      
+
+
+
+      dirty = true;
+      if ((i == 0) && (CheckForRightSplice(paramGLUtessellatorImpl, (ActiveRegion)localObject))) {
+        AddWinding(localGLUhalfEdge1, localGLUhalfEdge2);
+        DeleteRegion(paramGLUtessellatorImpl, (ActiveRegion)localObject);
+        if (!Mesh.__gl_meshDelete(localGLUhalfEdge2)) throw new RuntimeException();
+      }
+      i = 0;
+      localObject = localActiveRegion;
+      localGLUhalfEdge2 = localGLUhalfEdge1;
+    }
+    dirty = true;
+    assert (windingNumber - winding == windingNumber);
+    
+    if (paramBoolean)
+    {
+      WalkDirtyRegions(paramGLUtessellatorImpl, (ActiveRegion)localObject);
+    }
+  }
+  
+
+  static void CallCombine(GLUtessellatorImpl paramGLUtessellatorImpl, GLUvertex paramGLUvertex, Object[] paramArrayOfObject, float[] paramArrayOfFloat, boolean paramBoolean)
+  {
+    double[] arrayOfDouble = new double[3];
+    
+
+    arrayOfDouble[0] = coords[0];
+    arrayOfDouble[1] = coords[1];
+    arrayOfDouble[2] = coords[2];
+    
+    Object[] arrayOfObject = new Object[1];
+    paramGLUtessellatorImpl.callCombineOrCombineData(arrayOfDouble, paramArrayOfObject, paramArrayOfFloat, arrayOfObject);
+    data = arrayOfObject[0];
+    if (data == null) {
+      if (!paramBoolean) {
+        data = paramArrayOfObject[0];
+      } else if (!fatalError)
+      {
+
+
+
+        paramGLUtessellatorImpl.callErrorOrErrorData(100156);
+        fatalError = true;
+      }
+    }
+  }
+  
+
+
+
+
+  static void SpliceMergeVertices(GLUtessellatorImpl paramGLUtessellatorImpl, GLUhalfEdge paramGLUhalfEdge1, GLUhalfEdge paramGLUhalfEdge2)
+  {
+    Object[] arrayOfObject = new Object[4];
+    float[] arrayOfFloat = { 0.5F, 0.5F, 0.0F, 0.0F };
+    
+    arrayOfObject[0] = Org.data;
+    arrayOfObject[1] = Org.data;
+    CallCombine(paramGLUtessellatorImpl, Org, arrayOfObject, arrayOfFloat, false);
+    if (!Mesh.__gl_meshSplice(paramGLUhalfEdge1, paramGLUhalfEdge2)) { throw new RuntimeException();
+    }
+  }
+  
+
+
+
+
+
+
+  static void VertexWeights(GLUvertex paramGLUvertex1, GLUvertex paramGLUvertex2, GLUvertex paramGLUvertex3, float[] paramArrayOfFloat)
+  {
+    double d1 = Geom.VertL1dist(paramGLUvertex2, paramGLUvertex1);
+    double d2 = Geom.VertL1dist(paramGLUvertex3, paramGLUvertex1);
+    
+    paramArrayOfFloat[0] = ((float)(0.5D * d2 / (d1 + d2)));
+    paramArrayOfFloat[1] = ((float)(0.5D * d1 / (d1 + d2)));
+    coords[0] += paramArrayOfFloat[0] * coords[0] + paramArrayOfFloat[1] * coords[0];
+    coords[1] += paramArrayOfFloat[0] * coords[1] + paramArrayOfFloat[1] * coords[1];
+    coords[2] += paramArrayOfFloat[0] * coords[2] + paramArrayOfFloat[1] * coords[2];
+  }
+  
+
+
+
+
+
+
+
+  static void GetIntersectData(GLUtessellatorImpl paramGLUtessellatorImpl, GLUvertex paramGLUvertex1, GLUvertex paramGLUvertex2, GLUvertex paramGLUvertex3, GLUvertex paramGLUvertex4, GLUvertex paramGLUvertex5)
+  {
+    Object[] arrayOfObject = new Object[4];
+    float[] arrayOfFloat1 = new float[4];
+    float[] arrayOfFloat2 = new float[2];
+    float[] arrayOfFloat3 = new float[2];
+    
+    arrayOfObject[0] = data;
+    arrayOfObject[1] = data;
+    arrayOfObject[2] = data;
+    arrayOfObject[3] = data; double 
+    
+      tmp73_72 = (coords[2] = 0.0D);coords[1] = tmp73_72;coords[0] = tmp73_72;
+    VertexWeights(paramGLUvertex1, paramGLUvertex2, paramGLUvertex3, arrayOfFloat2);
+    VertexWeights(paramGLUvertex1, paramGLUvertex4, paramGLUvertex5, arrayOfFloat3);
+    System.arraycopy(arrayOfFloat2, 0, arrayOfFloat1, 0, 2);
+    System.arraycopy(arrayOfFloat3, 0, arrayOfFloat1, 2, 2);
+    
+    CallCombine(paramGLUtessellatorImpl, paramGLUvertex1, arrayOfObject, arrayOfFloat1, true);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  static boolean CheckForRightSplice(GLUtessellatorImpl paramGLUtessellatorImpl, ActiveRegion paramActiveRegion)
+  {
+    ActiveRegion localActiveRegion = RegionBelow(paramActiveRegion);
+    GLUhalfEdge localGLUhalfEdge1 = eUp;
+    GLUhalfEdge localGLUhalfEdge2 = eUp;
+    
+    if (Geom.VertLeq(Org, Org)) {
+      if (Geom.EdgeSign(Sym.Org, Org, Org) > 0.0D) { return false;
+      }
+      
+      if (!Geom.VertEq(Org, Org))
+      {
+        if (Mesh.__gl_meshSplitEdge(Sym) == null) throw new RuntimeException();
+        if (!Mesh.__gl_meshSplice(localGLUhalfEdge1, Sym.Lnext)) throw new RuntimeException();
+        dirty = (localActiveRegion.dirty = 1);
+      }
+      else if (Org != Org)
+      {
+        pq.pqDelete(Org.pqHandle);
+        SpliceMergeVertices(paramGLUtessellatorImpl, Sym.Lnext, localGLUhalfEdge1);
+      }
+    } else {
+      if (Geom.EdgeSign(Sym.Org, Org, Org) < 0.0D) { return false;
+      }
+      
+      RegionAbovedirty = (paramActiveRegion.dirty = 1);
+      if (Mesh.__gl_meshSplitEdge(Sym) == null) throw new RuntimeException();
+      if (!Mesh.__gl_meshSplice(Sym.Lnext, localGLUhalfEdge1)) throw new RuntimeException();
+    }
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  static boolean CheckForLeftSplice(GLUtessellatorImpl paramGLUtessellatorImpl, ActiveRegion paramActiveRegion)
+  {
+    ActiveRegion localActiveRegion = RegionBelow(paramActiveRegion);
+    GLUhalfEdge localGLUhalfEdge1 = eUp;
+    GLUhalfEdge localGLUhalfEdge2 = eUp;
+    
+
+    assert (!Geom.VertEq(Sym.Org, Sym.Org));
+    GLUhalfEdge localGLUhalfEdge3;
+    if (Geom.VertLeq(Sym.Org, Sym.Org)) {
+      if (Geom.EdgeSign(Sym.Org, Sym.Org, Org) < 0.0D) { return false;
+      }
+      
+      RegionAbovedirty = (paramActiveRegion.dirty = 1);
+      localGLUhalfEdge3 = Mesh.__gl_meshSplitEdge(localGLUhalfEdge1);
+      if (localGLUhalfEdge3 == null) throw new RuntimeException();
+      if (!Mesh.__gl_meshSplice(Sym, localGLUhalfEdge3)) throw new RuntimeException();
+      Lface.inside = inside;
+    } else {
+      if (Geom.EdgeSign(Sym.Org, Sym.Org, Org) > 0.0D) { return false;
+      }
+      
+      dirty = (localActiveRegion.dirty = 1);
+      localGLUhalfEdge3 = Mesh.__gl_meshSplitEdge(localGLUhalfEdge2);
+      if (localGLUhalfEdge3 == null) throw new RuntimeException();
+      if (!Mesh.__gl_meshSplice(Lnext, Sym)) throw new RuntimeException();
+      Sym.Lface.inside = inside;
+    }
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+  static boolean CheckForIntersect(GLUtessellatorImpl paramGLUtessellatorImpl, ActiveRegion paramActiveRegion)
+  {
+    ActiveRegion localActiveRegion = RegionBelow(paramActiveRegion);
+    GLUhalfEdge localGLUhalfEdge1 = eUp;
+    GLUhalfEdge localGLUhalfEdge2 = eUp;
+    GLUvertex localGLUvertex1 = Org;
+    GLUvertex localGLUvertex2 = Org;
+    GLUvertex localGLUvertex3 = Sym.Org;
+    GLUvertex localGLUvertex4 = Sym.Org;
+    
+    GLUvertex localGLUvertex5 = new GLUvertex();
+    
+
+
+    assert (!Geom.VertEq(localGLUvertex4, localGLUvertex3));
+    assert (Geom.EdgeSign(localGLUvertex3, event, localGLUvertex1) <= 0.0D);
+    assert (Geom.EdgeSign(localGLUvertex4, event, localGLUvertex2) >= 0.0D);
+    assert ((localGLUvertex1 != event) && (localGLUvertex2 != event));
+    assert ((!fixUpperEdge) && (!fixUpperEdge));
+    
+    if (localGLUvertex1 == localGLUvertex2) { return false;
+    }
+    double d1 = Math.min(t, t);
+    double d2 = Math.max(t, t);
+    if (d1 > d2) { return false;
+    }
+    if (Geom.VertLeq(localGLUvertex1, localGLUvertex2)) {
+      if (Geom.EdgeSign(localGLUvertex4, localGLUvertex1, localGLUvertex2) > 0.0D) return false;
+    }
+    else if (Geom.EdgeSign(localGLUvertex3, localGLUvertex2, localGLUvertex1) < 0.0D) { return false;
+    }
+    
+
+    DebugEvent(paramGLUtessellatorImpl);
+    
+    Geom.EdgeIntersect(localGLUvertex3, localGLUvertex1, localGLUvertex4, localGLUvertex2, localGLUvertex5);
+    
+    assert (Math.min(t, t) <= t);
+    assert (t <= Math.max(t, t));
+    assert (Math.min(s, s) <= s);
+    assert (s <= Math.max(s, s));
+    
+    if (Geom.VertLeq(localGLUvertex5, event))
+    {
+
+
+
+
+
+      s = event.s;
+      t = event.t;
+    }
+    
+
+
+
+
+
+    GLUvertex localGLUvertex6 = Geom.VertLeq(localGLUvertex1, localGLUvertex2) ? localGLUvertex1 : localGLUvertex2;
+    if (Geom.VertLeq(localGLUvertex6, localGLUvertex5)) {
+      s = s;
+      t = t;
+    }
+    
+    if ((Geom.VertEq(localGLUvertex5, localGLUvertex1)) || (Geom.VertEq(localGLUvertex5, localGLUvertex2)))
+    {
+      CheckForRightSplice(paramGLUtessellatorImpl, paramActiveRegion);
+      return false;
+    }
+    
+    if (((!Geom.VertEq(localGLUvertex3, event)) && 
+      (Geom.EdgeSign(localGLUvertex3, event, localGLUvertex5) >= 0.0D)) || (
+      (!Geom.VertEq(localGLUvertex4, event)) && 
+      (Geom.EdgeSign(localGLUvertex4, event, localGLUvertex5) <= 0.0D)))
+    {
+
+
+
+      if (localGLUvertex4 == event)
+      {
+        if (Mesh.__gl_meshSplitEdge(Sym) == null) throw new RuntimeException();
+        if (!Mesh.__gl_meshSplice(Sym, localGLUhalfEdge1)) throw new RuntimeException();
+        paramActiveRegion = TopLeftRegion(paramActiveRegion);
+        if (paramActiveRegion == null) throw new RuntimeException();
+        localGLUhalfEdge1 = RegionBeloweUp;
+        FinishLeftRegions(paramGLUtessellatorImpl, RegionBelow(paramActiveRegion), localActiveRegion);
+        AddRightEdges(paramGLUtessellatorImpl, paramActiveRegion, Sym.Lnext, localGLUhalfEdge1, localGLUhalfEdge1, true);
+        return true;
+      }
+      if (localGLUvertex3 == event)
+      {
+        if (Mesh.__gl_meshSplitEdge(Sym) == null) throw new RuntimeException();
+        if (!Mesh.__gl_meshSplice(Lnext, Sym.Lnext)) throw new RuntimeException();
+        localActiveRegion = paramActiveRegion;
+        paramActiveRegion = TopRightRegion(paramActiveRegion);
+        GLUhalfEdge localGLUhalfEdge3 = RegionBeloweUp.Sym.Onext;
+        eUp = Sym.Lnext;
+        localGLUhalfEdge2 = FinishLeftRegions(paramGLUtessellatorImpl, localActiveRegion, null);
+        AddRightEdges(paramGLUtessellatorImpl, paramActiveRegion, Onext, Sym.Onext, localGLUhalfEdge3, true);
+        return true;
+      }
+      
+
+
+
+      if (Geom.EdgeSign(localGLUvertex3, event, localGLUvertex5) >= 0.0D) {
+        RegionAbovedirty = (paramActiveRegion.dirty = 1);
+        if (Mesh.__gl_meshSplitEdge(Sym) == null) throw new RuntimeException();
+        Org.s = event.s;
+        Org.t = event.t;
+      }
+      if (Geom.EdgeSign(localGLUvertex4, event, localGLUvertex5) <= 0.0D) {
+        dirty = (localActiveRegion.dirty = 1);
+        if (Mesh.__gl_meshSplitEdge(Sym) == null) throw new RuntimeException();
+        Org.s = event.s;
+        Org.t = event.t;
+      }
+      
+      return false;
+    }
+    
+
+
+
+
+
+
+
+
+    if (Mesh.__gl_meshSplitEdge(Sym) == null) throw new RuntimeException();
+    if (Mesh.__gl_meshSplitEdge(Sym) == null) throw new RuntimeException();
+    if (!Mesh.__gl_meshSplice(Sym.Lnext, localGLUhalfEdge1)) throw new RuntimeException();
+    Org.s = s;
+    Org.t = t;
+    Org.pqHandle = pq.pqInsert(Org);
+    if (Org.pqHandle == Integer.MAX_VALUE) {
+      pq.pqDeletePriorityQ();
+      pq = null;
+      throw new RuntimeException();
+    }
+    GetIntersectData(paramGLUtessellatorImpl, Org, localGLUvertex1, localGLUvertex3, localGLUvertex2, localGLUvertex4);
+    RegionAbovedirty = (paramActiveRegion.dirty = localActiveRegion.dirty = 1);
+    return false;
+  }
+  
+
+
+
+
+
+
+
+  static void WalkDirtyRegions(GLUtessellatorImpl paramGLUtessellatorImpl, ActiveRegion paramActiveRegion)
+  {
+    ActiveRegion localActiveRegion = RegionBelow(paramActiveRegion);
+    
+
+    for (;;)
+    {
+      if (dirty) {
+        paramActiveRegion = localActiveRegion;
+        localActiveRegion = RegionBelow(localActiveRegion);
+      } else {
+        if (!dirty) {
+          localActiveRegion = paramActiveRegion;
+          paramActiveRegion = RegionAbove(paramActiveRegion);
+          if ((paramActiveRegion == null) || (!dirty))
+          {
+            return;
+          }
+        }
+        dirty = false;
+        GLUhalfEdge localGLUhalfEdge1 = eUp;
+        GLUhalfEdge localGLUhalfEdge2 = eUp;
+        
+        if (Sym.Org != Sym.Org)
+        {
+          if (CheckForLeftSplice(paramGLUtessellatorImpl, paramActiveRegion))
+          {
+
+
+
+
+            if (fixUpperEdge) {
+              DeleteRegion(paramGLUtessellatorImpl, localActiveRegion);
+              if (!Mesh.__gl_meshDelete(localGLUhalfEdge2)) throw new RuntimeException();
+              localActiveRegion = RegionBelow(paramActiveRegion);
+              localGLUhalfEdge2 = eUp;
+            } else if (fixUpperEdge) {
+              DeleteRegion(paramGLUtessellatorImpl, paramActiveRegion);
+              if (!Mesh.__gl_meshDelete(localGLUhalfEdge1)) throw new RuntimeException();
+              paramActiveRegion = RegionAbove(localActiveRegion);
+              localGLUhalfEdge1 = eUp;
+            }
+          }
+        }
+        if (Org != Org) {
+          if ((Sym.Org != Sym.Org) && (!fixUpperEdge) && (!fixUpperEdge) && ((Sym.Org == event) || (Sym.Org == event)))
+          {
+
+
+
+
+
+
+
+
+
+            if (!CheckForIntersect(paramGLUtessellatorImpl, paramActiveRegion)) {}
+
+
+
+          }
+          else
+          {
+
+            CheckForRightSplice(paramGLUtessellatorImpl, paramActiveRegion);
+          }
+        }
+        if ((Org == Org) && (Sym.Org == Sym.Org))
+        {
+          AddWinding(localGLUhalfEdge2, localGLUhalfEdge1);
+          DeleteRegion(paramGLUtessellatorImpl, paramActiveRegion);
+          if (!Mesh.__gl_meshDelete(localGLUhalfEdge1)) throw new RuntimeException();
+          paramActiveRegion = RegionAbove(localActiveRegion);
+        }
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  static void ConnectRightVertex(GLUtessellatorImpl paramGLUtessellatorImpl, ActiveRegion paramActiveRegion, GLUhalfEdge paramGLUhalfEdge)
+  {
+    GLUhalfEdge localGLUhalfEdge2 = Onext;
+    ActiveRegion localActiveRegion = RegionBelow(paramActiveRegion);
+    GLUhalfEdge localGLUhalfEdge3 = eUp;
+    GLUhalfEdge localGLUhalfEdge4 = eUp;
+    int i = 0;
+    
+    if (Sym.Org != Sym.Org) {
+      CheckForIntersect(paramGLUtessellatorImpl, paramActiveRegion);
+    }
+    
+
+
+
+    if (Geom.VertEq(Org, event)) {
+      if (!Mesh.__gl_meshSplice(Sym.Lnext, localGLUhalfEdge3)) throw new RuntimeException();
+      paramActiveRegion = TopLeftRegion(paramActiveRegion);
+      if (paramActiveRegion == null) throw new RuntimeException();
+      localGLUhalfEdge2 = RegionBeloweUp;
+      FinishLeftRegions(paramGLUtessellatorImpl, RegionBelow(paramActiveRegion), localActiveRegion);
+      i = 1;
+    }
+    if (Geom.VertEq(Org, event)) {
+      if (!Mesh.__gl_meshSplice(paramGLUhalfEdge, Sym.Lnext)) throw new RuntimeException();
+      paramGLUhalfEdge = FinishLeftRegions(paramGLUtessellatorImpl, localActiveRegion, null);
+      i = 1;
+    }
+    if (i != 0) {
+      AddRightEdges(paramGLUtessellatorImpl, paramActiveRegion, Onext, localGLUhalfEdge2, localGLUhalfEdge2, true);
+      return;
+    }
+    
+
+
+
+    if (Geom.VertLeq(Org, Org)) {
+      localGLUhalfEdge1 = Sym.Lnext;
+    } else {
+      localGLUhalfEdge1 = localGLUhalfEdge3;
+    }
+    GLUhalfEdge localGLUhalfEdge1 = Mesh.__gl_meshConnect(Onext.Sym, localGLUhalfEdge1);
+    if (localGLUhalfEdge1 == null) { throw new RuntimeException();
+    }
+    
+
+
+    AddRightEdges(paramGLUtessellatorImpl, paramActiveRegion, localGLUhalfEdge1, Onext, Onext, false);
+    Sym.activeRegion.fixUpperEdge = true;
+    WalkDirtyRegions(paramGLUtessellatorImpl, paramActiveRegion);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  static void ConnectLeftDegenerate(GLUtessellatorImpl paramGLUtessellatorImpl, ActiveRegion paramActiveRegion, GLUvertex paramGLUvertex)
+  {
+    GLUhalfEdge localGLUhalfEdge1 = eUp;
+    if (Geom.VertEq(Org, paramGLUvertex))
+    {
+
+
+      if (!$assertionsDisabled) throw new AssertionError();
+      SpliceMergeVertices(paramGLUtessellatorImpl, localGLUhalfEdge1, anEdge);
+      return;
+    }
+    
+    if (!Geom.VertEq(Sym.Org, paramGLUvertex))
+    {
+      if (Mesh.__gl_meshSplitEdge(Sym) == null) throw new RuntimeException();
+      if (fixUpperEdge)
+      {
+        if (!Mesh.__gl_meshDelete(Onext)) throw new RuntimeException();
+        fixUpperEdge = false;
+      }
+      if (!Mesh.__gl_meshSplice(anEdge, localGLUhalfEdge1)) throw new RuntimeException();
+      SweepEvent(paramGLUtessellatorImpl, paramGLUvertex);
+      return;
+    }
+    
+
+
+
+    if (!$assertionsDisabled) throw new AssertionError();
+    paramActiveRegion = TopRightRegion(paramActiveRegion);
+    ActiveRegion localActiveRegion = RegionBelow(paramActiveRegion);
+    GLUhalfEdge localGLUhalfEdge3 = eUp.Sym;
+    GLUhalfEdge localGLUhalfEdge4; GLUhalfEdge localGLUhalfEdge2 = localGLUhalfEdge4 = Onext;
+    if (fixUpperEdge)
+    {
+
+
+      assert (localGLUhalfEdge2 != localGLUhalfEdge3);
+      DeleteRegion(paramGLUtessellatorImpl, localActiveRegion);
+      if (!Mesh.__gl_meshDelete(localGLUhalfEdge3)) throw new RuntimeException();
+      localGLUhalfEdge3 = Sym.Lnext;
+    }
+    if (!Mesh.__gl_meshSplice(anEdge, localGLUhalfEdge3)) throw new RuntimeException();
+    if (!Geom.EdgeGoesLeft(localGLUhalfEdge2))
+    {
+      localGLUhalfEdge2 = null;
+    }
+    AddRightEdges(paramGLUtessellatorImpl, paramActiveRegion, Onext, localGLUhalfEdge4, localGLUhalfEdge2, true);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  static void ConnectLeftVertex(GLUtessellatorImpl paramGLUtessellatorImpl, GLUvertex paramGLUvertex)
+  {
+    ActiveRegion localActiveRegion4 = new ActiveRegion();
+    
+
+
+
+    eUp = anEdge.Sym;
+    
+    ActiveRegion localActiveRegion1 = (ActiveRegion)Dict.dictKey(Dict.dictSearch(dict, localActiveRegion4));
+    ActiveRegion localActiveRegion2 = RegionBelow(localActiveRegion1);
+    GLUhalfEdge localGLUhalfEdge1 = eUp;
+    GLUhalfEdge localGLUhalfEdge2 = eUp;
+    
+
+    if (Geom.EdgeSign(Sym.Org, paramGLUvertex, Org) == 0.0D) {
+      ConnectLeftDegenerate(paramGLUtessellatorImpl, localActiveRegion1, paramGLUvertex);
+      return;
+    }
+    
+
+
+
+    ActiveRegion localActiveRegion3 = Geom.VertLeq(Sym.Org, Sym.Org) ? localActiveRegion1 : localActiveRegion2;
+    
+    if ((inside) || (fixUpperEdge)) { GLUhalfEdge localGLUhalfEdge3;
+      if (localActiveRegion3 == localActiveRegion1) {
+        localGLUhalfEdge3 = Mesh.__gl_meshConnect(anEdge.Sym, Lnext);
+        if (localGLUhalfEdge3 == null) throw new RuntimeException();
+      } else {
+        GLUhalfEdge localGLUhalfEdge4 = Mesh.__gl_meshConnect(Sym.Onext.Sym, anEdge);
+        if (localGLUhalfEdge4 == null) { throw new RuntimeException();
+        }
+        localGLUhalfEdge3 = Sym;
+      }
+      if (fixUpperEdge) {
+        if (!FixUpperEdge(localActiveRegion3, localGLUhalfEdge3)) throw new RuntimeException();
+      } else {
+        ComputeWinding(paramGLUtessellatorImpl, AddRegionBelow(paramGLUtessellatorImpl, localActiveRegion1, localGLUhalfEdge3));
+      }
+      SweepEvent(paramGLUtessellatorImpl, paramGLUvertex);
+
+    }
+    else
+    {
+      AddRightEdges(paramGLUtessellatorImpl, localActiveRegion1, anEdge, anEdge, null, true);
+    }
+  }
+  
+
+
+
+
+
+
+
+  static void SweepEvent(GLUtessellatorImpl paramGLUtessellatorImpl, GLUvertex paramGLUvertex)
+  {
+    event = paramGLUvertex;
+    DebugEvent(paramGLUtessellatorImpl);
+    
+
+
+
+
+    GLUhalfEdge localGLUhalfEdge1 = anEdge;
+    while (activeRegion == null) {
+      localGLUhalfEdge1 = Onext;
+      if (localGLUhalfEdge1 == anEdge)
+      {
+        ConnectLeftVertex(paramGLUtessellatorImpl, paramGLUvertex);
+        return;
+      }
+    }
+    
+
+
+
+
+
+
+
+    ActiveRegion localActiveRegion1 = TopLeftRegion(activeRegion);
+    if (localActiveRegion1 == null) throw new RuntimeException();
+    ActiveRegion localActiveRegion2 = RegionBelow(localActiveRegion1);
+    GLUhalfEdge localGLUhalfEdge2 = eUp;
+    GLUhalfEdge localGLUhalfEdge3 = FinishLeftRegions(paramGLUtessellatorImpl, localActiveRegion2, null);
+    
+
+
+
+
+
+    if (Onext == localGLUhalfEdge2)
+    {
+      ConnectRightVertex(paramGLUtessellatorImpl, localActiveRegion1, localGLUhalfEdge3);
+    } else {
+      AddRightEdges(paramGLUtessellatorImpl, localActiveRegion1, Onext, localGLUhalfEdge2, localGLUhalfEdge2, true);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  static void AddSentinel(GLUtessellatorImpl paramGLUtessellatorImpl, double paramDouble)
+  {
+    ActiveRegion localActiveRegion = new ActiveRegion();
+    if (localActiveRegion == null) { throw new RuntimeException();
+    }
+    GLUhalfEdge localGLUhalfEdge = Mesh.__gl_meshMakeEdge(mesh);
+    if (localGLUhalfEdge == null) { throw new RuntimeException();
+    }
+    Org.s = 4.0E150D;
+    Org.t = paramDouble;
+    Sym.Org.s = -4.0E150D;
+    Sym.Org.t = paramDouble;
+    event = Sym.Org;
+    
+    eUp = localGLUhalfEdge;
+    windingNumber = 0;
+    inside = false;
+    fixUpperEdge = false;
+    sentinel = true;
+    dirty = false;
+    nodeUp = Dict.dictInsert(dict, localActiveRegion);
+    if (nodeUp == null) { throw new RuntimeException();
+    }
+  }
+  
+
+
+
+
+  static void InitEdgeDict(GLUtessellatorImpl paramGLUtessellatorImpl)
+  {
+    dict = Dict.dictNewDict(paramGLUtessellatorImpl, new Dict.DictLeq()
+    {
+      public boolean leq(Object paramAnonymousObject1, Object paramAnonymousObject2, Object paramAnonymousObject3) {
+        return Sweep.EdgeLeq(val$tess, (ActiveRegion)paramAnonymousObject2, (ActiveRegion)paramAnonymousObject3);
+      }
+    });
+    if (dict == null) { throw new RuntimeException();
+    }
+    AddSentinel(paramGLUtessellatorImpl, -4.0E150D);
+    AddSentinel(paramGLUtessellatorImpl, 4.0E150D);
+  }
+  
+
+  static void DoneEdgeDict(GLUtessellatorImpl paramGLUtessellatorImpl)
+  {
+    int i = 0;
+    
+    ActiveRegion localActiveRegion;
+    while ((localActiveRegion = (ActiveRegion)Dict.dictKey(Dict.dictMin(dict))) != null)
+    {
+
+
+
+
+      if (!sentinel) {
+        assert (fixUpperEdge);
+        if (!$assertionsDisabled) { i++; if (i != 1) throw new AssertionError();
+        } }
+      assert (windingNumber == 0);
+      DeleteRegion(paramGLUtessellatorImpl, localActiveRegion);
+    }
+    
+    Dict.dictDeleteDict(dict);
+  }
+  
+
+
+
+
+  static void RemoveDegenerateEdges(GLUtessellatorImpl paramGLUtessellatorImpl)
+  {
+    GLUhalfEdge localGLUhalfEdge3 = mesh.eHead;
+    
+    GLUhalfEdge localGLUhalfEdge1;
+    for (Object localObject = next; localObject != localGLUhalfEdge3; localObject = localGLUhalfEdge1) {
+      localGLUhalfEdge1 = next;
+      GLUhalfEdge localGLUhalfEdge2 = Lnext;
+      
+      if ((Geom.VertEq(Org, Sym.Org)) && (Lnext.Lnext != localObject))
+      {
+
+        SpliceMergeVertices(paramGLUtessellatorImpl, localGLUhalfEdge2, (GLUhalfEdge)localObject);
+        if (!Mesh.__gl_meshDelete((GLUhalfEdge)localObject)) throw new RuntimeException();
+        localObject = localGLUhalfEdge2;
+        localGLUhalfEdge2 = Lnext;
+      }
+      if (Lnext == localObject)
+      {
+
+        if (localGLUhalfEdge2 != localObject) {
+          if ((localGLUhalfEdge2 == localGLUhalfEdge1) || (localGLUhalfEdge2 == Sym)) {
+            localGLUhalfEdge1 = next;
+          }
+          if (!Mesh.__gl_meshDelete(localGLUhalfEdge2)) throw new RuntimeException();
+        }
+        if ((localObject == localGLUhalfEdge1) || (localObject == Sym)) {
+          localGLUhalfEdge1 = next;
+        }
+        if (!Mesh.__gl_meshDelete((GLUhalfEdge)localObject)) { throw new RuntimeException();
+        }
+      }
+    }
+  }
+  
+
+
+
+
+
+
+  static boolean InitPriorityQ(GLUtessellatorImpl paramGLUtessellatorImpl)
+  {
+    PriorityQ localPriorityQ = paramGLUtessellatorImpl.pq = PriorityQ.pqNewPriorityQ(new PriorityQ.Leq()
+    {
+      public boolean leq(Object paramAnonymousObject1, Object paramAnonymousObject2) {
+        return Geom.VertLeq((GLUvertex)paramAnonymousObject1, (GLUvertex)paramAnonymousObject2);
+      }
+      
+    });
+    GLUvertex localGLUvertex2 = mesh.vHead;
+    for (GLUvertex localGLUvertex1 = next; localGLUvertex1 != localGLUvertex2; localGLUvertex1 = next) {
+      pqHandle = localPriorityQ.pqInsert(localGLUvertex1);
+      if (pqHandle == Integer.MAX_VALUE) break;
+    }
+    if ((localGLUvertex1 != localGLUvertex2) || (!localPriorityQ.pqInit())) {
+      pq.pqDeletePriorityQ();
+      pq = null;
+      return false;
+    }
+    
+    return true;
+  }
+  
+  static void DonePriorityQ(GLUtessellatorImpl paramGLUtessellatorImpl)
+  {
+    pq.pqDeletePriorityQ();
+  }
+  
+
+
+
+
+
+
+
+
+
+  static boolean RemoveDegenerateFaces(GLUmesh paramGLUmesh)
+  {
+    GLUface localGLUface;
+    
+
+
+
+
+
+
+
+    for (Object localObject = fHead.next; localObject != fHead; localObject = localGLUface) {
+      localGLUface = next;
+      GLUhalfEdge localGLUhalfEdge = anEdge;
+      assert (Lnext != localGLUhalfEdge);
+      
+      if (Lnext.Lnext == localGLUhalfEdge)
+      {
+        AddWinding(Onext, localGLUhalfEdge);
+        if (!Mesh.__gl_meshDelete(localGLUhalfEdge)) return false;
+      }
+    }
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+  public static boolean __gl_computeInterior(GLUtessellatorImpl paramGLUtessellatorImpl)
+  {
+    fatalError = false;
+    
+
+
+
+
+
+
+    RemoveDegenerateEdges(paramGLUtessellatorImpl);
+    if (!InitPriorityQ(paramGLUtessellatorImpl)) return false;
+    InitEdgeDict(paramGLUtessellatorImpl);
+    
+    GLUvertex localGLUvertex1;
+    while ((localGLUvertex1 = (GLUvertex)pq.pqExtractMin()) != null) {
+      for (;;) {
+        GLUvertex localGLUvertex2 = (GLUvertex)pq.pqMinimum();
+        if ((localGLUvertex2 == null) || (!Geom.VertEq(localGLUvertex2, localGLUvertex1))) {
+          break;
+        }
+        
+
+
+
+
+
+
+
+
+
+
+
+
+        localGLUvertex2 = (GLUvertex)pq.pqExtractMin();
+        SpliceMergeVertices(paramGLUtessellatorImpl, anEdge, anEdge);
+      }
+      SweepEvent(paramGLUtessellatorImpl, localGLUvertex1);
+    }
+    
+
+
+    event = dictKeydictMindict))).eUp.Org;
+    DebugEvent(paramGLUtessellatorImpl);
+    DoneEdgeDict(paramGLUtessellatorImpl);
+    DonePriorityQ(paramGLUtessellatorImpl);
+    
+    if (!RemoveDegenerateFaces(mesh)) return false;
+    Mesh.__gl_meshCheckMesh(mesh);
+    
+    return true;
+  }
+}

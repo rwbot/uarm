@@ -1,0 +1,94 @@
+package com.jogamp.nativewindow.awt;
+
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.DefaultGraphicsScreen;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AWTGraphicsScreen
+  extends DefaultGraphicsScreen
+  implements Cloneable
+{
+  public AWTGraphicsScreen(AWTGraphicsDevice paramAWTGraphicsDevice)
+  {
+    super(paramAWTGraphicsDevice, findScreenIndex(paramAWTGraphicsDevice.getGraphicsDevice()));
+  }
+  
+  public static GraphicsDevice getScreenDevice(int paramInt) {
+    if (paramInt < 0) return null;
+    GraphicsEnvironment localGraphicsEnvironment = GraphicsEnvironment.getLocalGraphicsEnvironment();
+    GraphicsDevice[] arrayOfGraphicsDevice = localGraphicsEnvironment.getScreenDevices();
+    if (paramInt < arrayOfGraphicsDevice.length) {
+      return arrayOfGraphicsDevice[paramInt];
+    }
+    return null;
+  }
+  
+  public static int findScreenIndex(GraphicsDevice paramGraphicsDevice) {
+    if (null == paramGraphicsDevice) return -1;
+    GraphicsEnvironment localGraphicsEnvironment = GraphicsEnvironment.getLocalGraphicsEnvironment();
+    GraphicsDevice[] arrayOfGraphicsDevice = localGraphicsEnvironment.getScreenDevices();
+    for (int i = 0; i < arrayOfGraphicsDevice.length; i++) {
+      if (arrayOfGraphicsDevice[i] == paramGraphicsDevice) return i;
+    }
+    return -1;
+  }
+  
+  public static AbstractGraphicsScreen createScreenDevice(GraphicsDevice paramGraphicsDevice, int paramInt) {
+    return new AWTGraphicsScreen(new AWTGraphicsDevice(paramGraphicsDevice, paramInt));
+  }
+  
+  public static AbstractGraphicsScreen createScreenDevice(int paramInt1, int paramInt2) {
+    return createScreenDevice(getScreenDevice(paramInt1), paramInt2);
+  }
+  
+  public static AbstractGraphicsScreen createDefault() {
+    return new AWTGraphicsScreen(AWTGraphicsDevice.createDefault());
+  }
+  
+  public Object clone()
+  {
+    return super.clone();
+  }
+}

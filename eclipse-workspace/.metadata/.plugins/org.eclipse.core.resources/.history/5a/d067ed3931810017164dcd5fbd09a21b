@@ -1,0 +1,92 @@
+package com.jogamp.opengl.egl;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.StructAccessor;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import java.nio.ByteBuffer;
+import jogamp.common.os.MachineDataInfoRuntime;
+
+
+
+
+
+
+
+
+
+
+
+
+public class EGLClientPixmapHI
+{
+  StructAccessor accessor;
+  private static final int mdIdx = MachineDataInfoRuntime.getStatic().ordinal();
+  
+  private final MachineDataInfo md;
+  private static final int[] EGLClientPixmapHI_size = { 16, 16, 16, 16, 16, 16, 24, 24 };
+  
+
+  private static final int[] iWidth_offset = { 4, 4, 4, 4, 4, 4, 8, 8 };
+  
+  private static final int[] iHeight_offset = { 8, 8, 8, 8, 8, 8, 12, 12 };
+  
+  private static final int[] iStride_offset = { 12, 12, 12, 12, 12, 12, 16, 16 };
+  
+  public static int size()
+  {
+    return EGLClientPixmapHI_size[mdIdx];
+  }
+  
+  public static EGLClientPixmapHI create() {
+    return create(Buffers.newDirectByteBuffer(size()));
+  }
+  
+  public static EGLClientPixmapHI create(ByteBuffer paramByteBuffer) {
+    return new EGLClientPixmapHI(paramByteBuffer);
+  }
+  
+  EGLClientPixmapHI(ByteBuffer paramByteBuffer) {
+    md = valuesmdIdxmd;
+    accessor = new StructAccessor(paramByteBuffer);
+  }
+  
+  public ByteBuffer getBuffer() {
+    return accessor.getBuffer();
+  }
+  
+
+
+  public EGLClientPixmapHI setIWidth(int paramInt)
+  {
+    accessor.setIntAt(iWidth_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getIWidth()
+  {
+    return accessor.getIntAt(iWidth_offset[mdIdx]);
+  }
+  
+  public EGLClientPixmapHI setIHeight(int paramInt)
+  {
+    accessor.setIntAt(iHeight_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getIHeight()
+  {
+    return accessor.getIntAt(iHeight_offset[mdIdx]);
+  }
+  
+  public EGLClientPixmapHI setIStride(int paramInt)
+  {
+    accessor.setIntAt(iStride_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getIStride()
+  {
+    return accessor.getIntAt(iStride_offset[mdIdx]);
+  }
+}

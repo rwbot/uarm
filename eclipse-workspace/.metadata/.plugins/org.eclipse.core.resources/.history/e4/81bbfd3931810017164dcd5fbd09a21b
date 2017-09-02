@@ -1,0 +1,83 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInputStream;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class LigatureSet
+{
+  private final int _ligatureCount;
+  private final int[] _ligatureOffsets;
+  private final Ligature[] _ligatures;
+  
+  public LigatureSet(DataInputStream paramDataInputStream, int paramInt)
+    throws IOException
+  {
+    paramDataInputStream.reset();
+    paramDataInputStream.skipBytes(paramInt);
+    _ligatureCount = paramDataInputStream.readUnsignedShort();
+    _ligatureOffsets = new int[_ligatureCount];
+    _ligatures = new Ligature[_ligatureCount];
+    for (int i = 0; i < _ligatureCount; i++) {
+      _ligatureOffsets[i] = paramDataInputStream.readUnsignedShort();
+    }
+    for (i = 0; i < _ligatureCount; i++) {
+      paramDataInputStream.reset();
+      paramDataInputStream.skipBytes(paramInt + _ligatureOffsets[i]);
+      _ligatures[i] = new Ligature(paramDataInputStream);
+    }
+  }
+}

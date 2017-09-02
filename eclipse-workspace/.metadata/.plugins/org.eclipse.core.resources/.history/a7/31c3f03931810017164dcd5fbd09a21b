@@ -1,0 +1,78 @@
+package com.jogamp.opengl.util;
+
+import com.jogamp.opengl.GLAutoDrawable;
+import java.util.ArrayList;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class DefaultAnimatorImpl
+  implements AnimatorBase.AnimatorImpl
+{
+  DefaultAnimatorImpl() {}
+  
+  public void display(ArrayList<GLAutoDrawable> paramArrayList, boolean paramBoolean1, boolean paramBoolean2)
+    throws AnimatorBase.UncaughtAnimatorException
+  {
+    int i = 0;
+    for (int j = 0; (i == 0) && (j < paramArrayList.size()); j++) {
+      int k = 1;
+      GLAutoDrawable localGLAutoDrawable = null;
+      try {
+        localGLAutoDrawable = (GLAutoDrawable)paramArrayList.get(j);
+        k = 0;
+        localGLAutoDrawable.display();
+      } catch (Throwable localThrowable) {
+        if ((k != 0) && ((localThrowable instanceof IndexOutOfBoundsException)))
+        {
+          i = 1;
+        } else if (paramBoolean1) {
+          if (paramBoolean2) {
+            localThrowable.printStackTrace();
+          }
+        } else {
+          throw new AnimatorBase.UncaughtAnimatorException(localGLAutoDrawable, localThrowable);
+        }
+      }
+    }
+  }
+  
+  public boolean blockUntilDone(Thread paramThread)
+  {
+    return Thread.currentThread() != paramThread;
+  }
+}

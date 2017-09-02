@@ -1,0 +1,107 @@
+package jogamp.nativewindow.x11;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.StructAccessor;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import java.nio.ByteBuffer;
+import jogamp.common.os.MachineDataInfoRuntime;
+
+
+
+
+
+
+
+
+
+
+public class XRenderPictFormat
+{
+  StructAccessor accessor;
+  private static final int mdIdx = MachineDataInfoRuntime.getStatic().ordinal();
+  
+  private final MachineDataInfo md;
+  private static final int[] XRenderPictFormat_size = { 32, 32, 32, 32, 32, 32, 40, 40 };
+  private static final int[] id_offset = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  
+  private static final int[] type_offset = { 4, 4, 4, 4, 4, 4, 8, 8 };
+  
+  private static final int[] depth_offset = { 8, 8, 8, 8, 8, 8, 12, 12 };
+  
+  private static final int[] direct_offset = { 12, 12, 12, 12, 12, 12, 16, 16 };
+  private static final int[] direct_size = { 16, 16, 16, 16, 16, 16, 16, 16 };
+  private static final int[] colormap_offset = { 28, 28, 28, 28, 28, 28, 32, 32 };
+  
+  public static int size()
+  {
+    return XRenderPictFormat_size[mdIdx];
+  }
+  
+  public static XRenderPictFormat create() {
+    return create(Buffers.newDirectByteBuffer(size()));
+  }
+  
+  public static XRenderPictFormat create(ByteBuffer paramByteBuffer) {
+    return new XRenderPictFormat(paramByteBuffer);
+  }
+  
+  XRenderPictFormat(ByteBuffer paramByteBuffer) {
+    md = valuesmdIdxmd;
+    accessor = new StructAccessor(paramByteBuffer);
+  }
+  
+  public ByteBuffer getBuffer() {
+    return accessor.getBuffer();
+  }
+  
+  public XRenderPictFormat setId(long paramLong)
+  {
+    accessor.setLongAt(id_offset[mdIdx], paramLong, md.pointerSizeInBytes());
+    return this;
+  }
+  
+  public long getId()
+  {
+    return accessor.getLongAt(id_offset[mdIdx], md.pointerSizeInBytes());
+  }
+  
+
+  public XRenderPictFormat setType(int paramInt)
+  {
+    accessor.setIntAt(type_offset[mdIdx], paramInt, md.intSizeInBytes());
+    return this;
+  }
+  
+  public int getType()
+  {
+    return accessor.getIntAt(type_offset[mdIdx], md.intSizeInBytes());
+  }
+  
+  public XRenderPictFormat setDepth(int paramInt)
+  {
+    accessor.setIntAt(depth_offset[mdIdx], paramInt, md.intSizeInBytes());
+    return this;
+  }
+  
+  public int getDepth()
+  {
+    return accessor.getIntAt(depth_offset[mdIdx], md.intSizeInBytes());
+  }
+  
+  public XRenderDirectFormat getDirect()
+  {
+    return XRenderDirectFormat.create(accessor.slice(direct_offset[mdIdx], direct_size[mdIdx]));
+  }
+  
+  public XRenderPictFormat setColormap(long paramLong)
+  {
+    accessor.setLongAt(colormap_offset[mdIdx], paramLong, md.pointerSizeInBytes());
+    return this;
+  }
+  
+  public long getColormap()
+  {
+    return accessor.getLongAt(colormap_offset[mdIdx], md.pointerSizeInBytes());
+  }
+}

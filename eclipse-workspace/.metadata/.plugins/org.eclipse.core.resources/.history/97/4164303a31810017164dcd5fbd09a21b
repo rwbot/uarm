@@ -1,0 +1,61 @@
+package jogamp.opengl.util.pngj.chunks;
+
+import jogamp.opengl.util.pngj.ImageInfo;
+import jogamp.opengl.util.pngj.PngHelperInternal;
+import jogamp.opengl.util.pngj.PngjException;
+
+
+
+
+
+
+
+public class PngChunkSRGB
+  extends PngChunkSingle
+{
+  public static final String ID = "sRGB";
+  public static final int RENDER_INTENT_Perceptual = 0;
+  public static final int RENDER_INTENT_Relative_colorimetric = 1;
+  public static final int RENDER_INTENT_Saturation = 2;
+  public static final int RENDER_INTENT_Absolute_colorimetric = 3;
+  private int intent;
+  
+  public PngChunkSRGB(ImageInfo paramImageInfo)
+  {
+    super("sRGB", paramImageInfo);
+  }
+  
+  public PngChunk.ChunkOrderingConstraint getOrderingConstraint()
+  {
+    return PngChunk.ChunkOrderingConstraint.BEFORE_PLTE_AND_IDAT;
+  }
+  
+  public void parseFromRaw(ChunkRaw paramChunkRaw)
+  {
+    if (len != 1)
+      throw new PngjException("bad chunk length " + paramChunkRaw);
+    intent = PngHelperInternal.readInt1fromByte(data, 0);
+  }
+  
+  public ChunkRaw createRawChunk()
+  {
+    ChunkRaw localChunkRaw = null;
+    localChunkRaw = createEmptyChunk(1, true);
+    data[0] = ((byte)intent);
+    return localChunkRaw;
+  }
+  
+  public void cloneDataFromRead(PngChunk paramPngChunk)
+  {
+    PngChunkSRGB localPngChunkSRGB = (PngChunkSRGB)paramPngChunk;
+    intent = intent;
+  }
+  
+  public int getIntent() {
+    return intent;
+  }
+  
+  public void setIntent(int paramInt) {
+    intent = paramInt;
+  }
+}

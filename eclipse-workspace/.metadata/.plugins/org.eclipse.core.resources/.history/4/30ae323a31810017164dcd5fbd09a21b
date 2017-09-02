@@ -1,0 +1,96 @@
+package jogamp.opengl.windows.wgl;
+
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.DefaultGraphicsScreen;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import jogamp.nativewindow.WrappedSurface;
+import jogamp.nativewindow.windows.GDI;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class WindowsExternalWGLDrawable
+  extends WindowsWGLDrawable
+{
+  private WindowsExternalWGLDrawable(GLDrawableFactory paramGLDrawableFactory, NativeSurface paramNativeSurface)
+  {
+    super(paramGLDrawableFactory, paramNativeSurface, true);
+  }
+  
+  protected static WindowsExternalWGLDrawable create(GLDrawableFactory paramGLDrawableFactory, GLProfile paramGLProfile) {
+    long l = WGL.wglGetCurrentDC();
+    if (0L == l) {
+      throw new GLException("Error: attempted to make an external GLDrawable without a drawable current, werr " + GDI.GetLastError());
+    }
+    int i = WGLUtil.GetPixelFormat(l);
+    if (i == 0) {
+      throw new GLException("Error: attempted to make an external GLContext without a valid pixelformat, werr " + GDI.GetLastError());
+    }
+    
+    AbstractGraphicsScreen localAbstractGraphicsScreen = DefaultGraphicsScreen.createDefault(NativeWindowFactory.TYPE_WINDOWS);
+    WindowsWGLGraphicsConfiguration localWindowsWGLGraphicsConfiguration = WindowsWGLGraphicsConfiguration.createFromExternal(paramGLDrawableFactory, l, i, paramGLProfile, localAbstractGraphicsScreen, true);
+    return new WindowsExternalWGLDrawable(paramGLDrawableFactory, new WrappedSurface(localWindowsWGLGraphicsConfiguration, l, 64, 64, true));
+  }
+  
+
+  public GLContext createContext(GLContext paramGLContext)
+  {
+    return new WindowsWGLContext(this, paramGLContext);
+  }
+  
+  public void setSize(int paramInt1, int paramInt2) {
+    throw new GLException("Should not call this");
+  }
+  
+  public int getSurfaceWidth()
+  {
+    throw new GLException("Should not call this");
+  }
+  
+  public int getSurfaceHeight()
+  {
+    throw new GLException("Should not call this");
+  }
+}

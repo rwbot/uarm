@@ -1,0 +1,67 @@
+package g4p_controls;
+
+import java.util.HashMap;
+import processing.core.PApplet;
+import processing.core.PImage;
+
+public class ImageManager
+{
+  private static HashMap<String, PImage> textures = new HashMap();
+  
+  public ImageManager() {}
+  
+  public static PImage loadImage(PApplet paramPApplet, String paramString)
+  {
+    if (textures.containsKey(paramString)) {
+      return (PImage)textures.get(paramString);
+    }
+    PImage localPImage = paramPApplet.loadImage(paramString);
+    if (localPImage != null) {
+      textures.put(paramString, localPImage);
+    } else {
+      PApplet.println("Unable to load image from file '" + paramString + "'");
+    }
+    return localPImage;
+  }
+  
+  public static PImage[] loadImage(PApplet paramPApplet, String[] paramArrayOfString)
+  {
+    PImage[] arrayOfPImage = new PImage[paramArrayOfString.length];
+    for (int i = 0; i < arrayOfPImage.length; i++) {
+      arrayOfPImage[i] = loadImage(paramPApplet, paramArrayOfString[i]);
+    }
+    return arrayOfPImage;
+  }
+  
+  public static PImage[][] makeTiles2D(PApplet paramPApplet, PImage paramPImage, int paramInt1, int paramInt2)
+  {
+    PImage[][] arrayOfPImage = new PImage[paramInt1][paramInt2];
+    int i = width / paramInt1;
+    int j = height / paramInt2;
+    for (int k = 0; k < paramInt2; k++) {
+      for (int m = 0; m < paramInt1; m++)
+      {
+        arrayOfPImage[m][k] = paramPApplet.createImage(i, j, 2);
+        arrayOfPImage[m][k].copy(paramPImage, m * i, k * j, i, j, 0, 0, i, j);
+      }
+    }
+    return arrayOfPImage;
+  }
+  
+  public static PImage[] makeTiles1D(PApplet paramPApplet, PImage paramPImage, int paramInt1, int paramInt2)
+  {
+    PImage[] arrayOfPImage = new PImage[paramInt1 * paramInt2];
+    int i = width / paramInt1;
+    int j = height / paramInt2;
+    int k = 0;
+    for (int m = 0; m < paramInt2; m++) {
+      for (int n = 0; n < paramInt1; n++)
+      {
+        arrayOfPImage[k] = paramPApplet.createImage(i, j, 2);
+        arrayOfPImage[k].copy(paramPImage, n * i, m * j, i, j, 0, 0, i, j);
+        k++;
+      }
+    }
+    return arrayOfPImage;
+  }
+}

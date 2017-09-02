@@ -1,0 +1,307 @@
+package jogamp.nativewindow.awt;
+
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.WindowClosingProtocol.WindowClosingMode;
+import com.jogamp.nativewindow.awt.DirectDataBufferInt;
+import com.jogamp.nativewindow.awt.DirectDataBufferInt.BufferedImageInt;
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.PixelFormat;
+import com.jogamp.nativewindow.util.PixelFormatUtil;
+import com.jogamp.nativewindow.util.PixelRectangle;
+import java.awt.Component;
+import java.awt.Container;
+import java.awt.Cursor;
+import java.awt.FocusTraversalPolicy;
+import java.awt.Frame;
+import java.awt.Insets;
+import java.awt.Toolkit;
+import java.awt.Window;
+import java.awt.image.BufferedImage;
+import java.io.PrintStream;
+import java.nio.ByteBuffer;
+import java.util.HashMap;
+import javax.swing.JComponent;
+import javax.swing.JFrame;
+import javax.swing.JRootPane;
+import javax.swing.MenuSelectionManager;
+import jogamp.nativewindow.jawt.JAWTUtil;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AWTMisc
+{
+  public static JFrame getJFrame(Component paramComponent)
+  {
+    while ((paramComponent != null) && (!(paramComponent instanceof JFrame))) {
+      paramComponent = paramComponent.getParent();
+    }
+    return (JFrame)paramComponent;
+  }
+  
+  public static Frame getFrame(Component paramComponent) {
+    while ((paramComponent != null) && (!(paramComponent instanceof Frame))) {
+      paramComponent = paramComponent.getParent();
+    }
+    return (Frame)paramComponent;
+  }
+  
+  public static Window getWindow(Component paramComponent) {
+    while ((paramComponent != null) && (!(paramComponent instanceof Window))) {
+      paramComponent = paramComponent.getParent();
+    }
+    return (Window)paramComponent;
+  }
+  
+  public static Container getContainer(Component paramComponent) {
+    while ((paramComponent != null) && (!(paramComponent instanceof Container))) {
+      paramComponent = paramComponent.getParent();
+    }
+    return (Container)paramComponent;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Insets getInsets(Component paramComponent, boolean paramBoolean)
+  {
+    if ((paramComponent instanceof Window)) {
+      return ((Window)paramComponent).getInsets();
+    }
+    if ((paramComponent instanceof JRootPane)) {
+      Window localWindow = getWindow(paramComponent);
+      if (null != localWindow) {
+        return localWindow.getInsets();
+      }
+      return ((JRootPane)paramComponent).getInsets();
+    }
+    if ((!paramBoolean) && ((paramComponent instanceof JComponent))) {
+      return ((JComponent)paramComponent).getInsets();
+    }
+    return null;
+  }
+  
+
+
+  public static com.jogamp.nativewindow.util.Point getLocationOnScreenSafe(com.jogamp.nativewindow.util.Point paramPoint, Component paramComponent, boolean paramBoolean)
+  {
+    if (!Thread.holdsLock(paramComponent.getTreeLock()))
+    {
+      if (null == paramPoint) {
+        paramPoint = new com.jogamp.nativewindow.util.Point();
+      }
+      getLocationOnScreenNonBlocking(paramPoint, paramComponent, paramBoolean);
+      return paramPoint;
+    }
+    java.awt.Point localPoint = paramComponent.getLocationOnScreen();
+    com.jogamp.nativewindow.util.Point localPoint1;
+    if (null != paramPoint) {
+      localPoint1 = paramPoint.translate(x, y);
+    } else {
+      localPoint1 = new com.jogamp.nativewindow.util.Point(x, y);
+    }
+    return localPoint1;
+  }
+  
+
+  public static Component getLocationOnScreenNonBlocking(com.jogamp.nativewindow.util.Point paramPoint, Component paramComponent, boolean paramBoolean)
+  {
+    Insets localInsets1 = new Insets(0, 0, 0, 0);
+    Component localComponent = null;
+    while (null != paramComponent) {
+      int i = paramComponent.getX();
+      int j = paramComponent.getY();
+      if (paramBoolean) {
+        Insets localInsets2 = getInsets(paramComponent, false);
+        if (null != localInsets2) {
+          bottom += bottom;
+          top += top;
+          left += left;
+          right += right;
+        }
+        System.err.print("LOS: " + paramPoint + " + " + paramComponent.getClass().getName() + "[" + i + "/" + j + ", vis " + paramComponent.isVisible() + ", ins " + localInsets2 + " -> " + localInsets1 + "] -> ");
+      }
+      paramPoint.translate(i, j);
+      if (paramBoolean) {
+        System.err.println(paramPoint);
+      }
+      localComponent = paramComponent;
+      if ((paramComponent instanceof Window)) {
+        break;
+      }
+      paramComponent = paramComponent.getParent();
+    }
+    return localComponent;
+  }
+  
+
+
+
+
+
+
+  public static int performAction(Container paramContainer, Class<?> paramClass, ComponentAction paramComponentAction)
+  {
+    int i = 0;
+    int j = paramContainer.getComponentCount();
+    for (int k = 0; k < j; k++) {
+      Component localComponent = paramContainer.getComponent(k);
+      if ((localComponent instanceof Container)) {
+        i += performAction((Container)localComponent, paramClass, paramComponentAction);
+      } else if (paramClass.isInstance(localComponent)) {
+        paramComponentAction.run(localComponent);
+        i++;
+      }
+    }
+    
+    if (paramClass.isInstance(paramContainer)) {
+      paramComponentAction.run(paramContainer);
+      i++;
+    }
+    return i;
+  }
+  
+
+
+
+
+
+
+
+  public static Component getNextFocus(Component paramComponent, boolean paramBoolean)
+  {
+    Container localContainer = paramComponent.getFocusCycleRootAncestor();
+    while ((localContainer != null) && (
+      (!localContainer.isShowing()) || (!localContainer.isFocusable()) || (!localContainer.isEnabled())))
+    {
+      paramComponent = localContainer;
+      localContainer = paramComponent.getFocusCycleRootAncestor();
+    }
+    Component localComponent = null;
+    if (localContainer != null) {
+      FocusTraversalPolicy localFocusTraversalPolicy = localContainer.getFocusTraversalPolicy();
+      localComponent = paramBoolean ? localFocusTraversalPolicy.getComponentAfter(localContainer, paramComponent) : localFocusTraversalPolicy.getComponentBefore(localContainer, paramComponent);
+      if (localComponent == null) {
+        localComponent = localFocusTraversalPolicy.getDefaultComponent(localContainer);
+      }
+    }
+    return localComponent;
+  }
+  
+
+
+  public static void clearAWTMenus()
+  {
+    MenuSelectionManager.defaultManager().clearSelectedPath();
+  }
+  
+  static final HashMap<Integer, Cursor> cursorMap = new HashMap();
+  static final Cursor nulCursor;
+  
+  static { Cursor localCursor = null;
+    if (!JAWTUtil.isHeadlessMode()) {
+      try {
+        Toolkit localToolkit = Toolkit.getDefaultToolkit();
+        BufferedImage localBufferedImage = new BufferedImage(1, 1, 6);
+        localCursor = localToolkit.createCustomCursor(localBufferedImage, new java.awt.Point(0, 0), "nullCursor");
+      } catch (Exception localException) {
+        if (JAWTUtil.DEBUG) {
+          System.err.println("Caught exception: " + localException.getMessage());
+          localException.printStackTrace();
+        }
+      }
+    }
+    nulCursor = localCursor;
+  }
+  
+  public static synchronized Cursor getNullCursor() { return nulCursor; }
+  
+  public static synchronized Cursor getCursor(PixelRectangle paramPixelRectangle, java.awt.Point paramPoint)
+  {
+    int i = 31 + paramPixelRectangle.hashCode();
+    i = (i << 5) - i + paramPoint.hashCode();
+    Integer localInteger = Integer.valueOf(i);
+    
+    Cursor localCursor = (Cursor)cursorMap.get(localInteger);
+    if (null == localCursor) {
+      localCursor = createCursor(paramPixelRectangle, paramPoint);
+      cursorMap.put(localInteger, localCursor);
+    }
+    return localCursor;
+  }
+  
+  private static synchronized Cursor createCursor(PixelRectangle paramPixelRectangle, java.awt.Point paramPoint) { int i = paramPixelRectangle.getSize().getWidth();
+    int j = paramPixelRectangle.getSize().getHeight();
+    
+
+    DirectDataBufferInt.BufferedImageInt localBufferedImageInt = DirectDataBufferInt.createBufferedImage(i, j, 2, null, null);
+    
+    ByteBuffer localByteBuffer = localBufferedImageInt.getDataBuffer().getDataBytes();
+    PixelFormatUtil.convert(paramPixelRectangle, localByteBuffer, PixelFormat.BGRA8888, false, i * 4);
+    
+    Toolkit localToolkit = Toolkit.getDefaultToolkit();
+    return localToolkit.createCustomCursor(localBufferedImageInt, paramPoint, paramPixelRectangle.toString());
+  }
+  
+  public static WindowClosingProtocol.WindowClosingMode AWT2NWClosingOperation(int paramInt) {
+    switch (paramInt) {
+    case 2: 
+    case 3: 
+      return WindowClosingProtocol.WindowClosingMode.DISPOSE_ON_CLOSE;
+    case 0: 
+    case 1: 
+      return WindowClosingProtocol.WindowClosingMode.DO_NOTHING_ON_CLOSE;
+    }
+    throw new NativeWindowException("Unhandled AWT Closing Operation: " + paramInt);
+  }
+  
+  public static WindowClosingProtocol.WindowClosingMode getNWClosingOperation(Component paramComponent)
+  {
+    JFrame localJFrame = getJFrame(paramComponent);
+    int i = null != localJFrame ? localJFrame.getDefaultCloseOperation() : 0;
+    return AWT2NWClosingOperation(i);
+  }
+  
+  public AWTMisc() {}
+  
+  public static abstract interface ComponentAction
+  {
+    public abstract void run(Component paramComponent);
+  }
+}

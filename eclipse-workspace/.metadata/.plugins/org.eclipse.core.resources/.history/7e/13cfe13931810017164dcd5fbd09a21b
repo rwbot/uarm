@@ -1,0 +1,789 @@
+package com.jogamp.nativewindow;
+
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.util.InterruptSource.Thread;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.common.util.ReflectionUtil;
+import com.jogamp.nativewindow.awt.AWTGraphicsDevice;
+import com.jogamp.nativewindow.awt.AWTGraphicsScreen;
+import com.jogamp.nativewindow.egl.EGLGraphicsDevice;
+import com.jogamp.nativewindow.macosx.MacOSXGraphicsDevice;
+import com.jogamp.nativewindow.util.PointImmutable;
+import com.jogamp.nativewindow.windows.WindowsGraphicsDevice;
+import com.jogamp.nativewindow.x11.X11GraphicsDevice;
+import com.jogamp.nativewindow.x11.X11GraphicsScreen;
+import java.io.File;
+import java.io.PrintStream;
+import java.lang.reflect.Method;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import jogamp.nativewindow.Debug;
+import jogamp.nativewindow.NativeWindowFactoryImpl;
+import jogamp.nativewindow.ResourceToolkitLock;
+import jogamp.nativewindow.WrappedWindow;
+import jogamp.nativewindow.macosx.OSXUtil;
+import jogamp.nativewindow.windows.GDIUtil;
+import jogamp.nativewindow.x11.X11Lib;
+import jogamp.nativewindow.x11.X11Util;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class NativeWindowFactory
+{
+  protected static final boolean DEBUG;
+  public static final String TYPE_EGL = ".egl".intern();
+  
+
+  public static final String TYPE_WINDOWS = ".windows".intern();
+  
+
+  public static final String TYPE_X11 = ".x11".intern();
+  
+
+  public static final String TYPE_BCM_VC_IV = ".bcm.vc.iv".intern();
+  
+
+  public static final String TYPE_ANDROID = ".android".intern();
+  
+
+  public static final String TYPE_MACOSX = ".macosx".intern();
+  
+
+  public static final String TYPE_AWT = ".awt".intern();
+  
+
+  public static final String TYPE_DEFAULT = ".default".intern();
+  
+  private static final String nativeWindowingTypePure;
+  
+  private static final String nativeWindowingTypeCustom;
+  
+  private static NativeWindowFactory defaultFactory;
+  
+  private static Map<Class<?>, NativeWindowFactory> registeredFactories;
+  
+  private static Class<?> nativeWindowClass;
+  
+  private static boolean isAWTAvailable;
+  
+  private static final String JAWTUtilClassName = "jogamp.nativewindow.jawt.JAWTUtil";
+  
+  private static final String X11UtilClassName = "jogamp.nativewindow.x11.X11Util";
+  
+  private static final String OSXUtilClassName = "jogamp.nativewindow.macosx.OSXUtil";
+  
+  private static final String GDIClassName = "jogamp.nativewindow.windows.GDIUtil";
+  
+  private static ToolkitLock jawtUtilJAWTToolkitLock;
+  private static boolean requiresToolkitLock;
+  private static boolean desktopHasThreadingIssues;
+  private static volatile boolean isJVMShuttingDown = false;
+  private static final List<Runnable> customShutdownHooks = new ArrayList();
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private static final boolean guessBroadcomVCIV()
+  {
+    ((Boolean)AccessController.doPrivileged(new PrivilegedAction()
+    {
+      private final File vcliblocation = new File("/opt/vc/lib/libbcm_host.so");
+      
+      private final File vc4modlocation = new File("/sys/module/vc4");
+      
+      public Boolean run()
+      {
+        if ((vcliblocation.isFile()) && (!vc4modlocation.isDirectory())) {
+          return Boolean.TRUE;
+        }
+        return Boolean.FALSE;
+      }
+    })).booleanValue();
+  }
+  
+  private static String _getNativeWindowingType() {
+    switch (4.$SwitchMap$com$jogamp$common$os$Platform$OSType[jogamp.common.os.PlatformPropsImpl.OS_TYPE.ordinal()]) {
+    case 1: 
+      return TYPE_ANDROID;
+    case 2: 
+      return TYPE_MACOSX;
+    case 3: 
+      return TYPE_WINDOWS;
+    case 4: 
+      return TYPE_EGL;
+    }
+    
+    
+
+
+
+    if (guessBroadcomVCIV()) {
+      return TYPE_BCM_VC_IV;
+    }
+    return TYPE_X11;
+  }
+  
+  static
+  {
+    boolean[] arrayOfBoolean = { false };
+    final String[] arrayOfString = { null };
+    
+    AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public Object run() {
+        Platform.initSingleton();
+        val$_DEBUG[0] = Debug.debug("NativeWindow");
+        arrayOfString[0] = PropertyAccess.getProperty("nativewindow.ws.name", true);
+        Runtime.getRuntime().addShutdownHook(new InterruptSource.Thread(null, new Runnable()
+        {
+
+          public void run() {
+            NativeWindowFactory.shutdown(true); } }, "NativeWindowFactory_ShutdownHook"));
+        
+        return null;
+      }
+    });
+    DEBUG = arrayOfBoolean[0];
+    if (DEBUG) {
+      System.err.println(Thread.currentThread().getName() + " - Info: NativeWindowFactory.<init>");
+    }
+    
+
+
+    nativeWindowingTypePure = _getNativeWindowingType();
+    if ((null == arrayOfString[0]) || (arrayOfString[0].length() == 0)) {
+      nativeWindowingTypeCustom = nativeWindowingTypePure;
+    } else {
+      nativeWindowingTypeCustom = arrayOfString[0].intern();
+    }
+  }
+  
+  private static boolean initialized = false;
+  
+  private static void initSingletonNativeImpl(ClassLoader paramClassLoader) {
+    String str;
+    if (TYPE_X11 == nativeWindowingTypePure) {
+      str = "jogamp.nativewindow.x11.X11Util";
+    } else if (TYPE_WINDOWS == nativeWindowingTypePure) {
+      str = "jogamp.nativewindow.windows.GDIUtil";
+    } else if (TYPE_MACOSX == nativeWindowingTypePure) {
+      str = "jogamp.nativewindow.macosx.OSXUtil";
+    } else {
+      str = null;
+    }
+    if (null != str) {
+      ReflectionUtil.callStaticMethod(str, "initSingleton", null, null, paramClassLoader);
+      
+      Boolean localBoolean1 = (Boolean)ReflectionUtil.callStaticMethod(str, "requiresToolkitLock", null, null, paramClassLoader);
+      requiresToolkitLock = localBoolean1.booleanValue();
+      Boolean localBoolean2 = (Boolean)ReflectionUtil.callStaticMethod(str, "hasThreadingIssues", null, null, paramClassLoader);
+      desktopHasThreadingIssues = localBoolean2.booleanValue();
+    } else {
+      requiresToolkitLock = false;
+      desktopHasThreadingIssues = false;
+    }
+  }
+  
+  public static final boolean isJVMShuttingDown() {
+    return isJVMShuttingDown;
+  }
+  
+
+
+
+
+  public static void addCustomShutdownHook(boolean paramBoolean, Runnable paramRunnable)
+  {
+    synchronized (customShutdownHooks) {
+      if (!customShutdownHooks.contains(paramRunnable)) {
+        if (paramBoolean) {
+          customShutdownHooks.add(0, paramRunnable);
+        } else {
+          customShutdownHooks.add(paramRunnable);
+        }
+      }
+    }
+  }
+  
+
+
+  public static synchronized void shutdown(boolean paramBoolean)
+  {
+    isJVMShuttingDown = paramBoolean;
+    if (DEBUG) {
+      System.err.println("NativeWindowFactory.shutdown() START: JVM Shutdown " + isJVMShuttingDown + ", on thread " + Thread.currentThread().getName());
+    }
+    synchronized (customShutdownHooks) {
+      int i = customShutdownHooks.size();
+      for (int j = 0; j < i; j++) {
+        try {
+          if (DEBUG) {
+            System.err.println("NativeWindowFactory.shutdown - customShutdownHook #" + (j + 1) + "/" + i);
+          }
+          ((Runnable)customShutdownHooks.get(j)).run();
+        } catch (Throwable localThrowable) {
+          System.err.println("NativeWindowFactory.shutdown: Caught " + localThrowable.getClass().getName() + " during customShutdownHook #" + (j + 1) + "/" + i);
+          if (DEBUG) {
+            localThrowable.printStackTrace();
+          }
+        }
+      }
+      customShutdownHooks.clear();
+    }
+    if (DEBUG) {
+      System.err.println("NativeWindowFactory.shutdown(): Post customShutdownHook");
+    }
+    
+    if (initialized) {
+      initialized = false;
+      if (null != registeredFactories) {
+        registeredFactories.clear();
+        registeredFactories = null;
+      }
+      GraphicsConfigurationFactory.shutdown();
+    }
+    
+    shutdownNativeImpl(NativeWindowFactory.class.getClassLoader());
+    
+    if (DEBUG) {
+      System.err.println(Thread.currentThread().getName() + " - NativeWindowFactory.shutdown() END JVM Shutdown " + isJVMShuttingDown);
+    }
+  }
+  
+  private static void shutdownNativeImpl(ClassLoader paramClassLoader) {
+    String str;
+    if (TYPE_X11 == nativeWindowingTypePure) {
+      str = "jogamp.nativewindow.x11.X11Util";
+    } else if (TYPE_WINDOWS == nativeWindowingTypePure) {
+      str = "jogamp.nativewindow.windows.GDIUtil";
+    } else if (TYPE_MACOSX == nativeWindowingTypePure) {
+      str = "jogamp.nativewindow.macosx.OSXUtil";
+    } else {
+      str = null;
+    }
+    if (null != str) {
+      ReflectionUtil.callStaticMethod(str, "shutdown", null, null, paramClassLoader);
+    }
+  }
+  
+  public static synchronized boolean isInitialized() {
+    return initialized;
+  }
+  
+
+
+  public static synchronized void initSingleton()
+  {
+    if (!initialized) {
+      initialized = true;
+      
+      if (DEBUG) {
+        System.err.println(Thread.currentThread().getName() + " - NativeWindowFactory.initSingleton()");
+      }
+      
+      ClassLoader localClassLoader = NativeWindowFactory.class.getClassLoader();
+      
+      isAWTAvailable = false;
+      
+      if ((Platform.AWT_AVAILABLE) && 
+        (ReflectionUtil.isClassAvailable("com.jogamp.nativewindow.awt.AWTGraphicsDevice", localClassLoader)))
+      {
+        localObject1 = (Method[])AccessController.doPrivileged(new PrivilegedAction()
+        {
+          public Method[] run() {
+            try {
+              Class localClass = Class.forName("jogamp.nativewindow.jawt.JAWTUtil", true, NativeWindowFactory.class.getClassLoader());
+              Method localMethod1 = localClass.getDeclaredMethod("isHeadlessMode", (Class[])null);
+              localMethod1.setAccessible(true);
+              Method localMethod2 = localClass.getDeclaredMethod("initSingleton", (Class[])null);
+              localMethod2.setAccessible(true);
+              Method localMethod3 = localClass.getDeclaredMethod("getJAWTToolkitLock", new Class[0]);
+              localMethod3.setAccessible(true);
+              return new Method[] { localMethod2, localMethod1, localMethod3 };
+            } catch (Exception localException) {
+              if (NativeWindowFactory.DEBUG) {
+                localException.printStackTrace();
+              }
+            }
+            return null;
+          }
+        });
+        if (null != localObject1) {
+          Method localMethod1 = localObject1[0];
+          Method localMethod2 = localObject1[1];
+          Method localMethod3 = localObject1[2];
+          
+          ReflectionUtil.callMethod(null, localMethod1, new Object[0]);
+          
+          Object localObject2 = ReflectionUtil.callMethod(null, localMethod2, new Object[0]);
+          if ((localObject2 instanceof Boolean))
+          {
+
+            isAWTAvailable = ((Boolean)localObject2).equals(Boolean.FALSE);
+          } else {
+            throw new RuntimeException("JAWTUtil.isHeadlessMode() didn't return a Boolean");
+          }
+          localObject2 = ReflectionUtil.callMethod(null, localMethod3, new Object[0]);
+          if ((localObject2 instanceof ToolkitLock)) {
+            jawtUtilJAWTToolkitLock = (ToolkitLock)localObject2;
+          } else {
+            throw new RuntimeException("JAWTUtil.getJAWTToolkitLock() didn't return a ToolkitLock");
+          }
+        }
+      }
+      
+
+
+
+
+      initSingletonNativeImpl(localClassLoader);
+      
+      registeredFactories = Collections.synchronizedMap(new HashMap());
+      
+
+      Object localObject1 = new NativeWindowFactoryImpl();
+      nativeWindowClass = NativeWindow.class;
+      registerFactory(nativeWindowClass, (NativeWindowFactory)localObject1);
+      defaultFactory = (NativeWindowFactory)localObject1;
+      
+      if (isAWTAvailable)
+      {
+        registerFactory(ReflectionUtil.getClass("java.awt.Component", false, localClassLoader), (NativeWindowFactory)localObject1);
+      }
+      
+      if (DEBUG) {
+        System.err.println("NativeWindowFactory requiresToolkitLock " + requiresToolkitLock + ", desktopHasThreadingIssues " + desktopHasThreadingIssues);
+        System.err.println("NativeWindowFactory isAWTAvailable " + isAWTAvailable + ", defaultFactory " + localObject1);
+      }
+      
+      GraphicsConfigurationFactory.initSingleton();
+    }
+  }
+  
+  public static boolean requiresToolkitLock()
+  {
+    return requiresToolkitLock;
+  }
+  
+  public static boolean isAWTAvailable() {
+    return isAWTAvailable;
+  }
+  
+
+
+
+  public static String getNativeWindowType(boolean paramBoolean)
+  {
+    return paramBoolean ? nativeWindowingTypeCustom : nativeWindowingTypePure;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static void setDefaultFactory(NativeWindowFactory paramNativeWindowFactory)
+  {
+    defaultFactory = paramNativeWindowFactory;
+  }
+  
+  public static NativeWindowFactory getDefaultFactory()
+  {
+    return defaultFactory;
+  }
+  
+
+
+
+
+
+
+  public static ToolkitLock getAWTToolkitLock()
+  {
+    return jawtUtilJAWTToolkitLock;
+  }
+  
+  public static ToolkitLock getNullToolkitLock() {
+    return NativeWindowFactoryImpl.getNullToolkitLock();
+  }
+  
+
+
+
+
+  public static ToolkitLock getDefaultToolkitLock()
+  {
+    return getDefaultToolkitLock(nativeWindowingTypePure);
+  }
+  
+
+
+
+
+
+
+
+  public static ToolkitLock getDefaultToolkitLock(String paramString)
+  {
+    if (requiresToolkitLock) {
+      if ((TYPE_AWT == paramString) && (isAWTAvailable())) {
+        return getAWTToolkitLock();
+      }
+      return ResourceToolkitLock.create();
+    }
+    return NativeWindowFactoryImpl.getNullToolkitLock();
+  }
+  
+
+
+
+
+
+
+
+  public static ToolkitLock getDefaultToolkitLock(String paramString, long paramLong)
+  {
+    if (requiresToolkitLock) {
+      if ((TYPE_AWT == paramString) && (isAWTAvailable())) {
+        return getAWTToolkitLock();
+      }
+      return ResourceToolkitLock.create();
+    }
+    return NativeWindowFactoryImpl.getNullToolkitLock();
+  }
+  
+
+
+
+
+  public static AbstractGraphicsScreen createScreen(AbstractGraphicsDevice paramAbstractGraphicsDevice, int paramInt)
+  {
+    String str = paramAbstractGraphicsDevice.getType();
+    Object localObject; if (TYPE_X11 == str) {
+      localObject = (X11GraphicsDevice)paramAbstractGraphicsDevice;
+      if (0 > paramInt) {
+        paramInt = ((X11GraphicsDevice)localObject).getDefaultScreen();
+      }
+      return new X11GraphicsScreen((X11GraphicsDevice)localObject, paramInt);
+    }
+    if (0 > paramInt) {
+      paramInt = 0;
+    }
+    if (TYPE_AWT == str) {
+      localObject = (AWTGraphicsDevice)paramAbstractGraphicsDevice;
+      return new AWTGraphicsScreen((AWTGraphicsDevice)localObject);
+    }
+    return new DefaultGraphicsScreen(paramAbstractGraphicsDevice, paramInt);
+  }
+  
+
+
+
+
+  public static NativeWindowFactory getFactory(Class<?> paramClass)
+    throws IllegalArgumentException
+  {
+    if (nativeWindowClass.isAssignableFrom(paramClass)) {
+      return (NativeWindowFactory)registeredFactories.get(nativeWindowClass);
+    }
+    Object localObject = paramClass;
+    while (localObject != null) {
+      NativeWindowFactory localNativeWindowFactory = (NativeWindowFactory)registeredFactories.get(localObject);
+      if (localNativeWindowFactory != null) {
+        return localNativeWindowFactory;
+      }
+      localObject = ((Class)localObject).getSuperclass();
+    }
+    throw new IllegalArgumentException("No registered NativeWindowFactory for class " + paramClass.getName());
+  }
+  
+
+
+  protected static void registerFactory(Class<?> paramClass, NativeWindowFactory paramNativeWindowFactory)
+  {
+    if (DEBUG) {
+      System.err.println("NativeWindowFactory.registerFactory() " + paramClass + " -> " + paramNativeWindowFactory);
+    }
+    registeredFactories.put(paramClass, paramNativeWindowFactory);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static NativeWindow getNativeWindow(Object paramObject, AbstractGraphicsConfiguration paramAbstractGraphicsConfiguration)
+    throws IllegalArgumentException, NativeWindowException
+  {
+    if (paramObject == null) {
+      throw new IllegalArgumentException("Null window object");
+    }
+    
+    return getFactory(paramObject.getClass()).getNativeWindowImpl(paramObject, paramAbstractGraphicsConfiguration);
+  }
+  
+
+
+
+
+
+
+
+
+  public static OffscreenLayerSurface getOffscreenLayerSurface(NativeSurface paramNativeSurface, boolean paramBoolean)
+  {
+    Object localObject;
+    
+
+
+
+
+
+
+
+    if (((paramNativeSurface instanceof OffscreenLayerSurface)) && ((!paramBoolean) || ((paramNativeSurface instanceof OffscreenLayerOption))))
+    {
+      localObject = (OffscreenLayerSurface)paramNativeSurface;
+      return (!paramBoolean) || (((OffscreenLayerOption)localObject).isOffscreenLayerSurfaceEnabled()) ? localObject : null;
+    }
+    if ((paramNativeSurface instanceof NativeWindow)) {
+      localObject = ((NativeWindow)paramNativeSurface).getParent();
+      while (null != localObject) {
+        if (((localObject instanceof OffscreenLayerSurface)) && ((!paramBoolean) || ((localObject instanceof OffscreenLayerOption))))
+        {
+          OffscreenLayerSurface localOffscreenLayerSurface = (OffscreenLayerSurface)localObject;
+          return (!paramBoolean) || (((OffscreenLayerOption)localOffscreenLayerSurface).isOffscreenLayerSurfaceEnabled()) ? localOffscreenLayerSurface : null;
+        }
+        localObject = ((NativeWindow)localObject).getParent();
+      }
+    }
+    return null;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static boolean isNativeVisualIDValidForProcessing(int paramInt)
+  {
+    return (TYPE_X11 != getNativeWindowType(false)) || (0 != paramInt);
+  }
+  
+
+
+  public static String getDefaultDisplayConnection() { return getDefaultDisplayConnection(getNativeWindowType(true)); }
+  
+  public static String getDefaultDisplayConnection(String paramString) {
+    if (TYPE_X11 == paramString) {
+      return X11Util.getNullDisplayName();
+    }
+    return "decon";
+  }
+  
+
+
+
+
+
+
+  public static AbstractGraphicsDevice createDevice(String paramString, boolean paramBoolean)
+  {
+    return createDevice(getNativeWindowType(true), paramString, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+  public static AbstractGraphicsDevice createDevice(String paramString1, String paramString2, boolean paramBoolean)
+  {
+    if (TYPE_X11 == paramString1) {
+      if (paramBoolean) {
+        return new X11GraphicsDevice(paramString2, 0, null);
+      }
+      return new X11GraphicsDevice(paramString2, 0);
+    }
+    if (TYPE_WINDOWS == paramString1)
+      return new WindowsGraphicsDevice(0);
+    if (TYPE_MACOSX == paramString1)
+      return new MacOSXGraphicsDevice(0);
+    if (TYPE_EGL == paramString1) {
+      EGLGraphicsDevice localEGLGraphicsDevice;
+      if (paramBoolean) {
+        Object localObject = null;
+        try
+        {
+          localObject = ReflectionUtil.callStaticMethod("jogamp.opengl.egl.EGLDisplayUtil", "eglCreateEGLGraphicsDevice", new Class[] { Long.class, String.class, Integer.class }, new Object[] {
+          
+            Long.valueOf(0L), DefaultGraphicsDevice.getDefaultDisplayConnection(paramString1), Integer.valueOf(0) }, NativeWindowFactory.class
+            .getClassLoader());
+        } catch (Exception localException) {
+          throw new NativeWindowException("EGLDisplayUtil.eglCreateEGLGraphicsDevice failed", localException);
+        }
+        if ((localObject instanceof EGLGraphicsDevice)) {
+          localEGLGraphicsDevice = (EGLGraphicsDevice)localObject;
+          localEGLGraphicsDevice.open();
+        } else {
+          throw new NativeWindowException("EGLDisplayUtil.eglCreateEGLGraphicsDevice failed");
+        }
+      } else {
+        localEGLGraphicsDevice = new EGLGraphicsDevice(0L, 0L, paramString2, 0, null);
+      }
+      return localEGLGraphicsDevice; }
+    if (TYPE_AWT == paramString1) {
+      throw new UnsupportedOperationException("n/a for windowing system: " + paramString1);
+    }
+    return new DefaultGraphicsDevice(paramString1, paramString2, 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static NativeWindow createWrappedWindow(AbstractGraphicsScreen paramAbstractGraphicsScreen, long paramLong1, long paramLong2, UpstreamWindowHookMutableSizePos paramUpstreamWindowHookMutableSizePos)
+  {
+    Capabilities localCapabilities = new Capabilities();
+    DefaultGraphicsConfiguration localDefaultGraphicsConfiguration = new DefaultGraphicsConfiguration(paramAbstractGraphicsScreen, localCapabilities, localCapabilities);
+    return new WrappedWindow(localDefaultGraphicsConfiguration, paramLong1, paramUpstreamWindowHookMutableSizePos, true, paramLong2);
+  }
+  
+
+
+
+
+
+
+  public static PointImmutable getLocationOnScreen(NativeWindow paramNativeWindow)
+  {
+    String str = getNativeWindowType(true);
+    if (TYPE_X11 == str)
+      return X11Lib.GetRelativeLocation(paramNativeWindow.getDisplayHandle(), paramNativeWindow.getScreenIndex(), paramNativeWindow.getWindowHandle(), 0L, 0, 0);
+    if (TYPE_WINDOWS == str)
+      return GDIUtil.GetRelativeLocation(paramNativeWindow.getWindowHandle(), 0L, 0, 0);
+    if (TYPE_MACOSX == str) {
+      return OSXUtil.GetLocationOnScreen(paramNativeWindow.getWindowHandle(), 0, 0);
+    }
+    
+
+
+
+
+
+
+
+    throw new UnsupportedOperationException("n/a for windowing system: " + str);
+  }
+  
+  protected NativeWindowFactory() {}
+  
+  protected abstract NativeWindow getNativeWindowImpl(Object paramObject, AbstractGraphicsConfiguration paramAbstractGraphicsConfiguration)
+    throws IllegalArgumentException;
+}

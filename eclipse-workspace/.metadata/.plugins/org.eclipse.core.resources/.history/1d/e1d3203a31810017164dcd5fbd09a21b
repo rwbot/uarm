@@ -1,0 +1,332 @@
+package jogamp.opengl;
+
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.GLRendererQuirks;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLGraphicsConfigurationUtil
+{
+  public static final String NV_coverage_sample = "NV_coverage_sample";
+  public static final int WINDOW_BIT = 1;
+  public static final int BITMAP_BIT = 2;
+  public static final int PBUFFER_BIT = 4;
+  public static final int FBO_BIT = 8;
+  public static final int ALL_BITS = 15;
+  
+  public GLGraphicsConfigurationUtil() {}
+  
+  public static final StringBuilder winAttributeBits2String(StringBuilder paramStringBuilder, int paramInt)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    int i = 0;
+    if (0 != (0x1 & paramInt)) {
+      paramStringBuilder.append("WINDOW");
+      i = 1;
+    }
+    if (0 != (0x2 & paramInt)) {
+      if (i != 0) {
+        paramStringBuilder.append(", ");
+      }
+      paramStringBuilder.append("BITMAP");
+      i = 1;
+    }
+    if (0 != (0x4 & paramInt)) {
+      if (i != 0) {
+        paramStringBuilder.append(", ");
+      }
+      paramStringBuilder.append("PBUFFER");
+      i = 1;
+    }
+    if (0 != (0x8 & paramInt)) {
+      if (i != 0) {
+        paramStringBuilder.append(", ");
+      }
+      paramStringBuilder.append("FBO");
+    }
+    return paramStringBuilder;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final int getExclusiveWinAttributeBits(boolean paramBoolean1, boolean paramBoolean2, boolean paramBoolean3, boolean paramBoolean4)
+  {
+    int i;
+    
+
+
+
+
+
+
+
+
+
+
+    if (paramBoolean1) {
+      i = 1;
+    } else if (paramBoolean2) {
+      i = 8;
+    } else if (paramBoolean3) {
+      i = 4;
+    } else if (paramBoolean4) {
+      i = 2;
+    } else {
+      throw new InternalError("Empty bitmask");
+    }
+    return i;
+  }
+  
+
+
+  public static final int getExclusiveWinAttributeBits(GLCapabilitiesImmutable paramGLCapabilitiesImmutable)
+  {
+    return getExclusiveWinAttributeBits(paramGLCapabilitiesImmutable.isOnscreen(), paramGLCapabilitiesImmutable.isFBO(), paramGLCapabilitiesImmutable.isPBuffer(), paramGLCapabilitiesImmutable.isBitmap());
+  }
+  
+  public static final GLCapabilities fixWinAttribBitsAndHwAccel(AbstractGraphicsDevice paramAbstractGraphicsDevice, int paramInt, GLCapabilities paramGLCapabilities) {
+    paramGLCapabilities.setBitmap(0 != (0x2 & paramInt));
+    paramGLCapabilities.setPBuffer(0 != (0x4 & paramInt));
+    paramGLCapabilities.setFBO(0 != (0x8 & paramInt));
+    
+    paramGLCapabilities.setOnscreen(0 != (0x1 & paramInt));
+    
+    int i = GLContext.isHardwareRasterizer(paramAbstractGraphicsDevice, paramGLCapabilities.getGLProfile());
+    if ((0 == i) && (paramGLCapabilities.getHardwareAccelerated())) {
+      paramGLCapabilities.setHardwareAccelerated(false);
+    }
+    
+    return paramGLCapabilities;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static GLCapabilitiesImmutable fixGLCapabilities(GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLDrawableFactory paramGLDrawableFactory, AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    if (!paramGLCapabilitiesImmutable.isOnscreen()) {
+      return fixOffscreenGLCapabilities(paramGLCapabilitiesImmutable, paramGLDrawableFactory, paramAbstractGraphicsDevice);
+    }
+    return paramGLCapabilitiesImmutable;
+  }
+  
+  public static GLCapabilitiesImmutable fixOnscreenGLCapabilities(GLCapabilitiesImmutable paramGLCapabilitiesImmutable)
+  {
+    if ((!paramGLCapabilitiesImmutable.isOnscreen()) || (paramGLCapabilitiesImmutable.isFBO()) || (paramGLCapabilitiesImmutable.isPBuffer()) || (paramGLCapabilitiesImmutable.isBitmap()))
+    {
+      GLCapabilities localGLCapabilities = (GLCapabilities)paramGLCapabilitiesImmutable.cloneMutable();
+      localGLCapabilities.setBitmap(false);
+      localGLCapabilities.setPBuffer(false);
+      localGLCapabilities.setFBO(false);
+      localGLCapabilities.setOnscreen(true);
+      return localGLCapabilities;
+    }
+    return paramGLCapabilitiesImmutable;
+  }
+  
+  public static GLCapabilitiesImmutable fixOffscreenBitOnly(GLCapabilitiesImmutable paramGLCapabilitiesImmutable)
+  {
+    if (paramGLCapabilitiesImmutable.isOnscreen())
+    {
+      GLCapabilities localGLCapabilities = (GLCapabilities)paramGLCapabilitiesImmutable.cloneMutable();
+      localGLCapabilities.setOnscreen(false);
+      return localGLCapabilities;
+    }
+    return paramGLCapabilitiesImmutable;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public static GLCapabilitiesImmutable fixOffscreenGLCapabilities(GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLDrawableFactory paramGLDrawableFactory, AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    if (null == paramAbstractGraphicsDevice) {
+      paramAbstractGraphicsDevice = paramGLDrawableFactory.getDefaultDevice();
+    }
+    GLProfile localGLProfile = paramGLCapabilitiesImmutable.getGLProfile();
+    boolean bool1 = GLContext.isFBOAvailable(paramAbstractGraphicsDevice, localGLProfile);
+    boolean bool2 = paramGLDrawableFactory.canCreateGLPbuffer(paramAbstractGraphicsDevice, localGLProfile);
+    
+    GLRendererQuirks localGLRendererQuirks = paramGLDrawableFactory.getRendererQuirks(paramAbstractGraphicsDevice, localGLProfile);
+    
+    int i;
+    int j;
+    if (null != localGLRendererQuirks) {
+      i = !localGLRendererQuirks.exist(3) ? 1 : 0;
+      if (((paramGLCapabilitiesImmutable.getDoubleBuffered()) && 
+        (paramGLCapabilitiesImmutable.isPBuffer()) && (localGLRendererQuirks.exist(0))) || (
+        (paramGLCapabilitiesImmutable.isBitmap()) && (localGLRendererQuirks.exist(1)))) {
+        j = 0;
+      } else {
+        j = 1;
+      }
+    } else {
+      i = 1;
+      j = 1;
+    }
+    
+
+
+    int k = ((!bool1) || (!paramGLCapabilitiesImmutable.isFBO())) && ((!bool2) || (!paramGLCapabilitiesImmutable.isPBuffer())) && ((i == 0) || (!paramGLCapabilitiesImmutable.isBitmap())) ? 1 : 0;
+    
+    boolean bool3 = (bool1) && ((k != 0) || (paramGLCapabilitiesImmutable.isFBO()));
+    boolean bool4 = (!bool3) && (bool2) && ((k != 0) || (paramGLCapabilitiesImmutable.isPBuffer()));
+    boolean bool5 = (!bool3) && (!bool4) && (i != 0) && ((k != 0) || (paramGLCapabilitiesImmutable.isBitmap()));
+    
+    if ((paramGLCapabilitiesImmutable.isOnscreen()) || 
+      (bool3 != paramGLCapabilitiesImmutable.isFBO()) || 
+      (bool4 != paramGLCapabilitiesImmutable.isPBuffer()) || 
+      (bool5 != paramGLCapabilitiesImmutable.isBitmap()) || ((j == 0) && 
+      (paramGLCapabilitiesImmutable.getDoubleBuffered())))
+    {
+
+      GLCapabilities localGLCapabilities = (GLCapabilities)paramGLCapabilitiesImmutable.cloneMutable();
+      localGLCapabilities.setOnscreen(false);
+      localGLCapabilities.setFBO(bool3);
+      localGLCapabilities.setPBuffer(bool4);
+      localGLCapabilities.setBitmap(bool5);
+      if (j == 0) {
+        localGLCapabilities.setDoubleBuffered(false);
+      }
+      return localGLCapabilities;
+    }
+    return paramGLCapabilitiesImmutable;
+  }
+  
+  public static GLCapabilitiesImmutable fixGLPBufferGLCapabilities(GLCapabilitiesImmutable paramGLCapabilitiesImmutable)
+  {
+    if ((paramGLCapabilitiesImmutable.isOnscreen()) || 
+      (!paramGLCapabilitiesImmutable.isPBuffer()) || 
+      (paramGLCapabilitiesImmutable.isFBO()))
+    {
+
+      GLCapabilities localGLCapabilities = (GLCapabilities)paramGLCapabilitiesImmutable.cloneMutable();
+      localGLCapabilities.setOnscreen(false);
+      localGLCapabilities.setFBO(false);
+      localGLCapabilities.setPBuffer(true);
+      localGLCapabilities.setBitmap(false);
+      return localGLCapabilities;
+    }
+    return paramGLCapabilitiesImmutable;
+  }
+  
+
+  public static GLCapabilities fixOpaqueGLCapabilities(GLCapabilities paramGLCapabilities, boolean paramBoolean)
+  {
+    if (paramGLCapabilities.isBackgroundOpaque() != paramBoolean) {
+      int i = paramGLCapabilities.getAlphaBits();
+      paramGLCapabilities.setBackgroundOpaque(paramBoolean);
+      paramGLCapabilities.setAlphaBits(i);
+    }
+    return paramGLCapabilities;
+  }
+  
+
+  public static GLCapabilitiesImmutable fixDoubleBufferedGLCapabilities(GLCapabilitiesImmutable paramGLCapabilitiesImmutable, boolean paramBoolean)
+  {
+    if (paramGLCapabilitiesImmutable.getDoubleBuffered() != paramBoolean) {
+      GLCapabilities localGLCapabilities = (GLCapabilities)paramGLCapabilitiesImmutable.cloneMutable();
+      localGLCapabilities.setDoubleBuffered(paramBoolean);
+      return localGLCapabilities;
+    }
+    return paramGLCapabilitiesImmutable;
+  }
+  
+  public static GLCapabilitiesImmutable clipRGBAGLCapabilities(GLCapabilitiesImmutable paramGLCapabilitiesImmutable, boolean paramBoolean1, boolean paramBoolean2)
+  {
+    int i = paramGLCapabilitiesImmutable.getRedBits();
+    int j = paramGLCapabilitiesImmutable.getGreenBits();
+    int k = paramGLCapabilitiesImmutable.getBlueBits();
+    int m = paramGLCapabilitiesImmutable.getAlphaBits();
+    int n = clipColor(i, paramBoolean1);
+    int i1 = clipColor(j, paramBoolean1);
+    int i2 = clipColor(k, paramBoolean1);
+    int i3 = (paramBoolean2) && (0 < m) ? n : 0;
+    if ((i != n) || (j != i1) || (k != i2) || (m != i3)) {
+      GLCapabilities localGLCapabilities = (GLCapabilities)paramGLCapabilitiesImmutable.cloneMutable();
+      localGLCapabilities.setRedBits(n);
+      localGLCapabilities.setGreenBits(i1);
+      localGLCapabilities.setBlueBits(i2);
+      localGLCapabilities.setAlphaBits(i3);
+      return localGLCapabilities;
+    }
+    return paramGLCapabilitiesImmutable;
+  }
+  
+  public static int clipColor(int paramInt, boolean paramBoolean) {
+    int i;
+    if ((5 < paramInt) || (!paramBoolean)) {
+      i = 8;
+    } else {
+      i = 5;
+    }
+    return i;
+  }
+  
+  public static GLCapabilitiesImmutable fixGLProfile(GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLProfile paramGLProfile)
+  {
+    if (paramGLCapabilitiesImmutable.getGLProfile() != paramGLProfile) {
+      GLCapabilities localGLCapabilities = (GLCapabilities)paramGLCapabilitiesImmutable.cloneMutable();
+      localGLCapabilities.setGLProfile(paramGLProfile);
+      return localGLCapabilities;
+    }
+    return paramGLCapabilitiesImmutable;
+  }
+}

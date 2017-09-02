@@ -1,0 +1,59 @@
+package japplemenubar;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
+import processing.core.PApplet;
+
+
+public class JAppleMenuBar
+{
+  static JAppleMenuBar instance;
+  static final String FILENAME = "libjAppleMenuBar.jnilib";
+  
+  static
+  {
+    try
+    {
+      File temp = File.createTempFile("processing", "menubar");
+      temp.delete();
+      temp.mkdirs();
+      temp.deleteOnExit();
+      
+      File jnilibFile = new File(temp, "libjAppleMenuBar.jnilib");
+      InputStream input = JAppleMenuBar.class.getResourceAsStream("libjAppleMenuBar.jnilib");
+      if (input != null) {
+        if (PApplet.saveStream(jnilibFile, input)) {
+          System.load(jnilibFile.getAbsolutePath());
+          instance = new JAppleMenuBar();
+        }
+        else {
+          sadness("Problem saving libjAppleMenuBar.jnilib for full screen use.");
+        }
+      } else {
+        sadness("Could not load libjAppleMenuBar.jnilib from core.jar");
+      }
+    } catch (IOException e) {
+      sadness("Unknown error, here's the stack trace.");
+      e.printStackTrace();
+    }
+  }
+  
+  public JAppleMenuBar() {}
+  
+  static void sadness(String msg) { System.err.println("Full screen mode disabled. " + msg); }
+  
+
+
+
+
+
+
+  public static void hide()
+  {
+    instance.setVisible(false, false);
+  }
+  
+  public native void setVisible(boolean paramBoolean1, boolean paramBoolean2);
+}

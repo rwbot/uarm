@@ -1,0 +1,44 @@
+package com.jogamp.nativewindow;
+
+public abstract interface NativeSurface
+  extends SurfaceUpdatedListener
+{
+  public static final int LOCK_SURFACE_UNLOCKED = 0;
+  public static final int LOCK_SURFACE_NOT_READY = 1;
+  public static final int LOCK_SURFACE_CHANGED = 2;
+  public static final int LOCK_SUCCESS = 3;
+  
+  public abstract int lockSurface()
+    throws NativeWindowException, RuntimeException;
+  
+  public abstract void unlockSurface();
+  
+  public abstract boolean isSurfaceLockedByOtherThread();
+  
+  public abstract Thread getSurfaceLockOwner();
+  
+  public abstract boolean surfaceSwap();
+  
+  public abstract void addSurfaceUpdatedListener(SurfaceUpdatedListener paramSurfaceUpdatedListener);
+  
+  public abstract void addSurfaceUpdatedListener(int paramInt, SurfaceUpdatedListener paramSurfaceUpdatedListener)
+    throws IndexOutOfBoundsException;
+  
+  public abstract void removeSurfaceUpdatedListener(SurfaceUpdatedListener paramSurfaceUpdatedListener);
+  
+  public abstract long getSurfaceHandle();
+  
+  public abstract int getSurfaceWidth();
+  
+  public abstract int getSurfaceHeight();
+  
+  public abstract int[] convertToWindowUnits(int[] paramArrayOfInt);
+  
+  public abstract int[] convertToPixelUnits(int[] paramArrayOfInt);
+  
+  public abstract AbstractGraphicsConfiguration getGraphicsConfiguration();
+  
+  public abstract long getDisplayHandle();
+  
+  public abstract int getScreenIndex();
+}

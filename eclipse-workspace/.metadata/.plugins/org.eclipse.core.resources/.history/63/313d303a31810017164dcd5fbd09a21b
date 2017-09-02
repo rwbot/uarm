@@ -1,0 +1,103 @@
+package jogamp.opengl.util.pngj.chunks;
+
+import jogamp.opengl.util.pngj.ImageInfo;
+import jogamp.opengl.util.pngj.PngjException;
+
+
+
+
+
+
+
+
+public class PngChunkPLTE
+  extends PngChunkSingle
+{
+  public static final String ID = "PLTE";
+  private int nentries = 0;
+  
+  private int[] entries;
+  
+
+  public PngChunkPLTE(ImageInfo paramImageInfo)
+  {
+    super("PLTE", paramImageInfo);
+  }
+  
+  public PngChunk.ChunkOrderingConstraint getOrderingConstraint()
+  {
+    return PngChunk.ChunkOrderingConstraint.NA;
+  }
+  
+  public ChunkRaw createRawChunk()
+  {
+    int i = 3 * nentries;
+    int[] arrayOfInt = new int[3];
+    ChunkRaw localChunkRaw = createEmptyChunk(i, true);
+    int j = 0; for (int k = 0; j < nentries; j++) {
+      getEntryRgb(j, arrayOfInt);
+      data[(k++)] = ((byte)arrayOfInt[0]);
+      data[(k++)] = ((byte)arrayOfInt[1]);
+      data[(k++)] = ((byte)arrayOfInt[2]);
+    }
+    return localChunkRaw;
+  }
+  
+  public void parseFromRaw(ChunkRaw paramChunkRaw)
+  {
+    setNentries(len / 3);
+    int i = 0; for (int j = 0; i < nentries; i++) {
+      setEntry(i, data[(j++)] & 0xFF, data[(j++)] & 0xFF, data[(j++)] & 0xFF);
+    }
+  }
+  
+  public void cloneDataFromRead(PngChunk paramPngChunk)
+  {
+    PngChunkPLTE localPngChunkPLTE = (PngChunkPLTE)paramPngChunk;
+    setNentries(localPngChunkPLTE.getNentries());
+    System.arraycopy(entries, 0, entries, 0, nentries);
+  }
+  
+  public void setNentries(int paramInt) {
+    nentries = paramInt;
+    if ((nentries < 1) || (nentries > 256))
+      throw new PngjException("invalid pallette - nentries=" + nentries);
+    if ((entries == null) || (entries.length != nentries)) {
+      entries = new int[nentries];
+    }
+  }
+  
+  public int getNentries() {
+    return nentries;
+  }
+  
+  public void setEntry(int paramInt1, int paramInt2, int paramInt3, int paramInt4) {
+    entries[paramInt1] = (paramInt2 << 16 | paramInt3 << 8 | paramInt4);
+  }
+  
+  public int getEntry(int paramInt) {
+    return entries[paramInt];
+  }
+  
+  public void getEntryRgb(int paramInt, int[] paramArrayOfInt) {
+    getEntryRgb(paramInt, paramArrayOfInt, 0);
+  }
+  
+  public void getEntryRgb(int paramInt1, int[] paramArrayOfInt, int paramInt2) {
+    int i = entries[paramInt1];
+    paramArrayOfInt[(paramInt2 + 0)] = ((i & 0xFF0000) >> 16);
+    paramArrayOfInt[(paramInt2 + 1)] = ((i & 0xFF00) >> 8);
+    paramArrayOfInt[(paramInt2 + 2)] = (i & 0xFF);
+  }
+  
+  public int minBitDepth() {
+    if (nentries <= 2)
+      return 1;
+    if (nentries <= 4)
+      return 2;
+    if (nentries <= 16) {
+      return 4;
+    }
+    return 8;
+  }
+}

@@ -1,0 +1,175 @@
+package jogamp.common.os.elf;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.StructAccessor;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import java.nio.ByteBuffer;
+
+
+
+
+
+
+
+
+public class Ehdr_p2
+{
+  StructAccessor accessor;
+  private final int mdIdx;
+  private final MachineDataInfo md;
+  private static final int[] Ehdr_p2_size = { 28, 28, 28, 28, 28, 28, 40, 40 };
+  private static final int[] e_entry_offset = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  
+  private static final int[] e_phoff_offset = { 4, 4, 4, 4, 4, 4, 8, 8 };
+  
+  private static final int[] e_shoff_offset = { 8, 8, 8, 8, 8, 8, 16, 16 };
+  
+  private static final int[] e_flags_offset = { 12, 12, 12, 12, 12, 12, 24, 24 };
+  
+  private static final int[] e_ehsize_offset = { 16, 16, 16, 16, 16, 16, 28, 28 };
+  
+  private static final int[] e_phentsize_offset = { 18, 18, 18, 18, 18, 18, 30, 30 };
+  
+  private static final int[] e_phnum_offset = { 20, 20, 20, 20, 20, 20, 32, 32 };
+  
+  private static final int[] e_shentsize_offset = { 22, 22, 22, 22, 22, 22, 34, 34 };
+  
+  private static final int[] e_shnum_offset = { 24, 24, 24, 24, 24, 24, 36, 36 };
+  
+  private static final int[] e_shstrndx_offset = { 26, 26, 26, 26, 26, 26, 38, 38 };
+  
+  public ByteBuffer getBuffer()
+  {
+    return accessor.getBuffer();
+  }
+  
+  public Ehdr_p2 setE_entry(long paramLong)
+  {
+    accessor.setLongAt(e_entry_offset[mdIdx], paramLong, md.longSizeInBytes());
+    return this;
+  }
+  
+  public long getE_entry()
+  {
+    return accessor.getLongAt(e_entry_offset[mdIdx], md.longSizeInBytes());
+  }
+  
+  public Ehdr_p2 setE_phoff(long paramLong)
+  {
+    accessor.setLongAt(e_phoff_offset[mdIdx], paramLong, md.longSizeInBytes());
+    return this;
+  }
+  
+  public long getE_phoff()
+  {
+    return accessor.getLongAt(e_phoff_offset[mdIdx], md.longSizeInBytes());
+  }
+  
+  public Ehdr_p2 setE_shoff(long paramLong)
+  {
+    accessor.setLongAt(e_shoff_offset[mdIdx], paramLong, md.longSizeInBytes());
+    return this;
+  }
+  
+  public long getE_shoff()
+  {
+    return accessor.getLongAt(e_shoff_offset[mdIdx], md.longSizeInBytes());
+  }
+  
+  public Ehdr_p2 setE_flags(int paramInt)
+  {
+    accessor.setIntAt(e_flags_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getE_flags()
+  {
+    return accessor.getIntAt(e_flags_offset[mdIdx]);
+  }
+  
+  public Ehdr_p2 setE_ehsize(short paramShort)
+  {
+    accessor.setShortAt(e_ehsize_offset[mdIdx], paramShort);
+    return this;
+  }
+  
+  public short getE_ehsize()
+  {
+    return accessor.getShortAt(e_ehsize_offset[mdIdx]);
+  }
+  
+  public Ehdr_p2 setE_phentsize(short paramShort)
+  {
+    accessor.setShortAt(e_phentsize_offset[mdIdx], paramShort);
+    return this;
+  }
+  
+  public short getE_phentsize()
+  {
+    return accessor.getShortAt(e_phentsize_offset[mdIdx]);
+  }
+  
+  public Ehdr_p2 setE_phnum(short paramShort)
+  {
+    accessor.setShortAt(e_phnum_offset[mdIdx], paramShort);
+    return this;
+  }
+  
+  public short getE_phnum()
+  {
+    return accessor.getShortAt(e_phnum_offset[mdIdx]);
+  }
+  
+  public Ehdr_p2 setE_shentsize(short paramShort)
+  {
+    accessor.setShortAt(e_shentsize_offset[mdIdx], paramShort);
+    return this;
+  }
+  
+  public short getE_shentsize()
+  {
+    return accessor.getShortAt(e_shentsize_offset[mdIdx]);
+  }
+  
+  public Ehdr_p2 setE_shnum(short paramShort)
+  {
+    accessor.setShortAt(e_shnum_offset[mdIdx], paramShort);
+    return this;
+  }
+  
+  public short getE_shnum()
+  {
+    return accessor.getShortAt(e_shnum_offset[mdIdx]);
+  }
+  
+  public Ehdr_p2 setE_shstrndx(short paramShort)
+  {
+    accessor.setShortAt(e_shstrndx_offset[mdIdx], paramShort);
+    return this;
+  }
+  
+  public short getE_shstrndx()
+  {
+    return accessor.getShortAt(e_shstrndx_offset[mdIdx]);
+  }
+  
+  public static int size(int paramInt)
+  {
+    return Ehdr_p2_size[paramInt];
+  }
+  
+  public static Ehdr_p2 create(int paramInt) {
+    return create(paramInt, Buffers.newDirectByteBuffer(size(paramInt)));
+  }
+  
+  public static Ehdr_p2 create(int paramInt, ByteBuffer paramByteBuffer) {
+    return new Ehdr_p2(paramInt, paramByteBuffer);
+  }
+  
+  Ehdr_p2(int paramInt, ByteBuffer paramByteBuffer) {
+    mdIdx = paramInt;
+    md = valuesmd;
+    accessor = new StructAccessor(paramByteBuffer);
+  }
+}

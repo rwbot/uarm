@@ -1,0 +1,92 @@
+package jogamp.opengl.util.pngj.chunks;
+
+import java.util.Calendar;
+import jogamp.opengl.util.pngj.ImageInfo;
+import jogamp.opengl.util.pngj.PngHelperInternal;
+import jogamp.opengl.util.pngj.PngjException;
+
+public class PngChunkTIME
+  extends PngChunkSingle
+{
+  public static final String ID = "tIME";
+  private int year;
+  private int mon;
+  private int day;
+  private int hour;
+  private int min;
+  private int sec;
+  
+  public PngChunkTIME(ImageInfo paramImageInfo)
+  {
+    super("tIME", paramImageInfo);
+  }
+  
+  public PngChunk.ChunkOrderingConstraint getOrderingConstraint()
+  {
+    return PngChunk.ChunkOrderingConstraint.NONE;
+  }
+  
+  public ChunkRaw createRawChunk()
+  {
+    ChunkRaw localChunkRaw = createEmptyChunk(7, true);
+    PngHelperInternal.writeInt2tobytes(year, data, 0);
+    data[2] = ((byte)mon);
+    data[3] = ((byte)day);
+    data[4] = ((byte)hour);
+    data[5] = ((byte)min);
+    data[6] = ((byte)sec);
+    return localChunkRaw;
+  }
+  
+  public void parseFromRaw(ChunkRaw paramChunkRaw)
+  {
+    if (len != 7)
+      throw new PngjException("bad chunk " + paramChunkRaw);
+    year = PngHelperInternal.readInt2fromBytes(data, 0);
+    mon = PngHelperInternal.readInt1fromByte(data, 2);
+    day = PngHelperInternal.readInt1fromByte(data, 3);
+    hour = PngHelperInternal.readInt1fromByte(data, 4);
+    min = PngHelperInternal.readInt1fromByte(data, 5);
+    sec = PngHelperInternal.readInt1fromByte(data, 6);
+  }
+  
+  public void cloneDataFromRead(PngChunk paramPngChunk)
+  {
+    PngChunkTIME localPngChunkTIME = (PngChunkTIME)paramPngChunk;
+    year = year;
+    mon = mon;
+    day = day;
+    hour = hour;
+    min = min;
+    sec = sec;
+  }
+  
+  public void setNow(int paramInt) {
+    Calendar localCalendar = Calendar.getInstance();
+    localCalendar.setTimeInMillis(System.currentTimeMillis() - 1000L * paramInt);
+    year = localCalendar.get(1);
+    mon = (localCalendar.get(2) + 1);
+    day = localCalendar.get(5);
+    hour = localCalendar.get(11);
+    min = localCalendar.get(12);
+    sec = localCalendar.get(13);
+  }
+  
+  public void setYMDHMS(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6) {
+    year = paramInt1;
+    mon = paramInt2;
+    day = paramInt3;
+    hour = paramInt4;
+    min = paramInt5;
+    sec = paramInt6;
+  }
+  
+  public int[] getYMDHMS() {
+    return new int[] { year, mon, day, hour, min, sec };
+  }
+  
+  public String getAsString()
+  {
+    return String.format("%04d/%02d/%02d %02d:%02d:%02d", new Object[] { Integer.valueOf(year), Integer.valueOf(mon), Integer.valueOf(day), Integer.valueOf(hour), Integer.valueOf(min), Integer.valueOf(sec) });
+  }
+}

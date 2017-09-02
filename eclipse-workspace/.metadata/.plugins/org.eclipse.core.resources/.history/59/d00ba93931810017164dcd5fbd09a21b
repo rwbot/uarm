@@ -1,0 +1,1097 @@
+package processing.core;
+
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
+import java.awt.GraphicsEnvironment;
+import java.awt.RenderingHints;
+import java.awt.Shape;
+import java.awt.Toolkit;
+import java.awt.font.FontRenderContext;
+import java.awt.font.GlyphVector;
+import java.awt.geom.PathIterator;
+import java.awt.image.BufferedImage;
+import java.awt.image.WritableRaster;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.Arrays;
+import java.util.HashMap;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class PFont
+  implements PConstants
+{
+  protected int glyphCount;
+  protected Glyph[] glyphs;
+  protected String name;
+  protected String psname;
+  protected int size;
+  protected int density = 1;
+  
+
+
+
+
+
+  protected boolean smooth;
+  
+
+
+
+
+
+  protected int ascent;
+  
+
+
+
+
+
+  protected int descent;
+  
+
+
+
+
+
+  protected int[] ascii;
+  
+
+
+
+
+
+  protected boolean lazy;
+  
+
+
+
+
+
+  protected Font font;
+  
+
+
+
+
+
+  protected boolean stream;
+  
+
+
+
+
+
+  protected boolean subsetting;
+  
+
+
+
+
+
+  protected boolean fontSearched;
+  
+
+
+
+
+  protected static Font[] fonts;
+  
+
+
+
+
+  protected static HashMap<String, Font> fontDifferent;
+  
+
+
+
+
+  protected BufferedImage lazyImage;
+  
+
+
+
+
+  protected Graphics2D lazyGraphics;
+  
+
+
+
+
+  protected FontMetrics lazyMetrics;
+  
+
+
+
+
+  protected int[] lazySamples;
+  
+
+
+
+
+
+  public PFont(Font font, boolean smooth)
+  {
+    this(font, smooth, null);
+  }
+  
+
+
+
+
+
+
+
+
+  public PFont(Font font, boolean smooth, char[] charset)
+  {
+    this.font = font;
+    this.smooth = smooth;
+    
+    name = font.getName();
+    psname = font.getPSName();
+    size = font.getSize();
+    
+
+
+
+
+
+    int initialCount = 10;
+    glyphs = new Glyph[initialCount];
+    
+    ascii = new int[''];
+    Arrays.fill(ascii, -1);
+    
+    int mbox3 = size * 3;
+    
+    lazyImage = new BufferedImage(mbox3, mbox3, 1);
+    lazyGraphics = ((Graphics2D)lazyImage.getGraphics());
+    lazyGraphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, 
+      smooth ? 
+      RenderingHints.VALUE_ANTIALIAS_ON : 
+      RenderingHints.VALUE_ANTIALIAS_OFF);
+    
+    lazyGraphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, 
+      smooth ? 
+      RenderingHints.VALUE_TEXT_ANTIALIAS_ON : 
+      RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
+    
+    lazyGraphics.setFont(font);
+    lazyMetrics = lazyGraphics.getFontMetrics();
+    lazySamples = new int[mbox3 * mbox3];
+    
+
+
+
+
+
+
+    if (charset == null) {
+      lazy = true;
+
+    }
+    else
+    {
+
+      Arrays.sort(charset);
+      
+      glyphs = new Glyph[charset.length];
+      
+      glyphCount = 0;
+      for (char c : charset) {
+        if (font.canDisplay(c)) {
+          Glyph glyf = new Glyph(c);
+          if (value < 128) {
+            ascii[value] = glyphCount;
+          }
+          index = glyphCount;
+          glyphs[(glyphCount++)] = glyf;
+        }
+      }
+      
+
+      if (glyphCount != charset.length) {
+        glyphs = ((Glyph[])PApplet.subset(glyphs, 0, glyphCount));
+      }
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    if (ascent == 0) {
+      if (font.canDisplay('d')) {
+        new Glyph('d');
+      } else {
+        ascent = lazyMetrics.getAscent();
+      }
+    }
+    if (descent == 0) {
+      if (font.canDisplay('p')) {
+        new Glyph('p');
+      } else {
+        descent = lazyMetrics.getDescent();
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+  public PFont(Font font, boolean smooth, char[] charset, boolean stream, int density)
+  {
+    this(font, smooth, charset);
+    this.stream = stream;
+  }
+  
+
+
+
+  public PFont(InputStream input)
+    throws IOException
+  {
+    DataInputStream is = new DataInputStream(input);
+    
+
+    glyphCount = is.readInt();
+    
+
+
+
+    int version = is.readInt();
+    
+
+
+    size = is.readInt();
+    
+
+
+    is.readInt();
+    
+    ascent = is.readInt();
+    descent = is.readInt();
+    
+
+    glyphs = new Glyph[glyphCount];
+    
+    ascii = new int[''];
+    Arrays.fill(ascii, -1);
+    
+
+    for (int i = 0; i < glyphCount; i++) {
+      glyph = new Glyph(is);
+      
+      if (value < 128) {
+        ascii[value] = i;
+      }
+      index = i;
+      glyphs[i] = glyph;
+    }
+    
+
+
+    if ((ascent == 0) && (descent == 0)) {
+      throw new RuntimeException("Please use \"Create Font\" to re-create this font.");
+    }
+    
+    Glyph[] arrayOfGlyph;
+    Glyph localGlyph1 = (arrayOfGlyph = glyphs).length; for (Glyph glyph = 0; glyph < localGlyph1; glyph++) { Glyph glyph = arrayOfGlyph[glyph];
+      glyph.readBitmap(is);
+    }
+    
+    if (version >= 10) {
+      name = is.readUTF();
+      psname = is.readUTF();
+    }
+    if (version == 11) {
+      smooth = is.readBoolean();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public void save(OutputStream output)
+    throws IOException
+  {
+    DataOutputStream os = new DataOutputStream(output);
+    
+    os.writeInt(glyphCount);
+    
+    if ((name == null) || (psname == null)) {
+      name = "";
+      psname = "";
+    }
+    
+    os.writeInt(11);
+    os.writeInt(size);
+    os.writeInt(0);
+    os.writeInt(ascent);
+    os.writeInt(descent);
+    
+    for (int i = 0; i < glyphCount; i++) {
+      glyphs[i].writeHeader(os);
+    }
+    
+    for (int i = 0; i < glyphCount; i++) {
+      glyphs[i].writeBitmap(os);
+    }
+    
+
+    os.writeUTF(name);
+    os.writeUTF(psname);
+    os.writeBoolean(smooth);
+    
+    os.flush();
+  }
+  
+
+
+
+
+  protected void addGlyph(char c)
+  {
+    Glyph glyph = new Glyph(c);
+    
+    if (glyphCount == glyphs.length) {
+      glyphs = ((Glyph[])PApplet.expand(glyphs));
+    }
+    if (glyphCount == 0) {
+      index = 0;
+      glyphs[glyphCount] = glyph;
+      if (value < 128) {
+        ascii[value] = 0;
+      }
+    }
+    else if (glyphs[(glyphCount - 1)].value < value) {
+      glyphs[glyphCount] = glyph;
+      if (value < 128) {
+        ascii[value] = glyphCount;
+      }
+    }
+    else {
+      for (int i = 0; i < glyphCount; i++) {
+        if (glyphs[i].value > c) {
+          for (int j = glyphCount; j > i; j--) {
+            glyphs[j] = glyphs[(j - 1)];
+            if (glyphs[j].value < 128) {
+              ascii[glyphs[j].value] = j;
+            }
+          }
+          index = i;
+          glyphs[i] = glyph;
+          
+          if (c >= '') break; ascii[c] = i;
+          break;
+        }
+      }
+    }
+    glyphCount += 1;
+  }
+  
+  public String getName()
+  {
+    return name;
+  }
+  
+  public String getPostScriptName()
+  {
+    return psname;
+  }
+  
+
+
+
+
+
+  public void setNative(Object font)
+  {
+    this.font = ((Font)font);
+  }
+  
+
+
+
+
+  @Deprecated
+  public Font getFont()
+  {
+    return font;
+  }
+  
+
+
+
+  public Object getNative()
+  {
+    if (subsetting) {
+      return null;
+    }
+    return font;
+  }
+  
+
+
+
+  public int getSize()
+  {
+    return size;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public int getDefaultSize()
+  {
+    return size / density;
+  }
+  
+  public boolean isSmooth()
+  {
+    return smooth;
+  }
+  
+  public boolean isStream()
+  {
+    return stream;
+  }
+  
+  public void setSubsetting()
+  {
+    subsetting = true;
+  }
+  
+
+
+
+
+  public Object findNative()
+  {
+    if ((font == null) && 
+      (!fontSearched))
+    {
+      font = new Font(name, 0, size);
+      
+      if (!font.getPSName().equals(psname))
+      {
+
+
+
+        font = new Font(psname, 0, size);
+      }
+      
+      if (!font.getPSName().equals(psname)) {
+        font = null;
+      }
+      fontSearched = true;
+    }
+    
+    return font;
+  }
+  
+  public Glyph getGlyph(char c)
+  {
+    int index = index(c);
+    return index == -1 ? null : glyphs[index];
+  }
+  
+
+
+
+
+  protected int index(char c)
+  {
+    if (lazy) {
+      int index = indexActual(c);
+      if (index != -1) {
+        return index;
+      }
+      if ((font != null) && (font.canDisplay(c)))
+      {
+        addGlyph(c);
+        
+        return indexActual(c);
+      }
+      
+      return -1;
+    }
+    
+
+    return indexActual(c);
+  }
+  
+
+
+
+
+  protected int indexActual(char c)
+  {
+    if (glyphCount == 0) { return -1;
+    }
+    
+    if (c < '') { return ascii[c];
+    }
+    
+
+    return indexHunt(c, 0, glyphCount - 1);
+  }
+  
+  protected int indexHunt(int c, int start, int stop)
+  {
+    int pivot = (start + stop) / 2;
+    
+
+    if (c == glyphs[pivot].value) { return pivot;
+    }
+    
+
+    if (start >= stop) { return -1;
+    }
+    
+    if (c < glyphs[pivot].value) { return indexHunt(c, start, pivot - 1);
+    }
+    
+    return indexHunt(c, pivot + 1, stop);
+  }
+  
+
+
+
+
+  public float kern(char a, char b)
+  {
+    return 0.0F;
+  }
+  
+
+
+
+
+  public float ascent()
+  {
+    return ascent / size;
+  }
+  
+
+
+
+
+  public float descent()
+  {
+    return descent / size;
+  }
+  
+
+
+
+  public float width(char c)
+  {
+    if (c == ' ') { return width('i');
+    }
+    int cc = index(c);
+    if (cc == -1) { return 0.0F;
+    }
+    return glyphs[cc].setWidth / size;
+  }
+  
+
+
+
+  public int getGlyphCount()
+  {
+    return glyphCount;
+  }
+  
+  public Glyph getGlyph(int i)
+  {
+    return glyphs[i];
+  }
+  
+  public PShape getShape(char ch)
+  {
+    return getShape(ch, 0.0F);
+  }
+  
+  public PShape getShape(char ch, float detail)
+  {
+    Font font = (Font)getNative();
+    if (font == null) {
+      throw new IllegalArgumentException("getShape() only works on fonts loaded with createFont()");
+    }
+    
+    PShape s = new PShape(102);
+    
+
+    float[] iterPoints = new float[6];
+    
+    char[] textArray = { ch };
+    
+
+
+
+    FontRenderContext frc = 
+      Toolkit.getDefaultToolkit().getFontMetrics(font).getFontRenderContext();
+    GlyphVector gv = font.createGlyphVector(frc, textArray);
+    Shape shp = gv.getOutline();
+    
+    PathIterator iter = detail == 0.0F ? 
+      shp.getPathIterator(null) : 
+      shp.getPathIterator(null, detail);
+    
+    int contours = 0;
+    
+
+    while (!iter.isDone()) {
+      int type = iter.currentSegment(iterPoints);
+      switch (type)
+      {
+
+      case 0: 
+        if (contours == 0) {
+          s.beginShape();
+        } else {
+          s.beginContour();
+        }
+        
+        contours++;
+        s.vertex(iterPoints[0], iterPoints[1]);
+        break;
+      
+
+
+      case 1: 
+        s.vertex(iterPoints[0], iterPoints[1]);
+        break;
+      
+
+
+      case 2: 
+        s.quadraticVertex(iterPoints[0], iterPoints[1], 
+          iterPoints[2], iterPoints[3]);
+        break;
+      
+
+
+      case 3: 
+        s.quadraticVertex(iterPoints[0], iterPoints[1], 
+          iterPoints[2], iterPoints[3], 
+          iterPoints[4], iterPoints[5]);
+        break;
+      
+
+      case 4: 
+        if (contours > 1)
+        {
+
+
+
+          s.endContour();
+        }
+        break;
+      }
+      
+      iter.next();
+    }
+    s.endShape(2);
+    return s;
+  }
+  
+
+
+
+
+  static final char[] EXTRA_CHARS = {
+    '', '', '', '', '', '', '', '', 
+    '', '', '', '', '', '', '', '', 
+    '', '', '', '', '', '', '', '', 
+    '', '', '', '', '', '', '', '', 
+    ' ', '¡', '¢', '£', '¤', '¥', '¦', '§', 
+    '¨', '©', 'ª', '«', '¬', '­', '®', '¯', 
+    '°', '±', '´', 'µ', '¶', '·', '¸', 'º', 
+    '»', '¿', 'À', 'Á', 'Â', 'Ã', 'Ä', 'Å', 
+    'Æ', 'Ç', 'È', 'É', 'Ê', 'Ë', 'Ì', 'Í', 
+    'Î', 'Ï', 'Ñ', 'Ò', 'Ó', 'Ô', 'Õ', 'Ö', 
+    '×', 'Ø', 'Ù', 'Ú', 'Û', 'Ü', 'Ý', 'ß', 
+    'à', 'á', 'â', 'ã', 'ä', 'å', 'æ', 'ç', 
+    'è', 'é', 'ê', 'ë', 'ì', 'í', 'î', 'ï', 
+    'ñ', 'ò', 'ó', 'ô', 'õ', 'ö', '÷', 'ø', 
+    'ù', 'ú', 'û', 'ü', 'ý', 'ÿ', 'Ă', 'ă', 
+    'Ą', 'ą', 'Ć', 'ć', 'Č', 'č', 'Ď', 'ď', 
+    'Đ', 'đ', 'Ę', 'ę', 'Ě', 'ě', 'ı', 'Ĺ', 
+    'ĺ', 'Ľ', 'ľ', 'Ł', 'ł', 'Ń', 'ń', 'Ň', 
+    'ň', 'Ő', 'ő', 'Œ', 'œ', 'Ŕ', 'ŕ', 'Ř', 
+    'ř', 'Ś', 'ś', 'Ş', 'ş', 'Š', 'š', 'Ţ', 
+    'ţ', 'Ť', 'ť', 'Ů', 'ů', 'Ű', 'ű', 'Ÿ', 
+    'Ź', 'ź', 'Ż', 'ż', 'Ž', 'ž', 'ƒ', 'ˆ', 
+    'ˇ', '˘', '˙', '˚', '˛', '˜', '˝', 'Ω', 
+    'π', '–', '—', '‘', '’', '‚', '“', '”', 
+    '„', '†', '‡', '•', '…', '‰', '‹', '›', 
+    '⁄', '€', '™', '∂', '∆', '∏', '∑', '√', 
+    '∞', '∫', '≈', '≠', '≤', '≥', '◊', 63743, 
+    64257, 64258 };
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static char[] CHARSET = new char[94 + EXTRA_CHARS.length];
+  static { int index = 0;
+    for (int i = 33; i <= 126; i++) {
+      CHARSET[(index++)] = ((char)i);
+    }
+    for (int i = 0; i < EXTRA_CHARS.length; i++) {
+      CHARSET[(index++)] = EXTRA_CHARS[i];
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static String[] list()
+  {
+    loadFonts();
+    String[] list = new String[fonts.length];
+    for (int i = 0; i < list.length; i++) {
+      list[i] = fonts[i].getName();
+    }
+    return list;
+  }
+  
+  public static void loadFonts()
+  {
+    if (fonts == null) {
+      GraphicsEnvironment ge = 
+        GraphicsEnvironment.getLocalGraphicsEnvironment();
+      fonts = ge.getAllFonts();
+      if (PApplet.platform == 2) {
+        fontDifferent = new HashMap();
+        for (Font font : fonts)
+        {
+          fontDifferent.put(font.getName(), font);
+        }
+      }
+    }
+  }
+  
+
+
+
+  public static Font findFont(String name)
+  {
+    
+    
+
+
+    if (PApplet.platform == 2) {
+      Font maybe = (Font)fontDifferent.get(name);
+      if (maybe != null) {
+        return maybe;
+      }
+    }
+    
+
+
+
+
+    return new Font(name, 0, 1);
+  }
+  
+
+  public PFont() {}
+  
+
+  public class Glyph
+  {
+    public PImage image;
+    
+    public int value;
+    
+    public int height;
+    public int width;
+    public int index;
+    public int setWidth;
+    public int topExtent;
+    public int leftExtent;
+    
+    public Glyph()
+    {
+      index = -1;
+    }
+    
+    public Glyph(DataInputStream is)
+      throws IOException
+    {
+      index = -1;
+      readHeader(is);
+    }
+    
+    protected void readHeader(DataInputStream is) throws IOException
+    {
+      value = is.readInt();
+      height = is.readInt();
+      width = is.readInt();
+      setWidth = is.readInt();
+      topExtent = is.readInt();
+      leftExtent = is.readInt();
+      
+
+      is.readInt();
+      
+
+
+
+      if ((value == 100) && 
+        (ascent == 0)) { ascent = topExtent;
+      }
+      if ((value == 112) && 
+        (descent == 0)) descent = (-topExtent + height);
+    }
+    
+    protected void writeHeader(DataOutputStream os)
+      throws IOException
+    {
+      os.writeInt(value);
+      os.writeInt(height);
+      os.writeInt(width);
+      os.writeInt(setWidth);
+      os.writeInt(topExtent);
+      os.writeInt(leftExtent);
+      os.writeInt(0);
+    }
+    
+    protected void readBitmap(DataInputStream is) throws IOException
+    {
+      image = new PImage(width, height, 4);
+      int bitmapSize = width * height;
+      
+      byte[] temp = new byte[bitmapSize];
+      is.readFully(temp);
+      
+
+      int w = width;
+      int h = height;
+      int[] pixels = image.pixels;
+      for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+          pixels[(y * width + x)] = (temp[(y * w + x)] & 0xFF);
+        }
+      }
+    }
+    
+
+
+    protected void writeBitmap(DataOutputStream os)
+      throws IOException
+    {
+      int[] pixels = image.pixels;
+      for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+          os.write(pixels[(y * width + x)] & 0xFF);
+        }
+      }
+    }
+    
+    protected Glyph(char c)
+    {
+      int mbox3 = size * 3;
+      lazyGraphics.setColor(Color.white);
+      lazyGraphics.fillRect(0, 0, mbox3, mbox3);
+      lazyGraphics.setColor(Color.black);
+      lazyGraphics.drawString(String.valueOf(c), size, size * 2);
+      
+      WritableRaster raster = lazyImage.getRaster();
+      raster.getDataElements(0, 0, mbox3, mbox3, lazySamples);
+      
+      int minX = 1000;int maxX = 0;
+      int minY = 1000;int maxY = 0;
+      boolean pixelFound = false;
+      
+      for (int y = 0; y < mbox3; y++) {
+        for (int x = 0; x < mbox3; x++) {
+          int sample = lazySamples[(y * mbox3 + x)] & 0xFF;
+          if (sample != 255) {
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
+            pixelFound = true;
+          }
+        }
+      }
+      
+      if (!pixelFound) {
+        minX = minY = 0;
+        maxX = maxY = 0;
+      }
+      
+
+
+      value = c;
+      height = (maxY - minY + 1);
+      width = (maxX - minX + 1);
+      setWidth = lazyMetrics.charWidth(c);
+      
+
+
+      topExtent = (size * 2 - minY);
+      
+
+      leftExtent = (minX - size);
+      
+      image = new PImage(width, height, 4);
+      int[] pixels = image.pixels;
+      for (int y = minY; y <= maxY; y++) {
+        for (int x = minX; x <= maxX; x++) {
+          int val = 255 - (lazySamples[(y * mbox3 + x)] & 0xFF);
+          int pindex = (y - minY) * width + (x - minX);
+          pixels[pindex] = val;
+        }
+      }
+      
+
+      if ((value == 100) && 
+        (ascent == 0)) { ascent = topExtent;
+      }
+      if ((value == 112) && 
+        (descent == 0)) descent = (-topExtent + height);
+    }
+  }
+}

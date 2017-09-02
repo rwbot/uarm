@@ -1,0 +1,118 @@
+package jogamp.common.os.elf;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.StructAccessor;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import java.nio.ByteBuffer;
+
+
+
+
+
+
+
+
+public class Ehdr_p1
+{
+  StructAccessor accessor;
+  private static final int mdIdx = 0;
+  private final MachineDataInfo md;
+  private static final int[] Ehdr_p1_size = { 24, 24, 24, 24, 24, 24, 24, 24 };
+  private static final int[] e_ident_offset = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  private static final int[] e_ident_size = { 16, 16, 16, 16, 16, 16, 16, 16 };
+  private static final int[] e_type_offset = { 16, 16, 16, 16, 16, 16, 16, 16 };
+  
+  private static final int[] e_machine_offset = { 18, 18, 18, 18, 18, 18, 18, 18 };
+  
+  private static final int[] e_version_offset = { 20, 20, 20, 20, 20, 20, 20, 20 };
+  
+  public static int size()
+  {
+    return Ehdr_p1_size[0];
+  }
+  
+  public static Ehdr_p1 create() {
+    return create(Buffers.newDirectByteBuffer(size()));
+  }
+  
+  public static Ehdr_p1 create(ByteBuffer paramByteBuffer) {
+    return new Ehdr_p1(paramByteBuffer);
+  }
+  
+  Ehdr_p1(ByteBuffer paramByteBuffer) {
+    md = values0md;
+    accessor = new StructAccessor(paramByteBuffer);
+  }
+  
+  public ByteBuffer getBuffer() {
+    return accessor.getBuffer();
+  }
+  
+  public static final int getE_identArrayLength()
+  {
+    return 16;
+  }
+  
+
+  public Ehdr_p1 setE_ident(int paramInt, byte[] paramArrayOfByte)
+  {
+    if (paramInt + paramArrayOfByte.length > 16) { throw new IndexOutOfBoundsException("offset " + paramInt + " + val.length " + paramArrayOfByte.length + " > array-length " + 16);
+    }
+    ByteBuffer localByteBuffer = getBuffer();
+    
+    if (16 > e_ident_size[0]) throw new IndexOutOfBoundsException("bTotal 16 > size " + e_ident_size[0] + ", elemSize " + 1 + " * " + 16);
+    int i = e_ident_offset[0];
+    int j = i + 16;
+    if (j > localByteBuffer.limit()) throw new IndexOutOfBoundsException("bLimes " + j + " > buffer.limit " + localByteBuffer.limit() + ", elemOff " + i + ", elemSize " + 1 + " * " + 16);
+    i += 1 * paramInt;
+    accessor.setBytesAt(i, paramArrayOfByte);
+    return this;
+  }
+  
+  public ByteBuffer getE_ident()
+  {
+    return accessor.slice(e_ident_offset[0], 16);
+  }
+  
+
+  public byte[] getE_ident(int paramInt, byte[] paramArrayOfByte)
+  {
+    if (paramInt + paramArrayOfByte.length > 16) throw new IndexOutOfBoundsException("offset " + paramInt + " + result.length " + paramArrayOfByte.length + " > array-length " + 16);
+    return accessor.getBytesAt(e_ident_offset[0] + 1 * paramInt, paramArrayOfByte);
+  }
+  
+
+  public Ehdr_p1 setE_type(short paramShort)
+  {
+    accessor.setShortAt(e_type_offset[0], paramShort);
+    return this;
+  }
+  
+  public short getE_type()
+  {
+    return accessor.getShortAt(e_type_offset[0]);
+  }
+  
+  public Ehdr_p1 setE_machine(short paramShort)
+  {
+    accessor.setShortAt(e_machine_offset[0], paramShort);
+    return this;
+  }
+  
+  public short getE_machine()
+  {
+    return accessor.getShortAt(e_machine_offset[0]);
+  }
+  
+  public Ehdr_p1 setE_version(int paramInt)
+  {
+    accessor.setIntAt(e_version_offset[0], paramInt);
+    return this;
+  }
+  
+  public int getE_version()
+  {
+    return accessor.getIntAt(e_version_offset[0]);
+  }
+}

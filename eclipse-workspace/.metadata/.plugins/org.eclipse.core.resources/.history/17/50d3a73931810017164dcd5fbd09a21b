@@ -1,0 +1,84 @@
+package processing.core;
+
+import com.apple.eawt.AppEvent.QuitEvent;
+import com.apple.eawt.Application;
+import com.apple.eawt.QuitHandler;
+import com.apple.eawt.QuitResponse;
+import java.awt.Image;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ThinkDifferent
+{
+  private static Application application;
+  static boolean attemptedQuit;
+  
+  public ThinkDifferent() {}
+  
+  public static void init(PApplet sketch)
+  {
+    if (application == null) {
+      application = Application.getApplication();
+    }
+    
+    application.setQuitHandler(new QuitHandler() {
+      public void handleQuitRequestWith(AppEvent.QuitEvent event, QuitResponse response) {
+        exit();
+        if ((PApplet.uncaughtThrowable == null) && 
+          (!ThinkDifferent.attemptedQuit)) {
+          response.cancelQuit();
+          ThinkDifferent.attemptedQuit = true;
+        } else {
+          response.performQuit();
+        }
+      }
+    });
+  }
+  
+
+
+
+
+
+
+  public static void setIconImage(Image image)
+  {
+    application.setDockIconImage(image);
+  }
+}

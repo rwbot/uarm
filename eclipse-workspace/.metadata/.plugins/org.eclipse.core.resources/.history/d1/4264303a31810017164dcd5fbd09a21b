@@ -1,0 +1,59 @@
+package jogamp.opengl.util.pngj.chunks;
+
+import jogamp.opengl.util.pngj.ImageInfo;
+import jogamp.opengl.util.pngj.PngjException;
+
+
+
+
+
+public class PngChunkSTER
+  extends PngChunkSingle
+{
+  public static final String ID = "sTER";
+  private byte mode;
+  
+  public PngChunkSTER(ImageInfo paramImageInfo)
+  {
+    super("sTER", paramImageInfo);
+  }
+  
+  public PngChunk.ChunkOrderingConstraint getOrderingConstraint()
+  {
+    return PngChunk.ChunkOrderingConstraint.BEFORE_IDAT;
+  }
+  
+  public ChunkRaw createRawChunk()
+  {
+    ChunkRaw localChunkRaw = createEmptyChunk(1, true);
+    data[0] = mode;
+    return localChunkRaw;
+  }
+  
+  public void parseFromRaw(ChunkRaw paramChunkRaw)
+  {
+    if (len != 1)
+      throw new PngjException("bad chunk length " + paramChunkRaw);
+    mode = data[0];
+  }
+  
+  public void cloneDataFromRead(PngChunk paramPngChunk)
+  {
+    PngChunkSTER localPngChunkSTER = (PngChunkSTER)paramPngChunk;
+    mode = mode;
+  }
+  
+
+
+  public byte getMode()
+  {
+    return mode;
+  }
+  
+
+
+  public void setMode(byte paramByte)
+  {
+    mode = paramByte;
+  }
+}

@@ -1,0 +1,1362 @@
+package jogamp.graph.font.typecast.tt.engine;
+
+import jogamp.graph.font.typecast.ot.Point;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Interpreter
+{
+  private Parser parser = null;
+  private final GraphicsState gs = new GraphicsState();
+  private final Point[][] zone = new Point[2][];
+  private int[] stack = null;
+  private int[] store = null;
+  private final int[] cvt = new int['Ā'];
+  private int[] functionMap = null;
+  private int stackIndex = 0;
+  private boolean inFuncDef = false;
+  
+  public Interpreter(int paramInt1, int paramInt2, int paramInt3) {
+    zone[0] = new Point['Ā'];
+    zone[1] = new Point['Ā'];
+    stack = new int[paramInt1];
+    store = new int[paramInt2];
+    functionMap = new int[paramInt3];
+  }
+  
+
+
+  private void _abs()
+  {
+    int i = pop();
+    if (i >= 0) {
+      push(i);
+    } else {
+      push(-i);
+    }
+  }
+  
+
+
+  private void _add()
+  {
+    int i = pop();
+    int j = pop();
+    push(j + i);
+  }
+  
+  private void _alignpts() {
+    pop();
+    pop();
+  }
+  
+
+
+  private void _alignrp()
+  {
+    for (;;)
+    {
+      if (gs.loop-- <= 0) break;
+      pop();
+    }
+    gs.loop = 1;
+  }
+  
+
+
+  private void _and()
+  {
+    int i = pop();
+    int j = pop();
+    push((j != 0) && (i != 0) ? 1 : 0);
+  }
+  
+
+
+  private void _call()
+  {
+    execute(functionMap[pop()]);
+  }
+  
+
+
+  private void _ceiling()
+  {
+    int i = pop();
+    if (i >= 0) {
+      push((i & 0xFFC0) + ((i & 0x3F) != 0 ? 64 : 0));
+    } else {
+      push(i & 0xFFC0);
+    }
+  }
+  
+
+
+  private void _cindex()
+  {
+    push(stack[(stackIndex - pop())]);
+  }
+  
+
+
+  private void _clear()
+  {
+    stackIndex = 0;
+  }
+  
+  private void _debug() {
+    pop();
+  }
+  
+
+
+  private void _deltac1()
+  {
+    int i = pop();
+    for (int j = 0; j < i; j++) {
+      pop();
+      pop();
+    }
+  }
+  
+
+
+  private void _deltac2()
+  {
+    int i = pop();
+    for (int j = 0; j < i; j++) {
+      pop();
+      pop();
+    }
+  }
+  
+
+
+  private void _deltac3()
+  {
+    int i = pop();
+    for (int j = 0; j < i; j++) {
+      pop();
+      pop();
+    }
+  }
+  
+
+
+  private void _deltap1()
+  {
+    int i = pop();
+    for (int j = 0; j < i; j++) {
+      pop();
+      pop();
+    }
+  }
+  
+
+
+  private void _deltap2()
+  {
+    int i = pop();
+    for (int j = 0; j < i; j++) {
+      pop();
+      pop();
+    }
+  }
+  
+
+
+  private void _deltap3()
+  {
+    int i = pop();
+    for (int j = 0; j < i; j++) {
+      pop();
+      pop();
+    }
+  }
+  
+
+
+  private void _depth()
+  {
+    push(stackIndex);
+  }
+  
+
+
+  private void _div()
+  {
+    int i = pop();
+    int j = pop();
+    push(j / i >> 6);
+  }
+  
+
+
+  private void _dup()
+  {
+    int i = pop();
+    push(i);
+    push(i);
+  }
+  
+
+
+  private int _else(int paramInt)
+  {
+    return parser.handleElse(paramInt);
+  }
+  
+
+
+  private void _eq()
+  {
+    int i = pop();
+    int j = pop();
+    push(j == i ? 1 : 0);
+  }
+  
+  private void _even() {
+    pop();
+    push(0);
+  }
+  
+
+
+  private void _fdef(int paramInt)
+  {
+    functionMap[pop()] = paramInt;
+    inFuncDef = true;
+  }
+  
+
+
+  private void _flipoff()
+  {
+    gs.auto_flip = false;
+  }
+  
+
+
+  private void _flipon()
+  {
+    gs.auto_flip = true;
+  }
+  
+
+
+  private void _flippt()
+  {
+    for (;;)
+    {
+      if (gs.loop-- <= 0) break;
+      int i = pop();
+      zone[gs.zp0][i].onCurve = (!zone[gs.zp0][i].onCurve);
+    }
+    gs.loop = 1;
+  }
+  
+
+
+  private void _fliprgoff()
+  {
+    int i = pop();
+    int j = pop();
+    for (int k = j; k <= i; k++) {
+      zone[1][k].onCurve = false;
+    }
+  }
+  
+
+
+  private void _fliprgon()
+  {
+    int i = pop();
+    int j = pop();
+    for (int k = j; k <= i; k++) {
+      zone[1][k].onCurve = true;
+    }
+  }
+  
+
+
+  private void _floor()
+  {
+    int i = pop();
+    if (i >= 0) {
+      push(i & 0xFFC0);
+    } else {
+      push((i & 0xFFC0) - ((i & 0x3F) != 0 ? 64 : 0));
+    }
+  }
+  
+  private void _gc(short paramShort) {
+    pop();
+    push(0);
+  }
+  
+  private void _getinfo() {
+    pop();
+    push(0);
+  }
+  
+
+
+  private void _gfv()
+  {
+    push(gs.freedom_vector[0]);
+    push(gs.freedom_vector[1]);
+  }
+  
+
+
+  private void _gpv()
+  {
+    push(gs.projection_vector[0]);
+    push(gs.projection_vector[1]);
+  }
+  
+
+
+  private void _gt()
+  {
+    int i = pop();
+    int j = pop();
+    push(j > i ? 1 : 0);
+  }
+  
+
+
+  private void _gteq()
+  {
+    int i = pop();
+    int j = pop();
+    push(j >= i ? 1 : 0);
+  }
+  
+
+
+  private void _idef()
+  {
+    pop();
+    inFuncDef = true;
+  }
+  
+
+
+  private int _if(int paramInt)
+  {
+    return parser.handleIf(pop() != 0, paramInt);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private void _instctrl()
+  {
+    int i = pop();
+    int j = pop();
+    if (i == 1) {
+      gs.instruction_control |= j;
+    } else if (i == 2) {
+      gs.instruction_control |= j;
+    }
+  }
+  
+  private void _ip() {
+    pop();
+  }
+  
+  private void _isect() {
+    pop();
+    pop();
+    pop();
+    pop();
+    pop();
+  }
+  
+
+
+  private void _iup(short paramShort) {}
+  
+
+  private int _jmpr(int paramInt)
+  {
+    return paramInt + (pop() - 1);
+  }
+  
+
+
+  private int _jrof(int paramInt)
+  {
+    int i = pop() != 0 ? 1 : 0;
+    int j = pop();
+    if (i == 0) {
+      paramInt += j - 1;
+    }
+    return paramInt;
+  }
+  
+
+
+  private int _jrot(int paramInt)
+  {
+    int i = pop() != 0 ? 1 : 0;
+    int j = pop();
+    if (i != 0) {
+      paramInt += j - 1;
+    }
+    return paramInt;
+  }
+  
+
+
+  private void _loopcall()
+  {
+    pop();
+    int i = pop();
+    for (int j = 0; j < i; j++) {
+      execute(functionMap[j]);
+    }
+  }
+  
+
+
+  private void _lt()
+  {
+    int i = pop();
+    int j = pop();
+    push(j < i ? 1 : 0);
+  }
+  
+
+
+  private void _lteq()
+  {
+    int i = pop();
+    int j = pop();
+    push(j <= i ? 1 : 0);
+  }
+  
+
+
+  private void _max()
+  {
+    int i = pop();
+    int j = pop();
+    push(i > j ? i : j);
+  }
+  
+  private void _md(short paramShort) {
+    pop();
+    pop();
+    push(0);
+  }
+  
+  private void _mdap(short paramShort) {
+    pop();
+  }
+  
+  private void _mdrp(short paramShort) {
+    pop();
+  }
+  
+  private void _miap(short paramShort) {
+    pop();
+    pop();
+  }
+  
+
+  private void _min()
+  {
+    int i = pop();
+    int j = pop();
+    push(i < j ? i : j);
+  }
+  
+
+
+
+  private void _mindex()
+  {
+    int i = pop();
+    int j = stack[(stackIndex - i)];
+    for (int k = stackIndex - i; k < stackIndex - 1; k++) {
+      stack[k] = stack[(k + 1)];
+    }
+    stack[(stackIndex - 1)] = j;
+  }
+  
+  private void _mirp(short paramShort) {
+    pop();
+    pop();
+  }
+  
+  private void _mppem() {
+    push(0);
+  }
+  
+  private void _mps() {
+    push(0);
+  }
+  
+  private void _msirp(short paramShort) {
+    pop();
+    pop();
+  }
+  
+
+
+  private void _mul()
+  {
+    int i = pop();
+    int j = pop();
+    push(i * j >> 6);
+  }
+  
+
+
+  private void _neg()
+  {
+    push(-pop());
+  }
+  
+
+
+  private void _neq()
+  {
+    int i = pop();
+    int j = pop();
+    push(j != i ? 1 : 0);
+  }
+  
+
+
+  private void _not()
+  {
+    push(pop() != 0 ? 0 : 1);
+  }
+  
+  private void _nround(short paramShort) {
+    pop();
+    push(0);
+  }
+  
+  private void _odd() {
+    pop();
+    push(0);
+  }
+  
+
+
+  private void _or()
+  {
+    int i = pop();
+    int j = pop();
+    push((j != 0) || (i != 0) ? 1 : 0);
+  }
+  
+
+
+
+
+
+  private void _push(int[] paramArrayOfInt)
+  {
+    for (int i = 0; i < paramArrayOfInt.length; i++) {
+      push(paramArrayOfInt[i]);
+    }
+  }
+  
+
+
+  private void _rcvt()
+  {
+    push(cvt[pop()]);
+  }
+  
+
+
+  private void _rdtg()
+  {
+    gs.round_state = 3;
+  }
+  
+
+
+  private void _roff()
+  {
+    gs.round_state = 5;
+  }
+  
+
+
+  private void _roll()
+  {
+    int i = pop();
+    int j = pop();
+    int k = pop();
+    push(j);
+    push(i);
+    push(k);
+  }
+  
+  private void _round(short paramShort) {
+    pop();
+    push(0);
+  }
+  
+
+
+  private void _rs()
+  {
+    push(store[pop()]);
+  }
+  
+
+
+  private void _rtdg()
+  {
+    gs.round_state = 2;
+  }
+  
+
+
+  private void _rtg()
+  {
+    gs.round_state = 1;
+  }
+  
+
+
+  private void _rthg()
+  {
+    gs.round_state = 0;
+  }
+  
+
+
+  private void _rutg()
+  {
+    gs.round_state = 4;
+  }
+  
+  private void _s45round() {
+    pop();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private void _scanctrl()
+  {
+    gs.scan_control = pop();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private void _scantype()
+  {
+    pop();
+  }
+  
+  private void _scfs() {
+    pop();
+    pop();
+  }
+  
+
+
+  private void _scvtci()
+  {
+    gs.control_value_cut_in = pop();
+  }
+  
+
+
+  private void _sdb()
+  {
+    gs.delta_base = pop();
+  }
+  
+
+
+  private void _sdpvtl(short paramShort)
+  {
+    pop();
+    pop();
+  }
+  
+
+
+  private void _sds()
+  {
+    gs.delta_shift = pop();
+  }
+  
+
+
+  private void _sfvfs()
+  {
+    gs.freedom_vector[1] = pop();
+    gs.freedom_vector[0] = pop();
+  }
+  
+
+
+  private void _sfvtca(short paramShort)
+  {
+    if (paramShort == 1) {
+      gs.freedom_vector[0] = 16384;
+      gs.freedom_vector[1] = 0;
+    } else {
+      gs.freedom_vector[0] = 0;
+      gs.freedom_vector[1] = 16384;
+    }
+  }
+  
+
+
+  private void _sfvtl(short paramShort)
+  {
+    pop();
+    pop();
+    
+    gs.freedom_vector[0] = 0;
+    gs.freedom_vector[1] = 0;
+  }
+  
+
+
+
+
+
+
+  private void _sfvtpv()
+  {
+    gs.freedom_vector[0] = gs.projection_vector[0];
+    gs.freedom_vector[1] = gs.projection_vector[1];
+  }
+  
+  private void _shc(short paramShort) {
+    pop();
+  }
+  
+
+
+  private void _shp(short paramShort)
+  {
+    for (;;)
+    {
+      if (gs.loop-- <= 0) break;
+      pop();
+      if (paramShort != 0) {}
+    }
+    
+
+    gs.loop = 1;
+  }
+  
+
+
+
+
+  private void _shpix()
+  {
+    pop();
+    for (;;) { if (gs.loop-- <= 0) break;
+      pop();
+    }
+    gs.loop = 1;
+  }
+  
+  private void _shz(short paramShort) {
+    pop();
+  }
+  
+
+
+  private void _sloop()
+  {
+    gs.loop = pop();
+  }
+  
+
+
+  private void _smd()
+  {
+    gs.minimum_distance = pop();
+  }
+  
+
+
+  private void _spvfs()
+  {
+    gs.projection_vector[1] = pop();
+    gs.projection_vector[0] = pop();
+  }
+  
+
+
+  private void _spvtca(short paramShort)
+  {
+    if (paramShort == 1) {
+      gs.projection_vector[0] = 16384;
+      gs.projection_vector[1] = 0;
+    } else {
+      gs.projection_vector[0] = 0;
+      gs.projection_vector[1] = 16384;
+    }
+  }
+  
+
+
+
+
+  private void _spvtl(short paramShort)
+  {
+    pop();
+    pop();
+    
+
+
+
+
+
+
+
+
+    gs.projection_vector[0] = 0;
+    gs.projection_vector[1] = 0;
+  }
+  
+
+
+
+  private void _sround()
+  {
+    pop();
+  }
+  
+
+
+  private void _srp0()
+  {
+    gs.rp0 = pop();
+  }
+  
+
+
+  private void _srp1()
+  {
+    gs.rp1 = pop();
+  }
+  
+
+
+  private void _srp2()
+  {
+    gs.rp2 = pop();
+  }
+  
+
+
+  private void _ssw()
+  {
+    gs.single_width_value = pop();
+  }
+  
+
+
+  private void _sswci()
+  {
+    gs.single_width_cut_in = pop();
+  }
+  
+
+
+  private void _sub()
+  {
+    int i = pop();
+    int j = pop();
+    push(j - i);
+  }
+  
+
+
+  private void _svtca(short paramShort)
+  {
+    if (paramShort == 1) {
+      gs.projection_vector[0] = 16384;
+      gs.projection_vector[1] = 0;
+      gs.freedom_vector[0] = 16384;
+      gs.freedom_vector[1] = 0;
+    } else {
+      gs.projection_vector[0] = 0;
+      gs.projection_vector[1] = 16384;
+      gs.freedom_vector[0] = 0;
+      gs.freedom_vector[1] = 16384;
+    }
+  }
+  
+
+
+  private void _swap()
+  {
+    int i = pop();
+    int j = pop();
+    push(i);
+    push(j);
+  }
+  
+
+
+  private void _szp0()
+  {
+    gs.zp0 = pop();
+  }
+  
+
+
+  private void _szp1()
+  {
+    gs.zp1 = pop();
+  }
+  
+
+
+  private void _szp2()
+  {
+    gs.zp2 = pop();
+  }
+  
+
+
+  private void _szps()
+  {
+    gs.zp0 = (gs.zp1 = gs.zp2 = pop());
+  }
+  
+  private void _utp() {
+    pop();
+  }
+  
+
+
+  private void _wcvtf()
+  {
+    int i = pop();
+    
+    cvt[pop()] = i;
+  }
+  
+
+
+  private void _wcvtp()
+  {
+    int i = pop();
+    
+    cvt[pop()] = i;
+  }
+  
+
+
+  private void _ws()
+  {
+    store[pop()] = pop();
+  }
+  
+  public void execute(int paramInt) {
+    while (paramInt < (paramInt & 0xFFFF0000 | parser.getISLength(paramInt >> 16))) {
+      int i = parser.getOpcode(paramInt);
+      if (inFuncDef)
+      {
+
+        if (i == 45) {
+          inFuncDef = false;
+        }
+        paramInt = parser.advanceIP(paramInt);
+      }
+      else {
+        if (i >= 224) { _mirp((short)(i & 0x1F));
+        } else if (i >= 192) { _mdrp((short)(i & 0x1F));
+        } else if (i >= 184) { _push(parser.getPushData(paramInt));
+        } else if (i >= 176) { _push(parser.getPushData(paramInt));
+        } else if (i >= 142) { _instctrl();
+        } else if (i >= 141) { _scantype();
+        } else if (i >= 140) { _min();
+        } else if (i >= 139) { _max();
+        } else if (i >= 138) { _roll();
+        } else if (i >= 137) { _idef();
+        } else if (i >= 136) { _getinfo();
+        } else if (i >= 134) { _sdpvtl((short)(i & 0x1));
+        } else if (i >= 133) { _scanctrl();
+        } else if (i >= 130) { _fliprgoff();
+        } else if (i >= 129) { _fliprgon();
+        } else if (i >= 128) { _flippt();
+        } else if ((i < 127) && 
+          (i < 126))
+          if (i >= 125) { _rdtg();
+          } else if (i >= 124) { _rutg();
+          } else if (i >= 122) { _roff();
+          } else if (i >= 121) { paramInt = _jrof(paramInt);
+          } else if (i >= 120) { paramInt = _jrot(paramInt);
+          } else if (i >= 119) { _s45round();
+          } else if (i >= 118) { _sround();
+          } else if (i >= 117) { _deltac3();
+          } else if (i >= 116) { _deltac2();
+          } else if (i >= 115) { _deltac1();
+          } else if (i >= 114) { _deltap3();
+          } else if (i >= 113) { _deltap2();
+          } else if (i >= 112) { _wcvtf();
+          } else if (i >= 108) { _nround((short)(i & 0x3));
+          } else if (i >= 104) { _round((short)(i & 0x3));
+          } else if (i >= 103) { _ceiling();
+          } else if (i >= 102) { _floor();
+          } else if (i >= 101) { _neg();
+          } else if (i >= 100) { _abs();
+          } else if (i >= 99) { _mul();
+          } else if (i >= 98) { _div();
+          } else if (i >= 97) { _sub();
+          } else if (i >= 96) { _add();
+          } else if (i >= 95) { _sds();
+          } else if (i >= 94) { _sdb();
+          } else if (i >= 93) { _deltap1();
+          } else if (i >= 92) { _not();
+          } else if (i >= 91) { _or();
+          } else if (i >= 90) { _and();
+          } else if (i < 89)
+            if (i >= 88) { paramInt = _if(paramInt);
+            } else if (i >= 87) { _even();
+            } else if (i >= 86) { _odd();
+            } else if (i >= 85) { _neq();
+            } else if (i >= 84) { _eq();
+            } else if (i >= 83) { _gteq();
+            } else if (i >= 82) { _gt();
+            } else if (i >= 81) { _lteq();
+            } else if (i >= 80) { _lt();
+            } else if (i >= 79) { _debug();
+            } else if (i >= 78) { _flipoff();
+            } else if (i >= 77) { _flipon();
+            } else if (i >= 76) { _mps();
+            } else if (i >= 75) { _mppem();
+            } else if (i >= 73) { _md((short)(i & 0x1));
+            } else if (i >= 72) { _scfs();
+            } else if (i >= 70) { _gc((short)(i & 0x1));
+            } else if (i >= 69) { _rcvt();
+            } else if (i >= 68) { _wcvtp();
+            } else if (i >= 67) { _rs();
+            } else if (i >= 66) { _ws();
+            } else if (i >= 65) { _push(parser.getPushData(paramInt));
+            } else if (i >= 64) { _push(parser.getPushData(paramInt));
+            } else if (i >= 62) { _miap((short)(i & 0x1));
+            } else if (i >= 61) { _rtdg();
+            } else if (i >= 60) { _alignrp();
+            } else if (i >= 57) { _ip();
+            } else if (i >= 58) { _msirp((short)(i & 0x1));
+            } else if (i >= 56) { _shpix();
+            } else if (i >= 54) { _shz((short)(i & 0x1));
+            } else if (i >= 52) { _shc((short)(i & 0x1));
+            } else if (i >= 50) { _shp((short)(i & 0x1));
+            } else if (i >= 48) { _iup((short)(i & 0x1));
+            } else if (i >= 46) { _mdap((short)(i & 0x1));
+            } else { if (i >= 45) return;
+              if (i >= 44) { _fdef(paramInt + 1);
+              } else if (i >= 43) { _call();
+              } else if (i >= 42) { _loopcall();
+              } else if (i >= 41) { _utp();
+              } else if (i >= 39) { _alignpts();
+              } else if (i >= 38) { _mindex();
+              } else if (i >= 37) { _cindex();
+              } else if (i >= 36) { _depth();
+              } else if (i >= 35) { _swap();
+              } else if (i >= 34) { _clear();
+              } else if (i >= 33) { pop();
+              } else if (i >= 32) { _dup();
+              } else if (i >= 31) { _ssw();
+              } else if (i >= 30) { _sswci();
+              } else if (i >= 29) { _scvtci();
+              } else if (i >= 28) { paramInt = _jmpr(paramInt);
+              } else if (i >= 27) { paramInt = _else(paramInt);
+              } else if (i >= 26) { _smd();
+              } else if (i >= 25) { _rthg();
+              } else if (i >= 24) { _rtg();
+              } else if (i >= 23) { _sloop();
+              } else if (i >= 22) { _szps();
+              } else if (i >= 21) { _szp2();
+              } else if (i >= 20) { _szp1();
+              } else if (i >= 19) { _szp0();
+              } else if (i >= 18) { _srp2();
+              } else if (i >= 17) { _srp1();
+              } else if (i >= 16) { _srp0();
+              } else if (i >= 15) { _isect();
+              } else if (i >= 14) { _sfvtpv();
+              } else if (i >= 13) { _gfv();
+              } else if (i >= 12) { _gpv();
+              } else if (i >= 11) { _sfvfs();
+              } else if (i >= 10) { _spvfs();
+              } else if (i >= 8) { _sfvtl((short)(i & 0x1));
+              } else if (i >= 6) { _spvtl((short)(i & 0x1));
+              } else if (i >= 4) { _sfvtca((short)(i & 0x1));
+              } else if (i >= 2) { _spvtca((short)(i & 0x1));
+              } else if (i >= 0) _svtca((short)(i & 0x1)); }
+        paramInt = parser.advanceIP(paramInt);
+      }
+    }
+  }
+  
+  public Point[][] getZones() { return zone; }
+  
+  private int pop()
+  {
+    return stack[(--stackIndex)];
+  }
+  
+  private void push(int paramInt) {
+    stack[(stackIndex++)] = paramInt;
+  }
+  
+  public void runCvtProgram() {
+    execute(65536);
+  }
+  
+  public void runFontProgram() {
+    execute(0);
+  }
+  
+  public void runGlyphProgram()
+  {
+    if ((gs.instruction_control & 0x1) == 0) {
+      execute(131072);
+    }
+  }
+  
+  public void setParser(Parser paramParser) {
+    parser = paramParser;
+  }
+}

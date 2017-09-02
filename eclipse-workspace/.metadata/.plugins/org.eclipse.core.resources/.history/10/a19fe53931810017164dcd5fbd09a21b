@@ -1,0 +1,402 @@
+package com.jogamp.newt;
+
+import com.jogamp.common.util.IOUtil.ClassResources;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.NativeWindow;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import java.io.PrintStream;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.Arrays;
+import jogamp.newt.Debug;
+import jogamp.newt.DisplayImpl;
+import jogamp.newt.ScreenImpl;
+import jogamp.newt.WindowImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class NewtFactory
+{
+  public static final boolean DEBUG_IMPLEMENTATION = Debug.debug("Window");
+  
+  public static final String DRIVER_DEFAULT_ROOT_PACKAGE = "jogamp.newt.driver";
+  
+  private static IOUtil.ClassResources defaultWindowIcons;
+  private static String sysPaths = "newt/data/jogamp-16x16.png newt/data/jogamp-32x32.png";
+  
+  static {
+    AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public Object run() {
+        NativeWindowFactory.initSingleton();
+        
+
+        String[] arrayOfString = PropertyAccess.getProperty("newt.window.icons", true, NewtFactory.sysPaths).split("[\\s,]");
+        if (arrayOfString.length < 2) {
+          throw new IllegalArgumentException("Property 'newt.window.icons' did not specify at least two PNG icons, but " + Arrays.toString(arrayOfString));
+        }
+        NewtFactory.access$102(new IOUtil.ClassResources(arrayOfString, NewtFactory.class.getClassLoader(), null));
+        
+        return null;
+      }
+    });
+  }
+  
+
+
+
+
+
+
+
+  public static IOUtil.ClassResources getWindowIcons()
+  {
+    return defaultWindowIcons;
+  }
+  
+
+
+
+
+
+  public static void setWindowIcons(IOUtil.ClassResources paramClassResources) { defaultWindowIcons = paramClassResources; }
+  
+  public static Class<?> getCustomClass(String paramString1, String paramString2) {
+    Class localClass = null;
+    if ((paramString1 != null) && (paramString2 != null)) {
+      String str;
+      if (paramString1.startsWith(".")) {
+        str = "jogamp.newt.driver" + paramString1 + "." + paramString2;
+      } else {
+        str = paramString1 + "." + paramString2;
+      }
+      try {
+        localClass = Class.forName(str);
+      } catch (Throwable localThrowable) {
+        if (DEBUG_IMPLEMENTATION) {
+          System.err.println("Warning: Failed to find class <" + str + ">: " + localThrowable.getMessage());
+          localThrowable.printStackTrace();
+        }
+      }
+    }
+    return localClass;
+  }
+  
+  private static boolean useEDT = true;
+  
+
+
+
+
+  public static synchronized void setUseEDT(boolean paramBoolean)
+  {
+    useEDT = paramBoolean;
+  }
+  
+  public static boolean useEDT() {
+    return useEDT;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static Display createDisplay(String paramString)
+  {
+    return createDisplay(paramString, true);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Display createDisplay(String paramString, boolean paramBoolean)
+  {
+    return DisplayImpl.create(NativeWindowFactory.getNativeWindowType(true), paramString, 0L, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Display createDisplay(String paramString1, String paramString2)
+  {
+    return createDisplay(paramString1, paramString2, true);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Display createDisplay(String paramString1, String paramString2, boolean paramBoolean)
+  {
+    return DisplayImpl.create(paramString1, paramString2, 0L, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public static Screen createScreen(Display paramDisplay, int paramInt)
+  {
+    return ScreenImpl.create(paramDisplay, paramInt);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Window createWindow(CapabilitiesImmutable paramCapabilitiesImmutable)
+  {
+    return createWindowImpl(NativeWindowFactory.getNativeWindowType(true), paramCapabilitiesImmutable);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public static Window createWindow(Screen paramScreen, CapabilitiesImmutable paramCapabilitiesImmutable)
+  {
+    return WindowImpl.create(null, 0L, paramScreen, paramCapabilitiesImmutable);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Window createWindow(NativeWindow paramNativeWindow, CapabilitiesImmutable paramCapabilitiesImmutable)
+  {
+    String str = NativeWindowFactory.getNativeWindowType(true);
+    if (null == paramNativeWindow) {
+      return createWindowImpl(str, paramCapabilitiesImmutable);
+    }
+    Screen localScreen = null;
+    Window localWindow = null;
+    
+    if ((paramNativeWindow instanceof Window))
+    {
+      localWindow = (Window)paramNativeWindow;
+      localScreen = localWindow.getScreen();
+    }
+    else {
+      localObject1 = paramNativeWindow.getGraphicsConfiguration();
+      Object localObject2; if (null != localObject1) {
+        localObject2 = ((AbstractGraphicsConfiguration)localObject1).getScreen();
+        AbstractGraphicsDevice localAbstractGraphicsDevice = ((AbstractGraphicsScreen)localObject2).getDevice();
+        Display localDisplay = createDisplay(str, localAbstractGraphicsDevice.getHandle(), true);
+        localScreen = createScreen(localDisplay, ((AbstractGraphicsScreen)localObject2).getIndex());
+      } else {
+        localObject2 = createDisplay(str, null, true);
+        localScreen = createScreen((Display)localObject2, 0);
+      }
+    }
+    Object localObject1 = WindowImpl.create(paramNativeWindow, 0L, localScreen, paramCapabilitiesImmutable);
+    
+    ((Window)localObject1).setSize(paramNativeWindow.getWidth(), paramNativeWindow.getHeight());
+    if (null != localWindow) {
+      localWindow.addChild((NativeWindow)localObject1);
+      ((Window)localObject1).setVisible(localWindow.isVisible());
+    }
+    return localObject1;
+  }
+  
+  private static Window createWindowImpl(String paramString, CapabilitiesImmutable paramCapabilitiesImmutable) {
+    Display localDisplay = createDisplay(paramString, null, true);
+    Screen localScreen = createScreen(localDisplay, 0);
+    return WindowImpl.create(null, 0L, localScreen, paramCapabilitiesImmutable);
+  }
+  
+
+
+
+
+
+
+
+
+  public static Window createWindow(String paramString, int paramInt, long paramLong, CapabilitiesImmutable paramCapabilitiesImmutable)
+  {
+    String str = NativeWindowFactory.getNativeWindowType(true);
+    Display localDisplay = createDisplay(str, paramString, true);
+    Screen localScreen = createScreen(localDisplay, paramInt);
+    return WindowImpl.create(null, paramLong, localScreen, paramCapabilitiesImmutable);
+  }
+  
+
+
+
+
+
+
+  public static Window createWindow(Object[] paramArrayOfObject, Screen paramScreen, CapabilitiesImmutable paramCapabilitiesImmutable)
+  {
+    return WindowImpl.create(paramArrayOfObject, paramScreen, paramCapabilitiesImmutable);
+  }
+  
+
+
+  public static Display createDisplay(String paramString, long paramLong, boolean paramBoolean)
+  {
+    return DisplayImpl.create(paramString, null, paramLong, paramBoolean);
+  }
+  
+  public static boolean isScreenCompatible(NativeWindow paramNativeWindow, Screen paramScreen)
+  {
+    AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = paramNativeWindow.getGraphicsConfiguration();
+    AbstractGraphicsScreen localAbstractGraphicsScreen = localAbstractGraphicsConfiguration.getScreen();
+    AbstractGraphicsDevice localAbstractGraphicsDevice = localAbstractGraphicsScreen.getDevice();
+    
+    DisplayImpl localDisplayImpl = (DisplayImpl)paramScreen.getDisplay();
+    String str1 = localDisplayImpl.validateDisplayName(null, localAbstractGraphicsDevice.getHandle());
+    String str2 = localDisplayImpl.getName();
+    if (!str1.equals(str2)) {
+      return false;
+    }
+    
+    if (localAbstractGraphicsScreen.getIndex() != paramScreen.getIndex()) {
+      return false;
+    }
+    return true;
+  }
+  
+  public static Screen createCompatibleScreen(NativeWindow paramNativeWindow) {
+    return createCompatibleScreen(paramNativeWindow, null);
+  }
+  
+  public static Screen createCompatibleScreen(NativeWindow paramNativeWindow, Screen paramScreen)
+  {
+    AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = paramNativeWindow.getGraphicsConfiguration();
+    AbstractGraphicsScreen localAbstractGraphicsScreen = localAbstractGraphicsConfiguration.getScreen();
+    AbstractGraphicsDevice localAbstractGraphicsDevice = localAbstractGraphicsScreen.getDevice();
+    
+    if (null != paramScreen)
+    {
+      localObject1 = (DisplayImpl)paramScreen.getDisplay();
+      localObject2 = ((DisplayImpl)localObject1).validateDisplayName(null, localAbstractGraphicsDevice.getHandle());
+      String str = ((DisplayImpl)localObject1).getName();
+      boolean bool1 = ((String)localObject2).equals(str);
+      boolean bool2 = localAbstractGraphicsScreen.getIndex() == paramScreen.getIndex();
+      if (DEBUG_IMPLEMENTATION) {
+        System.err.println("NewtFactory.createCompatibleScreen: Display: " + (String)localObject2 + " =? " + str + " : " + bool1 + "; Screen: " + localAbstractGraphicsScreen
+        
+          .getIndex() + " =? " + paramScreen.getIndex() + " : " + bool2);
+      }
+      if ((bool1) && (bool2))
+      {
+        return paramScreen;
+      }
+    }
+    
+
+    Object localObject1 = NativeWindowFactory.getNativeWindowType(true);
+    Object localObject2 = createDisplay((String)localObject1, localAbstractGraphicsDevice.getHandle(), true);
+    return createScreen((Display)localObject2, localAbstractGraphicsScreen.getIndex());
+  }
+  
+  public NewtFactory() {}
+}

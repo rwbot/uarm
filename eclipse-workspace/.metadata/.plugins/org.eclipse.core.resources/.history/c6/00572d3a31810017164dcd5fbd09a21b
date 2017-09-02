@@ -1,0 +1,31 @@
+package jogamp.opengl.util.pngj;
+
+import java.io.OutputStream;
+import jogamp.opengl.util.pngj.chunks.ChunkHelper;
+import jogamp.opengl.util.pngj.chunks.ChunkRaw;
+
+
+
+class PngIDatChunkOutputStream
+  extends ProgressiveOutputStream
+{
+  private static final int SIZE_DEFAULT = 32768;
+  private final OutputStream outputStream;
+  
+  PngIDatChunkOutputStream(OutputStream paramOutputStream)
+  {
+    this(paramOutputStream, 0);
+  }
+  
+  PngIDatChunkOutputStream(OutputStream paramOutputStream, int paramInt) {
+    super(paramInt > 0 ? paramInt : 32768);
+    outputStream = paramOutputStream;
+  }
+  
+  protected final void flushBuffer(byte[] paramArrayOfByte, int paramInt)
+  {
+    ChunkRaw localChunkRaw = new ChunkRaw(paramInt, ChunkHelper.b_IDAT, false);
+    data = paramArrayOfByte;
+    localChunkRaw.writeChunk(outputStream);
+  }
+}

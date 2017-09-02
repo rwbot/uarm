@@ -1,0 +1,46 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GaspRange
+{
+  public static final int GASP_GRIDFIT = 1;
+  public static final int GASP_DOGRAY = 2;
+  private final int rangeMaxPPEM;
+  private final int rangeGaspBehavior;
+  
+  protected GaspRange(DataInput paramDataInput)
+    throws IOException
+  {
+    rangeMaxPPEM = paramDataInput.readUnsignedShort();
+    rangeGaspBehavior = paramDataInput.readUnsignedShort();
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("  rangeMaxPPEM:        ").append(rangeMaxPPEM)
+      .append("\n  rangeGaspBehavior:   0x").append(rangeGaspBehavior);
+    if ((rangeGaspBehavior & 0x1) != 0) {
+      localStringBuilder.append("- GASP_GRIDFIT ");
+    }
+    if ((rangeGaspBehavior & 0x2) != 0) {
+      localStringBuilder.append("- GASP_DOGRAY");
+    }
+    return localStringBuilder.toString();
+  }
+}

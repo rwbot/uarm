@@ -1,0 +1,4333 @@
+package jogamp.opengl;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.util.InterruptedRuntimeException;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.ProxySurface;
+import com.jogamp.nativewindow.UpstreamSurfaceHook;
+import com.jogamp.nativewindow.UpstreamSurfaceHook.MutableSize;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLAnimatorControl;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawable;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLEventListener;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLFBODrawable;
+import com.jogamp.opengl.GLRunnable;
+import java.io.PrintStream;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLDrawableHelper
+{
+  private static final boolean PERF_STATS = PropertyAccess.isPropertyDefined("jogl.debug.GLDrawable.PerfStats", true);
+  
+
+  protected static final boolean DEBUG = GLDrawableImpl.DEBUG;
+  private static final boolean DEBUG_SETCLEAR = (GLContext.DEBUG_GL) || (DEBUG);
+  
+  private final Object listenersLock = new Object();
+  private final ArrayList<GLEventListener> listeners = new ArrayList();
+  private final HashSet<GLEventListener> listenersToBeInit = new HashSet();
+  private final Object glRunnablesLock = new Object();
+  private ArrayList<GLRunnableTask> glRunnables = new ArrayList();
+  private volatile int glRunnableCount = 0;
+  
+  private boolean autoSwapBufferMode;
+  private volatile Thread exclusiveContextThread;
+  private volatile int exclusiveContextSwitch;
+  private GLAnimatorControl animatorCtrl;
+  private static Runnable nop = new Runnable() {
+    public void run() {}
+  };
+  private GLContext sharedContext;
+  private GLAutoDrawable sharedAutoDrawable;
+  private static final int MAX_RELEASE_ITER = 512;
+  
+  public GLDrawableHelper() { reset(); }
+  
+  public final void reset()
+  {
+    synchronized (listenersLock) {
+      listeners.clear();
+      listenersToBeInit.clear();
+    }
+    autoSwapBufferMode = true;
+    exclusiveContextThread = null;
+    exclusiveContextSwitch = 0;
+    synchronized (glRunnablesLock) {
+      glRunnableCount = 0;
+      glRunnables.clear();
+    }
+    animatorCtrl = null;
+    sharedContext = null;
+    sharedAutoDrawable = null;
+  }
+  
+  public final void setSharedContext(GLContext paramGLContext1, GLContext paramGLContext2) throws IllegalStateException {
+    if (null == paramGLContext2) {
+      throw new IllegalStateException("Null shared GLContext");
+    }
+    if (paramGLContext1 == paramGLContext2) {
+      throw new IllegalStateException("Shared GLContext same as local");
+    }
+    if (null != sharedContext) {
+      throw new IllegalStateException("Shared GLContext already set");
+    }
+    if (null != sharedAutoDrawable) {
+      throw new IllegalStateException("Shared GLAutoDrawable already set");
+    }
+    sharedContext = paramGLContext2;
+  }
+  
+  public final void setSharedAutoDrawable(GLAutoDrawable paramGLAutoDrawable1, GLAutoDrawable paramGLAutoDrawable2) throws IllegalStateException {
+    if (null == paramGLAutoDrawable2) {
+      throw new IllegalStateException("Null shared GLAutoDrawable");
+    }
+    if (paramGLAutoDrawable1 == paramGLAutoDrawable2) {
+      throw new IllegalStateException("Shared GLAutoDrawable same as this");
+    }
+    if (null != sharedContext) {
+      throw new IllegalStateException("Shared GLContext already set");
+    }
+    if (null != sharedAutoDrawable) {
+      throw new IllegalStateException("Shared GLAutoDrawable already set");
+    }
+    sharedAutoDrawable = paramGLAutoDrawable2;
+  }
+  
+
+
+  public boolean isSharedGLContextPending(GLContext[] paramArrayOfGLContext)
+  {
+    GLContext localGLContext;
+    
+
+    boolean bool;
+    
+    if (null != sharedAutoDrawable) {
+      localGLContext = sharedAutoDrawable.getContext();
+      bool = (null == localGLContext) || (!localGLContext.isCreated()) || (!sharedAutoDrawable.areAllGLEventListenerInitialized());
+    } else {
+      localGLContext = sharedContext;
+      bool = (null != localGLContext) && (!localGLContext.isCreated());
+    }
+    paramArrayOfGLContext[0] = localGLContext;
+    return bool;
+  }
+  
+  public final String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("GLAnimatorControl: " + animatorCtrl + ", ");
+    synchronized (listenersLock) {
+      localStringBuilder.append("GLEventListeners num " + listeners.size() + " [");
+      for (int i = 0; i < listeners.size(); i++) {
+        Object localObject1 = listeners.get(i);
+        localStringBuilder.append(localObject1);
+        localStringBuilder.append("[init ");
+        localStringBuilder.append(!listenersToBeInit.contains(localObject1));
+        localStringBuilder.append("], ");
+      }
+    }
+    localStringBuilder.append("]");
+    return localStringBuilder.toString();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static final void forceNativeRelease(GLContext paramGLContext)
+  {
+    int i = 0;
+    do {
+      paramGLContext.release();
+      i++;
+      if (DEBUG) {
+        System.err.println("GLDrawableHelper.forceNativeRelease() #" + i + " -- currentThread " + Thread.currentThread() + " -> " + GLContext.getCurrent());
+      }
+    } while ((512 > i) && (paramGLContext.isCurrent()));
+    
+    if (paramGLContext.isCurrent()) {
+      throw new GLException("Context still current after 512 releases: " + paramGLContext);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final void switchContext(GLDrawable paramGLDrawable, GLContext paramGLContext1, boolean paramBoolean, GLContext paramGLContext2, int paramInt)
+  {
+    if (null != paramGLContext1) {
+      if (paramBoolean) {
+        paramGLContext1.destroy();
+      } else {
+        paramGLContext1.setGLDrawable(null, true);
+      }
+    }
+    
+    if (null != paramGLContext2) {
+      paramGLContext2.setContextCreationFlags(paramInt);
+      paramGLContext2.setGLDrawable(paramGLDrawable, true);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final GLDrawableImpl recreateGLDrawable(GLDrawableImpl paramGLDrawableImpl, GLContext paramGLContext)
+  {
+    if (!paramGLDrawableImpl.isRealized()) {
+      return paramGLDrawableImpl;
+    }
+    GLContext localGLContext = GLContext.getCurrent();
+    GLDrawableFactory localGLDrawableFactory = paramGLDrawableImpl.getFactory();
+    NativeSurface localNativeSurface = paramGLDrawableImpl.getNativeSurface();
+    Object localObject1 = (localNativeSurface instanceof ProxySurface) ? (ProxySurface)localNativeSurface : null;
+    
+    if (null != paramGLContext)
+    {
+      if (localGLContext != paramGLContext) {
+        paramGLContext.makeCurrent();
+      }
+      paramGLContext.setGLDrawable(null, true);
+    }
+    
+    if (null != localObject1) {
+      localObject1.enableUpstreamSurfaceHookLifecycle(false);
+    }
+    try {
+      paramGLDrawableImpl.setRealized(false);
+      paramGLDrawableImpl = (GLDrawableImpl)localGLDrawableFactory.createGLDrawable(localNativeSurface);
+      paramGLDrawableImpl.setRealized(true);
+    } finally {
+      if (null != localObject1) {
+        localObject1.enableUpstreamSurfaceHookLifecycle(true);
+      }
+    }
+    
+    if (null != paramGLContext) {
+      paramGLContext.setGLDrawable(paramGLDrawableImpl, true);
+    }
+    
+    if (null != localGLContext) {
+      localGLContext.makeCurrent();
+    }
+    return paramGLDrawableImpl;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final GLDrawableImpl resizeOffscreenDrawable(GLDrawableImpl paramGLDrawableImpl, GLContext paramGLContext, int paramInt1, int paramInt2)
+    throws NativeWindowException, GLException
+  {
+    NativeSurface localNativeSurface = paramGLDrawableImpl.getNativeSurface();
+    int i = localNativeSurface.lockSurface();
+    if (1 >= i) {
+      throw new NativeWindowException("Could not lock surface of drawable: " + paramGLDrawableImpl);
+    }
+    int j = 1;
+    try { Object localObject1;
+      if (!paramGLDrawableImpl.isRealized()) {
+        return paramGLDrawableImpl;
+      }
+      if (paramGLDrawableImpl.getChosenGLCapabilities().isOnscreen()) {
+        throw new NativeWindowException("Drawable is not offscreen: " + paramGLDrawableImpl);
+      }
+      if ((DEBUG) && ((0 >= paramInt1) || (0 >= paramInt2))) {
+        System.err.println("WARNING: Odd size detected: " + paramInt1 + "x" + paramInt2 + ", using safe size 1x1. Drawable " + paramGLDrawableImpl);
+        ExceptionUtils.dumpStack(System.err);
+      }
+      if (0 >= paramInt1) { paramInt1 = 1;j = 0; }
+      if (0 >= paramInt2) { paramInt2 = 1;j = 0;
+      }
+      if ((localNativeSurface instanceof ProxySurface)) {
+        localObject1 = (ProxySurface)localNativeSurface;
+        UpstreamSurfaceHook localUpstreamSurfaceHook = ((ProxySurface)localObject1).getUpstreamSurfaceHook();
+        if ((localUpstreamSurfaceHook instanceof UpstreamSurfaceHook.MutableSize)) {
+          ((UpstreamSurfaceHook.MutableSize)localUpstreamSurfaceHook).setSurfaceSize(paramInt1, paramInt2);
+        } else if (DEBUG) {
+          System.err.println("GLDrawableHelper.resizeOffscreenDrawable: Drawable's offscreen ProxySurface n.a. UpstreamSurfaceHook.MutableSize, but " + localUpstreamSurfaceHook.getClass().getName() + ": " + localUpstreamSurfaceHook);
+        }
+      } else if (DEBUG) {
+        System.err.println("GLDrawableHelper.resizeOffscreenDrawable: Drawable's offscreen surface n.a. ProxySurface, but " + localNativeSurface.getClass().getName() + ": " + localNativeSurface);
+      }
+      if ((paramGLDrawableImpl instanceof GLFBODrawable)) {
+        if ((null != paramGLContext) && (paramGLContext.isCreated())) {
+          ((GLFBODrawable)paramGLDrawableImpl).resetSize(paramGLContext.getGL());
+        }
+      } else {
+        paramGLDrawableImpl = recreateGLDrawable(paramGLDrawableImpl, paramGLContext);
+      }
+    } finally {
+      localNativeSurface.unlockSurface();
+    }
+    if ((j != 0) && ((paramGLDrawableImpl.getSurfaceWidth() != paramInt1) || (paramGLDrawableImpl.getSurfaceHeight() != paramInt2))) {
+      throw new InternalError("Incomplete resize operation: expected " + paramInt1 + "x" + paramInt2 + ", has: " + paramGLDrawableImpl);
+    }
+    return paramGLDrawableImpl;
+  }
+  
+  public final void addGLEventListener(GLEventListener paramGLEventListener) {
+    addGLEventListener(-1, paramGLEventListener);
+  }
+  
+  public final void addGLEventListener(int paramInt, GLEventListener paramGLEventListener) {
+    synchronized (listenersLock) {
+      if (0 > paramInt) {
+        paramInt = listeners.size();
+      }
+      
+
+      listenersToBeInit.add(paramGLEventListener);
+      
+      listeners.add(paramInt, paramGLEventListener);
+    }
+  }
+  
+
+
+
+
+
+  public final GLEventListener removeGLEventListener(GLEventListener paramGLEventListener)
+  {
+    synchronized (listenersLock) {
+      listenersToBeInit.remove(paramGLEventListener);
+      return listeners.remove(paramGLEventListener) ? paramGLEventListener : null;
+    }
+  }
+  
+  public final GLEventListener removeGLEventListener(int paramInt) throws IndexOutOfBoundsException {
+    synchronized (listenersLock) {
+      if (0 > paramInt) {
+        paramInt = listeners.size() - 1;
+      }
+      GLEventListener localGLEventListener = (GLEventListener)listeners.remove(paramInt);
+      listenersToBeInit.remove(localGLEventListener);
+      return localGLEventListener;
+    }
+  }
+  
+  public final int getGLEventListenerCount() {
+    synchronized (listenersLock) {
+      return listeners.size();
+    }
+  }
+  
+  public final GLEventListener getGLEventListener(int paramInt) throws IndexOutOfBoundsException {
+    synchronized (listenersLock) {
+      if (0 > paramInt) {
+        paramInt = listeners.size() - 1;
+      }
+      return (GLEventListener)listeners.get(paramInt);
+    }
+  }
+  
+  public final boolean areAllGLEventListenerInitialized() {
+    synchronized (listenersLock) {
+      return 0 == listenersToBeInit.size();
+    }
+  }
+  
+  public final boolean getGLEventListenerInitState(GLEventListener paramGLEventListener) {
+    synchronized (listenersLock) {
+      return !listenersToBeInit.contains(paramGLEventListener);
+    }
+  }
+  
+  public final void setGLEventListenerInitState(GLEventListener paramGLEventListener, boolean paramBoolean) {
+    synchronized (listenersLock) {
+      if (paramBoolean) {
+        listenersToBeInit.remove(paramGLEventListener);
+      } else {
+        listenersToBeInit.add(paramGLEventListener);
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final GLEventListener disposeGLEventListener(GLAutoDrawable paramGLAutoDrawable, GLEventListener paramGLEventListener, boolean paramBoolean)
+  {
+    synchronized (listenersLock) {
+      if (paramBoolean) {
+        if (listeners.remove(paramGLEventListener)) {
+          if (!listenersToBeInit.remove(paramGLEventListener)) {
+            paramGLEventListener.dispose(paramGLAutoDrawable);
+          }
+          return paramGLEventListener;
+        }
+      }
+      else if ((listeners.contains(paramGLEventListener)) && (!listenersToBeInit.contains(paramGLEventListener))) {
+        paramGLEventListener.dispose(paramGLAutoDrawable);
+        listenersToBeInit.add(paramGLEventListener);
+        return paramGLEventListener;
+      }
+    }
+    
+    return null;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final int disposeAllGLEventListener(GLAutoDrawable paramGLAutoDrawable, boolean paramBoolean)
+    throws GLException
+  {
+    Object localObject1 = null;
+    int i = 0;
+    synchronized (listenersLock) { int j;
+      GLEventListener localGLEventListener; if (paramBoolean) {
+        for (j = listeners.size(); (0 < j) && (0 < listeners.size()); j--) {
+          localGLEventListener = (GLEventListener)listeners.remove(0);
+          if (!listenersToBeInit.remove(localGLEventListener)) {
+            try {
+              localGLEventListener.dispose(paramGLAutoDrawable);
+            } catch (Throwable localThrowable1) {
+              if (null == localObject1) {
+                localObject1 = localThrowable1;
+              } else {
+                ExceptionUtils.dumpThrowable("subsequent", localThrowable1);
+              }
+            }
+            i++;
+          }
+        }
+      } else {
+        for (j = 0; j < listeners.size(); j++) {
+          localGLEventListener = (GLEventListener)listeners.get(j);
+          if (!listenersToBeInit.contains(localGLEventListener)) {
+            try {
+              localGLEventListener.dispose(paramGLAutoDrawable);
+            } catch (Throwable localThrowable2) {
+              if (null == localObject1) {
+                localObject1 = localThrowable2;
+              } else {
+                ExceptionUtils.dumpThrowable("subsequent", localThrowable2);
+              }
+            }
+            listenersToBeInit.add(localGLEventListener);
+            i++;
+          }
+        }
+      }
+    }
+    if (null != localObject1) {
+      flushGLRunnables();
+      throw GLException.newGLException(localObject1);
+    }
+    return i;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final GLEventListener disposeGLEventListener(final GLAutoDrawable paramGLAutoDrawable, GLDrawable paramGLDrawable, GLContext paramGLContext, final GLEventListener paramGLEventListener, final boolean paramBoolean)
+  {
+    synchronized (listenersLock)
+    {
+      if (listenersToBeInit.contains(paramGLEventListener)) {
+        if (paramBoolean) {
+          listenersToBeInit.remove(paramGLEventListener);
+          return listeners.remove(paramGLEventListener) ? paramGLEventListener : null;
+        }
+        return null;
+      }
+    }
+    int i = (isAnimatorAnimatingOnOtherThread()) && (animatorCtrl.pause()) ? 1 : 0;
+    final GLEventListener[] arrayOfGLEventListener = { null };
+    Runnable local2 = new Runnable()
+    {
+      public void run() {
+        arrayOfGLEventListener[0] = disposeGLEventListener(paramGLAutoDrawable, paramGLEventListener, paramBoolean);
+      }
+    };
+    invokeGL(paramGLDrawable, paramGLContext, local2, nop);
+    
+    if (i != 0) {
+      animatorCtrl.resume();
+    }
+    return arrayOfGLEventListener[0];
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void disposeAllGLEventListener(final GLAutoDrawable paramGLAutoDrawable, GLDrawable paramGLDrawable, GLContext paramGLContext, final boolean paramBoolean)
+  {
+    int i = (isAnimatorAnimatingOnOtherThread()) && (animatorCtrl.pause()) ? 1 : 0;
+    
+    Runnable local3 = new Runnable()
+    {
+      public void run() {
+        disposeAllGLEventListener(paramGLAutoDrawable, paramBoolean);
+      }
+    };
+    invokeGL(paramGLDrawable, paramGLContext, local3, nop);
+    
+    if (i != 0) {
+      animatorCtrl.resume();
+    }
+  }
+  
+  private final void init(GLEventListener paramGLEventListener, GLAutoDrawable paramGLAutoDrawable, boolean paramBoolean) {
+    paramGLEventListener.init(paramGLAutoDrawable);
+    if (paramBoolean) {
+      paramGLEventListener.reshape(paramGLAutoDrawable, 0, 0, paramGLAutoDrawable.getSurfaceWidth(), paramGLAutoDrawable.getSurfaceHeight());
+    }
+  }
+  
+
+
+
+  public final void init(GLAutoDrawable paramGLAutoDrawable, boolean paramBoolean)
+  {
+    setViewportAndClear(paramGLAutoDrawable, 0, 0, paramGLAutoDrawable.getSurfaceWidth(), paramGLAutoDrawable.getSurfaceHeight());
+    synchronized (listenersLock) {
+      ArrayList localArrayList = listeners;
+      int i = localArrayList.size();
+      if (i > 0) {
+        for (int j = 0; j < i; j++) {
+          GLEventListener localGLEventListener = (GLEventListener)localArrayList.get(j);
+          
+
+
+
+          listenersToBeInit.remove(localGLEventListener);
+          init(localGLEventListener, paramGLAutoDrawable, paramBoolean);
+        }
+      }
+    }
+  }
+  
+  public final void display(GLAutoDrawable paramGLAutoDrawable) {
+    displayImpl(paramGLAutoDrawable);
+    
+    if ((glRunnableCount > 0) && (!execGLRunnables(paramGLAutoDrawable))) {
+      displayImpl(paramGLAutoDrawable);
+    }
+  }
+  
+  private final void displayImpl(GLAutoDrawable paramGLAutoDrawable) {
+    synchronized (listenersLock) {
+      ArrayList localArrayList = listeners;
+      int i = localArrayList.size();
+      for (int j = 0; j < i; j++) {
+        GLEventListener localGLEventListener = (GLEventListener)localArrayList.get(j);
+        
+
+        if (listenersToBeInit.remove(localGLEventListener)) {
+          init(localGLEventListener, paramGLAutoDrawable, true);
+        }
+        localGLEventListener.display(paramGLAutoDrawable);
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public final void runForAllGLEventListener(GLAutoDrawable paramGLAutoDrawable, GLEventListenerAction paramGLEventListenerAction)
+  {
+    synchronized (listenersLock) {
+      ArrayList localArrayList = listeners;
+      int i = localArrayList.size();
+      for (int j = 0; j < i; j++) {
+        GLEventListener localGLEventListener = (GLEventListener)localArrayList.get(j);
+        
+
+        if (listenersToBeInit.remove(localGLEventListener)) {
+          init(localGLEventListener, paramGLAutoDrawable, true);
+        }
+        paramGLEventListenerAction.run(paramGLAutoDrawable, localGLEventListener);
+      }
+    }
+  }
+  
+
+
+
+
+
+  private final void setViewportAndClear(GLAutoDrawable paramGLAutoDrawable, int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    GL localGL = paramGLAutoDrawable.getGL();
+    if (DEBUG_SETCLEAR) {
+      int i = localGL.glGetError();
+      if (0 != i) {
+        System.err.println("Info: GLDrawableHelper.reshape: pre-exisiting GL error 0x" + Integer.toHexString(i));
+        ExceptionUtils.dumpStack(System.err);
+      }
+    }
+    localGL.glViewport(paramInt1, paramInt2, paramInt3, paramInt4);
+    localGL.glClear(16384);
+  }
+  
+  public final void reshape(GLAutoDrawable paramGLAutoDrawable, int paramInt1, int paramInt2, int paramInt3, int paramInt4) {
+    setViewportAndClear(paramGLAutoDrawable, paramInt1, paramInt2, paramInt3, paramInt4);
+    synchronized (listenersLock) {
+      for (int i = 0; i < listeners.size(); i++) {
+        GLEventListener localGLEventListener = (GLEventListener)listeners.get(i);
+        
+
+        if (listenersToBeInit.remove(localGLEventListener)) {
+          localGLEventListener.init(paramGLAutoDrawable);
+        }
+        localGLEventListener.reshape(paramGLAutoDrawable, paramInt1, paramInt2, paramInt3, paramInt4);
+      }
+    }
+  }
+  
+  private final boolean execGLRunnables(GLAutoDrawable paramGLAutoDrawable)
+  {
+    ArrayList localArrayList;
+    synchronized (glRunnablesLock) {
+      if (glRunnables.size() > 0) {
+        glRunnableCount = 0;
+        localArrayList = glRunnables;
+        glRunnables = new ArrayList();
+      } else {
+        return true;
+      }
+    }
+    boolean bool = true;
+    for (int i = 0; i < localArrayList.size(); i++) {
+      bool = (((GLRunnableTask)localArrayList.get(i)).run(paramGLAutoDrawable)) && (bool);
+    }
+    return bool;
+  }
+  
+  public final void flushGLRunnables() {
+    synchronized (glRunnablesLock) {
+      glRunnableCount = 0;
+      while (glRunnables.size() > 0) {
+        ((GLRunnableTask)glRunnables.remove(0)).flush();
+      }
+    }
+  }
+  
+  public final void setAnimator(GLAnimatorControl paramGLAnimatorControl) throws GLException {
+    synchronized (glRunnablesLock) {
+      if ((animatorCtrl != paramGLAnimatorControl) && (null != paramGLAnimatorControl) && (null != animatorCtrl)) {
+        throw new GLException("Trying to register GLAnimatorControl " + paramGLAnimatorControl + ", where " + animatorCtrl + " is already registered. Unregister first.");
+      }
+      animatorCtrl = paramGLAnimatorControl;
+    }
+  }
+  
+  public final GLAnimatorControl getAnimator() {
+    synchronized (glRunnablesLock) {
+      return animatorCtrl;
+    }
+  }
+  
+  public final boolean isAnimatorStartedOnOtherThread() {
+    return (animatorCtrl.isStarted()) && (animatorCtrl.getThread() != Thread.currentThread());
+  }
+  
+  public final boolean isAnimatorStarted() {
+    return null != animatorCtrl ? animatorCtrl.isStarted() : false;
+  }
+  
+  public final boolean isAnimatorAnimatingOnOtherThread() {
+    return (animatorCtrl.isAnimating()) && (animatorCtrl.getThread() != Thread.currentThread());
+  }
+  
+  public final boolean isAnimatorAnimating() {
+    return null != animatorCtrl ? animatorCtrl.isAnimating() : false;
+  }
+  
+  public static final boolean isLockedByOtherThread(GLAutoDrawable paramGLAutoDrawable) {
+    Thread localThread1 = Thread.currentThread();
+    Thread localThread2 = paramGLAutoDrawable.getUpstreamLock().getOwner();
+    if ((null != localThread2) && (localThread1 != localThread2)) {
+      return true;
+    }
+    NativeSurface localNativeSurface = paramGLAutoDrawable.getNativeSurface();
+    Object localObject = null != localNativeSurface ? localNativeSurface.getSurfaceLockOwner() : null;
+    return (null != localObject) && (localThread1 != localObject);
+  }
+  
+  public static final boolean isLockedByThisThread(GLAutoDrawable paramGLAutoDrawable)
+  {
+    Thread localThread1 = Thread.currentThread();
+    Thread localThread2 = paramGLAutoDrawable.getUpstreamLock().getOwner();
+    if (localThread1 == localThread2) {
+      return true;
+    }
+    NativeSurface localNativeSurface = paramGLAutoDrawable.getNativeSurface();
+    Object localObject = null != localNativeSurface ? localNativeSurface.getSurfaceLockOwner() : null;
+    return localThread1 == localObject;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean invoke(GLAutoDrawable paramGLAutoDrawable, boolean paramBoolean, GLRunnable paramGLRunnable)
+    throws IllegalStateException
+  {
+    if ((null == paramGLRunnable) || (null == paramGLAutoDrawable) || ((paramBoolean) && (
+      (!paramGLAutoDrawable.isRealized()) || (null == paramGLAutoDrawable.getContext())))) {
+      return false;
+    }
+    
+
+    Object localObject1 = new Object();
+    synchronized (localObject1) { boolean bool1;
+      GLRunnableTask localGLRunnableTask;
+      synchronized (glRunnablesLock) {
+        boolean bool2 = paramGLAutoDrawable.isThreadGLCapable();
+        bool1 = isAnimatorAnimatingOnOtherThread();
+        if (bool1) {
+          if ((paramBoolean) && (isLockedByThisThread(paramGLAutoDrawable))) {
+            if (bool2)
+            {
+              bool1 = false;
+              paramBoolean = false;
+            }
+            else {
+              throw new IllegalStateException("Deferred, wait, isLocked on current and not GL-Thread: thread " + Thread.currentThread());
+            }
+          }
+        } else {
+          if ((!bool2) && (isLockedByThisThread(paramGLAutoDrawable)))
+          {
+            throw new IllegalStateException("Not deferred, isLocked on current and not GL-Thread: thread " + Thread.currentThread());
+          }
+          paramBoolean = false;
+        }
+        localGLRunnableTask = new GLRunnableTask(paramGLRunnable, paramBoolean ? localObject1 : null, paramBoolean);
+        
+
+        glRunnableCount += 1;
+        glRunnables.add(localGLRunnableTask);
+      }
+      if (!bool1) {
+        paramGLAutoDrawable.display();
+      } else if (paramBoolean) {
+        try {
+          while (localGLRunnableTask.isInQueue()) {
+            localObject1.wait();
+          }
+        } catch (InterruptedException localInterruptedException) {
+          throw new InterruptedRuntimeException(localInterruptedException);
+        }
+        Throwable localThrowable = localGLRunnableTask.getThrowable();
+        if (null != localThrowable) {
+          throw new RuntimeException(localThrowable);
+        }
+      }
+    }
+    return true;
+  }
+  
+
+
+
+
+
+
+
+  public final boolean invoke(GLAutoDrawable paramGLAutoDrawable, boolean paramBoolean, List<GLRunnable> paramList)
+    throws IllegalStateException
+  {
+    if ((null == paramList) || (paramList.size() == 0) || (null == paramGLAutoDrawable) || ((paramBoolean) && (
+      (!paramGLAutoDrawable.isRealized()) || (null == paramGLAutoDrawable.getContext())))) {
+      return false;
+    }
+    
+    int i = paramList.size();
+    
+    Object localObject1 = new Object();
+    synchronized (localObject1) { boolean bool1;
+      GLRunnableTask localGLRunnableTask;
+      synchronized (glRunnablesLock) {
+        boolean bool2 = paramGLAutoDrawable.isThreadGLCapable();
+        bool1 = isAnimatorAnimatingOnOtherThread();
+        if (bool1) {
+          if ((paramBoolean) && (isLockedByThisThread(paramGLAutoDrawable))) {
+            if (bool2)
+            {
+              bool1 = false;
+              paramBoolean = false;
+            }
+            else {
+              throw new IllegalStateException("Deferred, wait, isLocked on current and not GL-Thread: thread " + Thread.currentThread());
+            }
+          }
+        } else {
+          if ((!bool2) && (isLockedByThisThread(paramGLAutoDrawable)))
+          {
+            throw new IllegalStateException("Not deferred, isLocked on current and not GL-Thread: thread " + Thread.currentThread());
+          }
+          paramBoolean = false;
+        }
+        for (int j = 0; j < i - 1; j++) {
+          glRunnableCount += 1;
+          glRunnables.add(new GLRunnableTask((GLRunnable)paramList.get(j), null, false));
+        }
+        localGLRunnableTask = new GLRunnableTask((GLRunnable)paramList.get(i - 1), paramBoolean ? localObject1 : null, paramBoolean);
+        
+
+        glRunnableCount += 1;
+        glRunnables.add(localGLRunnableTask);
+      }
+      if (!bool1) {
+        paramGLAutoDrawable.display();
+      } else if (paramBoolean) {
+        try {
+          while (localGLRunnableTask.isInQueue()) {
+            localObject1.wait();
+          }
+        } catch (InterruptedException localInterruptedException) {
+          throw new InterruptedRuntimeException(localInterruptedException);
+        }
+        Throwable localThrowable = localGLRunnableTask.getThrowable();
+        if (null != localThrowable) {
+          throw new RuntimeException(localThrowable);
+        }
+      }
+    }
+    return true;
+  }
+  
+  public final void enqueue(GLRunnable paramGLRunnable) {
+    if (null == paramGLRunnable) {
+      return;
+    }
+    synchronized (glRunnablesLock) {
+      glRunnableCount += 1;
+      glRunnables.add(new GLRunnableTask(paramGLRunnable, null, false));
+    }
+  }
+  
+  public final void setAutoSwapBufferMode(boolean paramBoolean) {
+    autoSwapBufferMode = paramBoolean;
+  }
+  
+  public final boolean getAutoSwapBufferMode() {
+    return autoSwapBufferMode;
+  }
+  
+  private final String getExclusiveContextSwitchString() {
+    return 0 > exclusiveContextSwitch ? "released" : 0 == exclusiveContextSwitch ? "nop" : "claimed";
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final Thread setExclusiveContextThread(Thread paramThread, GLContext paramGLContext)
+    throws GLException
+  {
+    if (DEBUG) {
+      System.err.println("GLDrawableHelper.setExclusiveContextThread(): START switch " + getExclusiveContextSwitchString() + ", thread " + exclusiveContextThread + " -> " + paramThread + " -- currentThread " + Thread.currentThread());
+    }
+    Thread localThread = exclusiveContextThread;
+    if (exclusiveContextThread == paramThread) {
+      exclusiveContextSwitch = 0;
+    } else if (null == paramThread) {
+      exclusiveContextSwitch = -1;
+    } else {
+      exclusiveContextSwitch = 1;
+      if (null != exclusiveContextThread) {
+        throw new GLException("Release current exclusive Context Thread " + exclusiveContextThread + " first");
+      }
+      if ((null != paramGLContext) && (paramGLContext.isCurrent())) {
+        try {
+          forceNativeRelease(paramGLContext);
+        } catch (Throwable localThrowable) {
+          flushGLRunnables();
+          throw GLException.newGLException(localThrowable);
+        }
+      }
+      exclusiveContextThread = paramThread;
+    }
+    if (DEBUG) {
+      System.err.println("GLDrawableHelper.setExclusiveContextThread(): END switch " + getExclusiveContextSwitchString() + ", thread " + exclusiveContextThread + " -- currentThread " + Thread.currentThread());
+    }
+    return localThread;
+  }
+  
+
+
+  public final Thread getExclusiveContextThread()
+  {
+    return exclusiveContextThread;
+  }
+  
+
+
+
+
+
+  public final void runOutsideOfExclusiveContextThread(GLContext paramGLContext, Runnable paramRunnable)
+  {
+    Thread localThread = setExclusiveContextThread(null, paramGLContext);
+    try {
+      paramRunnable.run();
+    } finally {
+      setExclusiveContextThread(localThread, paramGLContext);
+    }
+  }
+  
+  private static final ThreadLocal<WeakReference<Runnable>> perThreadInitAction = new ThreadLocal();
+  
+  private static final Runnable getLastInitAction() { WeakReference localWeakReference = (WeakReference)perThreadInitAction.get();
+    if (null != localWeakReference) {
+      Runnable localRunnable = (Runnable)localWeakReference.get();
+      if (null == localRunnable) {
+        perThreadInitAction.set(null);
+      }
+      return localRunnable;
+    }
+    return null;
+  }
+  
+  private static final void setLastInitAction(Runnable paramRunnable) { perThreadInitAction.set(new WeakReference(paramRunnable)); }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void invokeGL(GLDrawable paramGLDrawable, GLContext paramGLContext, Runnable paramRunnable1, Runnable paramRunnable2)
+  {
+    if (null == paramGLContext) {
+      if (DEBUG) {
+        ExceptionUtils.dumpThrowable("informal", new GLException("Info: GLDrawableHelper " + this + ".invokeGL(): NULL GLContext"));
+      }
+      return;
+    }
+    
+    if (PERF_STATS) {
+      invokeGLImplStats(paramGLDrawable, paramGLContext, paramRunnable1, paramRunnable2);
+    } else {
+      invokeGLImpl(paramGLDrawable, paramGLContext, paramRunnable1, paramRunnable2);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void disposeGL(GLAutoDrawable paramGLAutoDrawable, GLContext paramGLContext, boolean paramBoolean)
+    throws GLException
+  {
+    GLContext localGLContext = GLContext.getCurrent();
+    Runnable localRunnable = null;
+    if (localGLContext != null) {
+      if (localGLContext == paramGLContext) {
+        localGLContext = null;
+      }
+      else {
+        localRunnable = getLastInitAction();
+        localGLContext.release();
+      }
+    }
+    
+    Object localObject1 = null;
+    Object localObject2 = null;
+    
+    try
+    {
+      int i = paramGLContext.makeCurrent();
+      if (0 != i) {
+        if (2 == i) {
+          throw new GLException(getThreadName() + " GLDrawableHelper " + this + ".invokeGL(): Dispose case (no init action given): Native context was not created (new ctx): " + paramGLContext);
+        }
+        if ((listeners.size() > 0) && (null != paramGLAutoDrawable))
+          try {
+            disposeAllGLEventListener(paramGLAutoDrawable, false);
+          } catch (GLException localGLException) {
+            localObject1 = localGLException;
+          }
+      }
+    } finally {
+      try {
+        int j;
+        if (paramBoolean) {
+          paramGLContext.destroy();
+        } else {
+          forceNativeRelease(paramGLContext);
+        }
+      } catch (Throwable localThrowable2) {
+        localObject2 = localThrowable2;
+      }
+      flushGLRunnables();
+      
+      if (localGLContext != null) {
+        int k = localGLContext.makeCurrent();
+        if ((null != localRunnable) && (k == 2)) {
+          localRunnable.run();
+        }
+      }
+      if (null != localObject1) {
+        if (null != localObject2) {
+          ExceptionUtils.dumpThrowable("subsequent", localObject2);
+        }
+        throw localObject1;
+      }
+      if (null != localObject2) {
+        throw GLException.newGLException(localObject2);
+      }
+    }
+  }
+  
+
+
+  private final void invokeGLImpl(GLDrawable paramGLDrawable, GLContext paramGLContext, Runnable paramRunnable1, Runnable paramRunnable2)
+  {
+    Thread localThread = Thread.currentThread();
+    
+    Object localObject1 = null;
+    Object localObject2 = null;
+    
+
+    int j;
+    
+
+    int i;
+    
+    if (null != exclusiveContextThread) {
+      if (localThread == exclusiveContextThread) {
+        j = 0 > exclusiveContextSwitch ? 1 : 0;
+        i = j == 0 ? 1 : 0;
+        exclusiveContextSwitch = 0;
+      }
+      
+    }
+    else
+    {
+      j = 0;
+      i = 0;
+    }
+    
+
+
+    int k = 0;
+    GLContext localGLContext = GLContext.getCurrent();
+    Runnable localRunnable = null;
+    if (localGLContext != null) {
+      if (localGLContext == paramGLContext) {
+        k = 1;
+        localGLContext = null;
+      }
+      else {
+        localRunnable = getLastInitAction();
+        localGLContext.release();
+      }
+    }
+    
+    try
+    {
+      if (0 == k) {
+        k = paramGLContext.makeCurrent();
+        m = i == 0 ? 1 : 0;
+      } else {
+        m = j;
+      }
+      if (0 != k) {
+        try {
+          setLastInitAction(paramRunnable2);
+          if (2 == k) {
+            if (DEBUG) {
+              System.err.println("GLDrawableHelper " + this + ".invokeGL(): Running initAction");
+            }
+            paramRunnable2.run();
+          }
+          paramRunnable1.run();
+          if (autoSwapBufferMode) {
+            paramGLDrawable.swapBuffers();
+          }
+          
+
+
+          if (j != 0) {
+            exclusiveContextThread = null;
+            if (DEBUG) {
+              System.err.println("GLDrawableHelper.invokeGL() - Release ExclusiveContextThread -- currentThread " + Thread.currentThread());
+            }
+          }
+          if (m != 0) {
+            try {
+              paramGLContext.release();
+            } catch (Throwable localThrowable1) {
+              localObject2 = localThrowable1;
+            }
+          }
+          
+
+
+          if (localGLContext == null) {
+            break label452;
+          }
+        }
+        catch (Throwable localThrowable2)
+        {
+          localObject1 = localThrowable2;
+        } finally {
+          if (j != 0) {
+            exclusiveContextThread = null;
+            if (DEBUG) {
+              System.err.println("GLDrawableHelper.invokeGL() - Release ExclusiveContextThread -- currentThread " + Thread.currentThread());
+            }
+          }
+          if (m != 0) {
+            try {
+              paramGLContext.release();
+            } catch (Throwable localThrowable4) {
+              localObject2 = localThrowable4;
+            }
+          }
+        }
+      }
+      
+
+      int m = localGLContext.makeCurrent();
+      if ((null != localRunnable) && (m == 2)) {
+        localRunnable.run();
+      }
+      label452:
+      if (null != localObject1) {
+        flushGLRunnables();
+        if (null != localObject2) {
+          ExceptionUtils.dumpThrowable("subsequent", localObject2);
+        }
+        throw GLException.newGLException(localObject1);
+      }
+      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      if (null != localObject2) {
+        flushGLRunnables(); throw 
+          GLException.newGLException(localObject2);
+      }
+    }
+    finally
+    {
+      if (localGLContext != null) {
+        int n = localGLContext.makeCurrent();
+        if ((null != localRunnable) && (n == 2)) {
+          localRunnable.run();
+        }
+      }
+      if (null != localObject1) {
+        flushGLRunnables();
+        if (null != localObject2) {
+          ExceptionUtils.dumpThrowable("subsequent", localObject2);
+        }
+        throw GLException.newGLException(localObject1);
+      }
+      if (null != localObject2) {
+        flushGLRunnables();
+        throw GLException.newGLException(localObject2);
+      }
+    }
+  }
+  
+
+
+  private final void invokeGLImplStats(GLDrawable paramGLDrawable, GLContext paramGLContext, Runnable paramRunnable1, Runnable paramRunnable2)
+  {
+    Thread localThread = Thread.currentThread();
+    
+    Object localObject1 = null;
+    Object localObject2 = null;
+    
+
+    int j;
+    
+
+    int i;
+    
+    if (null != exclusiveContextThread) {
+      if (localThread == exclusiveContextThread) {
+        j = 0 > exclusiveContextSwitch ? 1 : 0;
+        i = j == 0 ? 1 : 0;
+      }
+      
+    }
+    else
+    {
+      j = 0;
+      i = 0;
+    }
+    
+
+
+    int k = 0;
+    GLContext localGLContext = GLContext.getCurrent();
+    Runnable localRunnable = null;
+    if (localGLContext != null) {
+      if (localGLContext == paramGLContext) {
+        k = 1;
+        localGLContext = null;
+      }
+      else {
+        localRunnable = getLastInitAction();
+        localGLContext.release();
+      }
+    }
+    
+    long l1 = System.currentTimeMillis();
+    long l2 = 0L;
+    long l3 = 0L;
+    long l4 = 0L;
+    long l5 = 0L;
+    boolean bool1 = false;
+    boolean bool2 = false;
+    try
+    {
+      int m;
+      if (0 == k) {
+        k = paramGLContext.makeCurrent();
+        m = i == 0 ? 1 : 0;
+        bool1 = true;
+      } else {
+        m = j;
+      }
+      if (0 != k) {
+        try {
+          setLastInitAction(paramRunnable2);
+          if (2 == k) {
+            if (DEBUG) {
+              System.err.println("GLDrawableHelper " + this + ".invokeGL(): Running initAction");
+            }
+            paramRunnable2.run();
+          }
+          l3 = System.currentTimeMillis();
+          l2 = l3 - l1;
+          paramRunnable1.run();
+          l4 = System.currentTimeMillis();
+          l3 = l4 - l3;
+          if (autoSwapBufferMode) {
+            paramGLDrawable.swapBuffers();
+            l5 = System.currentTimeMillis();
+            l4 = l5 - l4;
+          }
+          
+
+
+          if (j != 0) {
+            exclusiveContextSwitch = 0;
+            exclusiveContextThread = null;
+            if (DEBUG) {
+              System.err.println("GLDrawableHelper.invokeGL() - Release ExclusiveContextThread -- currentThread " + Thread.currentThread());
+            }
+          }
+          if (m != 0) {
+            try {
+              paramGLContext.release();
+              bool2 = true;
+            } catch (Throwable localThrowable1) {
+              localObject2 = localThrowable1;
+            }
+          }
+          
+
+
+          l5 = System.currentTimeMillis() - l5;
+        }
+        catch (Throwable localThrowable2)
+        {
+          localObject1 = localThrowable2;
+        } finally {
+          if (j != 0) {
+            exclusiveContextSwitch = 0;
+            exclusiveContextThread = null;
+            if (DEBUG) {
+              System.err.println("GLDrawableHelper.invokeGL() - Release ExclusiveContextThread -- currentThread " + Thread.currentThread());
+            }
+          }
+          if (m != 0) {
+            try {
+              paramGLContext.release();
+              bool2 = true;
+            } catch (Throwable localThrowable4) {
+              localObject2 = localThrowable4;
+            }
+          }
+        }
+      }
+      
+
+      if (localGLContext != null) {
+        m = localGLContext.makeCurrent();
+        if ((null != localRunnable) && (m == 2)) {
+          localRunnable.run();
+        }
+      }
+      if (null != localObject1) {
+        flushGLRunnables();
+        if (null != localObject2) {
+          ExceptionUtils.dumpThrowable("subsequent", localObject2);
+        }
+        throw GLException.newGLException(localObject1);
+      }
+      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      if (null != localObject2) {
+        flushGLRunnables(); throw 
+          GLException.newGLException(localObject2);
+      }
+    }
+    finally
+    {
+      l5 = System.currentTimeMillis() - l5;
+      if (localGLContext != null) {
+        int n = localGLContext.makeCurrent();
+        if ((null != localRunnable) && (n == 2)) {
+          localRunnable.run();
+        }
+      }
+      if (null != localObject1) {
+        flushGLRunnables();
+        if (null != localObject2) {
+          ExceptionUtils.dumpThrowable("subsequent", localObject2);
+        }
+        throw GLException.newGLException(localObject1);
+      }
+      if (null != localObject2) {
+        flushGLRunnables();
+        throw GLException.newGLException(localObject2);
+      }
+    }
+    long l6 = System.currentTimeMillis() - l1;
+    System.err.println("td0 " + l6 + "ms, fps " + 1.0D / (l6 / 1000.0D) + ", td-makeCurrent: " + l2 + "ms, td-render " + l3 + "ms, td-swap " + l4 + "ms, td-release " + l5 + "ms, ctx claimed: " + bool1 + ", ctx release: " + bool2 + ", ctx destroyed " + false);
+  }
+  
+  protected static String getThreadName() { return Thread.currentThread().getName(); }
+  
+  static {}
+  
+  public static abstract interface GLEventListenerAction
+  {
+    public abstract void run(GLAutoDrawable paramGLAutoDrawable, GLEventListener paramGLEventListener);
+  }
+}

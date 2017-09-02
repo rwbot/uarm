@@ -1,0 +1,349 @@
+package com.jogamp.newt.util.applet;
+
+import com.jogamp.common.util.InterruptSource.Thread;
+import com.jogamp.nativewindow.NativeWindow;
+import com.jogamp.nativewindow.WindowClosingProtocol.WindowClosingMode;
+import com.jogamp.nativewindow.util.InsetsImmutable;
+import com.jogamp.newt.event.KeyEvent;
+import com.jogamp.newt.event.KeyListener;
+import com.jogamp.newt.event.MouseListener;
+import com.jogamp.newt.event.WindowAdapter;
+import com.jogamp.newt.event.WindowEvent;
+import com.jogamp.newt.event.WindowListener;
+import com.jogamp.newt.opengl.GLWindow;
+import com.jogamp.newt.opengl.util.NEWTDemoListener;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLEventListener;
+import com.jogamp.opengl.GLPipelineFactory;
+import com.jogamp.opengl.util.Animator;
+import java.io.PrintStream;
+import java.lang.reflect.Field;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import jogamp.newt.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class JOGLNewtAppletBase
+  implements KeyListener, GLEventListener
+{
+  public static final boolean DEBUG = Debug.debug("Applet");
+  
+  String glEventListenerClazzName;
+  
+  int glSwapInterval;
+  boolean noDefaultKeyListener;
+  boolean glClosable;
+  boolean glDebug;
+  boolean glTrace;
+  GLEventListener glEventListener = null;
+  GLWindow glWindow = null;
+  Animator glAnimator = null;
+  boolean isValid = false;
+  
+
+
+  NativeWindow parentWin;
+  
+
+
+  public JOGLNewtAppletBase(String paramString, int paramInt, boolean paramBoolean1, boolean paramBoolean2, boolean paramBoolean3, boolean paramBoolean4)
+  {
+    glEventListenerClazzName = paramString;
+    glSwapInterval = paramInt;
+    noDefaultKeyListener = paramBoolean1;
+    glClosable = paramBoolean2;
+    glDebug = paramBoolean3;
+    glTrace = paramBoolean4;
+  }
+  
+  public GLEventListener getGLEventListener() { return glEventListener; }
+  public GLWindow getGLWindow() { return glWindow; }
+  public Animator getGLAnimator() { return glAnimator; }
+  public boolean isValid() { return isValid; }
+  
+  public static boolean str2Bool(String paramString, boolean paramBoolean) {
+    if (null == paramString) return paramBoolean;
+    try {
+      return Boolean.valueOf(paramString).booleanValue();
+    } catch (Exception localException) { localException.printStackTrace(); }
+    return paramBoolean;
+  }
+  
+  public static int str2Int(String paramString, int paramInt) {
+    if (null == paramString) return paramInt;
+    try {
+      return Integer.parseInt(paramString);
+    } catch (Exception localException) { localException.printStackTrace(); }
+    return paramInt;
+  }
+  
+  public static GLEventListener createInstance(String paramString) {
+    Object localObject = null;
+    try
+    {
+      Class localClass = (Class)AccessController.doPrivileged(new PrivilegedAction()
+      {
+        public Class<?> run() {
+          ClassLoader localClassLoader = Thread.currentThread().getContextClassLoader();
+          Class localClass = null;
+          try {
+            localClass = Class.forName(val$clazzName, false, localClassLoader);
+          } catch (Throwable localThrowable) {
+            localThrowable.printStackTrace();
+          }
+          return localClass;
+        }
+      });
+      localObject = localClass.newInstance();
+    } catch (Throwable localThrowable) {
+      localThrowable.printStackTrace();
+      throw new RuntimeException("Error while instantiating demo: " + paramString);
+    }
+    if (null == localObject) {
+      throw new RuntimeException("Null GLEventListener: " + paramString);
+    }
+    if (!(localObject instanceof GLEventListener)) {
+      throw new RuntimeException("Not a GLEventListener: " + paramString);
+    }
+    return (GLEventListener)localObject;
+  }
+  
+  public static boolean setField(Object paramObject1, String paramString, Object paramObject2) {
+    try {
+      Field localField = paramObject1.getClass().getField(paramString);
+      if (localField.getType().isInstance(paramObject2)) {
+        localField.set(paramObject1, paramObject2);
+        return true;
+      }
+      System.out.println(paramObject1.getClass() + " '" + paramString + "' field not assignable with " + paramObject2.getClass() + ", it's a: " + localField.getType());
+    }
+    catch (NoSuchFieldException localNoSuchFieldException) {
+      System.out.println(paramObject1.getClass() + " has no '" + paramString + "' field");
+    } catch (Throwable localThrowable) {
+      localThrowable.printStackTrace();
+    }
+    return false;
+  }
+  
+  public void init(GLWindow paramGLWindow) {
+    init(Thread.currentThread().getThreadGroup(), paramGLWindow);
+  }
+  
+  public void init(ThreadGroup paramThreadGroup, GLWindow paramGLWindow) {
+    isValid = false;
+    glWindow = paramGLWindow;
+    glEventListener = createInstance(glEventListenerClazzName);
+    if (null == glEventListener) {
+      return;
+    }
+    try
+    {
+      if (!setField(glEventListener, "window", paramGLWindow)) {
+        setField(glEventListener, "glWindow", paramGLWindow);
+      }
+      
+      paramGLWindow.addGLEventListener(this);
+      paramGLWindow.addGLEventListener(glEventListener);
+      
+      if ((glEventListener instanceof WindowListener)) {
+        paramGLWindow.addWindowListener((WindowListener)glEventListener);
+      }
+      
+      if ((glEventListener instanceof MouseListener)) {
+        paramGLWindow.addMouseListener((MouseListener)glEventListener);
+      }
+      
+      if ((glEventListener instanceof KeyListener)) {
+        paramGLWindow.addKeyListener((KeyListener)glEventListener);
+      }
+      
+      paramGLWindow.addWindowListener(reparentHomeListener);
+      
+      if (!noDefaultKeyListener) {
+        paramGLWindow.addKeyListener(this);
+        NEWTDemoListener localNEWTDemoListener = new NEWTDemoListener(paramGLWindow);
+        paramGLWindow.addKeyListener(localNEWTDemoListener);
+        paramGLWindow.addMouseListener(localNEWTDemoListener);
+      }
+      
+      paramGLWindow.setUpdateFPSFrames(300, System.err);
+      
+
+      glAnimator = new Animator();
+      glAnimator.setModeBits(false, 1);
+      glAnimator.setThreadGroup(paramThreadGroup);
+      glAnimator.add(paramGLWindow);
+      glAnimator.setUpdateFPSFrames(300, null);
+    }
+    catch (Throwable localThrowable) {
+      throw new RuntimeException(localThrowable);
+    }
+    isValid = true;
+  }
+  
+  private final WindowListener reparentHomeListener = new WindowAdapter()
+  {
+    public void windowDestroyNotify(WindowEvent paramAnonymousWindowEvent)
+    {
+      if ((isValid()) && (WindowClosingProtocol.WindowClosingMode.DO_NOTHING_ON_CLOSE == glWindow.getDefaultCloseOperation()) && 
+        (null == glWindow.getParent()) && (null != parentWin) && (0L != parentWin.getWindowHandle()))
+      {
+
+
+
+
+
+
+
+
+        new InterruptSource.Thread(null, new Runnable()
+        {
+          public void run()
+          {
+            if ((glWindow.isNativeValid()) && (null != parentWin) && (0L != parentWin.getWindowHandle()))
+              glWindow.reparentWindow(parentWin, -1, -1, 2);
+          }
+        })
+        
+
+
+
+
+
+          .start();
+      }
+    }
+  };
+  
+  public void start() {
+    if (isValid) {
+      glWindow.setVisible(true);
+      glWindow.sendWindowEvent(100);
+      glAnimator.start();
+      parentWin = glWindow.getParent();
+    }
+  }
+  
+  public void stop() {
+    if (null != glAnimator) {
+      glAnimator.stop();
+      glWindow.setVisible(false);
+    }
+  }
+  
+  public void destroy() {
+    isValid = false;
+    if (null != glAnimator) {
+      glAnimator.stop();
+      glAnimator.remove(glWindow);
+      glAnimator = null;
+    }
+    if (null != glWindow) {
+      glWindow.destroy();
+      glWindow = null;
+    }
+  }
+  
+
+
+
+
+  public void init(GLAutoDrawable paramGLAutoDrawable)
+  {
+    GL localGL = paramGLAutoDrawable.getGL();
+    
+    if (glDebug) {
+      try {
+        localGL = localGL.getContext().setGL(GLPipelineFactory.create("com.jogamp.opengl.Debug", null, localGL, null));
+      } catch (Exception localException1) { localException1.printStackTrace();
+      }
+    }
+    if (glTrace)
+      try
+      {
+        localGL = localGL.getContext().setGL(GLPipelineFactory.create("com.jogamp.opengl.Trace", null, localGL, new Object[] { System.err }));
+      } catch (Exception localException2) { localException2.printStackTrace();
+      }
+    localGL.setSwapInterval(glSwapInterval);
+  }
+  
+
+
+  public void reshape(GLAutoDrawable paramGLAutoDrawable, int paramInt1, int paramInt2, int paramInt3, int paramInt4) {}
+  
+
+
+  public void display(GLAutoDrawable paramGLAutoDrawable) {}
+  
+
+
+  public void dispose(GLAutoDrawable paramGLAutoDrawable) {}
+  
+
+  public void keyPressed(KeyEvent paramKeyEvent)
+  {
+    if ((!paramKeyEvent.isPrintableKey()) || (paramKeyEvent.isAutoRepeat())) {
+      return;
+    }
+    
+    if ((paramKeyEvent.getKeyChar() == 'r') && (0 == paramKeyEvent.getModifiers()) && (null != parentWin)) {
+      paramKeyEvent.setConsumed(true);
+      glWindow.invokeOnNewThread(null, false, new Runnable() {
+        public void run() {
+          if (null == glWindow.getParent()) {
+            glWindow.reparentWindow(parentWin, -1, -1, 0);
+          } else {
+            InsetsImmutable localInsetsImmutable = glWindow.getInsets();
+            int i;
+            int j; if (0 >= localInsetsImmutable.getTopHeight())
+            {
+              i = 32;
+              j = 32;
+            } else {
+              i = localInsetsImmutable.getLeftWidth();
+              j = localInsetsImmutable.getTopHeight();
+            }
+            glWindow.reparentWindow(null, i, j, 0);
+            glWindow.setDefaultCloseOperation(glClosable ? WindowClosingProtocol.WindowClosingMode.DISPOSE_ON_CLOSE : WindowClosingProtocol.WindowClosingMode.DO_NOTHING_ON_CLOSE);
+          }
+        }
+      });
+    }
+  }
+  
+  public void keyReleased(KeyEvent paramKeyEvent) {}
+}

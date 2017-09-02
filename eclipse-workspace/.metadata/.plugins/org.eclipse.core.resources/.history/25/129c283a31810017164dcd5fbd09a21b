@@ -1,0 +1,335 @@
+package jogamp.opengl.glu.tessellator;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class Geom
+{
+  static final double EPSILON = 1.0E-5D;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  static final double ONE_MINUS_EPSILON = 0.99999D;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private Geom() {}
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  static double EdgeEval(GLUvertex paramGLUvertex1, GLUvertex paramGLUvertex2, GLUvertex paramGLUvertex3)
+  {
+    assert ((VertLeq(paramGLUvertex1, paramGLUvertex2)) && (VertLeq(paramGLUvertex2, paramGLUvertex3)));
+    
+    double d1 = s - s;
+    double d2 = s - s;
+    
+    if (d1 + d2 > 0.0D) {
+      if (d1 < d2) {
+        return t - t + (t - t) * (d1 / (d1 + d2));
+      }
+      return t - t + (t - t) * (d2 / (d1 + d2));
+    }
+    
+
+    return 0.0D;
+  }
+  
+
+  static double EdgeSign(GLUvertex paramGLUvertex1, GLUvertex paramGLUvertex2, GLUvertex paramGLUvertex3)
+  {
+    assert ((VertLeq(paramGLUvertex1, paramGLUvertex2)) && (VertLeq(paramGLUvertex2, paramGLUvertex3)));
+    
+    double d1 = s - s;
+    double d2 = s - s;
+    
+    if (d1 + d2 > 0.0D) {
+      return (t - t) * d1 + (t - t) * d2;
+    }
+    
+    return 0.0D;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  static double TransEval(GLUvertex paramGLUvertex1, GLUvertex paramGLUvertex2, GLUvertex paramGLUvertex3)
+  {
+    assert ((TransLeq(paramGLUvertex1, paramGLUvertex2)) && (TransLeq(paramGLUvertex2, paramGLUvertex3)));
+    
+    double d1 = t - t;
+    double d2 = t - t;
+    
+    if (d1 + d2 > 0.0D) {
+      if (d1 < d2) {
+        return s - s + (s - s) * (d1 / (d1 + d2));
+      }
+      return s - s + (s - s) * (d2 / (d1 + d2));
+    }
+    
+
+    return 0.0D;
+  }
+  
+
+
+
+
+
+  static double TransSign(GLUvertex paramGLUvertex1, GLUvertex paramGLUvertex2, GLUvertex paramGLUvertex3)
+  {
+    assert ((TransLeq(paramGLUvertex1, paramGLUvertex2)) && (TransLeq(paramGLUvertex2, paramGLUvertex3)));
+    
+    double d1 = t - t;
+    double d2 = t - t;
+    
+    if (d1 + d2 > 0.0D) {
+      return (s - s) * d1 + (s - s) * d2;
+    }
+    
+    return 0.0D;
+  }
+  
+
+
+
+
+
+
+  static boolean VertCCW(GLUvertex paramGLUvertex1, GLUvertex paramGLUvertex2, GLUvertex paramGLUvertex3)
+  {
+    return s * (t - t) + s * (t - t) + s * (t - t) >= 0.0D;
+  }
+  
+
+
+
+
+
+
+
+  static double Interpolate(double paramDouble1, double paramDouble2, double paramDouble3, double paramDouble4)
+  {
+    paramDouble1 = paramDouble1 < 0.0D ? 0.0D : paramDouble1;
+    paramDouble3 = paramDouble3 < 0.0D ? 0.0D : paramDouble3;
+    if (paramDouble1 <= paramDouble3) {
+      if (paramDouble3 == 0.0D) {
+        return (paramDouble2 + paramDouble4) / 2.0D;
+      }
+      return paramDouble2 + (paramDouble4 - paramDouble2) * (paramDouble1 / (paramDouble1 + paramDouble3));
+    }
+    
+    return paramDouble4 + (paramDouble2 - paramDouble4) * (paramDouble3 / (paramDouble1 + paramDouble3));
+  }
+  
+
+
+
+
+
+
+
+
+  static void EdgeIntersect(GLUvertex paramGLUvertex1, GLUvertex paramGLUvertex2, GLUvertex paramGLUvertex3, GLUvertex paramGLUvertex4, GLUvertex paramGLUvertex5)
+  {
+    GLUvertex localGLUvertex;
+    
+
+
+
+
+
+
+    if (!VertLeq(paramGLUvertex1, paramGLUvertex2)) {
+      localGLUvertex = paramGLUvertex1;
+      paramGLUvertex1 = paramGLUvertex2;
+      paramGLUvertex2 = localGLUvertex;
+    }
+    if (!VertLeq(paramGLUvertex3, paramGLUvertex4)) {
+      localGLUvertex = paramGLUvertex3;
+      paramGLUvertex3 = paramGLUvertex4;
+      paramGLUvertex4 = localGLUvertex;
+    }
+    if (!VertLeq(paramGLUvertex1, paramGLUvertex3)) {
+      localGLUvertex = paramGLUvertex1;
+      paramGLUvertex1 = paramGLUvertex3;
+      paramGLUvertex3 = localGLUvertex;
+      localGLUvertex = paramGLUvertex2;
+      paramGLUvertex2 = paramGLUvertex4;
+      paramGLUvertex4 = localGLUvertex; }
+    double d1;
+    double d2;
+    if (!VertLeq(paramGLUvertex3, paramGLUvertex2))
+    {
+      s = ((s + s) / 2.0D);
+    } else if (VertLeq(paramGLUvertex2, paramGLUvertex4))
+    {
+      d1 = EdgeEval(paramGLUvertex1, paramGLUvertex3, paramGLUvertex2);
+      d2 = EdgeEval(paramGLUvertex3, paramGLUvertex2, paramGLUvertex4);
+      if (d1 + d2 < 0.0D) {
+        d1 = -d1;
+        d2 = -d2;
+      }
+      s = Interpolate(d1, s, d2, s);
+    }
+    else {
+      d1 = EdgeSign(paramGLUvertex1, paramGLUvertex3, paramGLUvertex2);
+      d2 = -EdgeSign(paramGLUvertex1, paramGLUvertex4, paramGLUvertex2);
+      if (d1 + d2 < 0.0D) {
+        d1 = -d1;
+        d2 = -d2;
+      }
+      s = Interpolate(d1, s, d2, s);
+    }
+    
+
+
+    if (!TransLeq(paramGLUvertex1, paramGLUvertex2)) {
+      localGLUvertex = paramGLUvertex1;
+      paramGLUvertex1 = paramGLUvertex2;
+      paramGLUvertex2 = localGLUvertex;
+    }
+    if (!TransLeq(paramGLUvertex3, paramGLUvertex4)) {
+      localGLUvertex = paramGLUvertex3;
+      paramGLUvertex3 = paramGLUvertex4;
+      paramGLUvertex4 = localGLUvertex;
+    }
+    if (!TransLeq(paramGLUvertex1, paramGLUvertex3)) {
+      localGLUvertex = paramGLUvertex3;
+      paramGLUvertex3 = paramGLUvertex1;
+      paramGLUvertex1 = localGLUvertex;
+      localGLUvertex = paramGLUvertex4;
+      paramGLUvertex4 = paramGLUvertex2;
+      paramGLUvertex2 = localGLUvertex;
+    }
+    
+    if (!TransLeq(paramGLUvertex3, paramGLUvertex2))
+    {
+      t = ((t + t) / 2.0D);
+    } else if (TransLeq(paramGLUvertex2, paramGLUvertex4))
+    {
+      d1 = TransEval(paramGLUvertex1, paramGLUvertex3, paramGLUvertex2);
+      d2 = TransEval(paramGLUvertex3, paramGLUvertex2, paramGLUvertex4);
+      if (d1 + d2 < 0.0D) {
+        d1 = -d1;
+        d2 = -d2;
+      }
+      t = Interpolate(d1, t, d2, t);
+    }
+    else {
+      d1 = TransSign(paramGLUvertex1, paramGLUvertex3, paramGLUvertex2);
+      d2 = -TransSign(paramGLUvertex1, paramGLUvertex4, paramGLUvertex2);
+      if (d1 + d2 < 0.0D) {
+        d1 = -d1;
+        d2 = -d2;
+      }
+      t = Interpolate(d1, t, d2, t);
+    }
+  }
+  
+  static boolean VertEq(GLUvertex paramGLUvertex1, GLUvertex paramGLUvertex2) {
+    return (s == s) && (t == t);
+  }
+  
+  static boolean VertLeq(GLUvertex paramGLUvertex1, GLUvertex paramGLUvertex2) {
+    return (s < s) || ((s == s) && (t <= t));
+  }
+  
+
+  static boolean TransLeq(GLUvertex paramGLUvertex1, GLUvertex paramGLUvertex2)
+  {
+    return (t < t) || ((t == t) && (s <= s));
+  }
+  
+  static boolean EdgeGoesLeft(GLUhalfEdge paramGLUhalfEdge) {
+    return VertLeq(Sym.Org, Org);
+  }
+  
+  static boolean EdgeGoesRight(GLUhalfEdge paramGLUhalfEdge) {
+    return VertLeq(Org, Sym.Org);
+  }
+  
+  static double VertL1dist(GLUvertex paramGLUvertex1, GLUvertex paramGLUvertex2) {
+    return Math.abs(s - s) + Math.abs(t - t);
+  }
+  
+
+
+
+  static double EdgeCos(GLUvertex paramGLUvertex1, GLUvertex paramGLUvertex2, GLUvertex paramGLUvertex3)
+  {
+    double d1 = s - s;
+    double d2 = t - t;
+    double d3 = s - s;
+    double d4 = t - t;
+    double d5 = d1 * d3 + d2 * d4;
+    double d6 = Math.sqrt(d1 * d1 + d2 * d2) * Math.sqrt(d3 * d3 + d4 * d4);
+    if (d6 > 0.0D) {
+      d5 /= d6;
+    }
+    return d5;
+  }
+}

@@ -1,0 +1,116 @@
+package com.jogamp.common.util;
+
+import jogamp.common.util.Int32ArrayBitfield;
+import jogamp.common.util.Int32Bitfield;
+import jogamp.common.util.SyncedBitfield;
+
+
+
+
+
+
+public abstract interface Bitfield
+{
+  public static final int UNSIGNED_INT_MAX_VALUE = -1;
+  
+  public abstract int size();
+  
+  public abstract void clearField(boolean paramBoolean);
+  
+  public abstract int get32(int paramInt1, int paramInt2)
+    throws IndexOutOfBoundsException;
+  
+  public abstract void put32(int paramInt1, int paramInt2, int paramInt3)
+    throws IndexOutOfBoundsException;
+  
+  public abstract int copy32(int paramInt1, int paramInt2, int paramInt3)
+    throws IndexOutOfBoundsException;
+  
+  public abstract boolean get(int paramInt)
+    throws IndexOutOfBoundsException;
+  
+  public abstract boolean put(int paramInt, boolean paramBoolean)
+    throws IndexOutOfBoundsException;
+  
+  public abstract void set(int paramInt)
+    throws IndexOutOfBoundsException;
+  
+  public abstract void clear(int paramInt)
+    throws IndexOutOfBoundsException;
+  
+  public abstract boolean copy(int paramInt1, int paramInt2)
+    throws IndexOutOfBoundsException;
+  
+  public abstract int bitCount();
+  
+  public static class Util
+  {
+    public Util() {}
+    
+    public static int getBitMask(int paramInt)
+    {
+      if (32 > paramInt)
+        return (1 << paramInt) - 1;
+      if (32 == paramInt) {
+        return -1;
+      }
+      throw new IndexOutOfBoundsException("n <= 32 expected, is " + paramInt);
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static final int bitCount(int paramInt)
+    {
+      paramInt -= (paramInt >>> 1 & 0x55555555);
+      paramInt = (paramInt & 0x33333333) + (paramInt >>> 2 & 0x33333333);
+      paramInt = paramInt + (paramInt >>> 4) & 0xF0F0F0F;
+      paramInt += (paramInt >>> 8);
+      paramInt += (paramInt >>> 16);
+      return paramInt & 0x3F;
+    }
+  }
+  
+
+
+
+  public static class Factory
+  {
+    public Factory() {}
+    
+
+
+    public static Bitfield create(int paramInt)
+    {
+      if (32 >= paramInt) {
+        return new Int32Bitfield();
+      }
+      return new Int32ArrayBitfield(paramInt);
+    }
+    
+
+
+    public static Bitfield synchronize(Bitfield paramBitfield)
+    {
+      return new SyncedBitfield(paramBitfield);
+    }
+  }
+}

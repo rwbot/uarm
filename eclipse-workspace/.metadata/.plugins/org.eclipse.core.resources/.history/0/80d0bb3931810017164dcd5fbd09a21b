@@ -1,0 +1,401 @@
+package g4p_controls;
+
+import java.awt.Color;
+import java.io.PrintStream;
+import java.util.Iterator;
+import java.util.LinkedList;
+import processing.awt.PGraphicsJava2D;
+import processing.core.PApplet;
+import processing.event.MouseEvent;
+
+public class GKnob
+  extends GValueControl
+{
+  protected float startAng = 110.0F;
+  protected float endAng = 70.0F;
+  protected int mode = 1282;
+  protected boolean showTrack = true;
+  protected float bezelRadius = Math.min(width, height) / 2.0F - 2.0F;
+  protected float bezelWidth;
+  protected float gripRadius;
+  protected boolean overIncludesBezel = true;
+  protected float sensitivity = 1.0F;
+  protected boolean drawArcOnly = false;
+  protected boolean mouseOverArcOnly = false;
+  protected float startMouseX;
+  protected float startMouseY;
+  protected float lastMouseAngle;
+  protected float mouseAngle;
+  protected float angleTarget;
+  protected float lastAngleTarget;
+  
+  public GKnob(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5)
+  {
+    super(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+    setGripAmount(paramFloat5);
+    setTurnRange(startAng, endAng);
+    lastAngleTarget = (this.angleTarget = scaleValueToAngle(parametricTarget));
+    hotspots = new HotSpot[] { new HotSpot.HScircle(1, width / 2.0F, height / 2.0F, gripRadius) };
+    z = 24;
+    epsilon = 0.98F / (endAng - startAng);
+    showTicks = true;
+    createEventHandler(G4P.sketchWindow, "handleKnobEvents", new Class[] { GValueControl.class, GEvent.class }, new String[] { "knob", "event" });
+    registeredMethods = 7;
+    cursorOver = 12;
+    G4P.registerControl(this);
+  }
+  
+  public void setGripAmount(float paramFloat)
+  {
+    paramFloat = PApplet.constrain(paramFloat, 0.0F, 1.0F);
+    gripRadius = (bezelRadius * paramFloat);
+    if (gripRadius < 2.0F) {
+      gripRadius = 0.0F;
+    }
+    bezelWidth = (bezelRadius - gripRadius);
+    bufferInvalid = true;
+  }
+  
+  protected void calculateHotSpot()
+  {
+    float f = overIncludesBezel ? bezelRadius : gripRadius;
+    if (mouseOverArcOnly) {
+      hotspots[0] = new HotSpot.HSarc(1, width / 2.0F, height / 2.0F, f, startAng, endAng);
+    } else {
+      hotspots[0] = new HotSpot.HScircle(1, width / 2.0F, height / 2.0F, f);
+    }
+  }
+  
+  protected float scaleValueToAngle(float paramFloat)
+  {
+    float f = startAng + paramFloat * (endAng - startAng);
+    return f;
+  }
+  
+  protected float calcAngletoValue(float paramFloat)
+  {
+    if (paramFloat < startAng) {
+      paramFloat += 360.0F;
+    }
+    float f = (paramFloat - startAng) / (endAng - startAng);
+    return f;
+  }
+  
+  public void setValue(float paramFloat)
+  {
+    super.setValue(paramFloat);
+    angleTarget = scaleValueToAngle(parametricTarget);
+  }
+  
+  public void setShowTrack(boolean paramBoolean)
+  {
+    if (showTrack != paramBoolean)
+    {
+      showTrack = paramBoolean;
+      bufferInvalid = true;
+    }
+  }
+  
+  public boolean isShowTrack()
+  {
+    return showTrack;
+  }
+  
+  public void setIncludeOverBezel(boolean paramBoolean)
+  {
+    overIncludesBezel = paramBoolean;
+    calculateHotSpot();
+  }
+  
+  public boolean isIncludeOverBezel()
+  {
+    return overIncludesBezel;
+  }
+  
+  public void setOverArcOnly(boolean paramBoolean)
+  {
+    mouseOverArcOnly = paramBoolean;
+    calculateHotSpot();
+  }
+  
+  public boolean isOverArcOnly()
+  {
+    return mouseOverArcOnly;
+  }
+  
+  public void setArcPolicy(boolean paramBoolean1, boolean paramBoolean2, boolean paramBoolean3)
+  {
+    mouseOverArcOnly = paramBoolean1;
+    setShowArcOnly(paramBoolean2);
+    overIncludesBezel = paramBoolean3;
+    calculateHotSpot();
+  }
+  
+  public void setShowArcOnly(boolean paramBoolean)
+  {
+    if (drawArcOnly != paramBoolean)
+    {
+      drawArcOnly = paramBoolean;
+      bufferInvalid = true;
+    }
+  }
+  
+  public boolean isShowArcOnly()
+  {
+    return drawArcOnly;
+  }
+  
+  public void mouseEvent(MouseEvent paramMouseEvent)
+  {
+    if ((!visible) || (!enabled) || (!available)) {
+      return;
+    }
+    calcTransformedOrigin(winApp.mouseX, winApp.mouseY);
+    currSpot = whichHotSpot(ox, oy);
+    ox -= width / 2.0F;
+    oy -= height / 2.0F;
+    if ((currSpot >= 0) || (focusIsWith == this)) {
+      cursorIsOver = this;
+    } else if (cursorIsOver == this) {
+      cursorIsOver = null;
+    }
+    switch (paramMouseEvent.getAction())
+    {
+    case 1: 
+      if ((focusIsWith != this) && (currSpot > -1) && (z > focusObjectZ()))
+      {
+        startMouseX = ox;
+        startMouseY = oy;
+        lastMouseAngle = (this.mouseAngle = getAngleFromUser(ox, oy));
+        offset = (scaleValueToAngle(parametricTarget) - mouseAngle);
+        takeFocus();
+      }
+      break;
+    case 8: 
+      if ((currSpot > -1) && (z >= focusObjectZ()))
+      {
+        System.out.print(tag + "  " + parametricTarget + "  " + paramMouseEvent.getCount() + "   " + wheelDelta + "     >>>  ");
+        parametricTarget = calcParametricTarget(parametricTarget + paramMouseEvent.getCount() * wheelDelta * G4P.wheelForSlider);
+        System.out.println(parametricTarget);
+      }
+      break;
+    case 2: 
+      if (focusIsWith == this) {
+        loseFocus(null);
+      }
+      if (stickToTicks) {
+        parametricTarget = findNearestTickValueTo(parametricTarget);
+      }
+      dragging = false;
+      break;
+    case 4: 
+      if (focusIsWith == this)
+      {
+        mouseAngle = getAngleFromUser(ox, oy);
+        if (mouseAngle != lastMouseAngle)
+        {
+          float f = mouseAngle - lastMouseAngle;
+          if (f < -180.0F) {
+            f += 360.0F;
+          } else if (f > 180.0F) {
+            f -= 360.0F;
+          }
+          angleTarget = constrainToTurnRange(angleTarget + f);
+          parametricTarget = calcAngletoValue(angleTarget);
+          offset += angleTarget - lastAngleTarget - f;
+          lastAngleTarget = angleTarget;
+          lastMouseAngle = mouseAngle;
+        }
+      }
+      break;
+    }
+  }
+  
+  public void draw()
+  {
+    if (!visible) {
+      return;
+    }
+    updateBuffer();
+    winApp.pushStyle();
+    winApp.pushMatrix();
+    winApp.translate(cx, cy);
+    winApp.rotate(rotAngle);
+    winApp.pushMatrix();
+    winApp.translate(-halfWidth, -halfHeight);
+    winApp.imageMode(0);
+    if (alphaLevel < 255) {
+      winApp.tint(255, alphaLevel);
+    }
+    winApp.image(buffer, 0.0F, 0.0F);
+    winApp.popMatrix();
+    if (children != null)
+    {
+      Iterator localIterator = children.iterator();
+      while (localIterator.hasNext())
+      {
+        GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+        localGAbstractControl.draw();
+      }
+    }
+    winApp.popMatrix();
+    winApp.popStyle();
+  }
+  
+  protected void updateBuffer()
+  {
+    if (bufferInvalid)
+    {
+      bufferInvalid = false;
+      buffer.beginDraw();
+      buffer.ellipseMode(3);
+      if (opaque == true) {
+        buffer.background(palette[6].getRGB());
+      } else {
+        buffer.background(buffer.color(255, 0));
+      }
+      buffer.translate(width / 2.0F, height / 2.0F);
+      buffer.noStroke();
+      float f2 = scaleValueToAngle(parametricPos);
+      if (bezelWidth > 0.0F)
+      {
+        buffer.noStroke();
+        buffer.fill(palette[5].getRGB());
+        if (drawArcOnly) {
+          buffer.arc(0.0F, 0.0F, 2.0F * bezelRadius, 2.0F * bezelRadius, PApplet.radians(startAng), PApplet.radians(endAng));
+        } else {
+          buffer.ellipse(0.0F, 0.0F, 2.0F * bezelRadius, 2.0F * bezelRadius);
+        }
+        if (showTicks)
+        {
+          buffer.noFill();
+          buffer.strokeWeight(1.6F);
+          buffer.stroke(palette[3].getRGB());
+          float f3 = (endAng - startAng) / (nbrTicks - 1);
+          for (int i = 0; i < nbrTicks; i++)
+          {
+            float f1 = gripRadius + ((i == 0) || (i == nbrTicks - 1) ? bezelWidth : bezelWidth * 0.8F);
+            d1 = Math.toRadians(startAng + i * f3);
+            d2 = Math.sin(d1);
+            d3 = Math.cos(d1);
+            buffer.line((float)(gripRadius * d3), (float)(gripRadius * d2), (float)(f1 * d3), (float)(f1 * d2));
+          }
+        }
+        if (showTrack)
+        {
+          buffer.noStroke();
+          buffer.fill(palette[14].getRGB());
+          buffer.arc(0.0F, 0.0F, 2.0F * (gripRadius + bezelWidth * 0.5F), 2.0F * (gripRadius + bezelWidth * 0.5F), PApplet.radians(startAng), PApplet.radians(f2));
+        }
+      }
+      buffer.strokeWeight(1.6F);
+      buffer.stroke(palette[2].getRGB());
+      buffer.fill(palette[2].getRGB());
+      if (drawArcOnly) {
+        buffer.arc(0.0F, 0.0F, 2.0F * gripRadius, 2.0F * gripRadius, PApplet.radians(startAng), PApplet.radians(endAng));
+      } else {
+        buffer.ellipse(0.0F, 0.0F, 2.0F * gripRadius, 2.0F * gripRadius);
+      }
+      buffer.noFill();
+      buffer.stroke(palette[14].getRGB());
+      buffer.strokeWeight(3.0F);
+      double d1 = Math.toRadians(f2);
+      double d2 = Math.sin(d1);
+      double d3 = Math.cos(d1);
+      buffer.line(0.0F, 0.0F, (float)(gripRadius * d3), (float)(gripRadius * d2));
+      buffer.endDraw();
+    }
+  }
+  
+  public int getTurnMode()
+  {
+    return mode;
+  }
+  
+  public void setTurnMode(int paramInt)
+  {
+    switch (paramInt)
+    {
+    case 1281: 
+    case 1282: 
+    case 1283: 
+      mode = paramInt;
+    }
+  }
+  
+  public float getSensitivity()
+  {
+    return sensitivity;
+  }
+  
+  public void setSensitivity(float paramFloat)
+  {
+    sensitivity = (paramFloat < 0.1F ? 0.1F : paramFloat);
+  }
+  
+  protected float getAngleFromUser(float paramFloat1, float paramFloat2)
+  {
+    float f = 0.0F;
+    switch (mode)
+    {
+    case 1281: 
+      f = calcRealAngleFromXY(ox, oy);
+      break;
+    case 1282: 
+      f = sensitivity * (paramFloat1 - startMouseX);
+      break;
+    case 1283: 
+      f = sensitivity * (paramFloat2 - startMouseY);
+    }
+    return f;
+  }
+  
+  public void setTurnRange(float paramFloat1, float paramFloat2)
+  {
+    paramFloat1 = constrain360(paramFloat1);
+    paramFloat2 = constrain360(paramFloat2);
+    startAng = paramFloat1;
+    endAng = (startAng >= paramFloat2 ? paramFloat2 + 360.0F : paramFloat2);
+    setValue(getValueF());
+    bufferInvalid = true;
+  }
+  
+  protected boolean isInTurnRange(float paramFloat)
+  {
+    paramFloat = constrain360(paramFloat);
+    if (paramFloat < startAng) {
+      paramFloat += 360.0F;
+    }
+    return (paramFloat >= startAng) && (paramFloat <= endAng);
+  }
+  
+  protected float constrainToTurnRange(float paramFloat)
+  {
+    if (paramFloat < startAng) {
+      paramFloat = startAng;
+    } else if (paramFloat > endAng) {
+      paramFloat = endAng;
+    }
+    return paramFloat;
+  }
+  
+  protected float constrain360(float paramFloat)
+  {
+    while (paramFloat < 0.0F) {
+      paramFloat += 360.0F;
+    }
+    while (paramFloat > 360.0F) {
+      paramFloat -= 360.0F;
+    }
+    return paramFloat;
+  }
+  
+  protected float calcRealAngleFromXY(float paramFloat1, float paramFloat2)
+  {
+    float f = (float)Math.toDegrees(Math.atan2(paramFloat2, paramFloat1));
+    if (f < 0.0F) {
+      f += 360.0F;
+    }
+    return f;
+  }
+}

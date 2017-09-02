@@ -1,0 +1,152 @@
+package jogamp.nativewindow;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.util.LongObjectHashMap;
+import com.jogamp.common.util.LongObjectHashMap.Entry;
+import com.jogamp.common.util.locks.LockFactory;
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.nativewindow.ToolkitLock;
+import java.io.PrintStream;
+import java.util.Iterator;
+import java.util.concurrent.atomic.AtomicInteger;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class SharedResourceToolkitLock
+  implements ToolkitLock
+{
+  private static final LongObjectHashMap handle2Lock = new LongObjectHashMap();
+  static { handle2Lock.setKeyNotFoundValue(null); }
+  
+  private final RecursiveLock lock;
+  private final long handle;
+  private final AtomicInteger refCount;
+  public static int shutdown(boolean paramBoolean)
+  {
+    if ((DEBUG) || (paramBoolean) || (handle2Lock.size() > 0)) {
+      System.err.println("SharedResourceToolkitLock: Shutdown (open: " + handle2Lock.size() + ")");
+      if (DEBUG) {
+        ExceptionUtils.dumpStack(System.err);
+      }
+      if (handle2Lock.size() > 0) {
+        dumpOpenDisplayConnections();
+      }
+    }
+    return handle2Lock.size();
+  }
+  
+  public static void dumpOpenDisplayConnections() {
+    System.err.println("SharedResourceToolkitLock: Open ResourceToolkitLock's: " + handle2Lock.size());
+    int i = 0;
+    for (Iterator localIterator = handle2Lock.iterator(); localIterator.hasNext(); i++) {
+      LongObjectHashMap.Entry localEntry = (LongObjectHashMap.Entry)localIterator.next();
+      System.err.println("SharedResourceToolkitLock: Open[" + i + "]: " + value);
+    }
+  }
+  
+  public static final SharedResourceToolkitLock get(long paramLong) {
+    SharedResourceToolkitLock localSharedResourceToolkitLock;
+    synchronized (handle2Lock) {
+      localSharedResourceToolkitLock = (SharedResourceToolkitLock)handle2Lock.get(paramLong);
+      if (null == localSharedResourceToolkitLock) {
+        localSharedResourceToolkitLock = new SharedResourceToolkitLock(paramLong);
+        refCount.incrementAndGet();
+        handle2Lock.put(paramLong, localSharedResourceToolkitLock);
+        if ((DEBUG) || (TRACE_LOCK)) System.err.println("SharedResourceToolkitLock.get() * NEW   *: " + localSharedResourceToolkitLock);
+      } else {
+        refCount.incrementAndGet();
+        if ((DEBUG) || (TRACE_LOCK)) System.err.println("SharedResourceToolkitLock.get() * EXIST *: " + localSharedResourceToolkitLock);
+      }
+    }
+    return localSharedResourceToolkitLock;
+  }
+  
+
+
+
+  private SharedResourceToolkitLock(long paramLong)
+  {
+    lock = LockFactory.createRecursiveLock();
+    handle = paramLong;
+    refCount = new AtomicInteger(0);
+  }
+  
+
+  public final void lock()
+  {
+    lock.lock();
+    if (TRACE_LOCK) System.err.println(Thread.currentThread() + " SharedResourceToolkitLock: lock() " + toStringImpl());
+  }
+  
+  public final void unlock()
+  {
+    if (TRACE_LOCK) System.err.println(Thread.currentThread() + " SharedResourceToolkitLock: unlock() " + toStringImpl());
+    lock.unlock();
+  }
+  
+  public final void validateLocked() throws RuntimeException
+  {
+    lock.validateLocked();
+  }
+  
+  public final void dispose()
+  {
+    if (0 < refCount.get()) {
+      synchronized (handle2Lock) {
+        if (0 == refCount.decrementAndGet()) {
+          if ((DEBUG) || (TRACE_LOCK)) System.err.println("SharedResourceToolkitLock.dispose() * REMOV *: " + this);
+          handle2Lock.remove(handle);
+        }
+        else if ((DEBUG) || (TRACE_LOCK)) { System.err.println("SharedResourceToolkitLock.dispose() * DOWN  *: " + this);
+        }
+        
+      }
+    } else if ((DEBUG) || (TRACE_LOCK)) { System.err.println("SharedResourceToolkitLock.dispose() * NULL  *: " + this);
+    }
+  }
+  
+  public String toString()
+  {
+    return "SharedResourceToolkitLock[" + toStringImpl() + "]";
+  }
+  
+  private String toStringImpl() { return "refCount " + refCount + ", handle 0x" + Long.toHexString(handle) + ", obj 0x" + Integer.toHexString(hashCode()) + ", isOwner " + lock.isOwner(Thread.currentThread()) + ", " + lock.toString(); }
+}

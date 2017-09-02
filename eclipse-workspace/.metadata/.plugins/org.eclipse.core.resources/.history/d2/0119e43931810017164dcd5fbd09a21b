@@ -1,0 +1,739 @@
+package com.jogamp.nativewindow.util;
+
+import com.jogamp.common.util.Bitfield.Util;
+import java.util.Arrays;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public enum PixelFormat
+{
+  LUMINANCE(new CType[] { CType.Y }, 1, 8, 8), 
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  RGB565(new CType[] { CType.R, CType.G, CType.B }, new int[] { 31, 63, 31 }, new int[] { 0, 5, 11 }, 16), 
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  BGR565(new CType[] { CType.B, CType.G, CType.R }, new int[] { 31, 63, 31 }, new int[] { 0, 5, 11 }, 16), 
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  RGBA5551(new CType[] { CType.R, CType.G, CType.B, CType.A }, new int[] { 31, 31, 31, 1 }, new int[] { 0, 5, 10, 15 }, 16), 
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ABGR1555(new CType[] { CType.A, CType.B, CType.G, CType.R }, new int[] { 1, 31, 31, 31 }, new int[] { 0, 1, 6, 11 }, 16), 
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  RGB888(new CType[] { CType.R, CType.G, CType.B }, 3, 8, 24), 
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  BGR888(new CType[] { CType.B, CType.G, CType.R }, 3, 8, 24), 
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  RGBx8888(new CType[] { CType.R, CType.G, CType.B }, 3, 8, 32), 
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  BGRx8888(new CType[] { CType.B, CType.G, CType.R }, 3, 8, 32), 
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  RGBA8888(new CType[] { CType.R, CType.G, CType.B, CType.A }, 4, 8, 32), 
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ABGR8888(new CType[] { CType.A, CType.B, CType.G, CType.R }, 4, 8, 32), 
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ARGB8888(new CType[] { CType.A, CType.R, CType.G, CType.B }, 4, 8, 32), 
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  BGRA8888(new CType[] { CType.B, CType.G, CType.R, CType.A }, 4, 8, 32);
+  
+
+
+
+  public final Composition comp;
+  
+
+
+
+  private PixelFormat(CType[] paramArrayOfCType, int paramInt1, int paramInt2, int paramInt3)
+  {
+    comp = new PackedComposition(paramArrayOfCType, paramInt1, paramInt2, paramInt3);
+  }
+  
+
+
+
+
+
+  private PixelFormat(CType[] paramArrayOfCType, int[] paramArrayOfInt1, int[] paramArrayOfInt2, int paramInt)
+  {
+    comp = new PackedComposition(paramArrayOfCType, paramArrayOfInt1, paramArrayOfInt2, paramInt);
+  }
+  
+
+
+
+  public static PixelFormat valueOf(Composition paramComposition)
+  {
+    PixelFormat[] arrayOfPixelFormat = values();
+    for (int i = arrayOfPixelFormat.length - 1; i >= 0; i--) {
+      PixelFormat localPixelFormat = arrayOfPixelFormat[i];
+      if ((paramComposition.hashCode() == comp.hashCode()) && (paramComposition.equals(comp))) {
+        return localPixelFormat;
+      }
+    }
+    return null;
+  }
+  
+
+  public static enum CType
+  {
+    R, 
+    
+    G, 
+    
+    B, 
+    
+    A, 
+    
+    Y, 
+    
+    U, 
+    
+    V;
+    
+
+
+    private CType() {}
+  }
+  
+
+
+  public static abstract interface Composition
+  {
+    public static final int UNDEF = -1;
+    
+
+
+    public abstract boolean isUniform();
+    
+
+
+    public abstract boolean isInterleaved();
+    
+
+
+    public abstract int componentCount();
+    
+
+
+    public abstract int bitsPerPixel();
+    
+
+
+    public abstract int bitStride();
+    
+
+
+    public abstract int bytesPerPixel();
+    
+
+
+    public abstract PixelFormat.CType[] componentOrder();
+    
+
+
+    public abstract int find(PixelFormat.CType paramCType);
+    
+
+
+    public abstract int[] componentBitMask();
+    
+
+
+    public abstract int[] componentBitCount();
+    
+
+
+    public abstract int[] componentBitShift();
+    
+
+
+    public abstract int decodeSingleI32(int paramInt1, int paramInt2);
+    
+
+    public abstract int decodeSingleI64(long paramLong, int paramInt);
+    
+
+    public abstract int encodeSingleI32(int paramInt1, int paramInt2);
+    
+
+    public abstract long encodeSingleI64(int paramInt1, int paramInt2);
+    
+
+    public abstract int encode3CompI32(int paramInt1, int paramInt2, int paramInt3);
+    
+
+    public abstract int encode4CompI32(int paramInt1, int paramInt2, int paramInt3, int paramInt4);
+    
+
+    public abstract int encodeSingleI8(byte paramByte, int paramInt);
+    
+
+    public abstract int encode3CompI8(byte paramByte1, byte paramByte2, byte paramByte3);
+    
+
+    public abstract int encode4CompI8(byte paramByte1, byte paramByte2, byte paramByte3, byte paramByte4);
+    
+
+    public abstract float toFloat(int paramInt1, int paramInt2, boolean paramBoolean);
+    
+
+    public abstract int fromFloat(float paramFloat, int paramInt, boolean paramBoolean);
+    
+
+    public abstract int defaultValue(int paramInt, boolean paramBoolean);
+    
+
+    public abstract int hashCode();
+    
+
+    public abstract boolean equals(Object paramObject);
+    
+
+    public abstract String toString();
+  }
+  
+
+  public static class PackedComposition
+    implements PixelFormat.Composition
+  {
+    private final PixelFormat.CType[] compOrder;
+    
+    private final int[] compMask;
+    
+    private final int[] compBitCount;
+    
+    private final int[] compBitShift;
+    
+    private final int bitsPerPixel;
+    
+    private final int bitStride;
+    
+    private final boolean uniform;
+    
+    private final int hashCode;
+    
+
+    public final String toString()
+    {
+      return String.format("PackedComp[order %s, stride %d, bpp %d, uni %b, comp %d: %s]", new Object[] {
+        Arrays.toString(compOrder), Integer.valueOf(bitStride), Integer.valueOf(bitsPerPixel), Boolean.valueOf(uniform), 
+        Integer.valueOf(compMask.length), PixelFormat.toHexString(compBitCount, compMask, compBitShift) });
+    }
+    
+
+
+
+
+
+    public PackedComposition(PixelFormat.CType[] paramArrayOfCType, int paramInt1, int paramInt2, int paramInt3)
+    {
+      compOrder = paramArrayOfCType;
+      compMask = new int[paramInt1];
+      compBitShift = new int[paramInt1];
+      compBitCount = new int[paramInt1];
+      int i = (1 << paramInt2) - 1;
+      for (int j = 0; j < paramInt1; j++) {
+        compMask[j] = i;
+        compBitShift[j] = (paramInt2 * j);
+        compBitCount[j] = paramInt2;
+      }
+      uniform = true;
+      bitsPerPixel = (paramInt2 * paramInt1);
+      bitStride = paramInt3;
+      if (bitStride < bitsPerPixel) {
+        throw new IllegalArgumentException(String.format("bit-stride %d < bitsPerPixel %d", new Object[] { Integer.valueOf(bitStride), Integer.valueOf(bitsPerPixel) }));
+      }
+      hashCode = hashCodeImpl();
+    }
+    
+
+
+
+
+
+    public PackedComposition(PixelFormat.CType[] paramArrayOfCType, int[] paramArrayOfInt1, int[] paramArrayOfInt2, int paramInt)
+    {
+      compOrder = paramArrayOfCType;
+      compMask = paramArrayOfInt1;
+      compBitShift = paramArrayOfInt2;
+      compBitCount = new int[paramArrayOfInt1.length];
+      int i = 0;
+      boolean bool = true;
+      for (int j = paramArrayOfInt1.length - 1; j >= 0; j--) {
+        int k = paramArrayOfInt1[j];
+        int m = Bitfield.Util.bitCount(k);
+        i += m;
+        compBitCount[j] = m;
+        if ((j > 0) && (bool)) {
+          bool = paramArrayOfInt1[(j - 1)] == k;
+        }
+      }
+      uniform = bool;
+      bitsPerPixel = i;
+      bitStride = paramInt;
+      if (bitStride < bitsPerPixel) {
+        throw new IllegalArgumentException(String.format("bit-stride %d < bitsPerPixel %d", new Object[] { Integer.valueOf(bitStride), Integer.valueOf(bitsPerPixel) }));
+      }
+      hashCode = hashCodeImpl();
+    }
+    
+    public final boolean isUniform() {
+      return uniform;
+    }
+    
+
+
+
+
+
+    public final boolean isInterleaved() { return true; }
+    
+    public final int componentCount() { return compMask.length; }
+    
+    public final int bitsPerPixel() { return bitsPerPixel; }
+    
+    public final int bitStride() { return bitStride; }
+    
+    public final int bytesPerPixel() { return (7 + bitStride) / 8; }
+    
+    public final PixelFormat.CType[] componentOrder() { return compOrder; }
+    
+    public final int find(PixelFormat.CType paramCType) { return PixelFormatUtil.find(paramCType, compOrder, false); }
+    
+    public final int[] componentBitMask() { return compMask; }
+    
+    public final int[] componentBitCount() { return compBitCount; }
+    
+    public final int[] componentBitShift() { return compBitShift; }
+    
+    public final int decodeSingleI32(int paramInt1, int paramInt2)
+    {
+      return paramInt1 >>> compBitShift[paramInt2] & compMask[paramInt2];
+    }
+    
+    public final int decodeSingleI64(long paramLong, int paramInt) {
+      return (int)(0xFFFFFFFF & paramLong >>> compBitShift[paramInt]) & compMask[paramInt];
+    }
+    
+    public final int encodeSingleI32(int paramInt1, int paramInt2) {
+      return (paramInt1 & compMask[paramInt2]) << compBitShift[paramInt2];
+    }
+    
+    public final long encodeSingleI64(int paramInt1, int paramInt2) {
+      return (0xFFFFFFFF & paramInt1 & compMask[paramInt2]) << compBitShift[paramInt2];
+    }
+    
+    public final int encode3CompI32(int paramInt1, int paramInt2, int paramInt3) {
+      return (paramInt1 & compMask[0]) << compBitShift[0] | (paramInt2 & compMask[1]) << compBitShift[1] | (paramInt3 & compMask[2]) << compBitShift[2];
+    }
+    
+
+    public final int encode4CompI32(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+    {
+      return (paramInt1 & compMask[0]) << compBitShift[0] | (paramInt2 & compMask[1]) << compBitShift[1] | (paramInt3 & compMask[2]) << compBitShift[2] | (paramInt4 & compMask[3]) << compBitShift[3];
+    }
+    
+
+
+    public final int encodeSingleI8(byte paramByte, int paramInt)
+    {
+      return (paramByte & compMask[paramInt]) << compBitShift[paramInt];
+    }
+    
+    public final int encode3CompI8(byte paramByte1, byte paramByte2, byte paramByte3) {
+      return (paramByte1 & compMask[0]) << compBitShift[0] | (paramByte2 & compMask[1]) << compBitShift[1] | (paramByte3 & compMask[2]) << compBitShift[2];
+    }
+    
+
+    public final int encode4CompI8(byte paramByte1, byte paramByte2, byte paramByte3, byte paramByte4)
+    {
+      return (paramByte1 & compMask[0]) << compBitShift[0] | (paramByte2 & compMask[1]) << compBitShift[1] | (paramByte3 & compMask[2]) << compBitShift[2] | (paramByte4 & compMask[3]) << compBitShift[3];
+    }
+    
+
+
+
+    public final float toFloat(int paramInt1, int paramInt2, boolean paramBoolean)
+    {
+      if (paramBoolean) {
+        return (paramInt1 >>> compBitShift[paramInt2] & compMask[paramInt2]) / compMask[paramInt2];
+      }
+      return (paramInt1 & compMask[paramInt2]) / compMask[paramInt2];
+    }
+    
+    public final int fromFloat(float paramFloat, int paramInt, boolean paramBoolean)
+    {
+      int i = (int)(paramFloat * compMask[paramInt] + 0.5F);
+      return paramBoolean ? i << compBitShift[paramInt] : i;
+    }
+    
+    public final int defaultValue(int paramInt, boolean paramBoolean)
+    {
+      int i = (PixelFormat.CType.A == compOrder[paramInt]) || (PixelFormat.CType.Y == compOrder[paramInt]) ? compMask[paramInt] : 0;
+      
+      return paramBoolean ? i << compBitShift[paramInt] : i;
+    }
+    
+
+    public final int hashCode() { return hashCode; }
+    
+    private final int hashCodeImpl() {
+      int i = 31 + bitStride;
+      i = (i << 5) - i + bitsPerPixel;
+      i = (i << 5) - i + compMask.length;
+      for (int j = compOrder.length - 1; j >= 0; j--) {
+        i = (i << 5) - i + compOrder[j].ordinal();
+      }
+      for (j = compMask.length - 1; j >= 0; j--) {
+        i = (i << 5) - i + compMask[j];
+      }
+      for (j = compBitShift.length - 1; j >= 0; j--) {
+        i = (i << 5) - i + compBitShift[j];
+      }
+      return i;
+    }
+    
+    public final boolean equals(Object paramObject)
+    {
+      if (this == paramObject) return true;
+      if ((paramObject instanceof PackedComposition)) {
+        PackedComposition localPackedComposition = (PackedComposition)paramObject;
+        if ((bitStride == bitStride) && (bitsPerPixel == bitsPerPixel)) {}
+        
+
+
+        return (Arrays.equals(compOrder, compOrder)) && (Arrays.equals(compMask, compMask)) && (Arrays.equals(compBitShift, compBitShift));
+      }
+      return false;
+    }
+  }
+  
+  private static String toHexString(int[] paramArrayOfInt1, int[] paramArrayOfInt2, int[] paramArrayOfInt3)
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("[");
+    int i = paramArrayOfInt2.length;
+    for (int j = 0; j < i; j++) {
+      if (j > 0) {
+        localStringBuilder.append(", ");
+      }
+      
+      localStringBuilder.append(paramArrayOfInt1[j]).append(": ").append("0x").append(Integer.toHexString(paramArrayOfInt2[j])).append(" << ").append(paramArrayOfInt3[j]);
+    }
+    return "]";
+  }
+}

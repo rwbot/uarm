@@ -1,0 +1,194 @@
+package g4p_controls;
+
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.util.LinkedList;
+import processing.awt.PGraphicsJava2D;
+import processing.core.PApplet;
+import processing.core.PGraphics;
+import processing.event.MouseEvent;
+
+public class GButton
+  extends GTextIconBase
+{
+  private static boolean roundCorners = true;
+  private static float CORNER_RADIUS = 6.0F;
+  protected int status = 0;
+  protected boolean reportAllButtonEvents = false;
+  
+  public static void useRoundCorners(boolean paramBoolean)
+  {
+    roundCorners = paramBoolean;
+  }
+  
+  public GButton(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    this(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4, "");
+  }
+  
+  public GButton(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, String paramString)
+  {
+    super(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+    PGraphics localPGraphics = winApp.createGraphics((int)width, (int)height, "processing.awt.PGraphicsJava2D");
+    localPGraphics.beginDraw();
+    localPGraphics.background(255);
+    localPGraphics.fill(0);
+    localPGraphics.stroke(0);
+    localPGraphics.strokeWeight(1.0F);
+    if (roundCorners) {
+      localPGraphics.rect(0.0F, 0.0F, width - 2.0F, height - 2.0F, CORNER_RADIUS);
+    } else {
+      localPGraphics.rect(0.0F, 0.0F, width - 2.0F, height - 2.0F);
+    }
+    localPGraphics.endDraw();
+    hotspots = new HotSpot[] { new HotSpot.HSmask(1, localPGraphics) };
+    PAD = (roundCorners ? 4.0F : 2.0F);
+    textAlignH = GAlign.CENTER;
+    textAlignV = GAlign.MIDDLE;
+    iconPos = GAlign.EAST;
+    iconAlignH = GAlign.CENTER;
+    iconAlignV = GAlign.MIDDLE;
+    calcZones(false, true);
+    setText(paramString);
+    z = 24;
+    createEventHandler(G4P.sketchWindow, "handleButtonEvents", new Class[] { GButton.class, GEvent.class }, new String[] { "button", "event" });
+    registeredMethods = 3;
+    cursorOver = 12;
+    G4P.registerControl(this);
+  }
+  
+  public void fireAllEvents(boolean paramBoolean)
+  {
+    reportAllButtonEvents = paramBoolean;
+  }
+  
+  public void setEnabled(boolean paramBoolean)
+  {
+    super.setEnabled(paramBoolean);
+    if (!paramBoolean) {
+      status = 0;
+    }
+  }
+  
+  public void mouseEvent(MouseEvent paramMouseEvent)
+  {
+    if ((!visible) || (!enabled) || (!available)) {
+      return;
+    }
+    calcTransformedOrigin(winApp.mouseX, winApp.mouseY);
+    currSpot = whichHotSpot(ox, oy);
+    if ((currSpot >= 0) || (focusIsWith == this)) {
+      cursorIsOver = this;
+    } else if (cursorIsOver == this) {
+      cursorIsOver = null;
+    }
+    switch (paramMouseEvent.getAction())
+    {
+    case 1: 
+      if ((focusIsWith != this) && (currSpot >= 0) && (z > focusObjectZ()))
+      {
+        dragging = false;
+        status = 2;
+        takeFocus();
+        if (reportAllButtonEvents) {
+          fireEvent(new Object[] { this, GEvent.PRESSED });
+        }
+        bufferInvalid = true;
+      }
+      break;
+    case 3: 
+      if (focusIsWith == this)
+      {
+        status = 0;
+        bufferInvalid = true;
+        loseFocus(null);
+        dragging = false;
+        fireEvent(new Object[] { this, GEvent.CLICKED });
+      }
+      break;
+    case 2: 
+      if ((focusIsWith == this) && (dragging))
+      {
+        if (reportAllButtonEvents) {
+          fireEvent(new Object[] { this, GEvent.RELEASED });
+        }
+        dragging = false;
+        loseFocus(null);
+        status = 0;
+        bufferInvalid = true;
+      }
+      break;
+    case 5: 
+      int i = status;
+      if (currSpot >= 0) {
+        status = 1;
+      } else {
+        status = 0;
+      }
+      if (i != status) {
+        bufferInvalid = true;
+      }
+      break;
+    case 4: 
+      dragging = (focusIsWith == this);
+    }
+  }
+  
+  public void draw()
+  {
+    if (!visible) {
+      return;
+    }
+    updateBuffer();
+    winApp.pushStyle();
+    winApp.pushMatrix();
+    winApp.translate(cx, cy);
+    winApp.rotate(rotAngle);
+    winApp.translate(-halfWidth, -halfHeight);
+    winApp.imageMode(0);
+    if (alphaLevel < 255) {
+      winApp.tint(255, alphaLevel);
+    }
+    winApp.image(buffer, 0.0F, 0.0F);
+    winApp.popMatrix();
+    winApp.popStyle();
+  }
+  
+  protected void updateBuffer()
+  {
+    if (bufferInvalid)
+    {
+      bufferInvalid = false;
+      buffer.beginDraw();
+      Graphics2D localGraphics2D = buffer.g2;
+      localGraphics2D.setFont(localFont);
+      LinkedList localLinkedList = stext.getLines(localGraphics2D);
+      buffer.clear();
+      buffer.stroke(palette[3].getRGB());
+      buffer.strokeWeight(1.0F);
+      switch (status)
+      {
+      case 1: 
+        buffer.fill(palette[6].getRGB());
+        break;
+      case 2: 
+        buffer.fill(palette[14].getRGB());
+        break;
+      default: 
+        buffer.fill(palette[4].getRGB());
+      }
+      if (roundCorners) {
+        buffer.rect(0.0F, 0.0F, width - 2.0F, height - 2.0F, CORNER_RADIUS);
+      } else {
+        buffer.rect(0.0F, 0.0F, width - 2.0F, height - 2.0F);
+      }
+      if (icon != null)
+      {
+        icon.setFrame(status);
+        buffer.image(icon.getFrame(), iconX, iconY);
+      }
+      displayText(localGraphics2D, localLinkedList);
+      buffer.endDraw();
+    }
+  }
+}

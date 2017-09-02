@@ -1,0 +1,171 @@
+package jogamp.opengl.util.glsl;
+
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.util.GLArrayDataEditable;
+import com.jogamp.opengl.util.glsl.ShaderState;
+import java.nio.Buffer;
+import jogamp.opengl.util.GLArrayHandlerFlat;
+import jogamp.opengl.util.GLVBOArrayHandler;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLSLArrayHandler
+  extends GLVBOArrayHandler
+{
+  public GLSLArrayHandler(GLArrayDataEditable paramGLArrayDataEditable)
+  {
+    super(paramGLArrayDataEditable);
+  }
+  
+  public final void setSubArrayVBOName(int paramInt)
+  {
+    throw new UnsupportedOperationException();
+  }
+  
+  public final void addSubHandler(GLArrayHandlerFlat paramGLArrayHandlerFlat)
+  {
+    throw new UnsupportedOperationException();
+  }
+  
+  public final void enableState(GL paramGL, boolean paramBoolean, Object paramObject)
+  {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    if (null != paramObject) {
+      enableShaderState(localGL2ES2, paramBoolean, (ShaderState)paramObject);
+    } else {
+      enableSimple(localGL2ES2, paramBoolean);
+    }
+  }
+  
+  private final int[] tempI = new int[1];
+  
+  private final void enableShaderState(GL2ES2 paramGL2ES2, boolean paramBoolean, ShaderState paramShaderState) {
+    if (paramBoolean)
+    {
+
+
+
+
+
+
+
+
+
+
+
+
+
+      Buffer localBuffer = ad.getBuffer();
+      if (ad.isVBO())
+      {
+        if (!ad.isVBOWritten()) {
+          paramGL2ES2.glBindBuffer(ad.getVBOTarget(), ad.getVBOName());
+          if (null != localBuffer) {
+            paramGL2ES2.glBufferData(ad.getVBOTarget(), ad.getSizeInBytes(), localBuffer, ad.getVBOUsage());
+          }
+          ad.setVBOWritten(true);
+          paramShaderState.vertexAttribPointer(paramGL2ES2, ad);
+          paramGL2ES2.glBindBuffer(ad.getVBOTarget(), 0);
+        } else if (paramShaderState.getAttribLocation(paramGL2ES2, ad) >= 0)
+        {
+
+          paramGL2ES2.glGetVertexAttribiv(ad.getLocation(), 34975, tempI, 0);
+          if (ad.getVBOName() != tempI[0]) {
+            paramGL2ES2.glBindBuffer(ad.getVBOTarget(), ad.getVBOName());
+            paramShaderState.vertexAttribPointer(paramGL2ES2, ad);
+            paramGL2ES2.glBindBuffer(ad.getVBOTarget(), 0);
+          }
+        }
+      } else if (null != localBuffer) {
+        paramShaderState.vertexAttribPointer(paramGL2ES2, ad);
+      }
+      
+      paramShaderState.enableVertexAttribArray(paramGL2ES2, ad);
+    } else {
+      paramShaderState.disableVertexAttribArray(paramGL2ES2, ad);
+    }
+  }
+  
+  private final void enableSimple(GL2ES2 paramGL2ES2, boolean paramBoolean) {
+    int i = ad.getLocation();
+    if (0 > i) {
+      return;
+    }
+    if (paramBoolean)
+    {
+
+
+
+
+
+
+
+
+
+
+
+
+
+      Buffer localBuffer = ad.getBuffer();
+      if (ad.isVBO())
+      {
+        if (!ad.isVBOWritten()) {
+          paramGL2ES2.glBindBuffer(ad.getVBOTarget(), ad.getVBOName());
+          if (null != localBuffer) {
+            paramGL2ES2.glBufferData(ad.getVBOTarget(), ad.getSizeInBytes(), localBuffer, ad.getVBOUsage());
+          }
+          ad.setVBOWritten(true);
+          paramGL2ES2.glVertexAttribPointer(ad);
+          paramGL2ES2.glBindBuffer(ad.getVBOTarget(), 0);
+        }
+        else
+        {
+          paramGL2ES2.glGetVertexAttribiv(i, 34975, tempI, 0);
+          if (ad.getVBOName() != tempI[0]) {
+            paramGL2ES2.glBindBuffer(ad.getVBOTarget(), ad.getVBOName());
+            paramGL2ES2.glVertexAttribPointer(ad);
+            paramGL2ES2.glBindBuffer(ad.getVBOTarget(), 0);
+          }
+        }
+      } else if (null != localBuffer) {
+        paramGL2ES2.glVertexAttribPointer(ad);
+      }
+      
+      paramGL2ES2.glEnableVertexAttribArray(i);
+    } else {
+      paramGL2ES2.glDisableVertexAttribArray(i);
+    }
+  }
+}

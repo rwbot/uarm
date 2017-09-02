@@ -1,0 +1,78 @@
+package jogamp.nativewindow.jawt;
+
+import com.jogamp.common.jvm.JNILibLoaderBase;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import java.awt.Toolkit;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import jogamp.nativewindow.NWJNILibLoader;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class JAWTJNILibLoader
+  extends NWJNILibLoader
+{
+  public JAWTJNILibLoader() {}
+  
+  public static void initSingleton() {}
+  
+  static
+  {
+    AccessController.doPrivileged(new PrivilegedAction()
+    {
+
+      public Object run()
+      {
+
+        Toolkit.getDefaultToolkit();
+        
+
+
+
+
+        if (NativeWindowFactory.TYPE_MACOSX != NativeWindowFactory.getNativeWindowType(false)) {
+          try {
+            JAWTJNILibLoader.loadLibrary("jawt", null, true, JAWTJNILibLoader.class.getClassLoader());
+          }
+          catch (Throwable localThrowable) {
+            if (JNILibLoaderBase.DEBUG) {
+              localThrowable.printStackTrace();
+            }
+          }
+        }
+        return null;
+      }
+    });
+  }
+}

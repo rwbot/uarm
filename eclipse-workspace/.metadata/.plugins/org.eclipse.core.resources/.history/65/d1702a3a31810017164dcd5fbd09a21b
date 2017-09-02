@@ -1,0 +1,231 @@
+package jogamp.opengl.util.av;
+
+import com.jogamp.opengl.util.av.AudioSink;
+import com.jogamp.opengl.util.av.AudioSink.AudioDataFrame;
+import com.jogamp.opengl.util.av.AudioSink.AudioFormat;
+import com.jogamp.opengl.util.av.AudioSink.AudioFrame;
+import java.io.PrintStream;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.DataLine.Info;
+import javax.sound.sampled.SourceDataLine;
+
+
+
+
+
+
+
+
+
+
+public class JavaSoundAudioSink
+  implements AudioSink
+{
+  public static final int BUFFER_SIZE = 1000;
+  public static final int SAMPLES_PER_BUFFER = 500;
+  private static final boolean staticAvailable;
+  private AudioFormat format;
+  private DataLine.Info info;
+  private SourceDataLine auline;
+  private int bufferCount;
+  private final byte[] sampleData = new byte['Ϩ'];
+  private boolean initialized = false;
+  private AudioSink.AudioFormat chosenFormat = null;
+  
+  private volatile boolean playRequested = false;
+  private float volume = 1.0F;
+  
+  static {
+    boolean bool = false;
+    try {
+      AudioSystem.getAudioFileTypes();
+      bool = true;
+    }
+    catch (Throwable localThrowable) {}
+    
+    staticAvailable = bool;
+  }
+  
+  public String toString()
+  {
+    return "JavaSoundSink[init " + initialized + ", dataLine " + info + ", source " + auline + ", bufferCount " + bufferCount + ", chosen " + chosenFormat + ", jsFormat " + format;
+  }
+  
+  public final float getPlaySpeed()
+  {
+    return 1.0F;
+  }
+  
+  public final boolean setPlaySpeed(float paramFloat) {
+    return false;
+  }
+  
+
+  public final float getVolume()
+  {
+    return volume;
+  }
+  
+
+  public final boolean setVolume(float paramFloat)
+  {
+    volume = paramFloat;
+    return true;
+  }
+  
+  public AudioSink.AudioFormat getPreferredFormat()
+  {
+    return DefaultFormat;
+  }
+  
+  public final int getMaxSupportedChannels()
+  {
+    return 2;
+  }
+  
+  public final boolean isSupported(AudioSink.AudioFormat paramAudioFormat)
+  {
+    return true;
+  }
+  
+  public boolean init(AudioSink.AudioFormat paramAudioFormat, float paramFloat, int paramInt1, int paramInt2, int paramInt3)
+  {
+    if (!staticAvailable) {
+      return false;
+    }
+    
+    format = new AudioFormat(sampleRate, sampleSize, channelCount, signed, !littleEndian);
+    
+
+    info = new DataLine.Info(SourceDataLine.class, format);
+    
+
+    Arrays.fill(sampleData, (byte)0);
+    try
+    {
+      auline = ((SourceDataLine)AudioSystem.getLine(info));
+      auline.open(format);
+      auline.start();
+      System.out.println("JavaSound audio sink");
+      initialized = true;
+      chosenFormat = paramAudioFormat;
+    } catch (Exception localException) {
+      initialized = false;
+    }
+    return true;
+  }
+  
+  public final AudioSink.AudioFormat getChosenFormat()
+  {
+    return chosenFormat;
+  }
+  
+  public boolean isPlaying()
+  {
+    return (playRequested) && (auline.isRunning());
+  }
+  
+  public void play()
+  {
+    if (null != auline) {
+      playRequested = true;
+      playImpl();
+    }
+  }
+  
+  private void playImpl() { if ((playRequested) && (!auline.isRunning())) {
+      auline.start();
+    }
+  }
+  
+  public void pause()
+  {
+    if (null != auline) {
+      playRequested = false;
+      auline.stop();
+    }
+  }
+  
+  public void flush()
+  {
+    if (null != auline) {
+      playRequested = false;
+      auline.stop();
+      auline.flush();
+    }
+  }
+  
+  public final int getEnqueuedFrameCount()
+  {
+    return 0;
+  }
+  
+  public int getFrameCount()
+  {
+    return 1;
+  }
+  
+  public int getQueuedFrameCount()
+  {
+    return 0;
+  }
+  
+  public boolean isInitialized()
+  {
+    return initialized;
+  }
+  
+  public void destroy()
+  {
+    initialized = false;
+    chosenFormat = null;
+  }
+  
+
+  public AudioSink.AudioFrame enqueueData(int paramInt1, ByteBuffer paramByteBuffer, int paramInt2)
+  {
+    byte[] arrayOfByte = new byte[paramInt2];
+    int i = paramByteBuffer.position();
+    paramByteBuffer.get(arrayOfByte, 0, paramInt2);
+    paramByteBuffer.position(i);
+    
+    int j = 0;
+    
+    int m = paramInt2;
+    while (m > 0) {
+      int k = auline.write(arrayOfByte, j, paramInt2);
+      m -= k;
+      j += k;
+    }
+    playImpl();
+    return new AudioSink.AudioDataFrame(paramInt1, chosenFormat.getBytesDuration(paramInt2), paramByteBuffer, paramInt2);
+  }
+  
+  public int getQueuedByteCount()
+  {
+    return auline.getBufferSize() - auline.available();
+  }
+  
+  public int getFreeFrameCount()
+  {
+    return auline.available();
+  }
+  
+
+
+  public int getQueuedTime() { return getQueuedTimeImpl(getQueuedByteCount()); }
+  
+  private final int getQueuedTimeImpl(int paramInt) {
+    int i = chosenFormat.sampleSize >>> 3;
+    return paramInt / (chosenFormat.channelCount * i * (chosenFormat.sampleRate / 1000));
+  }
+  
+  public final int getPTS() {
+    return 0;
+  }
+  
+  public JavaSoundAudioSink() {}
+}

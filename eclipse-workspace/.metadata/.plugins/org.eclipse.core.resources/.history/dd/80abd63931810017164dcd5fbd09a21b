@@ -1,0 +1,320 @@
+package jogamp.common.util.locks;
+
+import com.jogamp.common.util.SourcedInterruptedException;
+import com.jogamp.common.util.locks.RecursiveLock;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.locks.AbstractOwnableSynchronizer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class RecursiveLockImpl01CompleteFair
+  implements RecursiveLock
+{
+  public RecursiveLockImpl01CompleteFair() {}
+  
+  private static class WaitingThread
+  {
+    final Thread thread;
+    boolean signaledByUnlock;
+    
+    WaitingThread(Thread paramThread)
+    {
+      thread = paramThread;
+      signaledByUnlock = false;
+    }
+  }
+  
+
+  private static class Sync
+    extends AbstractOwnableSynchronizer
+  {
+    private Sync() {}
+    
+    private final Thread getOwner()
+    {
+      return getExclusiveOwnerThread();
+    }
+    
+    private final void setOwner(Thread paramThread) { setExclusiveOwnerThread(paramThread); }
+    
+    private final void setLockedStack(Throwable paramThrowable) {
+      List localList = LockDebugUtil.getRecursiveLockTrace();
+      if (paramThrowable == null) {
+        localList.remove(lockedStack);
+      } else {
+        localList.add(paramThrowable);
+      }
+      lockedStack = paramThrowable;
+    }
+    
+    private int holdCount = 0;
+    
+    final ArrayList<RecursiveLockImpl01CompleteFair.WaitingThread> queue = new ArrayList();
+    
+    private Throwable lockedStack = null; }
+  
+  private final Sync sync = new Sync(null);
+  
+
+
+
+
+
+
+
+  public final Throwable getLockedStack()
+  {
+    synchronized (sync) {
+      return sync.lockedStack;
+    }
+  }
+  
+  public final Thread getOwner()
+  {
+    synchronized (sync) {
+      return sync.getOwner();
+    }
+  }
+  
+  public final boolean isOwner(Thread paramThread)
+  {
+    synchronized (sync) {
+      return sync.getOwner() == paramThread;
+    }
+  }
+  
+  public final boolean isLocked()
+  {
+    synchronized (sync) {
+      return null != sync.getOwner();
+    }
+  }
+  
+  public final boolean isLockedByOtherThread()
+  {
+    synchronized (sync) {
+      Thread localThread = sync.getOwner();
+      return (null != localThread) && (Thread.currentThread() != localThread);
+    }
+  }
+  
+  public final int getHoldCount()
+  {
+    synchronized (sync) {
+      return sync.holdCount;
+    }
+  }
+  
+  public final void validateLocked() throws RuntimeException
+  {
+    synchronized (sync) {
+      if (Thread.currentThread() != sync.getOwner()) {
+        if (null == sync.getOwner()) {
+          throw new RuntimeException(threadName(Thread.currentThread()) + ": Not locked: " + toString());
+        }
+        if (null != sync.lockedStack) {
+          sync.lockedStack.printStackTrace();
+        }
+        throw new RuntimeException(Thread.currentThread() + ": Not owner: " + toString());
+      }
+    }
+  }
+  
+  public final void lock()
+  {
+    synchronized (sync) {
+      try {
+        if (!tryLock(TIMEOUT)) {
+          if (null != sync.lockedStack) {
+            sync.lockedStack.printStackTrace();
+          }
+          throw new RuntimeException("Waited " + TIMEOUT + "ms for: " + toString() + " - " + threadName(Thread.currentThread()));
+        }
+      } catch (InterruptedException localInterruptedException) {
+        throw new RuntimeException("Interrupted", localInterruptedException);
+      }
+    }
+  }
+  
+  public final boolean tryLock(long paramLong) throws InterruptedException
+  {
+    synchronized (sync) {
+      Thread localThread = Thread.currentThread();
+      if (TRACE_LOCK) {
+        System.err.println("+++ LOCK 0 " + toString() + ", cur " + threadName(localThread));
+      }
+      if (sync.getOwner() == localThread) {
+        Sync.access$304(sync);
+        if (TRACE_LOCK) {
+          System.err.println("+++ LOCK XR " + toString() + ", cur " + threadName(localThread));
+        }
+        return true;
+      }
+      
+      if ((sync.getOwner() != null) || ((0L < paramLong) && (0 < sync.queue.size())))
+      {
+        if (0L >= paramLong)
+        {
+          if (TRACE_LOCK) {
+            System.err.println("+++ LOCK XY " + toString() + ", cur " + threadName(localThread) + ", left " + paramLong + " ms");
+          }
+          return false;
+        }
+        
+
+        WaitingThread localWaitingThread = new WaitingThread(localThread);
+        sync.queue.add(0, localWaitingThread);
+        do {
+          long l = System.currentTimeMillis();
+          try {
+            sync.wait(paramLong);
+            paramLong -= System.currentTimeMillis() - l;
+          } catch (InterruptedException localInterruptedException) {
+            if (!signaledByUnlock) {
+              sync.queue.remove(localWaitingThread);
+              throw SourcedInterruptedException.wrap(localInterruptedException); }
+            if (localThread != sync.getOwner())
+            {
+
+              paramLong -= System.currentTimeMillis() - l;
+              
+              if (TRACE_LOCK) {
+                System.err.println("+++ LOCK 1 " + toString() + ", cur " + threadName(localThread) + ", left " + paramLong + " ms, signaled: " + signaledByUnlock);
+              }
+              
+              if (0L < paramLong)
+              {
+                signaledByUnlock = false;
+                sync.queue.add(sync.queue.size(), localWaitingThread);
+              }
+            }
+          }
+        } while ((localThread != sync.getOwner()) && (0L < paramLong));
+        Thread.interrupted();
+        
+        if ((0L >= paramLong) && (localThread != sync.getOwner()))
+        {
+          if (!signaledByUnlock) {
+            sync.queue.remove(localWaitingThread);
+          }
+          if (TRACE_LOCK) {
+            System.err.println("+++ LOCK XX " + toString() + ", cur " + threadName(localThread) + ", left " + paramLong + " ms");
+          }
+          return false;
+        }
+        
+        Sync.access$304(sync);
+        if (TRACE_LOCK) {
+          System.err.println("+++ LOCK X1 " + toString() + ", cur " + threadName(localThread) + ", left " + paramLong + " ms");
+        }
+      } else {
+        Sync.access$304(sync);
+        if (TRACE_LOCK) {
+          System.err.println("+++ LOCK X0 " + toString() + ", cur " + threadName(localThread));
+        }
+      }
+      
+      sync.setOwner(localThread);
+      if (DEBUG) {
+        sync.setLockedStack(new Throwable("Previously locked by " + toString()));
+      }
+      return true;
+    }
+  }
+  
+
+  public final void unlock()
+  {
+    synchronized (sync) {
+      unlock(null);
+    }
+  }
+  
+  public final void unlock(Runnable paramRunnable)
+  {
+    synchronized (sync) {
+      validateLocked();
+      Thread localThread = Thread.currentThread();
+      
+      Sync.access$306(sync);
+      
+      if (sync.holdCount > 0) {
+        if (TRACE_LOCK) {
+          System.err.println("--- LOCK XR " + toString() + ", cur " + threadName(localThread));
+        }
+        return;
+      }
+      
+      if (DEBUG) {
+        sync.setLockedStack(null);
+      }
+      if (null != paramRunnable) {
+        paramRunnable.run();
+      }
+      
+      if (sync.queue.size() > 0)
+      {
+
+        WaitingThread localWaitingThread = (WaitingThread)sync.queue.remove(sync.queue.size() - 1);
+        sync.setOwner(thread);
+        
+        if (TRACE_LOCK) {
+          System.err.println("--- LOCK X1 " + toString() + ", cur " + threadName(localThread) + ", signal: " + threadName(thread));
+        }
+        
+        signaledByUnlock = true;
+        thread.interrupt();
+      } else {
+        sync.setOwner(null);
+        if (TRACE_LOCK) {
+          System.err.println("--- LOCK X0 " + toString() + ", cur " + threadName(localThread) + ", signal any");
+        }
+        sync.notify();
+      }
+    }
+  }
+  
+  public final int getQueueLength()
+  {
+    synchronized (sync) {
+      return sync.queue.size();
+    }
+  }
+  
+
+  public String toString()
+  {
+    return syncName() + "[count " + sync.holdCount + ", qsz " + sync.queue.size() + ", owner " + threadName(sync.getOwner()) + "]";
+  }
+  
+
+  private final String syncName() { return "<" + Integer.toHexString(hashCode()) + ", " + Integer.toHexString(sync.hashCode()) + ">"; }
+  
+  private final String threadName(Thread paramThread) { return null != paramThread ? "<" + paramThread.getName() + ">" : "<NULL>"; }
+}

@@ -1,0 +1,184 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.ByteArrayInputStream;
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GsubTable
+  implements Table, LookupSubtableFactory
+{
+  private final DirectoryEntry _de;
+  private final ScriptList _scriptList;
+  private final FeatureList _featureList;
+  private final LookupList _lookupList;
+  
+  protected GsubTable(DirectoryEntry paramDirectoryEntry, DataInput paramDataInput)
+    throws IOException
+  {
+    _de = ((DirectoryEntry)paramDirectoryEntry.clone());
+    
+
+    byte[] arrayOfByte = new byte[paramDirectoryEntry.getLength()];
+    paramDataInput.readFully(arrayOfByte);
+    DataInputStream localDataInputStream = new DataInputStream(new ByteArrayInputStream(arrayOfByte));
+    
+
+    localDataInputStream.readInt();
+    int i = localDataInputStream.readUnsignedShort();
+    int j = localDataInputStream.readUnsignedShort();
+    int k = localDataInputStream.readUnsignedShort();
+    
+
+    _scriptList = new ScriptList(localDataInputStream, i);
+    
+
+    _featureList = new FeatureList(localDataInputStream, j);
+    
+
+    _lookupList = new LookupList(localDataInputStream, k, this);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public LookupSubtable read(int paramInt1, DataInputStream paramDataInputStream, int paramInt2)
+    throws IOException
+  {
+    Object localObject = null;
+    switch (paramInt1) {
+    case 1: 
+      localObject = SingleSubst.read(paramDataInputStream, paramInt2);
+      break;
+    case 2: 
+      break;
+    
+    case 3: 
+      break;
+    
+    case 4: 
+      localObject = LigatureSubst.read(paramDataInputStream, paramInt2);
+      break;
+    case 5: 
+      break;
+    }
+    
+    
+
+
+    return localObject;
+  }
+  
+
+
+
+  public int getType()
+  {
+    return 1196643650;
+  }
+  
+  public ScriptList getScriptList() {
+    return _scriptList;
+  }
+  
+  public FeatureList getFeatureList() {
+    return _featureList;
+  }
+  
+  public LookupList getLookupList() {
+    return _lookupList;
+  }
+  
+  public String toString()
+  {
+    return "GSUB";
+  }
+  
+  public static String lookupTypeAsString(int paramInt) {
+    switch (paramInt) {
+    case 1: 
+      return "Single";
+    case 2: 
+      return "Multiple";
+    case 3: 
+      return "Alternate";
+    case 4: 
+      return "Ligature";
+    case 5: 
+      return "Context";
+    case 6: 
+      return "Chaining";
+    }
+    return "Unknown";
+  }
+  
+
+
+
+
+
+
+  public DirectoryEntry getDirectoryEntry()
+  {
+    return _de;
+  }
+}

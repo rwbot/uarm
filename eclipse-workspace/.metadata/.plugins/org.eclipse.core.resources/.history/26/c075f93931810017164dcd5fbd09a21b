@@ -1,0 +1,223 @@
+package jogamp.graph.font.typecast;
+
+import com.jogamp.graph.curve.OutlineShape;
+import com.jogamp.graph.geom.Vertex;
+import com.jogamp.graph.geom.Vertex.Factory;
+import java.io.PrintStream;
+import jogamp.graph.font.typecast.ot.OTGlyph;
+import jogamp.graph.font.typecast.ot.Point;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class TypecastRenderer
+{
+  public TypecastRenderer() {}
+  
+  private static final boolean DEBUG = Debug.debug("graph.font.Renderer");
+  
+  private static void addShapeMoveTo(OutlineShape paramOutlineShape, Vertex.Factory<? extends Vertex> paramFactory, Point paramPoint) {
+    if (DEBUG) System.err.println("Shape.MoveTo: " + paramPoint);
+    paramOutlineShape.closeLastOutline(false);
+    paramOutlineShape.addEmptyOutline();
+    paramOutlineShape.addVertex(0, paramFactory.create(x, y, 0.0F, onCurve));
+  }
+  
+  private static void addShapeLineTo(OutlineShape paramOutlineShape, Vertex.Factory<? extends Vertex> paramFactory, Point paramPoint) { if (DEBUG) System.err.println("Shape.LineTo: " + paramPoint);
+    paramOutlineShape.addVertex(0, paramFactory.create(x, y, 0.0F, onCurve));
+  }
+  
+  private static void addShapeQuadTo(OutlineShape paramOutlineShape, Vertex.Factory<? extends Vertex> paramFactory, Point paramPoint1, Point paramPoint2) { if (DEBUG) System.err.println("Shape.QuadTo: " + paramPoint1 + ", " + paramPoint2);
+    paramOutlineShape.addVertex(0, paramFactory.create(x, y, 0.0F, onCurve));
+    paramOutlineShape.addVertex(0, paramFactory.create(x, y, 0.0F, onCurve));
+  }
+  
+  private static void addShapeQuadTo(OutlineShape paramOutlineShape, Vertex.Factory<? extends Vertex> paramFactory, Point paramPoint, float paramFloat1, float paramFloat2, boolean paramBoolean) {
+    if (DEBUG) System.err.println("Shape.QuadTo: " + paramPoint + ", p2 " + paramFloat1 + ", " + paramFloat2 + ", onCurve " + paramBoolean);
+    paramOutlineShape.addVertex(0, paramFactory.create(x, y, 0.0F, onCurve));
+    paramOutlineShape.addVertex(0, paramFactory.create(paramFloat1, paramFloat2, 0.0F, paramBoolean));
+  }
+  
+
+
+
+
+
+
+
+
+
+  public static OutlineShape buildShape(char paramChar, OTGlyph paramOTGlyph, Vertex.Factory<? extends Vertex> paramFactory)
+  {
+    if (paramOTGlyph == null) {
+      return null;
+    }
+    
+    OutlineShape localOutlineShape = new OutlineShape(paramFactory);
+    buildShapeImpl(localOutlineShape, paramChar, paramOTGlyph, paramFactory);
+    localOutlineShape.setIsQuadraticNurbs();
+    return localOutlineShape;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private static void buildShapeImpl(OutlineShape paramOutlineShape, char paramChar, OTGlyph paramOTGlyph, Vertex.Factory<? extends Vertex> paramFactory)
+  {
+    int i = 0;
+    int j = 0;
+    int k = paramOTGlyph.getPointCount();
+    for (int m = 0; m < k; m++) {
+      j++;
+      if (getPointendOfContour) {
+        int n = 0;
+        while (n < j - 1) {
+          Point localPoint1 = paramOTGlyph.getPoint(i + n % j);
+          Point localPoint2 = paramOTGlyph.getPoint(i + (n + 1) % j);
+          Point localPoint3 = paramOTGlyph.getPoint(i + (n + 2) % j);
+          Object localObject = n + 3 < j ? paramOTGlyph.getPoint(i + n + 3) : null;
+          if (DEBUG) {
+            System.err.println("GlyphShape<" + paramChar + ">: offset " + n + " of " + j + "/" + k + " points");
+            int i1 = n == 0 ? i + j - 1 : i + (n - 1) % j;
+            Point localPoint4 = paramOTGlyph.getPoint(i1);
+            int i2 = i + n % j;
+            int i3 = i + (n + 1) % j;
+            int i4 = i + (n + 2) % j;
+            int i5 = i + (n + 3) % j;
+            System.err.println("\t pM[" + i1 + "] " + localPoint4);
+            System.err.println("\t p0[" + i2 + "] " + localPoint1);
+            System.err.println("\t p1[" + i3 + "] " + localPoint2);
+            System.err.println("\t p2[" + i4 + "] " + localPoint3);
+            System.err.println("\t p3[" + i5 + "] " + localObject);
+          }
+          if (n == 0) {
+            addShapeMoveTo(paramOutlineShape, paramFactory, localPoint1);
+          }
+          
+
+          if (endOfContour)
+          {
+            if (DEBUG) System.err.println("B0 .. end-of-contour **** EOC");
+            paramOutlineShape.closeLastOutline(false);
+            break; }
+          if (onCurve) {
+            if (onCurve)
+            {
+              if (DEBUG) { System.err.println("B1 .. line-to p0-p1");
+              }
+              
+
+              addShapeLineTo(paramOutlineShape, paramFactory, localPoint2);
+              n++;
+            }
+            else if (onCurve)
+            {
+              if (DEBUG) { System.err.println("B2 .. quad-to p0-p1-p2");
+              }
+              
+
+              addShapeQuadTo(paramOutlineShape, paramFactory, localPoint2, localPoint3);
+              n += 2;
+            }
+            else if ((null != localObject) && (onCurve))
+            {
+              if (DEBUG) { System.err.println("B3 .. 2-quad p0-p1-p1_2, p1_2-p2-p3 **** 2QUAD");
+              }
+              addShapeQuadTo(paramOutlineShape, paramFactory, localPoint2, 
+                midValue(x, x), 
+                midValue(y, y), true);
+              addShapeQuadTo(paramOutlineShape, paramFactory, localPoint3, localObject);
+              n += 3;
+            }
+            else {
+              if (DEBUG) { System.err.println("B4 .. quad-to p0-p1-p2h **** MID");
+              }
+              
+
+
+              addShapeQuadTo(paramOutlineShape, paramFactory, localPoint2, 
+                midValue(x, x), 
+                midValue(y, y), true);
+              n += 2;
+            }
+            
+
+          }
+          else if (!onCurve)
+          {
+            if (DEBUG) { System.err.println("B5 .. quad-to pMh-p0-p1h ***** MID");
+            }
+            
+
+            addShapeQuadTo(paramOutlineShape, paramFactory, localPoint1, 
+              midValue(x, x), midValue(y, y), true);
+            n++;
+          }
+          else {
+            if (DEBUG) { System.err.println("B6 .. quad-to pMh-p0-p1");
+            }
+            
+
+            addShapeQuadTo(paramOutlineShape, paramFactory, localPoint1, localPoint2);
+            n++;
+          }
+        }
+        
+        paramOutlineShape.closeLastOutline(false);
+        i = m + 1;
+        j = 0;
+      }
+    }
+  }
+  
+  private static float midValue(float paramFloat1, float paramFloat2) {
+    return paramFloat1 + (paramFloat2 - paramFloat1) / 2.0F;
+  }
+}

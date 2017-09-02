@@ -1,0 +1,613 @@
+package jogamp.opengl.util.stereo;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.os.Platform;
+import com.jogamp.nativewindow.util.Dimension;
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.RectangleImmutable;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.GLArrayData;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLUniformData;
+import com.jogamp.opengl.JoglVersion;
+import com.jogamp.opengl.util.GLArrayDataServer;
+import com.jogamp.opengl.util.glsl.ShaderCode;
+import com.jogamp.opengl.util.glsl.ShaderProgram;
+import com.jogamp.opengl.util.stereo.EyeParameter;
+import com.jogamp.opengl.util.stereo.StereoDevice;
+import com.jogamp.opengl.util.stereo.StereoDeviceRenderer;
+import com.jogamp.opengl.util.stereo.StereoDeviceRenderer.Eye;
+import com.jogamp.opengl.util.stereo.StereoUtil;
+import com.jogamp.opengl.util.stereo.ViewerPose;
+import com.jogamp.opengl.util.stereo.generic.GenericStereoDeviceConfig;
+import java.io.PrintStream;
+import java.nio.FloatBuffer;
+import java.nio.ShortBuffer;
+import java.util.Arrays;
+import jogamp.common.os.PlatformPropsImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GenericStereoDeviceRenderer
+  implements StereoDeviceRenderer
+{
+  private static final String shaderPrefix01 = "dist01";
+  private static final String shaderTimewarpSuffix = "_timewarp";
+  private static final String shaderChromaSuffix = "_chroma";
+  private static final String shaderPlainSuffix = "_plain";
+  private final GenericStereoDevice device;
+  private final GenericEye[] eyes;
+  private final ViewerPose viewerPose;
+  private final int distortionBits;
+  private final int textureCount;
+  private final DimensionImmutable[] eyeTextureSizes;
+  private final DimensionImmutable totalTextureSize;
+  private final GLUniformData texUnit0;
+  private ShaderProgram sp;
+  
+  public static class GenericEye
+    implements StereoDeviceRenderer.Eye
+  {
+    private final int eyeName;
+    private final int distortionBits;
+    private final int vertexCount;
+    private final int indexCount;
+    private final RectangleImmutable viewport;
+    private final GLUniformData eyeToSourceUVScale;
+    private final GLUniformData eyeToSourceUVOffset;
+    private final GLUniformData eyeRotationStart;
+    private final GLUniformData eyeRotationEnd;
+    private final GLArrayDataServer iVBO;
+    private final GLArrayData vboPos;
+    private final GLArrayData vboParams;
+    private final GLArrayData vboTexCoordsR;
+    private final GLArrayData vboTexCoordsG;
+    private final GLArrayData vboTexCoordsB;
+    private final GLArrayDataServer indices;
+    private final EyeParameter eyeParameter;
+    
+    public final RectangleImmutable getViewport()
+    {
+      return viewport;
+    }
+    
+    public final EyeParameter getEyeParameter() { return eyeParameter; }
+    
+
+    GenericEye(GenericStereoDevice paramGenericStereoDevice, int paramInt, float[] paramArrayOfFloat, EyeParameter paramEyeParameter, DimensionImmutable paramDimensionImmutable, RectangleImmutable paramRectangleImmutable)
+    {
+      eyeName = number;
+      distortionBits = paramInt;
+      viewport = paramRectangleImmutable;
+      
+      int i = (null != config.distortionMeshProducer) && (0 != paramInt) ? 1 : 0;
+      
+      int j = (i != 0) && (StereoUtil.usesTimewarpDistortion(paramInt)) ? 1 : 0;
+      FloatBuffer localFloatBuffer1 = Buffers.newDirectFloatBuffer(4 + (j != 0 ? 32 : 0));
+      
+      if (i != 0) {
+        eyeToSourceUVScale = new GLUniformData("svr_EyeToSourceUVScale", 2, Buffers.slice2Float(localFloatBuffer1, 0, 2));
+        eyeToSourceUVOffset = new GLUniformData("svr_EyeToSourceUVOffset", 2, Buffers.slice2Float(localFloatBuffer1, 2, 2));
+      } else {
+        eyeToSourceUVScale = null;
+        eyeToSourceUVOffset = null;
+      }
+      
+      if (j != 0) {
+        eyeRotationStart = new GLUniformData("svr_EyeRotationStart", 4, 4, Buffers.slice2Float(localFloatBuffer1, 4, 16));
+        eyeRotationEnd = new GLUniformData("svr_EyeRotationEnd", 4, 4, Buffers.slice2Float(localFloatBuffer1, 20, 16));
+      } else {
+        eyeRotationStart = null;
+        eyeRotationEnd = null;
+      }
+      
+      eyeParameter = paramEyeParameter;
+      
+
+      if (i != 0) {
+        localObject = new ScaleAndOffset2D(fovhv, paramDimensionImmutable, paramRectangleImmutable);
+        if (StereoDevice.DEBUG) {
+          System.err.println("XXX." + eyeName + ": eyeParam      " + paramEyeParameter);
+          System.err.println("XXX." + eyeName + ": uvScaleOffset " + localObject);
+          System.err.println("XXX." + eyeName + ": textureSize   " + paramDimensionImmutable);
+          System.err.println("XXX." + eyeName + ": viewport      " + paramRectangleImmutable);
+        }
+        FloatBuffer localFloatBuffer2 = eyeToSourceUVScale.floatBufferValue();
+        localFloatBuffer2.put(0, scale[0]);
+        localFloatBuffer2.put(1, scale[1]);
+        FloatBuffer localFloatBuffer3 = eyeToSourceUVOffset.floatBufferValue();
+        localFloatBuffer3.put(0, offset[0]);
+        localFloatBuffer3.put(1, offset[1]);
+      } else {
+        vertexCount = 0;
+        indexCount = 0;
+        iVBO = null;
+        vboPos = null;
+        vboParams = null;
+        vboTexCoordsR = null;
+        vboTexCoordsG = null;
+        vboTexCoordsB = null;
+        indices = null;
+        if (StereoDevice.DEBUG) {
+          System.err.println("XXX." + eyeName + ": " + this);
+        }
+        return;
+      }
+      Object localObject = config.distortionMeshProducer.create(paramEyeParameter, paramInt);
+      if (null == localObject) {
+        throw new GLException("Failed to create meshData for eye " + paramEyeParameter + ", and " + StereoUtil.distortionBitsToString(paramInt));
+      }
+      
+      vertexCount = vertexCount;
+      indexCount = indexCount;
+      
+
+      boolean bool1 = StereoUtil.usesChromaticDistortion(paramInt);
+      boolean bool2 = StereoUtil.usesVignetteDistortion(paramInt);
+      
+      int k = 6 + (bool1 ? 4 : 0);
+      iVBO = GLArrayDataServer.createGLSLInterleaved(k, 5126, false, vertexCount, 35044);
+      vboPos = iVBO.addGLSLSubArray("svr_Position", 2, 34962);
+      vboParams = iVBO.addGLSLSubArray("svr_Params", 2, 34962);
+      vboTexCoordsR = iVBO.addGLSLSubArray("svr_TexCoordR", 2, 34962);
+      if (bool1) {
+        vboTexCoordsG = iVBO.addGLSLSubArray("svr_TexCoordG", 2, 34962);
+        vboTexCoordsB = iVBO.addGLSLSubArray("svr_TexCoordB", 2, 34962);
+      } else {
+        vboTexCoordsG = null;
+        vboTexCoordsB = null;
+      }
+      indices = GLArrayDataServer.createData(1, 5122, indexCount, 35044, 34963);
+      
+
+      FloatBuffer localFloatBuffer4 = (FloatBuffer)iVBO.getBuffer();
+      
+      for (int m = 0; m < vertexCount; m++) {
+        DistortionMesh.DistortionVertex localDistortionVertex = vertices[m];
+        int n = 0;
+        
+        if (StereoDevice.DUMP_DATA) {
+          System.err.println("XXX." + eyeName + ": START VERTEX " + m + " / " + vertexCount);
+        }
+        
+        if (pos_size >= 2) {
+          if (StereoDevice.DUMP_DATA) {
+            System.err.println("XXX." + eyeName + ": pos [" + data[n] + ", " + data[(n + 1)] + "]");
+          }
+          localFloatBuffer4.put(data[n]);
+          localFloatBuffer4.put(data[(n + 1)]);
+        } else {
+          localFloatBuffer4.put(0.0F);
+          localFloatBuffer4.put(0.0F);
+        }
+        n += pos_size;
+        
+
+        if ((vignetteFactor_size >= 1) && (bool2)) {
+          if (StereoDevice.DUMP_DATA) {
+            System.err.println("XXX." + eyeName + ": vignette " + data[n]);
+          }
+          localFloatBuffer4.put(data[n]);
+        } else {
+          localFloatBuffer4.put(1.0F);
+        }
+        n += vignetteFactor_size;
+        
+        if (timewarpFactor_size >= 1) {
+          if (StereoDevice.DUMP_DATA) {
+            System.err.println("XXX." + eyeName + ": timewarp " + data[n]);
+          }
+          localFloatBuffer4.put(data[n]);
+        } else {
+          localFloatBuffer4.put(1.0F);
+        }
+        n += timewarpFactor_size;
+        
+
+        if (texR_size >= 2) {
+          if (StereoDevice.DUMP_DATA) {
+            System.err.println("XXX." + eyeName + ": texR [" + data[n] + ", " + data[(n + 1)] + "]");
+          }
+          localFloatBuffer4.put(data[n]);
+          localFloatBuffer4.put(data[(n + 1)]);
+        } else {
+          localFloatBuffer4.put(1.0F);
+          localFloatBuffer4.put(1.0F);
+        }
+        n += texR_size;
+        
+        if (bool1)
+        {
+          if (texG_size >= 2) {
+            if (StereoDevice.DUMP_DATA) {
+              System.err.println("XXX." + eyeName + ": texG [" + data[n] + ", " + data[(n + 1)] + "]");
+            }
+            localFloatBuffer4.put(data[n]);
+            localFloatBuffer4.put(data[(n + 1)]);
+          } else {
+            localFloatBuffer4.put(1.0F);
+            localFloatBuffer4.put(1.0F);
+          }
+          n += texG_size;
+          
+
+          if (texB_size >= 2) {
+            if (StereoDevice.DUMP_DATA) {
+              System.err.println("XXX." + eyeName + ": texB [" + data[n] + ", " + data[(n + 1)] + "]");
+            }
+            localFloatBuffer4.put(data[n]);
+            localFloatBuffer4.put(data[(n + 1)]);
+          } else {
+            localFloatBuffer4.put(1.0F);
+            localFloatBuffer4.put(1.0F);
+          }
+          n += texB_size;
+        } else {
+          n += texG_size;
+          n += texB_size;
+        }
+      }
+      if (StereoDevice.DUMP_DATA) {
+        System.err.println("XXX." + eyeName + ": iVBO " + iVBO);
+      }
+      
+      if (StereoDevice.DUMP_DATA) {
+        System.err.println("XXX." + eyeName + ": idx " + indices + ", count " + indexCount);
+        for (m = 0; m < indexCount; m++) {
+          if (0 == m % 16) {
+            System.err.printf("%n%5d: ", new Object[] { Integer.valueOf(m) });
+          }
+          System.err.printf("%5d, ", new Object[] { Integer.valueOf(indices[m]) });
+        }
+        System.err.println();
+      }
+      ShortBuffer localShortBuffer = (ShortBuffer)indices.getBuffer();
+      localShortBuffer.put(indices, 0, indexCount);
+      
+      if (StereoDevice.DEBUG) {
+        System.err.println("XXX." + eyeName + ": " + this);
+      }
+    }
+    
+    private void linkData(GL2ES2 paramGL2ES2, ShaderProgram paramShaderProgram) {
+      if (null == iVBO) { return;
+      }
+      if (0 > vboPos.setLocation(paramGL2ES2, paramShaderProgram.program())) {
+        throw new GLException("Couldn't locate " + vboPos);
+      }
+      if (0 > vboParams.setLocation(paramGL2ES2, paramShaderProgram.program())) {
+        throw new GLException("Couldn't locate " + vboParams);
+      }
+      if (0 > vboTexCoordsR.setLocation(paramGL2ES2, paramShaderProgram.program())) {
+        throw new GLException("Couldn't locate " + vboTexCoordsR);
+      }
+      if (StereoUtil.usesChromaticDistortion(distortionBits)) {
+        if (0 > vboTexCoordsG.setLocation(paramGL2ES2, paramShaderProgram.program())) {
+          throw new GLException("Couldn't locate " + vboTexCoordsG);
+        }
+        if (0 > vboTexCoordsB.setLocation(paramGL2ES2, paramShaderProgram.program())) {
+          throw new GLException("Couldn't locate " + vboTexCoordsB);
+        }
+      }
+      if (0 > eyeToSourceUVScale.setLocation(paramGL2ES2, paramShaderProgram.program())) {
+        throw new GLException("Couldn't locate " + eyeToSourceUVScale);
+      }
+      if (0 > eyeToSourceUVOffset.setLocation(paramGL2ES2, paramShaderProgram.program())) {
+        throw new GLException("Couldn't locate " + eyeToSourceUVOffset);
+      }
+      if (StereoUtil.usesTimewarpDistortion(distortionBits)) {
+        if (0 > eyeRotationStart.setLocation(paramGL2ES2, paramShaderProgram.program())) {
+          throw new GLException("Couldn't locate " + eyeRotationStart);
+        }
+        if (0 > eyeRotationEnd.setLocation(paramGL2ES2, paramShaderProgram.program())) {
+          throw new GLException("Couldn't locate " + eyeRotationEnd);
+        }
+      }
+      iVBO.seal(paramGL2ES2, true);
+      iVBO.enableBuffer(paramGL2ES2, false);
+      indices.seal(paramGL2ES2, true);
+      indices.enableBuffer(paramGL2ES2, false);
+    }
+    
+    void dispose(GL2ES2 paramGL2ES2) {
+      if (null == iVBO) return;
+      iVBO.destroy(paramGL2ES2);
+      indices.destroy(paramGL2ES2);
+    }
+    
+    void enableVBO(GL2ES2 paramGL2ES2, boolean paramBoolean) { if (null == iVBO) return;
+      iVBO.enableBuffer(paramGL2ES2, paramBoolean);
+      indices.bindBuffer(paramGL2ES2, paramBoolean);
+    }
+    
+    void updateUniform(GL2ES2 paramGL2ES2, ShaderProgram paramShaderProgram) {
+      if (null == iVBO) return;
+      paramGL2ES2.glUniform(eyeToSourceUVScale);
+      paramGL2ES2.glUniform(eyeToSourceUVOffset);
+      if (StereoUtil.usesTimewarpDistortion(distortionBits)) {
+        paramGL2ES2.glUniform(eyeRotationStart);
+        paramGL2ES2.glUniform(eyeRotationEnd);
+      }
+    }
+    
+
+
+    public String toString()
+    {
+      String str = ", uvScale[" + eyeToSourceUVScale.floatBufferValue().get(0) + ", " + eyeToSourceUVScale.floatBufferValue().get(1) + "], uvOffset[" + eyeToSourceUVOffset.floatBufferValue().get(0) + ", " + eyeToSourceUVOffset.floatBufferValue().get(1) + "]";
+      
+      return "Eye[" + eyeName + ", viewport " + viewport + ", " + eyeParameter + ", vertices " + vertexCount + ", indices " + indexCount + str + ", desc " + eyeParameter + "]";
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private long frameStart = 0L;
+  
+
+
+
+  public String toString()
+  {
+    return "GenericStereo[distortion[" + StereoUtil.distortionBitsToString(distortionBits) + "], eyeTexSize " + Arrays.toString(eyeTextureSizes) + ", sbsSize " + totalTextureSize + ", texCount " + textureCount + ", texUnit " + (null != texUnit0 ? Integer.valueOf(texUnit0.intValue()) : "n/a") + ", " + PlatformPropsImpl.NEWLINE + "  " + (0 < eyes.length ? eyes[0] : "none") + ", " + PlatformPropsImpl.NEWLINE + "  " + (1 < eyes.length ? eyes[1] : "none") + "]";
+  }
+  
+
+
+
+  private static final DimensionImmutable zeroSize = new Dimension(0, 0);
+  
+
+
+
+  GenericStereoDeviceRenderer(GenericStereoDevice paramGenericStereoDevice, int paramInt1, int paramInt2, float[] paramArrayOfFloat, EyeParameter[] paramArrayOfEyeParameter, float paramFloat, int paramInt3, DimensionImmutable[] paramArrayOfDimensionImmutable, DimensionImmutable paramDimensionImmutable, RectangleImmutable[] paramArrayOfRectangleImmutable)
+  {
+    if ((paramArrayOfEyeParameter.length != paramArrayOfDimensionImmutable.length) || (paramArrayOfEyeParameter.length != paramArrayOfRectangleImmutable.length))
+    {
+      throw new IllegalArgumentException("eye arrays of different length");
+    }
+    device = paramGenericStereoDevice;
+    eyes = new GenericEye[paramArrayOfEyeParameter.length];
+    distortionBits = ((paramInt1 | paramGenericStereoDevice.getMinimumDistortionBits()) & paramGenericStereoDevice.getSupportedDistortionBits());
+    int i = (null != device.config.distortionMeshProducer) && (0 != distortionBits) ? 1 : 0;
+    
+    DimensionImmutable[] arrayOfDimensionImmutable;
+    if (i != 0) {
+      if ((1 > paramInt2) || (2 < paramInt2)) {
+        textureCount = 2;
+      } else {
+        textureCount = paramInt2;
+      }
+      eyeTextureSizes = paramArrayOfDimensionImmutable;
+      totalTextureSize = paramDimensionImmutable;
+      if (1 == paramInt2) {
+        arrayOfDimensionImmutable = new DimensionImmutable[paramArrayOfEyeParameter.length];
+        for (j = 0; j < paramArrayOfEyeParameter.length; j++) {
+          arrayOfDimensionImmutable[j] = paramDimensionImmutable;
+        }
+      } else {
+        arrayOfDimensionImmutable = paramArrayOfDimensionImmutable;
+      }
+      texUnit0 = new GLUniformData("svr_Texture0", paramInt3);
+    } else {
+      textureCount = 0;
+      eyeTextureSizes = new DimensionImmutable[paramArrayOfEyeParameter.length];
+      arrayOfDimensionImmutable = new DimensionImmutable[paramArrayOfEyeParameter.length];
+      for (j = 0; j < paramArrayOfEyeParameter.length; j++) {
+        eyeTextureSizes[j] = zeroSize;
+        arrayOfDimensionImmutable[j] = zeroSize;
+      }
+      totalTextureSize = zeroSize;
+      texUnit0 = null;
+    }
+    viewerPose = new ViewerPose();
+    for (int j = 0; j < paramArrayOfEyeParameter.length; j++) {
+      eyes[j] = new GenericEye(paramGenericStereoDevice, distortionBits, paramArrayOfFloat, paramArrayOfEyeParameter[j], arrayOfDimensionImmutable[j], paramArrayOfRectangleImmutable[j]);
+    }
+    
+    sp = null;
+  }
+  
+  public StereoDevice getDevice() {
+    return device;
+  }
+  
+  public final int getDistortionBits() { return distortionBits; }
+  
+  public final boolean usesSideBySideStereo() {
+    return true;
+  }
+  
+  public final DimensionImmutable[] getEyeSurfaceSize() { return eyeTextureSizes; }
+  
+  public final DimensionImmutable getTotalSurfaceSize() {
+    return totalTextureSize;
+  }
+  
+  public final int getTextureCount() { return textureCount; }
+  
+  public final int getTextureUnit() {
+    return ppAvailable() ? texUnit0.intValue() : 0;
+  }
+  
+  public final boolean ppAvailable() { return null != texUnit0; }
+  
+  public final void init(GL paramGL)
+  {
+    if (StereoDevice.DEBUG) {
+      System.err.println(JoglVersion.getGLInfo(paramGL, null).toString());
+    }
+    if (null != sp) {
+      throw new IllegalStateException("Already initialized");
+    }
+    if (!ppAvailable()) {
+      return;
+    }
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    
+
+
+
+    boolean bool1 = StereoUtil.usesTimewarpDistortion(distortionBits);
+    boolean bool2 = StereoUtil.usesChromaticDistortion(distortionBits);
+    
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("dist01");
+    if ((!bool2) && (!bool1)) {
+      localStringBuilder.append("_plain");
+    } else if ((bool2) && (!bool1)) {
+      localStringBuilder.append("_chroma");
+    } else if (bool1) {
+      localStringBuilder.append("_timewarp");
+      if (bool2) {
+        localStringBuilder.append("_chroma");
+      }
+    }
+    String str1 = localStringBuilder.toString();
+    localStringBuilder.setLength(0);
+    localStringBuilder.append("dist01");
+    if (bool2) {
+      localStringBuilder.append("_chroma");
+    } else {
+      localStringBuilder.append("_plain");
+    }
+    String str2 = localStringBuilder.toString();
+    
+    ShaderCode localShaderCode1 = ShaderCode.create(localGL2ES2, 35633, GenericStereoDeviceRenderer.class, "shader", "shader/bin", str1, true);
+    
+    ShaderCode localShaderCode2 = ShaderCode.create(localGL2ES2, 35632, GenericStereoDeviceRenderer.class, "shader", "shader/bin", str2, true);
+    
+    localShaderCode1.defaultShaderCustomization(localGL2ES2, true, true);
+    localShaderCode2.defaultShaderCustomization(localGL2ES2, true, true);
+    
+    sp = new ShaderProgram();
+    sp.add(localGL2ES2, localShaderCode1, System.err);
+    sp.add(localGL2ES2, localShaderCode2, System.err);
+    if (!sp.link(localGL2ES2, System.err)) {
+      throw new GLException("could not link program: " + sp);
+    }
+    sp.useProgram(localGL2ES2, true);
+    if (0 > texUnit0.setLocation(localGL2ES2, sp.program())) {
+      throw new GLException("Couldn't locate " + texUnit0);
+    }
+    for (int i = 0; i < eyes.length; i++) {
+      eyes[i].linkData(localGL2ES2, sp);
+    }
+    sp.useProgram(localGL2ES2, false);
+  }
+  
+  public final void dispose(GL paramGL)
+  {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    if (null != sp) {
+      sp.useProgram(localGL2ES2, false);
+    }
+    for (int i = 0; i < eyes.length; i++) {
+      eyes[i].dispose(localGL2ES2);
+    }
+    if (null != sp) {
+      sp.destroy(localGL2ES2);
+    }
+  }
+  
+  public final StereoDeviceRenderer.Eye getEye(int paramInt)
+  {
+    return eyes[paramInt];
+  }
+  
+
+  public final ViewerPose updateViewerPose()
+  {
+    return viewerPose;
+  }
+  
+  public final ViewerPose getLastViewerPose()
+  {
+    return viewerPose;
+  }
+  
+  public final void beginFrame(GL paramGL)
+  {
+    frameStart = Platform.currentTimeMillis();
+  }
+  
+  public final void endFrame(GL paramGL)
+  {
+    if (0L == frameStart) {
+      throw new IllegalStateException("beginFrame not called");
+    }
+    frameStart = 0L;
+  }
+  
+  public final void ppBegin(GL paramGL)
+  {
+    if (null == sp) {
+      throw new IllegalStateException("Not initialized");
+    }
+    if (0L == frameStart) {
+      throw new IllegalStateException("beginFrame not called");
+    }
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    
+    paramGL.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
+    paramGL.glClear(16384);
+    paramGL.glActiveTexture(33984 + getTextureUnit());
+    
+    localGL2ES2.glDisable(2884);
+    localGL2ES2.glDisable(2929);
+    localGL2ES2.glDisable(3042);
+    
+    if (!localGL2ES2.isGLcore()) {
+      localGL2ES2.glEnable(3553);
+    }
+    
+    sp.useProgram(localGL2ES2, true);
+    
+    localGL2ES2.glUniform(texUnit0);
+  }
+  
+  public final void ppOneEye(GL paramGL, int paramInt)
+  {
+    GenericEye localGenericEye = eyes[paramInt];
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    
+    localGenericEye.updateUniform(localGL2ES2, sp);
+    localGenericEye.enableVBO(localGL2ES2, true);
+    localGL2ES2.glDrawElements(4, indexCount, 5123, 0L);
+    eyes[paramInt].enableVBO(localGL2ES2, false);
+  }
+  
+  public final void ppEnd(GL paramGL)
+  {
+    sp.useProgram(paramGL.getGL2ES2(), false);
+  }
+}

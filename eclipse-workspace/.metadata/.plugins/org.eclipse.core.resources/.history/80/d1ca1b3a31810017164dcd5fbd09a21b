@@ -1,0 +1,410 @@
+package jogamp.newt.driver.awt;
+
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.CapabilitiesChooser;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.GraphicsConfigurationFactory;
+import com.jogamp.nativewindow.NativeWindow;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.awt.AWTGraphicsConfiguration;
+import com.jogamp.nativewindow.awt.AWTGraphicsDevice;
+import com.jogamp.nativewindow.awt.AWTGraphicsScreen;
+import com.jogamp.nativewindow.awt.JAWTWindow;
+import com.jogamp.newt.Window;
+import java.awt.Canvas;
+import java.awt.Graphics;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.io.PrintStream;
+import java.lang.reflect.Method;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AWTCanvas
+  extends Canvas
+{
+  private final WindowDriver driver;
+  private final CapabilitiesImmutable capabilities;
+  private final CapabilitiesChooser chooser;
+  private final UpstreamScalable upstreamScale;
+  private GraphicsConfiguration chosen;
+  private volatile GraphicsDevice device;
+  private volatile AWTGraphicsConfiguration awtConfig;
+  private volatile JAWTWindow jawtWindow = null;
+  
+
+
+
+
+
+  private boolean displayConfigChanged = false;
+  private static boolean disableBackgroundEraseInitialized;
+  private static Method disableBackgroundEraseMethod;
+  
+  public AWTCanvas(WindowDriver paramWindowDriver, CapabilitiesImmutable paramCapabilitiesImmutable, CapabilitiesChooser paramCapabilitiesChooser, UpstreamScalable paramUpstreamScalable) { if (null == paramCapabilitiesImmutable) {
+      throw new NativeWindowException("Capabilities null");
+    }
+    if (null == paramWindowDriver) {
+      throw new NativeWindowException("driver null");
+    }
+    driver = paramWindowDriver;
+    capabilities = paramCapabilitiesImmutable;
+    chooser = paramCapabilitiesChooser;
+    upstreamScale = paramUpstreamScalable;
+  }
+  
+  public AWTGraphicsConfiguration getAWTGraphicsConfiguration() {
+    return awtConfig;
+  }
+  
+
+
+
+
+
+  public void update(Graphics paramGraphics) {}
+  
+
+
+
+
+  public void paint(Graphics paramGraphics) {}
+  
+
+
+
+
+  public boolean hasDeviceChanged()
+  {
+    boolean bool = displayConfigChanged;
+    displayConfigChanged = false;
+    return bool;
+  }
+  
+
+
+  public void addNotify()
+  {
+    disableBackgroundErase();
+    
+
+
+
+
+
+
+
+
+    awtConfig = chooseGraphicsConfiguration(capabilities, capabilities, chooser, device);
+    if (Window.DEBUG_IMPLEMENTATION) {
+      System.err.println(getThreadName() + ": AWTCanvas.addNotify.0: Created Config: " + awtConfig);
+    }
+    if (null == awtConfig) {
+      throw new NativeWindowException("Error: NULL AWTGraphicsConfiguration");
+    }
+    chosen = awtConfig.getAWTGraphicsConfiguration();
+    
+    setAWTGraphicsConfiguration(awtConfig);
+    
+
+    super.addNotify();
+    
+
+    disableBackgroundErase();
+    
+
+    jawtWindow = ((JAWTWindow)NativeWindowFactory.getNativeWindow(this, awtConfig));
+    
+    jawtWindow.lockSurface();
+    GraphicsConfiguration localGraphicsConfiguration;
+    try { jawtWindow.setSurfaceScale(upstreamScale.getReqPixelScale());
+      upstreamScale.setHasPixelScale(jawtWindow.getCurrentSurfaceScale(new float[2]));
+      
+      jawtWindow.unlockSurface(); } finally { jawtWindow.unlockSurface();
+    }
+    
+
+
+    if (null != localGraphicsConfiguration) {
+      device = localGraphicsConfiguration.getDevice();
+    }
+    driver.localCreate();
+    if (Window.DEBUG_IMPLEMENTATION) {
+      System.err.println(getThreadName() + ": AWTCanvas.addNotify.X");
+    }
+  }
+  
+  public NativeWindow getNativeWindow() {
+    JAWTWindow localJAWTWindow = jawtWindow;
+    return null != localJAWTWindow ? localJAWTWindow : null;
+  }
+  
+  public boolean isOffscreenLayerSurfaceEnabled() {
+    return null != jawtWindow ? jawtWindow.isOffscreenLayerSurfaceEnabled() : false;
+  }
+  
+  private void setAWTGraphicsConfiguration(AWTGraphicsConfiguration paramAWTGraphicsConfiguration)
+  {
+    awtConfig = paramAWTGraphicsConfiguration;
+    if (null != jawtWindow)
+    {
+      jawtWindow.setAWTGraphicsConfiguration(paramAWTGraphicsConfiguration);
+    }
+  }
+  
+  public void removeNotify()
+  {
+    if (Window.DEBUG_IMPLEMENTATION) {
+      System.err.println(getThreadName() + ": AWTCanvas.removeNotify.0: Created Config: " + awtConfig);
+    }
+    try {
+      driver.localDestroy();
+      
+      super.removeNotify(); } finally { super.removeNotify();
+    }
+  }
+  
+  void dispose() {
+    if (null != jawtWindow) {
+      jawtWindow.destroy();
+      if (Window.DEBUG_IMPLEMENTATION) {
+        System.err.println(getThreadName() + ": AWTCanvas.disposeJAWTWindowAndAWTDeviceOnEDT(): post JAWTWindow: " + jawtWindow);
+      }
+      jawtWindow = null;
+    }
+    if (null != awtConfig) {
+      AbstractGraphicsDevice localAbstractGraphicsDevice = awtConfig.getNativeGraphicsConfiguration().getScreen().getDevice();
+      String str = null;
+      if (Window.DEBUG_IMPLEMENTATION) {
+        str = localAbstractGraphicsDevice.toString();
+      }
+      boolean bool = localAbstractGraphicsDevice.close();
+      if (Window.DEBUG_IMPLEMENTATION) {
+        System.err.println(getThreadName() + ": AWTCanvas.dispose(): closed GraphicsDevice: " + str + ", result: " + bool);
+      }
+    }
+    awtConfig = null;
+  }
+  
+  private String getThreadName() { return Thread.currentThread().getName(); }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public GraphicsConfiguration getGraphicsConfiguration()
+  {
+    GraphicsConfiguration localGraphicsConfiguration = super.getGraphicsConfiguration();
+    
+
+
+
+
+
+
+
+
+    if ((localGraphicsConfiguration != null) && (chosen != null) && (!chosen.equals(localGraphicsConfiguration)))
+    {
+
+
+
+
+
+      if (!chosen.getDevice().getIDstring().equals(localGraphicsConfiguration.getDevice().getIDstring()))
+      {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        AWTGraphicsConfiguration localAWTGraphicsConfiguration = chooseGraphicsConfiguration(awtConfig
+          .getChosenCapabilities(), awtConfig.getRequestedCapabilities(), chooser, localGraphicsConfiguration.getDevice());
+        Object localObject = null != localAWTGraphicsConfiguration ? localAWTGraphicsConfiguration.getAWTGraphicsConfiguration() : null;
+        if (Window.DEBUG_IMPLEMENTATION) {
+          Exception localException = new Exception("Info: Call Stack: " + Thread.currentThread().getName());
+          localException.printStackTrace();
+          System.err.println("Created Config (n): HAVE    GC " + chosen);
+          System.err.println("Created Config (n): THIS    GC " + localGraphicsConfiguration);
+          System.err.println("Created Config (n): Choosen GC " + localObject);
+          System.err.println("Created Config (n): HAVE    CF " + awtConfig);
+          System.err.println("Created Config (n): Choosen CF " + localAWTGraphicsConfiguration);
+          System.err.println("Created Config (n): EQUALS CAPS " + localAWTGraphicsConfiguration.getChosenCapabilities().equals(awtConfig.getChosenCapabilities()));
+        }
+        
+        if (localObject != null)
+        {
+
+
+
+          chosen = localObject;
+          if (!localAWTGraphicsConfiguration.getChosenCapabilities().equals(awtConfig.getChosenCapabilities())) {
+            displayConfigChanged = true;
+          }
+          setAWTGraphicsConfiguration(localAWTGraphicsConfiguration);
+        }
+      }
+      
+
+
+
+
+
+
+
+      return chosen; }
+    if (localGraphicsConfiguration == null)
+    {
+
+
+
+
+
+      return chosen;
+    }
+    
+
+
+
+
+    return localGraphicsConfiguration;
+  }
+  
+
+
+
+
+  private static AWTGraphicsConfiguration chooseGraphicsConfiguration(CapabilitiesImmutable paramCapabilitiesImmutable1, CapabilitiesImmutable paramCapabilitiesImmutable2, CapabilitiesChooser paramCapabilitiesChooser, GraphicsDevice paramGraphicsDevice)
+  {
+    AbstractGraphicsScreen localAbstractGraphicsScreen = null != paramGraphicsDevice ? AWTGraphicsScreen.createScreenDevice(paramGraphicsDevice, 0) : AWTGraphicsScreen.createDefault();
+    
+    AWTGraphicsConfiguration localAWTGraphicsConfiguration = (AWTGraphicsConfiguration)GraphicsConfigurationFactory.getFactory(AWTGraphicsDevice.class, paramCapabilitiesImmutable1.getClass()).chooseGraphicsConfiguration(paramCapabilitiesImmutable1, paramCapabilitiesImmutable2, paramCapabilitiesChooser, localAbstractGraphicsScreen, 0);
+    
+
+    if (localAWTGraphicsConfiguration == null) {
+      throw new NativeWindowException("Error: Couldn't fetch AWTGraphicsConfiguration");
+    }
+    
+    return localAWTGraphicsConfiguration;
+  }
+  
+
+
+
+
+
+
+  private void disableBackgroundErase()
+  {
+    if (!disableBackgroundEraseInitialized) {
+      try {
+        AccessController.doPrivileged(new PrivilegedAction()
+        {
+          public Object run() {
+            try {
+              Class localClass = getToolkit().getClass();
+              while ((localClass != null) && (AWTCanvas.disableBackgroundEraseMethod == null)) {
+                try {
+                  AWTCanvas.access$002(localClass
+                    .getDeclaredMethod("disableBackgroundErase", new Class[] { Canvas.class }));
+                  
+                  AWTCanvas.disableBackgroundEraseMethod.setAccessible(true);
+                } catch (Exception localException2) {
+                  localClass = localClass.getSuperclass();
+                }
+              }
+            }
+            catch (Exception localException1) {}
+            return null;
+          }
+        });
+      }
+      catch (Exception localException1) {}
+      disableBackgroundEraseInitialized = true;
+      if (Window.DEBUG_IMPLEMENTATION) {
+        System.err.println("AWTCanvas: TK disableBackgroundErase method found: " + (null != disableBackgroundEraseMethod));
+      }
+    }
+    
+    if (disableBackgroundEraseMethod != null) {
+      Object localObject = null;
+      try {
+        disableBackgroundEraseMethod.invoke(getToolkit(), new Object[] { this });
+      }
+      catch (Exception localException2)
+      {
+        localObject = localException2;
+      }
+      if (Window.DEBUG_IMPLEMENTATION) {
+        System.err.println("AWTCanvas: TK disableBackgroundErase error: " + localObject);
+      }
+    }
+  }
+  
+  public static abstract interface UpstreamScalable
+  {
+    public abstract float[] getReqPixelScale();
+    
+    public abstract void setHasPixelScale(float[] paramArrayOfFloat);
+  }
+}

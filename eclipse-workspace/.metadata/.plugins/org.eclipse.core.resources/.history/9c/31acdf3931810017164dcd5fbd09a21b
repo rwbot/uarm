@@ -1,0 +1,89 @@
+package com.jogamp.graph.font;
+
+import com.jogamp.graph.curve.OutlineShape;
+import com.jogamp.opengl.math.geom.AABBox;
+import jogamp.graph.geom.plane.AffineTransform;
+
+public abstract interface Font
+{
+  public static final int NAME_COPYRIGHT = 0;
+  public static final int NAME_FAMILY = 1;
+  public static final int NAME_SUBFAMILY = 2;
+  public static final int NAME_UNIQUNAME = 3;
+  public static final int NAME_FULLNAME = 4;
+  public static final int NAME_VERSION = 5;
+  public static final int NAME_MANUFACTURER = 8;
+  public static final int NAME_DESIGNER = 9;
+  
+  public abstract String getName(int paramInt);
+  
+  public abstract StringBuilder getName(StringBuilder paramStringBuilder, int paramInt);
+  
+  public abstract StringBuilder getFullFamilyName(StringBuilder paramStringBuilder);
+  
+  public abstract StringBuilder getAllNames(StringBuilder paramStringBuilder, String paramString);
+  
+  public abstract float getPixelSize(float paramFloat1, float paramFloat2);
+  
+  public abstract float getAdvanceWidth(int paramInt, float paramFloat);
+  
+  public abstract Metrics getMetrics();
+  
+  public abstract Glyph getGlyph(char paramChar);
+  
+  public abstract int getNumGlyphs();
+  
+  public abstract float getLineHeight(float paramFloat);
+  
+  public abstract float getMetricWidth(CharSequence paramCharSequence, float paramFloat);
+  
+  public abstract float getMetricHeight(CharSequence paramCharSequence, float paramFloat, AABBox paramAABBox);
+  
+  public abstract AABBox getMetricBounds(CharSequence paramCharSequence, float paramFloat);
+  
+  public abstract AABBox getPointsBounds(AffineTransform paramAffineTransform1, CharSequence paramCharSequence, float paramFloat, AffineTransform paramAffineTransform2, AffineTransform paramAffineTransform3);
+  
+  public abstract boolean isPrintableChar(char paramChar);
+  
+  public abstract String toString();
+  
+  public static abstract interface Glyph
+  {
+    public static final int ID_UNKNOWN = 0;
+    public static final int ID_CR = 2;
+    public static final int ID_SPACE = 3;
+    
+    public abstract Font getFont();
+    
+    public abstract char getSymbol();
+    
+    public abstract short getID();
+    
+    public abstract AABBox getBBox();
+    
+    public abstract float getScale(float paramFloat);
+    
+    public abstract AABBox getBBox(AABBox paramAABBox, float paramFloat, float[] paramArrayOfFloat);
+    
+    public abstract float getAdvance(float paramFloat, boolean paramBoolean);
+    
+    public abstract OutlineShape getShape();
+    
+    public abstract int hashCode();
+  }
+  
+  public static abstract interface Metrics
+  {
+    public abstract float getAscent(float paramFloat);
+    
+    public abstract float getDescent(float paramFloat);
+    
+    public abstract float getLineGap(float paramFloat);
+    
+    public abstract float getMaxExtend(float paramFloat);
+    
+    public abstract float getScale(float paramFloat);
+    
+    public abstract AABBox getBBox(AABBox paramAABBox, float paramFloat, float[] paramArrayOfFloat);
+  }
+}

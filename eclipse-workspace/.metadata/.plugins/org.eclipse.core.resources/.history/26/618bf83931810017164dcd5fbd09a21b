@@ -1,0 +1,340 @@
+package jogamp.graph.curve.tess;
+
+import com.jogamp.graph.geom.Triangle;
+import com.jogamp.graph.geom.Vertex;
+import com.jogamp.opengl.math.VectorUtil;
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class CDTriangulator2DExpAddOn
+{
+  public CDTriangulator2DExpAddOn() {}
+  
+  private final float[] tempV3a = new float[3];
+  private final float[] tempV3b = new float[3];
+  
+  protected final void markLineInTriangle(Triangle paramTriangle, float[] paramArrayOfFloat) {
+    if ((!paramTriangle.isOnCurve()) || (!paramTriangle.isLine())) {
+      return;
+    }
+    
+    boolean[] arrayOfBoolean = paramTriangle.getVerticesBoundary();
+    Vertex[] arrayOfVertex = paramTriangle.getVertices();
+    Vertex localVertex1 = arrayOfVertex[0];
+    Vertex localVertex2 = arrayOfVertex[1];
+    Vertex localVertex3 = arrayOfVertex[2];
+    
+    int i = 0;
+    boolean bool1;
+    if ((localVertex1.isOnCurve()) && (VectorUtil.isVec2Zero(localVertex1.getTexCoord(), 0)) && (arrayOfBoolean[0] == 0)) {
+      bool1 = true;
+      i++;
+    } else {
+      bool1 = false; }
+    boolean bool2;
+    if ((localVertex2.isOnCurve()) && (VectorUtil.isVec2Zero(localVertex2.getTexCoord(), 0)) && (arrayOfBoolean[1] == 0)) {
+      bool2 = true;
+      i++;
+    } else {
+      bool2 = false; }
+    boolean bool3;
+    if ((localVertex3.isOnCurve()) && (VectorUtil.isVec2Zero(localVertex3.getTexCoord(), 0)) && (arrayOfBoolean[2] == 0)) {
+      bool3 = true;
+      i++;
+    } else {
+      bool3 = false;
+    }
+    if (2 > i) {
+      return;
+    }
+    if (CDTriangulator2D.DEBUG) {
+      System.err.println("CDTri.markLine.1: " + paramTriangle);
+      System.err.println("CDTri.markLine.1: count " + i + ", v0IsLS " + bool1 + ", v1IsLS " + bool2 + ", v2IsLS " + bool3);
+    }
+    
+
+    if (bool1) {
+      localVertex1.setTexCoord(0.0F, 0.0F, 2.0F);
+    }
+    if (bool2) {
+      localVertex2.setTexCoord(0.0F, 0.0F, 2.0F);
+    }
+    if (bool3) {
+      localVertex3.setTexCoord(0.0F, 0.0F, 2.0F);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected final float[] processLineAA(int paramInt, Triangle paramTriangle1, Triangle paramTriangle2, float[] paramArrayOfFloat)
+  {
+    if (CDTriangulator2D.DEBUG) {
+      System.err.println("CDTri.genP2[" + paramInt + "].1: ? t1 " + paramTriangle1);
+      System.err.println("CDTri.genP2[" + paramInt + "].1: ? t2 " + paramTriangle2);
+    }
+    float[] arrayOfFloat = processLineAAImpl(paramTriangle1, paramTriangle2, paramArrayOfFloat);
+    if (CDTriangulator2D.DEBUG) {
+      if (null != arrayOfFloat) {
+        System.err.println("CDTri.genP2[" + paramInt + "].1: RECT [" + arrayOfFloat[0] + ", " + arrayOfFloat[1] + "]");
+        System.err.println("CDTri.genP2[" + paramInt + "].1: RECT t1 " + paramTriangle1);
+        System.err.println("CDTri.genP2[" + paramInt + "].1: RECT t2 " + paramTriangle2);
+      } else {
+        System.err.println("CDTri.genP2[" + paramInt + "].1: RECT NOPE, t1 " + paramTriangle1);
+        System.err.println("CDTri.genP2[" + paramInt + "].1: RECT NOPE, t2 " + paramTriangle2);
+      }
+    }
+    return arrayOfFloat;
+  }
+  
+  private final float[] processLineAAImpl(Triangle paramTriangle1, Triangle paramTriangle2, float[] paramArrayOfFloat) { if ((!paramTriangle1.isOnCurve()) || (!paramTriangle2.isOnCurve()) || (!paramTriangle1.isLine()) || (!paramTriangle2.isLine())) {
+      return null;
+    }
+    
+    int i = 0;
+    int[] arrayOfInt1 = { -1, -1 };
+    int[] arrayOfInt2 = { -1, -1 };
+    Vertex[] arrayOfVertex1 = paramTriangle1.getVertices();
+    Vertex[] arrayOfVertex2 = paramTriangle2.getVertices();
+    float[] arrayOfFloat2 = arrayOfVertex1[0].getCoord();
+    if (VectorUtil.isVec3Equal(arrayOfFloat2, 0, arrayOfVertex2[0].getCoord(), 0, 1.1920929E-7F)) {
+      arrayOfInt1[i] = 0;
+      arrayOfInt2[i] = 0;
+      i++;
+    } else if (VectorUtil.isVec3Equal(arrayOfFloat2, 0, arrayOfVertex2[1].getCoord(), 0, 1.1920929E-7F)) {
+      arrayOfInt1[i] = 0;
+      arrayOfInt2[i] = 1;
+      i++;
+    } else if (VectorUtil.isVec3Equal(arrayOfFloat2, 0, arrayOfVertex2[2].getCoord(), 0, 1.1920929E-7F)) {
+      arrayOfInt1[i] = 0;
+      arrayOfInt2[i] = 2;
+      i++;
+    }
+    arrayOfFloat2 = arrayOfVertex1[1].getCoord();
+    if (VectorUtil.isVec3Equal(arrayOfFloat2, 0, arrayOfVertex2[0].getCoord(), 0, 1.1920929E-7F)) {
+      arrayOfInt1[i] = 1;
+      arrayOfInt2[i] = 0;
+      i++;
+    } else if (VectorUtil.isVec3Equal(arrayOfFloat2, 0, arrayOfVertex2[1].getCoord(), 0, 1.1920929E-7F)) {
+      arrayOfInt1[i] = 1;
+      arrayOfInt2[i] = 1;
+      i++;
+    } else if (VectorUtil.isVec3Equal(arrayOfFloat2, 0, arrayOfVertex2[2].getCoord(), 0, 1.1920929E-7F)) {
+      arrayOfInt1[i] = 1;
+      arrayOfInt2[i] = 2;
+      i++;
+    }
+    int j;
+    if (2 == i) {
+      j = 3 - (arrayOfInt1[0] + arrayOfInt1[1]);
+    } else {
+      arrayOfFloat2 = arrayOfVertex1[2].getCoord();
+      if (VectorUtil.isVec3Equal(arrayOfFloat2, 0, arrayOfVertex2[0].getCoord(), 0, 1.1920929E-7F)) {
+        arrayOfInt1[i] = 2;
+        arrayOfInt2[i] = 0;
+        i++;
+      } else if (VectorUtil.isVec3Equal(arrayOfFloat2, 0, arrayOfVertex2[1].getCoord(), 0, 1.1920929E-7F)) {
+        arrayOfInt1[i] = 2;
+        arrayOfInt2[i] = 1;
+        i++;
+      } else if (VectorUtil.isVec3Equal(arrayOfFloat2, 0, arrayOfVertex2[2].getCoord(), 0, 1.1920929E-7F)) {
+        arrayOfInt1[i] = 2;
+        arrayOfInt2[i] = 2;
+        i++;
+      }
+      if (2 == i) {
+        j = 3 - (arrayOfInt1[0] + arrayOfInt1[1]);
+      } else
+        j = -1;
+    }
+    float[] arrayOfFloat1;
+    if ((0 <= j) && (arrayOfInt2[0] != arrayOfInt2[1])) {
+      int k = 3 - (arrayOfInt2[0] + arrayOfInt2[1]);
+      
+      if ((arrayOfVertex1[arrayOfInt1[0]] != arrayOfVertex2[arrayOfInt2[0]]) || (arrayOfVertex1[arrayOfInt1[1]] != arrayOfVertex2[arrayOfInt2[1]])) {
+        throw new InternalError("XXX: diff shared verts");
+      }
+      
+
+
+
+
+
+
+
+
+      Vertex localVertex1 = arrayOfVertex1[arrayOfInt1[0]].clone();
+      arrayOfVertex1[arrayOfInt1[0]] = localVertex1;
+      arrayOfVertex2[arrayOfInt2[0]] = localVertex1;
+      Vertex localVertex2 = arrayOfVertex1[arrayOfInt1[1]].clone();
+      arrayOfVertex1[arrayOfInt1[1]] = localVertex2;
+      arrayOfVertex2[arrayOfInt2[1]] = localVertex2;
+      Vertex localVertex3 = arrayOfVertex1[j].clone();
+      arrayOfVertex1[j] = localVertex3;
+      Vertex localVertex4 = arrayOfVertex2[k].clone();
+      arrayOfVertex2[k] = localVertex4;
+      
+
+
+      float[] arrayOfFloat3 = localVertex3.getCoord();
+      float f1 = VectorUtil.distVec3(arrayOfFloat3, localVertex1.getCoord());
+      float f2 = VectorUtil.distVec3(arrayOfFloat3, localVertex2.getCoord());
+      
+
+
+
+
+      float f3;
+      
+
+
+
+
+      Vertex localVertex5;
+      
+
+
+
+
+      Vertex localVertex6;
+      
+
+
+
+
+      Vertex localVertex7;
+      
+
+
+
+      Vertex localVertex8;
+      
+
+
+
+      if (f1 < f2) {
+        f3 = f1;
+        paramArrayOfFloat[0] = f1;
+        paramArrayOfFloat[1] = f2;
+        
+
+        localVertex5 = localVertex3;localVertex6 = localVertex2;
+        localVertex7 = localVertex4;localVertex8 = localVertex1;
+      } else {
+        f3 = f2;
+        paramArrayOfFloat[0] = f2;
+        paramArrayOfFloat[1] = f1;
+        
+
+        localVertex5 = localVertex4;localVertex6 = localVertex2;
+        localVertex7 = localVertex3;localVertex8 = localVertex1;
+      }
+      float f4 = f3 / 3.0F;
+      float f5 = f3 + f4;
+      float f6 = f5 / 2.0F;
+      localVertex5.setTexCoord(f3, f6, 2.0F);
+      localVertex6.setTexCoord(f3, f6, 2.0F);
+      localVertex7.setTexCoord(f3, -f6, 2.0F);
+      localVertex8.setTexCoord(f3, -f6, 2.0F);
+      if (CDTriangulator2D.DEBUG) {
+        System.err.println("RECT.0 : lineWidth: " + f3 + ", dim " + f1 + " x " + f2 + ", radius " + f4);
+        System.err.println("RECT Left.0: " + localVertex5 + ", " + localVertex6);
+        System.err.println("RECT Right.0: " + localVertex7 + ", " + localVertex8);
+      }
+      
+      arrayOfFloat1 = paramArrayOfFloat;
+    } else {
+      arrayOfFloat1 = null;
+    }
+    return arrayOfFloat1;
+  }
+}

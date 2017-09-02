@@ -1,0 +1,162 @@
+package com.leapmotion.leap;
+
+
+
+
+public class Pointable
+  extends Interface
+{
+  private long swigCPtr;
+  
+
+
+  public Pointable(long paramLong, boolean paramBoolean)
+  {
+    super(LeapJNI.Pointable_SWIGUpcast(paramLong), paramBoolean);
+    swigCPtr = paramLong;
+  }
+  
+  public static long getCPtr(Pointable paramPointable) {
+    return paramPointable == null ? 0L : swigCPtr;
+  }
+  
+  protected void finalize() {
+    delete();
+  }
+  
+  public synchronized void delete() {
+    if (swigCPtr != 0L) {
+      if (swigCMemOwn) {
+        swigCMemOwn = false;
+        LeapJNI.delete_Pointable(swigCPtr);
+      }
+      swigCPtr = 0L;
+    }
+    super.delete();
+  }
+  
+  public Pointable() {
+    this(LeapJNI.new_Pointable(), true);
+  }
+  
+  public int id() {
+    return LeapJNI.Pointable_id(swigCPtr, this);
+  }
+  
+  public Frame frame() {
+    return new Frame(LeapJNI.Pointable_frame(swigCPtr, this), true);
+  }
+  
+  public Hand hand() {
+    return new Hand(LeapJNI.Pointable_hand(swigCPtr, this), true);
+  }
+  
+  public Vector tipPosition() {
+    return new Vector(LeapJNI.Pointable_tipPosition(swigCPtr, this), true);
+  }
+  
+  public Vector tipVelocity() {
+    return new Vector(LeapJNI.Pointable_tipVelocity(swigCPtr, this), true);
+  }
+  
+  public Vector direction() {
+    return new Vector(LeapJNI.Pointable_direction(swigCPtr, this), true);
+  }
+  
+  public float width() {
+    return LeapJNI.Pointable_width(swigCPtr, this);
+  }
+  
+  public float length() {
+    return LeapJNI.Pointable_length(swigCPtr, this);
+  }
+  
+  public boolean isFinger() {
+    return LeapJNI.Pointable_isFinger(swigCPtr, this);
+  }
+  
+  public boolean isTool() {
+    return LeapJNI.Pointable_isTool(swigCPtr, this);
+  }
+  
+  public boolean isExtended() {
+    return LeapJNI.Pointable_isExtended(swigCPtr, this);
+  }
+  
+  public boolean isValid() {
+    return LeapJNI.Pointable_isValid(swigCPtr, this);
+  }
+  
+  public Zone touchZone() {
+    return Zone.swigToEnum(LeapJNI.Pointable_touchZone(swigCPtr, this));
+  }
+  
+  public float touchDistance() {
+    return LeapJNI.Pointable_touchDistance(swigCPtr, this);
+  }
+  
+  public Vector stabilizedTipPosition() {
+    return new Vector(LeapJNI.Pointable_stabilizedTipPosition(swigCPtr, this), true);
+  }
+  
+  public float timeVisible() {
+    return LeapJNI.Pointable_timeVisible(swigCPtr, this);
+  }
+  
+  public static Pointable invalid() {
+    return new Pointable(LeapJNI.Pointable_invalid(), false);
+  }
+  
+  public boolean equals(Pointable paramPointable) {
+    return LeapJNI.Pointable_equals(swigCPtr, this, getCPtr(paramPointable), paramPointable);
+  }
+  
+  public String toString() {
+    return LeapJNI.Pointable_toString(swigCPtr, this);
+  }
+  
+  public static enum Zone {
+    ZONE_NONE(0), 
+    ZONE_HOVERING(1), 
+    ZONE_TOUCHING(2);
+    
+    public final int swigValue() {
+      return swigValue;
+    }
+    
+    public static Zone swigToEnum(int paramInt) {
+      Zone[] arrayOfZone1 = (Zone[])Zone.class.getEnumConstants();
+      if ((paramInt < arrayOfZone1.length) && (paramInt >= 0) && (swigValue == paramInt))
+        return arrayOfZone1[paramInt];
+      for (Zone localZone : arrayOfZone1)
+        if (swigValue == paramInt)
+          return localZone;
+      throw new IllegalArgumentException("No enum " + Zone.class + " with value " + paramInt);
+    }
+    
+    private Zone()
+    {
+      swigValue = SwigNext.access$008();
+    }
+    
+    private Zone(int paramInt)
+    {
+      swigValue = paramInt;
+      SwigNext.access$002(paramInt + 1);
+    }
+    
+    private Zone(Zone paramZone)
+    {
+      swigValue = swigValue;
+      SwigNext.access$002(swigValue + 1);
+    }
+    
+    private final int swigValue;
+    private static class SwigNext
+    {
+      private static int next = 0;
+      
+      private SwigNext() {}
+    }
+  }
+}

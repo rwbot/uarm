@@ -1,0 +1,759 @@
+package com.jogamp.opengl.math.geom;
+
+import com.jogamp.opengl.math.FloatUtil;
+import com.jogamp.opengl.math.Quaternion;
+import com.jogamp.opengl.math.Ray;
+import com.jogamp.opengl.math.VectorUtil;
+import java.io.PrintStream;
+import jogamp.graph.geom.plane.AffineTransform;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AABBox
+{
+  private static final boolean DEBUG = FloatUtil.DEBUG;
+  private final float[] low = new float[3];
+  private final float[] high = new float[3];
+  private final float[] center = new float[3];
+  
+
+
+
+  public AABBox()
+  {
+    reset();
+  }
+  
+
+
+
+  public AABBox(AABBox paramAABBox)
+  {
+    copy(paramAABBox);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public AABBox(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6)
+  {
+    setSize(paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramFloat5, paramFloat6);
+  }
+  
+
+
+
+
+  public AABBox(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2)
+  {
+    setSize(paramArrayOfFloat1, paramArrayOfFloat2);
+  }
+  
+
+
+
+  public final AABBox reset()
+  {
+    setLow(Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE);
+    setHigh(-3.4028235E38F, -3.4028235E38F, -3.4028235E38F);
+    center[0] = 0.0F;
+    center[1] = 0.0F;
+    center[2] = 0.0F;
+    return this;
+  }
+  
+
+
+  public final float[] getHigh()
+  {
+    return high;
+  }
+  
+  private final void setHigh(float paramFloat1, float paramFloat2, float paramFloat3) {
+    high[0] = paramFloat1;
+    high[1] = paramFloat2;
+    high[2] = paramFloat3;
+  }
+  
+
+
+  public final float[] getLow()
+  {
+    return low;
+  }
+  
+  private final void setLow(float paramFloat1, float paramFloat2, float paramFloat3) {
+    low[0] = paramFloat1;
+    low[1] = paramFloat2;
+    low[2] = paramFloat3;
+  }
+  
+  private final void computeCenter() {
+    center[0] = ((high[0] + low[0]) / 2.0F);
+    center[1] = ((high[1] + low[1]) / 2.0F);
+    center[2] = ((high[2] + low[2]) / 2.0F);
+  }
+  
+
+
+
+
+
+  public final AABBox copy(AABBox paramAABBox)
+  {
+    System.arraycopy(low, 0, low, 0, 3);
+    System.arraycopy(high, 0, high, 0, 3);
+    System.arraycopy(center, 0, center, 0, 3);
+    return this;
+  }
+  
+
+
+
+
+
+
+
+  public final AABBox setSize(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2)
+  {
+    return setSize(paramArrayOfFloat1[0], paramArrayOfFloat1[1], paramArrayOfFloat1[2], paramArrayOfFloat2[0], paramArrayOfFloat2[1], paramArrayOfFloat2[2]);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public final AABBox setSize(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6)
+  {
+    low[0] = paramFloat1;
+    low[1] = paramFloat2;
+    low[2] = paramFloat3;
+    high[0] = paramFloat4;
+    high[1] = paramFloat5;
+    high[2] = paramFloat6;
+    computeCenter();
+    return this;
+  }
+  
+
+
+
+
+  public final AABBox resize(AABBox paramAABBox)
+  {
+    float[] arrayOfFloat1 = paramAABBox.getLow();
+    float[] arrayOfFloat2 = paramAABBox.getHigh();
+    
+
+    if (arrayOfFloat1[0] < low[0])
+      low[0] = arrayOfFloat1[0];
+    if (arrayOfFloat1[1] < low[1])
+      low[1] = arrayOfFloat1[1];
+    if (arrayOfFloat1[2] < low[2]) {
+      low[2] = arrayOfFloat1[2];
+    }
+    
+    if (arrayOfFloat2[0] > high[0])
+      high[0] = arrayOfFloat2[0];
+    if (arrayOfFloat2[1] > high[1])
+      high[1] = arrayOfFloat2[1];
+    if (arrayOfFloat2[2] > high[2]) {
+      high[2] = arrayOfFloat2[2];
+    }
+    computeCenter();
+    return this;
+  }
+  
+
+
+
+
+
+
+
+
+  public final AABBox resize(AABBox paramAABBox, AffineTransform paramAffineTransform, float[] paramArrayOfFloat)
+  {
+    float[] arrayOfFloat = paramAABBox.getLow();
+    paramAffineTransform.transform(arrayOfFloat, paramArrayOfFloat);
+    paramArrayOfFloat[2] = arrayOfFloat[2];
+    if (paramArrayOfFloat[0] < low[0])
+      low[0] = paramArrayOfFloat[0];
+    if (paramArrayOfFloat[1] < low[1])
+      low[1] = paramArrayOfFloat[1];
+    if (paramArrayOfFloat[2] < low[2]) {
+      low[2] = paramArrayOfFloat[2];
+    }
+    
+
+
+    arrayOfFloat = paramAABBox.getHigh();
+    paramAffineTransform.transform(arrayOfFloat, paramArrayOfFloat);
+    paramArrayOfFloat[2] = arrayOfFloat[2];
+    if (paramArrayOfFloat[0] > high[0])
+      high[0] = paramArrayOfFloat[0];
+    if (paramArrayOfFloat[1] > high[1])
+      high[1] = paramArrayOfFloat[1];
+    if (paramArrayOfFloat[2] > high[2]) {
+      high[2] = paramArrayOfFloat[2];
+    }
+    
+    computeCenter();
+    return this;
+  }
+  
+
+
+
+
+
+
+
+
+  public final AABBox resize(float paramFloat1, float paramFloat2, float paramFloat3)
+  {
+    if (paramFloat1 < low[0]) {
+      low[0] = paramFloat1;
+    }
+    if (paramFloat2 < low[1]) {
+      low[1] = paramFloat2;
+    }
+    if (paramFloat3 < low[2]) {
+      low[2] = paramFloat3;
+    }
+    
+
+    if (paramFloat1 > high[0]) {
+      high[0] = paramFloat1;
+    }
+    if (paramFloat2 > high[1]) {
+      high[1] = paramFloat2;
+    }
+    if (paramFloat3 > high[2]) {
+      high[2] = paramFloat3;
+    }
+    
+    computeCenter();
+    return this;
+  }
+  
+
+
+
+
+
+
+  public final AABBox resize(float[] paramArrayOfFloat, int paramInt)
+  {
+    return resize(paramArrayOfFloat[(0 + paramInt)], paramArrayOfFloat[(1 + paramInt)], paramArrayOfFloat[(2 + paramInt)]);
+  }
+  
+
+
+
+
+
+  public final AABBox resize(float[] paramArrayOfFloat)
+  {
+    return resize(paramArrayOfFloat[0], paramArrayOfFloat[1], paramArrayOfFloat[2]);
+  }
+  
+
+
+
+
+
+
+
+  public final boolean contains(float paramFloat1, float paramFloat2)
+  {
+    if ((paramFloat1 < low[0]) || (paramFloat1 > high[0])) {
+      return false;
+    }
+    if ((paramFloat2 < low[1]) || (paramFloat2 > high[1])) {
+      return false;
+    }
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+  public final boolean contains(float paramFloat1, float paramFloat2, float paramFloat3)
+  {
+    if ((paramFloat1 < low[0]) || (paramFloat1 > high[0])) {
+      return false;
+    }
+    if ((paramFloat2 < low[1]) || (paramFloat2 > high[1])) {
+      return false;
+    }
+    if ((paramFloat3 < low[2]) || (paramFloat3 > high[2])) {
+      return false;
+    }
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+  public final boolean intersects2DRegion(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    if ((paramFloat3 <= 0.0F) || (paramFloat4 <= 0.0F)) {
+      return false;
+    }
+    
+    float f1 = getWidth();
+    float f2 = getHeight();
+    if ((f1 <= 0.0F) || (f2 <= 0.0F)) {
+      return false;
+    }
+    
+    float f3 = getMinX();
+    float f4 = getMinY();
+    return (paramFloat1 + paramFloat3 > f3) && (paramFloat2 + paramFloat4 > f4) && (paramFloat1 < f3 + f1) && (paramFloat2 < f4 + f2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean intersectsRay(Ray paramRay)
+  {
+    float f1 = dir[0];
+    float f2 = orig[0] - center[0];
+    float f3 = high[0] - center[0];
+    if ((Math.abs(f2) > f3) && (f2 * f1 >= 0.0F)) { return false;
+    }
+    float f4 = dir[1];
+    float f5 = orig[1] - center[1];
+    float f6 = high[1] - center[1];
+    if ((Math.abs(f5) > f6) && (f5 * f4 >= 0.0F)) { return false;
+    }
+    float f7 = dir[2];
+    float f8 = orig[2] - center[2];
+    float f9 = high[2] - center[2];
+    if ((Math.abs(f8) > f9) && (f8 * f7 >= 0.0F)) { return false;
+    }
+    float f10 = Math.abs(f4);
+    float f11 = Math.abs(f7);
+    
+    float f12 = f4 * f8 - f7 * f5;
+    if (Math.abs(f12) > f6 * f11 + f9 * f10) { return false;
+    }
+    float f13 = Math.abs(f1);
+    
+    f12 = f7 * f2 - f1 * f8;
+    if (Math.abs(f12) > f3 * f11 + f9 * f13) { return false;
+    }
+    f12 = f1 * f5 - f4 * f2;
+    if (Math.abs(f12) > f3 * f10 + f6 * f13) { return false;
+    }
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final float[] getRayIntersection(float[] paramArrayOfFloat1, Ray paramRay, float paramFloat, boolean paramBoolean, float[] paramArrayOfFloat2, float[] paramArrayOfFloat3, float[] paramArrayOfFloat4)
+  {
+    float[] arrayOfFloat1 = { -1.0F, -1.0F, -1.0F };
+    
+    float[] arrayOfFloat2 = orig;
+    float[] arrayOfFloat3 = dir;
+    
+    int i = 1;
+    
+
+    for (int j = 0; j < 3; j++) {
+      if (arrayOfFloat2[j] < low[j]) {
+        paramArrayOfFloat1[j] = low[j];
+        i = 0;
+        
+
+        if (0 != Float.floatToIntBits(arrayOfFloat3[j])) {
+          arrayOfFloat1[j] = ((low[j] - arrayOfFloat2[j]) / arrayOfFloat3[j]);
+        }
+      } else if (arrayOfFloat2[j] > high[j]) {
+        paramArrayOfFloat1[j] = high[j];
+        i = 0;
+        
+
+        if (0 != Float.floatToIntBits(arrayOfFloat3[j])) {
+          arrayOfFloat1[j] = ((high[j] - arrayOfFloat2[j]) / arrayOfFloat3[j]);
+        }
+      }
+    }
+    
+
+    if (i != 0) {
+      System.arraycopy(arrayOfFloat2, 0, paramArrayOfFloat1, 0, 3);
+      return paramArrayOfFloat1;
+    }
+    
+
+    j = 0;
+    if (arrayOfFloat1[1] > arrayOfFloat1[j]) j = 1;
+    if (arrayOfFloat1[2] > arrayOfFloat1[j]) { j = 2;
+    }
+    if (!paramBoolean)
+    {
+      if (0 != (Float.floatToIntBits(arrayOfFloat1[j]) & 0x80000000)) {
+        return null;
+      }
+      
+
+
+
+
+
+
+
+
+      switch (j) {
+      case 0: 
+        arrayOfFloat2[1] += arrayOfFloat1[j] * arrayOfFloat3[1];
+        if ((paramArrayOfFloat1[1] < low[1] - paramFloat) || (paramArrayOfFloat1[1] > high[1] + paramFloat)) return null;
+        arrayOfFloat2[2] += arrayOfFloat1[j] * arrayOfFloat3[2];
+        if ((paramArrayOfFloat1[2] >= low[2] - paramFloat) && (paramArrayOfFloat1[2] <= high[2] + paramFloat)) break; return null;
+      
+      case 1: 
+        arrayOfFloat2[0] += arrayOfFloat1[j] * arrayOfFloat3[0];
+        if ((paramArrayOfFloat1[0] < low[0] - paramFloat) || (paramArrayOfFloat1[0] > high[0] + paramFloat)) return null;
+        arrayOfFloat2[2] += arrayOfFloat1[j] * arrayOfFloat3[2];
+        if ((paramArrayOfFloat1[2] >= low[2] - paramFloat) && (paramArrayOfFloat1[2] <= high[2] + paramFloat)) break; return null;
+      
+      case 2: 
+        arrayOfFloat2[0] += arrayOfFloat1[j] * arrayOfFloat3[0];
+        if ((paramArrayOfFloat1[0] < low[0] - paramFloat) || (paramArrayOfFloat1[0] > high[0] + paramFloat)) return null;
+        arrayOfFloat2[1] += arrayOfFloat1[j] * arrayOfFloat3[1];
+        if ((paramArrayOfFloat1[1] >= low[1] - paramFloat) && (paramArrayOfFloat1[1] <= high[1] + paramFloat)) break; return null;
+      
+      default: 
+        throw new InternalError("XXX");
+      }
+    } else {
+      switch (j) {
+      case 0: 
+        arrayOfFloat2[1] += arrayOfFloat1[j] * arrayOfFloat3[1];
+        arrayOfFloat2[2] += arrayOfFloat1[j] * arrayOfFloat3[2];
+        break;
+      case 1: 
+        arrayOfFloat2[0] += arrayOfFloat1[j] * arrayOfFloat3[0];
+        arrayOfFloat2[2] += arrayOfFloat1[j] * arrayOfFloat3[2];
+        break;
+      case 2: 
+        arrayOfFloat2[0] += arrayOfFloat1[j] * arrayOfFloat3[0];
+        arrayOfFloat2[1] += arrayOfFloat1[j] * arrayOfFloat3[1];
+        break;
+      default: 
+        throw new InternalError("XXX");
+      }
+    }
+    return paramArrayOfFloat1;
+  }
+  
+
+
+
+
+  public final float getSize()
+  {
+    return VectorUtil.distVec3(low, high);
+  }
+  
+
+
+
+  public final float[] getCenter()
+  {
+    return center;
+  }
+  
+
+
+
+
+
+  public final AABBox scale(float paramFloat, float[] paramArrayOfFloat)
+  {
+    paramArrayOfFloat[0] = (high[0] - center[0]);
+    paramArrayOfFloat[1] = (high[1] - center[1]);
+    paramArrayOfFloat[2] = (high[2] - center[2]);
+    
+    VectorUtil.scaleVec3(paramArrayOfFloat, paramArrayOfFloat, paramFloat);
+    VectorUtil.addVec3(high, center, paramArrayOfFloat);
+    
+    paramArrayOfFloat[0] = (low[0] - center[0]);
+    paramArrayOfFloat[1] = (low[1] - center[1]);
+    paramArrayOfFloat[2] = (low[2] - center[2]);
+    
+    VectorUtil.scaleVec3(paramArrayOfFloat, paramArrayOfFloat, paramFloat);
+    VectorUtil.addVec3(low, center, paramArrayOfFloat);
+    return this;
+  }
+  
+
+
+
+
+  public final AABBox translate(float[] paramArrayOfFloat)
+  {
+    VectorUtil.addVec3(low, low, paramArrayOfFloat);
+    VectorUtil.addVec3(high, high, paramArrayOfFloat);
+    computeCenter();
+    return this;
+  }
+  
+
+
+
+
+  public final AABBox rotate(Quaternion paramQuaternion)
+  {
+    paramQuaternion.rotateVector(low, 0, low, 0);
+    paramQuaternion.rotateVector(high, 0, high, 0);
+    computeCenter();
+    return this;
+  }
+  
+  public final float getMinX() {
+    return low[0];
+  }
+  
+  public final float getMinY() {
+    return low[1];
+  }
+  
+  public final float getMinZ() {
+    return low[2];
+  }
+  
+  public final float getMaxX() {
+    return high[0];
+  }
+  
+  public final float getMaxY() {
+    return high[1];
+  }
+  
+  public final float getMaxZ() {
+    return high[2];
+  }
+  
+  public final float getWidth() {
+    return high[0] - low[0];
+  }
+  
+  public final float getHeight() {
+    return high[1] - low[1];
+  }
+  
+  public final float getDepth() {
+    return high[2] - low[2];
+  }
+  
+  public final boolean equals(Object paramObject)
+  {
+    if (paramObject == this) {
+      return true;
+    }
+    if ((null == paramObject) || (!(paramObject instanceof AABBox))) {
+      return false;
+    }
+    AABBox localAABBox = (AABBox)paramObject;
+    
+    return (VectorUtil.isVec2Equal(low, 0, low, 0, 1.1920929E-7F)) && (VectorUtil.isVec3Equal(high, 0, high, 0, 1.1920929E-7F));
+  }
+  
+  public final int hashCode() {
+    throw new InternalError("hashCode not designed");
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public AABBox mapToWindow(AABBox paramAABBox, float[] paramArrayOfFloat1, int[] paramArrayOfInt, boolean paramBoolean, float[] paramArrayOfFloat2, float[] paramArrayOfFloat3, float[] paramArrayOfFloat4)
+  {
+    float f = paramBoolean ? center[2] : getMinZ();
+    FloatUtil.mapObjToWinCoords(getMinX(), getMinY(), f, paramArrayOfFloat1, paramArrayOfInt, 0, paramArrayOfFloat2, 0, paramArrayOfFloat3, paramArrayOfFloat4);
+    
+
+
+
+    paramAABBox.reset();
+    paramAABBox.resize(paramArrayOfFloat2, 0);
+    
+    FloatUtil.mapObjToWinCoords(getMinX(), getMaxY(), f, paramArrayOfFloat1, paramArrayOfInt, 0, paramArrayOfFloat2, 0, paramArrayOfFloat3, paramArrayOfFloat4);
+    
+    paramAABBox.resize(paramArrayOfFloat2, 0);
+    
+    FloatUtil.mapObjToWinCoords(getMaxX(), getMinY(), f, paramArrayOfFloat1, paramArrayOfInt, 0, paramArrayOfFloat2, 0, paramArrayOfFloat3, paramArrayOfFloat4);
+    
+    paramAABBox.resize(paramArrayOfFloat2, 0);
+    
+    FloatUtil.mapObjToWinCoords(getMaxX(), getMaxY(), f, paramArrayOfFloat1, paramArrayOfInt, 0, paramArrayOfFloat2, 0, paramArrayOfFloat3, paramArrayOfFloat4);
+    
+    paramAABBox.resize(paramArrayOfFloat2, 0);
+    
+
+    if (!paramBoolean) {
+      f = getMaxZ();
+      FloatUtil.mapObjToWinCoords(getMinX(), getMinY(), f, paramArrayOfFloat1, paramArrayOfInt, 0, paramArrayOfFloat2, 0, paramArrayOfFloat3, paramArrayOfFloat4);
+      paramAABBox.resize(paramArrayOfFloat2, 0);
+      
+      FloatUtil.mapObjToWinCoords(getMinX(), getMaxY(), f, paramArrayOfFloat1, paramArrayOfInt, 0, paramArrayOfFloat2, 0, paramArrayOfFloat3, paramArrayOfFloat4);
+      paramAABBox.resize(paramArrayOfFloat2, 0);
+      
+      FloatUtil.mapObjToWinCoords(getMaxX(), getMinY(), f, paramArrayOfFloat1, paramArrayOfInt, 0, paramArrayOfFloat2, 0, paramArrayOfFloat3, paramArrayOfFloat4);
+      paramAABBox.resize(paramArrayOfFloat2, 0);
+      
+      FloatUtil.mapObjToWinCoords(getMaxX(), getMaxY(), f, paramArrayOfFloat1, paramArrayOfInt, 0, paramArrayOfFloat2, 0, paramArrayOfFloat3, paramArrayOfFloat4);
+      paramAABBox.resize(paramArrayOfFloat2, 0);
+    }
+    if (DEBUG) {
+      System.err.printf("AABBox.mapToWindow: view[%d, %d], this %s -> %s%n", new Object[] { Integer.valueOf(paramArrayOfInt[0]), Integer.valueOf(paramArrayOfInt[1]), toString(), paramAABBox.toString() });
+    }
+    return paramAABBox;
+  }
+  
+  public final String toString()
+  {
+    return "[ dim " + getWidth() + " x " + getHeight() + " x " + getDepth() + ", box " + low[0] + " / " + low[1] + " / " + low[2] + " .. " + high[0] + " / " + high[1] + " / " + high[2] + ", ctr " + center[0] + " / " + center[1] + " / " + center[2] + " ]";
+  }
+}

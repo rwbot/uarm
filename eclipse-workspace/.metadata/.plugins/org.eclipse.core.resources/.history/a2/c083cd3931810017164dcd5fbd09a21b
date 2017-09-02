@@ -1,0 +1,1152 @@
+package com.jogamp.common.nio;
+
+import com.jogamp.common.util.ValueConv;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.CharBuffer;
+import java.nio.DoubleBuffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import java.nio.LongBuffer;
+import java.nio.ShortBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Buffers
+{
+  public static final int SIZEOF_BYTE = 1;
+  public static final int SIZEOF_SHORT = 2;
+  public static final int SIZEOF_CHAR = 2;
+  public static final int SIZEOF_INT = 4;
+  public static final int SIZEOF_FLOAT = 4;
+  public static final int SIZEOF_LONG = 8;
+  public static final int SIZEOF_DOUBLE = 8;
+  
+  protected Buffers() {}
+  
+  public static ByteBuffer newDirectByteBuffer(int paramInt)
+  {
+    return nativeOrder(ByteBuffer.allocateDirect(paramInt));
+  }
+  
+  public static ByteBuffer newDirectByteBuffer(byte[] paramArrayOfByte, int paramInt1, int paramInt2) {
+    return (ByteBuffer)newDirectByteBuffer(paramInt2).put(paramArrayOfByte, paramInt1, paramInt2).rewind();
+  }
+  
+  public static ByteBuffer newDirectByteBuffer(byte[] paramArrayOfByte, int paramInt) {
+    return newDirectByteBuffer(paramArrayOfByte, paramInt, paramArrayOfByte.length - paramInt);
+  }
+  
+  public static ByteBuffer newDirectByteBuffer(byte[] paramArrayOfByte) {
+    return newDirectByteBuffer(paramArrayOfByte, 0);
+  }
+  
+
+
+
+
+  public static DoubleBuffer newDirectDoubleBuffer(int paramInt)
+  {
+    return newDirectByteBuffer(paramInt * 8).asDoubleBuffer();
+  }
+  
+  public static DoubleBuffer newDirectDoubleBuffer(double[] paramArrayOfDouble, int paramInt1, int paramInt2) {
+    return (DoubleBuffer)newDirectDoubleBuffer(paramInt2).put(paramArrayOfDouble, paramInt1, paramInt2).rewind();
+  }
+  
+  public static DoubleBuffer newDirectDoubleBuffer(double[] paramArrayOfDouble, int paramInt) {
+    return newDirectDoubleBuffer(paramArrayOfDouble, paramInt, paramArrayOfDouble.length - paramInt);
+  }
+  
+  public static DoubleBuffer newDirectDoubleBuffer(double[] paramArrayOfDouble) {
+    return newDirectDoubleBuffer(paramArrayOfDouble, 0);
+  }
+  
+
+
+
+
+  public static FloatBuffer newDirectFloatBuffer(int paramInt)
+  {
+    return newDirectByteBuffer(paramInt * 4).asFloatBuffer();
+  }
+  
+  public static FloatBuffer newDirectFloatBuffer(float[] paramArrayOfFloat, int paramInt1, int paramInt2) {
+    return (FloatBuffer)newDirectFloatBuffer(paramInt2).put(paramArrayOfFloat, paramInt1, paramInt2).rewind();
+  }
+  
+  public static FloatBuffer newDirectFloatBuffer(float[] paramArrayOfFloat, int paramInt) {
+    return newDirectFloatBuffer(paramArrayOfFloat, paramInt, paramArrayOfFloat.length - paramInt);
+  }
+  
+  public static FloatBuffer newDirectFloatBuffer(float[] paramArrayOfFloat) {
+    return newDirectFloatBuffer(paramArrayOfFloat, 0);
+  }
+  
+
+
+
+
+  public static IntBuffer newDirectIntBuffer(int paramInt)
+  {
+    return newDirectByteBuffer(paramInt * 4).asIntBuffer();
+  }
+  
+  public static IntBuffer newDirectIntBuffer(int[] paramArrayOfInt, int paramInt1, int paramInt2) {
+    return (IntBuffer)newDirectIntBuffer(paramInt2).put(paramArrayOfInt, paramInt1, paramInt2).rewind();
+  }
+  
+  public static IntBuffer newDirectIntBuffer(int[] paramArrayOfInt, int paramInt) {
+    return newDirectIntBuffer(paramArrayOfInt, paramInt, paramArrayOfInt.length - paramInt);
+  }
+  
+  public static IntBuffer newDirectIntBuffer(int[] paramArrayOfInt) {
+    return newDirectIntBuffer(paramArrayOfInt, 0);
+  }
+  
+
+
+
+
+  public static LongBuffer newDirectLongBuffer(int paramInt)
+  {
+    return newDirectByteBuffer(paramInt * 8).asLongBuffer();
+  }
+  
+  public static LongBuffer newDirectLongBuffer(long[] paramArrayOfLong, int paramInt1, int paramInt2) {
+    return (LongBuffer)newDirectLongBuffer(paramInt2).put(paramArrayOfLong, paramInt1, paramInt2).rewind();
+  }
+  
+  public static LongBuffer newDirectLongBuffer(long[] paramArrayOfLong, int paramInt) {
+    return newDirectLongBuffer(paramArrayOfLong, paramInt, paramArrayOfLong.length - paramInt);
+  }
+  
+  public static LongBuffer newDirectLongBuffer(long[] paramArrayOfLong) {
+    return newDirectLongBuffer(paramArrayOfLong, 0);
+  }
+  
+
+
+
+
+  public static ShortBuffer newDirectShortBuffer(int paramInt)
+  {
+    return newDirectByteBuffer(paramInt * 2).asShortBuffer();
+  }
+  
+  public static ShortBuffer newDirectShortBuffer(short[] paramArrayOfShort, int paramInt1, int paramInt2) {
+    return (ShortBuffer)newDirectShortBuffer(paramInt2).put(paramArrayOfShort, paramInt1, paramInt2).rewind();
+  }
+  
+  public static ShortBuffer newDirectShortBuffer(short[] paramArrayOfShort, int paramInt) {
+    return newDirectShortBuffer(paramArrayOfShort, paramInt, paramArrayOfShort.length - paramInt);
+  }
+  
+  public static ShortBuffer newDirectShortBuffer(short[] paramArrayOfShort) {
+    return newDirectShortBuffer(paramArrayOfShort, 0);
+  }
+  
+
+
+
+
+  public static CharBuffer newDirectCharBuffer(int paramInt)
+  {
+    return newDirectByteBuffer(paramInt * 2).asCharBuffer();
+  }
+  
+  public static CharBuffer newDirectCharBuffer(char[] paramArrayOfChar, int paramInt1, int paramInt2) {
+    return (CharBuffer)newDirectCharBuffer(paramInt2).put(paramArrayOfChar, paramInt1, paramInt2).rewind();
+  }
+  
+  public static CharBuffer newDirectCharBuffer(char[] paramArrayOfChar, int paramInt) {
+    return newDirectCharBuffer(paramArrayOfChar, paramInt, paramArrayOfChar.length - paramInt);
+  }
+  
+  public static CharBuffer newDirectCharBuffer(char[] paramArrayOfChar) {
+    return newDirectCharBuffer(paramArrayOfChar, 0);
+  }
+  
+
+
+
+
+  public static <B extends Buffer> B slice(B paramB)
+  {
+    if ((paramB instanceof ByteBuffer)) {
+      ByteBuffer localByteBuffer = (ByteBuffer)paramB;
+      return localByteBuffer.slice().order(localByteBuffer.order()); }
+    if ((paramB instanceof IntBuffer))
+      return ((IntBuffer)paramB).slice();
+    if ((paramB instanceof ShortBuffer))
+      return ((ShortBuffer)paramB).slice();
+    if ((paramB instanceof FloatBuffer))
+      return ((FloatBuffer)paramB).slice();
+    if ((paramB instanceof DoubleBuffer))
+      return ((DoubleBuffer)paramB).slice();
+    if ((paramB instanceof LongBuffer))
+      return ((LongBuffer)paramB).slice();
+    if ((paramB instanceof CharBuffer)) {
+      return ((CharBuffer)paramB).slice();
+    }
+    throw new IllegalArgumentException("unexpected buffer type: " + paramB.getClass());
+  }
+  
+
+
+
+
+
+  public static <B extends Buffer> B slice(B paramB, int paramInt1, int paramInt2)
+  {
+    int i = paramB.position();
+    int j = paramB.limit();
+    
+    Buffer localBuffer = null;
+    try {
+      paramB.position(paramInt1).limit(paramInt1 + paramInt2);
+      localBuffer = slice(paramB);
+    } finally {
+      paramB.position(i).limit(j);
+    }
+    
+    return localBuffer;
+  }
+  
+
+
+
+
+
+
+
+
+  public static final FloatBuffer slice2Float(Buffer paramBuffer, int paramInt1, int paramInt2)
+  {
+    int i;
+    
+
+
+
+
+
+
+    int j;
+    
+
+
+
+
+
+
+    if (null != paramBuffer) {
+      i = paramBuffer.position();
+      j = paramBuffer.limit();
+    } else {
+      i = 0;
+      j = 0;
+    }
+    FloatBuffer localFloatBuffer;
+    try { Object localObject1;
+      if ((paramBuffer instanceof ByteBuffer)) {
+        localObject1 = (ByteBuffer)paramBuffer;
+        ((ByteBuffer)localObject1).position(paramInt1 * 4);
+        ((ByteBuffer)localObject1).limit((paramInt1 + paramInt2) * 4);
+        localFloatBuffer = ((ByteBuffer)localObject1).slice().order(((ByteBuffer)localObject1).order()).asFloatBuffer();
+      } else if ((paramBuffer instanceof FloatBuffer)) {
+        localObject1 = (FloatBuffer)paramBuffer;
+        ((FloatBuffer)localObject1).position(paramInt1);
+        ((FloatBuffer)localObject1).limit(paramInt1 + paramInt2);
+        localFloatBuffer = ((FloatBuffer)localObject1).slice();
+      } else {
+        throw new InternalError("Buffer not ByteBuffer, nor FloarBuffer, nor backing array given");
+      }
+    } finally {
+      if (null != paramBuffer) {
+        paramBuffer.position(i).limit(j);
+      }
+    }
+    localFloatBuffer.mark();
+    return localFloatBuffer;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final FloatBuffer slice2Float(float[] paramArrayOfFloat, int paramInt1, int paramInt2)
+  {
+    return (FloatBuffer)FloatBuffer.wrap(paramArrayOfFloat, paramInt1, paramInt2).mark();
+  }
+  
+
+
+
+
+
+  public static ByteBuffer nativeOrder(ByteBuffer paramByteBuffer)
+  {
+    return paramByteBuffer.order(ByteOrder.nativeOrder());
+  }
+  
+
+
+
+  public static int sizeOfBufferElem(Object paramObject)
+  {
+    if (paramObject == null) {
+      return 0;
+    }
+    if ((paramObject instanceof ByteBuffer))
+      return 1;
+    if ((paramObject instanceof IntBuffer))
+      return 4;
+    if ((paramObject instanceof ShortBuffer))
+      return 2;
+    if ((paramObject instanceof FloatBuffer))
+      return 4;
+    if ((paramObject instanceof DoubleBuffer))
+      return 8;
+    if ((paramObject instanceof LongBuffer))
+      return 8;
+    if ((paramObject instanceof CharBuffer))
+      return 2;
+    if ((paramObject instanceof NativeBuffer)) {
+      return ((NativeBuffer)paramObject).elementSize();
+    }
+    throw new RuntimeException("Unexpected buffer type " + paramObject.getClass().getName());
+  }
+  
+
+
+
+
+
+  public static int remainingElem(Object paramObject)
+    throws IllegalArgumentException
+  {
+    if (paramObject == null) {
+      return 0;
+    }
+    if ((paramObject instanceof Buffer))
+      return ((Buffer)paramObject).remaining();
+    if ((paramObject instanceof NativeBuffer)) {
+      return ((NativeBuffer)paramObject).remaining();
+    }
+    throw new IllegalArgumentException("Unsupported anonymous buffer type: " + paramObject.getClass().getCanonicalName());
+  }
+  
+
+
+
+
+
+
+  public static int remainingBytes(Object paramObject)
+    throws IllegalArgumentException
+  {
+    if (paramObject == null) {
+      return 0;
+    }
+    int i;
+    if ((paramObject instanceof Buffer)) {
+      int j = ((Buffer)paramObject).remaining();
+      if ((paramObject instanceof ByteBuffer)) {
+        i = j;
+      } else if ((paramObject instanceof FloatBuffer)) {
+        i = j * 4;
+      } else if ((paramObject instanceof IntBuffer)) {
+        i = j * 4;
+      } else if ((paramObject instanceof ShortBuffer)) {
+        i = j * 2;
+      } else if ((paramObject instanceof DoubleBuffer)) {
+        i = j * 8;
+      } else if ((paramObject instanceof LongBuffer)) {
+        i = j * 8;
+      } else if ((paramObject instanceof CharBuffer)) {
+        i = j * 2;
+      } else {
+        throw new InternalError("Unsupported Buffer type: " + paramObject.getClass().getCanonicalName());
+      }
+    } else if ((paramObject instanceof NativeBuffer)) {
+      NativeBuffer localNativeBuffer = (NativeBuffer)paramObject;
+      i = localNativeBuffer.remaining() * localNativeBuffer.elementSize();
+    } else {
+      throw new IllegalArgumentException("Unsupported anonymous buffer type: " + paramObject.getClass().getCanonicalName());
+    }
+    return i;
+  }
+  
+
+
+
+  public static boolean isDirect(Object paramObject)
+  {
+    if (paramObject == null) {
+      return true;
+    }
+    if ((paramObject instanceof Buffer))
+      return ((Buffer)paramObject).isDirect();
+    if ((paramObject instanceof PointerBuffer)) {
+      return ((PointerBuffer)paramObject).isDirect();
+    }
+    throw new IllegalArgumentException("Unexpected buffer type " + paramObject.getClass().getName());
+  }
+  
+
+
+
+
+  public static int getDirectBufferByteOffset(Object paramObject)
+  {
+    if (paramObject == null) {
+      return 0;
+    }
+    if ((paramObject instanceof Buffer)) {
+      int i = ((Buffer)paramObject).position();
+      if ((paramObject instanceof ByteBuffer))
+        return i;
+      if ((paramObject instanceof FloatBuffer))
+        return i * 4;
+      if ((paramObject instanceof IntBuffer))
+        return i * 4;
+      if ((paramObject instanceof ShortBuffer))
+        return i * 2;
+      if ((paramObject instanceof DoubleBuffer))
+        return i * 8;
+      if ((paramObject instanceof LongBuffer))
+        return i * 8;
+      if ((paramObject instanceof CharBuffer)) {
+        return i * 2;
+      }
+    } else if ((paramObject instanceof NativeBuffer)) {
+      NativeBuffer localNativeBuffer = (NativeBuffer)paramObject;
+      return localNativeBuffer.position() * localNativeBuffer.elementSize();
+    }
+    
+    throw new IllegalArgumentException("Disallowed array backing store type in buffer " + paramObject.getClass().getName());
+  }
+  
+
+
+
+
+  public static Object getArray(Object paramObject)
+    throws UnsupportedOperationException, IllegalArgumentException
+  {
+    if (paramObject == null) {
+      return null;
+    }
+    if ((paramObject instanceof Buffer))
+      return ((Buffer)paramObject).array();
+    if ((paramObject instanceof NativeBuffer)) {
+      return ((NativeBuffer)paramObject).array();
+    }
+    
+    throw new IllegalArgumentException("Disallowed array backing store type in buffer " + paramObject.getClass().getName());
+  }
+  
+
+
+
+
+
+  public static int getIndirectBufferByteOffset(Object paramObject)
+  {
+    if (paramObject == null) {
+      return 0;
+    }
+    if ((paramObject instanceof Buffer)) {
+      int i = ((Buffer)paramObject).position();
+      if ((paramObject instanceof ByteBuffer))
+        return ((ByteBuffer)paramObject).arrayOffset() + i;
+      if ((paramObject instanceof FloatBuffer))
+        return 4 * (((FloatBuffer)paramObject).arrayOffset() + i);
+      if ((paramObject instanceof IntBuffer))
+        return 4 * (((IntBuffer)paramObject).arrayOffset() + i);
+      if ((paramObject instanceof ShortBuffer))
+        return 2 * (((ShortBuffer)paramObject).arrayOffset() + i);
+      if ((paramObject instanceof DoubleBuffer))
+        return 8 * (((DoubleBuffer)paramObject).arrayOffset() + i);
+      if ((paramObject instanceof LongBuffer))
+        return 8 * (((LongBuffer)paramObject).arrayOffset() + i);
+      if ((paramObject instanceof CharBuffer)) {
+        return 2 * (((CharBuffer)paramObject).arrayOffset() + i);
+      }
+    } else if ((paramObject instanceof NativeBuffer)) {
+      NativeBuffer localNativeBuffer = (NativeBuffer)paramObject;
+      return localNativeBuffer.elementSize() * (localNativeBuffer.arrayOffset() + localNativeBuffer.position());
+    }
+    
+    throw new IllegalArgumentException("Unknown buffer type " + paramObject.getClass().getName());
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static ByteBuffer copyByteBuffer(ByteBuffer paramByteBuffer)
+  {
+    int i = paramByteBuffer.position();
+    ByteBuffer localByteBuffer = newDirectByteBuffer(paramByteBuffer.remaining());
+    localByteBuffer.put(paramByteBuffer);
+    localByteBuffer.rewind();
+    paramByteBuffer.position(i);
+    return localByteBuffer;
+  }
+  
+
+
+
+
+
+
+
+  public static FloatBuffer copyFloatBuffer(FloatBuffer paramFloatBuffer)
+  {
+    return copyFloatBufferAsByteBuffer(paramFloatBuffer).asFloatBuffer();
+  }
+  
+
+
+
+
+
+
+
+  public static IntBuffer copyIntBuffer(IntBuffer paramIntBuffer)
+  {
+    return copyIntBufferAsByteBuffer(paramIntBuffer).asIntBuffer();
+  }
+  
+
+
+
+
+
+
+
+  public static ShortBuffer copyShortBuffer(ShortBuffer paramShortBuffer)
+  {
+    return copyShortBufferAsByteBuffer(paramShortBuffer).asShortBuffer();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static ByteBuffer copyFloatBufferAsByteBuffer(FloatBuffer paramFloatBuffer)
+  {
+    int i = paramFloatBuffer.position();
+    ByteBuffer localByteBuffer = newDirectByteBuffer(paramFloatBuffer.remaining() * 4);
+    localByteBuffer.asFloatBuffer().put(paramFloatBuffer);
+    localByteBuffer.rewind();
+    paramFloatBuffer.position(i);
+    return localByteBuffer;
+  }
+  
+
+
+
+
+
+
+
+  public static ByteBuffer copyIntBufferAsByteBuffer(IntBuffer paramIntBuffer)
+  {
+    int i = paramIntBuffer.position();
+    ByteBuffer localByteBuffer = newDirectByteBuffer(paramIntBuffer.remaining() * 4);
+    localByteBuffer.asIntBuffer().put(paramIntBuffer);
+    localByteBuffer.rewind();
+    paramIntBuffer.position(i);
+    return localByteBuffer;
+  }
+  
+
+
+
+
+
+
+
+  public static ByteBuffer copyShortBufferAsByteBuffer(ShortBuffer paramShortBuffer)
+  {
+    int i = paramShortBuffer.position();
+    ByteBuffer localByteBuffer = newDirectByteBuffer(paramShortBuffer.remaining() * 2);
+    localByteBuffer.asShortBuffer().put(paramShortBuffer);
+    localByteBuffer.rewind();
+    paramShortBuffer.position(i);
+    return localByteBuffer;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static float[] getFloatArray(double[] paramArrayOfDouble, int paramInt1, float[] paramArrayOfFloat, int paramInt2, int paramInt3)
+  {
+    if (0 > paramInt3) {
+      paramInt3 = paramArrayOfDouble.length - paramInt1;
+    }
+    if (paramInt3 > paramArrayOfDouble.length - paramInt1) {
+      throw new IllegalArgumentException("payload (" + paramInt3 + ") greater than remaining source bytes [len " + paramArrayOfDouble.length + ", offset " + paramInt1 + "]");
+    }
+    if (null == paramArrayOfFloat) {
+      paramArrayOfFloat = new float[paramInt3];
+      paramInt2 = 0;
+    }
+    if (paramInt3 > paramArrayOfFloat.length - paramInt2) {
+      throw new IllegalArgumentException("payload (" + paramInt3 + ") greater than remaining dest bytes [len " + paramArrayOfFloat.length + ", offset " + paramInt2 + "]");
+    }
+    for (int i = 0; i < paramInt3; i++) {
+      paramArrayOfFloat[(paramInt2 + i)] = ((float)paramArrayOfDouble[(paramInt1 + i)]);
+    }
+    return paramArrayOfFloat;
+  }
+  
+
+
+
+
+
+  public static FloatBuffer getFloatBuffer(DoubleBuffer paramDoubleBuffer, FloatBuffer paramFloatBuffer)
+  {
+    if (null == paramFloatBuffer) {
+      paramFloatBuffer = newDirectFloatBuffer(paramDoubleBuffer.remaining());
+    }
+    if (paramFloatBuffer.remaining() < paramDoubleBuffer.remaining()) {
+      throw new IllegalArgumentException("payload (" + paramDoubleBuffer.remaining() + ") is greater than remaining dest bytes: " + paramFloatBuffer.remaining());
+    }
+    while (paramDoubleBuffer.hasRemaining()) {
+      paramFloatBuffer.put((float)paramDoubleBuffer.get());
+    }
+    return paramFloatBuffer;
+  }
+  
+
+
+
+
+
+
+
+  public static double[] getDoubleArray(float[] paramArrayOfFloat, int paramInt1, double[] paramArrayOfDouble, int paramInt2, int paramInt3)
+  {
+    if (0 > paramInt3) {
+      paramInt3 = paramArrayOfFloat.length - paramInt1;
+    }
+    if (paramInt3 > paramArrayOfFloat.length - paramInt1) {
+      throw new IllegalArgumentException("payload (" + paramInt3 + ") greater than remaining source bytes [len " + paramArrayOfFloat.length + ", offset " + paramInt1 + "]");
+    }
+    if (null == paramArrayOfDouble) {
+      paramArrayOfDouble = new double[paramInt3];
+      paramInt2 = 0;
+    }
+    if (paramInt3 > paramArrayOfDouble.length - paramInt2) {
+      throw new IllegalArgumentException("payload (" + paramInt3 + ") greater than remaining dest bytes [len " + paramArrayOfDouble.length + ", offset " + paramInt2 + "]");
+    }
+    for (int i = 0; i < paramInt3; i++) {
+      paramArrayOfDouble[(paramInt2 + i)] = paramArrayOfFloat[(paramInt1 + i)];
+    }
+    return paramArrayOfDouble;
+  }
+  
+
+
+
+
+
+  public static DoubleBuffer getDoubleBuffer(FloatBuffer paramFloatBuffer, DoubleBuffer paramDoubleBuffer)
+  {
+    if (null == paramDoubleBuffer) {
+      paramDoubleBuffer = newDirectDoubleBuffer(paramFloatBuffer.remaining());
+    }
+    if (paramDoubleBuffer.remaining() < paramFloatBuffer.remaining()) {
+      throw new IllegalArgumentException("payload (" + paramFloatBuffer.remaining() + ") is greater than remaining dest bytes: " + paramDoubleBuffer.remaining());
+    }
+    while (paramFloatBuffer.hasRemaining()) {
+      paramDoubleBuffer.put(paramFloatBuffer.get());
+    }
+    return paramDoubleBuffer;
+  }
+  
+
+
+
+
+
+  public static <B extends Buffer> B put(B paramB, Buffer paramBuffer)
+  {
+    if (((paramB instanceof ByteBuffer)) && ((paramBuffer instanceof ByteBuffer)))
+      return ((ByteBuffer)paramB).put((ByteBuffer)paramBuffer);
+    if (((paramB instanceof ShortBuffer)) && ((paramBuffer instanceof ShortBuffer)))
+      return ((ShortBuffer)paramB).put((ShortBuffer)paramBuffer);
+    if (((paramB instanceof IntBuffer)) && ((paramBuffer instanceof IntBuffer)))
+      return ((IntBuffer)paramB).put((IntBuffer)paramBuffer);
+    if (((paramB instanceof FloatBuffer)) && ((paramBuffer instanceof FloatBuffer)))
+      return ((FloatBuffer)paramB).put((FloatBuffer)paramBuffer);
+    if (((paramB instanceof LongBuffer)) && ((paramBuffer instanceof LongBuffer)))
+      return ((LongBuffer)paramB).put((LongBuffer)paramBuffer);
+    if (((paramB instanceof DoubleBuffer)) && ((paramBuffer instanceof DoubleBuffer)))
+      return ((DoubleBuffer)paramB).put((DoubleBuffer)paramBuffer);
+    if (((paramB instanceof CharBuffer)) && ((paramBuffer instanceof CharBuffer))) {
+      return ((CharBuffer)paramB).put((CharBuffer)paramBuffer);
+    }
+    throw new IllegalArgumentException("Incompatible Buffer classes: dest = " + paramB.getClass().getName() + ", src = " + paramBuffer.getClass().getName());
+  }
+  
+  public static <B extends Buffer> B putb(B paramB, byte paramByte)
+  {
+    if ((paramB instanceof ByteBuffer))
+      return ((ByteBuffer)paramB).put(paramByte);
+    if ((paramB instanceof ShortBuffer))
+      return ((ShortBuffer)paramB).put((short)paramByte);
+    if ((paramB instanceof IntBuffer))
+      return ((IntBuffer)paramB).put(paramByte);
+    if ((paramB instanceof FloatBuffer))
+      return ((FloatBuffer)paramB).put(paramByte);
+    if ((paramB instanceof LongBuffer))
+      return ((LongBuffer)paramB).put(paramByte);
+    if ((paramB instanceof DoubleBuffer))
+      return ((DoubleBuffer)paramB).put(paramByte);
+    if ((paramB instanceof CharBuffer)) {
+      return ((CharBuffer)paramB).put((char)paramByte);
+    }
+    throw new IllegalArgumentException("Byte doesn't match Buffer Class: " + paramB);
+  }
+  
+
+  public static <B extends Buffer> B puts(B paramB, short paramShort)
+  {
+    if ((paramB instanceof ShortBuffer))
+      return ((ShortBuffer)paramB).put(paramShort);
+    if ((paramB instanceof IntBuffer))
+      return ((IntBuffer)paramB).put(paramShort);
+    if ((paramB instanceof FloatBuffer))
+      return ((FloatBuffer)paramB).put(paramShort);
+    if ((paramB instanceof LongBuffer))
+      return ((LongBuffer)paramB).put(paramShort);
+    if ((paramB instanceof DoubleBuffer)) {
+      return ((DoubleBuffer)paramB).put(paramShort);
+    }
+    throw new IllegalArgumentException("Short doesn't match Buffer Class: " + paramB);
+  }
+  
+
+  public static <B extends Buffer> B puti(B paramB, int paramInt)
+  {
+    if ((paramB instanceof IntBuffer))
+      return ((IntBuffer)paramB).put(paramInt);
+    if ((paramB instanceof FloatBuffer))
+      return ((FloatBuffer)paramB).put(paramInt);
+    if ((paramB instanceof LongBuffer))
+      return ((LongBuffer)paramB).put(paramInt);
+    if ((paramB instanceof DoubleBuffer)) {
+      return ((DoubleBuffer)paramB).put(paramInt);
+    }
+    throw new IllegalArgumentException("Integer doesn't match Buffer Class: " + paramB);
+  }
+  
+
+  public static <B extends Buffer> B putf(B paramB, float paramFloat)
+  {
+    if ((paramB instanceof FloatBuffer))
+      return ((FloatBuffer)paramB).put(paramFloat);
+    if ((paramB instanceof DoubleBuffer)) {
+      return ((DoubleBuffer)paramB).put(paramFloat);
+    }
+    
+
+
+
+    throw new IllegalArgumentException("Float doesn't match Buffer Class: " + paramB);
+  }
+  
+
+  public static <B extends Buffer> B putd(B paramB, double paramDouble)
+  {
+    if ((paramB instanceof FloatBuffer)) {
+      return ((FloatBuffer)paramB).put((float)paramDouble);
+    }
+    throw new IllegalArgumentException("Double doesn't match Buffer Class: " + paramB);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static <B extends Buffer> B putNb(B paramB, boolean paramBoolean1, byte paramByte, boolean paramBoolean2)
+  {
+    if ((paramB instanceof ByteBuffer))
+      return ((ByteBuffer)paramB).put(paramByte);
+    if ((paramB instanceof ShortBuffer))
+      return ((ShortBuffer)paramB).put(ValueConv.byte_to_short(paramByte, paramBoolean2, paramBoolean1));
+    if ((paramB instanceof IntBuffer))
+      return ((IntBuffer)paramB).put(ValueConv.byte_to_int(paramByte, paramBoolean2, paramBoolean1));
+    if ((paramB instanceof FloatBuffer)) {
+      return ((FloatBuffer)paramB).put(ValueConv.byte_to_float(paramByte, paramBoolean2));
+    }
+    throw new IllegalArgumentException("Byte doesn't match Buffer Class: " + paramB);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static <B extends Buffer> B putNs(B paramB, boolean paramBoolean1, short paramShort, boolean paramBoolean2)
+  {
+    if ((paramB instanceof ByteBuffer))
+      return ((ByteBuffer)paramB).put(ValueConv.short_to_byte(paramShort, paramBoolean2, paramBoolean1));
+    if ((paramB instanceof ShortBuffer))
+      return ((ShortBuffer)paramB).put(paramShort);
+    if ((paramB instanceof IntBuffer))
+      return ((IntBuffer)paramB).put(ValueConv.short_to_int(paramShort, paramBoolean2, paramBoolean1));
+    if ((paramB instanceof FloatBuffer)) {
+      return ((FloatBuffer)paramB).put(ValueConv.short_to_float(paramShort, paramBoolean2));
+    }
+    throw new IllegalArgumentException("Byte doesn't match Buffer Class: " + paramB);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static <B extends Buffer> B putNi(B paramB, boolean paramBoolean1, int paramInt, boolean paramBoolean2)
+  {
+    if ((paramB instanceof ByteBuffer))
+      return ((ByteBuffer)paramB).put(ValueConv.int_to_byte(paramInt, paramBoolean2, paramBoolean1));
+    if ((paramB instanceof ShortBuffer))
+      return ((ShortBuffer)paramB).put(ValueConv.int_to_short(paramInt, paramBoolean2, paramBoolean1));
+    if ((paramB instanceof IntBuffer))
+      return ((IntBuffer)paramB).put(paramInt);
+    if ((paramB instanceof FloatBuffer)) {
+      return ((FloatBuffer)paramB).put(ValueConv.int_to_float(paramInt, paramBoolean2));
+    }
+    throw new IllegalArgumentException("Byte doesn't match Buffer Class: " + paramB);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public static <B extends Buffer> B putNf(B paramB, boolean paramBoolean, float paramFloat)
+  {
+    if ((paramB instanceof ByteBuffer))
+      return ((ByteBuffer)paramB).put(ValueConv.float_to_byte(paramFloat, paramBoolean));
+    if ((paramB instanceof ShortBuffer))
+      return ((ShortBuffer)paramB).put(ValueConv.float_to_short(paramFloat, paramBoolean));
+    if ((paramB instanceof IntBuffer))
+      return ((IntBuffer)paramB).put(ValueConv.float_to_int(paramFloat, paramBoolean));
+    if ((paramB instanceof FloatBuffer)) {
+      return ((FloatBuffer)paramB).put(paramFloat);
+    }
+    throw new IllegalArgumentException("Byte doesn't match Buffer Class: " + paramB);
+  }
+  
+
+
+
+
+  public static void rangeCheck(byte[] paramArrayOfByte, int paramInt1, int paramInt2)
+  {
+    if (paramArrayOfByte == null) {
+      return;
+    }
+    
+    if (paramArrayOfByte.length < paramInt1 + paramInt2) {
+      throw new ArrayIndexOutOfBoundsException("Required " + paramInt2 + " elements in array, only had " + (paramArrayOfByte.length - paramInt1));
+    }
+  }
+  
+  public static void rangeCheck(char[] paramArrayOfChar, int paramInt1, int paramInt2) {
+    if (paramArrayOfChar == null) {
+      return;
+    }
+    
+    if (paramArrayOfChar.length < paramInt1 + paramInt2) {
+      throw new ArrayIndexOutOfBoundsException("Required " + paramInt2 + " elements in array, only had " + (paramArrayOfChar.length - paramInt1));
+    }
+  }
+  
+  public static void rangeCheck(short[] paramArrayOfShort, int paramInt1, int paramInt2) {
+    if (paramArrayOfShort == null) {
+      return;
+    }
+    
+    if (paramArrayOfShort.length < paramInt1 + paramInt2) {
+      throw new ArrayIndexOutOfBoundsException("Required " + paramInt2 + " elements in array, only had " + (paramArrayOfShort.length - paramInt1));
+    }
+  }
+  
+  public static void rangeCheck(int[] paramArrayOfInt, int paramInt1, int paramInt2) {
+    if (paramArrayOfInt == null) {
+      return;
+    }
+    
+    if (paramArrayOfInt.length < paramInt1 + paramInt2) {
+      throw new ArrayIndexOutOfBoundsException("Required " + paramInt2 + " elements in array, only had " + (paramArrayOfInt.length - paramInt1));
+    }
+  }
+  
+  public static void rangeCheck(long[] paramArrayOfLong, int paramInt1, int paramInt2) {
+    if (paramArrayOfLong == null) {
+      return;
+    }
+    
+    if (paramArrayOfLong.length < paramInt1 + paramInt2) {
+      throw new ArrayIndexOutOfBoundsException("Required " + paramInt2 + " elements in array, only had " + (paramArrayOfLong.length - paramInt1));
+    }
+  }
+  
+  public static void rangeCheck(float[] paramArrayOfFloat, int paramInt1, int paramInt2) {
+    if (paramArrayOfFloat == null) {
+      return;
+    }
+    
+    if (paramArrayOfFloat.length < paramInt1 + paramInt2) {
+      throw new ArrayIndexOutOfBoundsException("Required " + paramInt2 + " elements in array, only had " + (paramArrayOfFloat.length - paramInt1));
+    }
+  }
+  
+  public static void rangeCheck(double[] paramArrayOfDouble, int paramInt1, int paramInt2) {
+    if (paramArrayOfDouble == null) {
+      return;
+    }
+    
+    if (paramArrayOfDouble.length < paramInt1 + paramInt2) {
+      throw new ArrayIndexOutOfBoundsException("Required " + paramInt2 + " elements in array, only had " + (paramArrayOfDouble.length - paramInt1));
+    }
+  }
+  
+  public static void rangeCheck(Buffer paramBuffer, int paramInt) {
+    if (paramBuffer == null) {
+      return;
+    }
+    
+    if (paramBuffer.remaining() < paramInt) {
+      throw new IndexOutOfBoundsException("Required " + paramInt + " remaining elements in buffer, only had " + paramBuffer.remaining());
+    }
+  }
+  
+
+
+
+
+  public static void rangeCheckBytes(Object paramObject, int paramInt)
+    throws IllegalArgumentException, IndexOutOfBoundsException
+  {
+    if (paramObject == null) {
+      return;
+    }
+    int i = remainingBytes(paramObject);
+    if (i < paramInt) {
+      throw new IndexOutOfBoundsException("Required " + paramInt + " remaining bytes in buffer, only had " + i);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public static StringBuilder toString(StringBuilder paramStringBuilder, String paramString, Buffer paramBuffer)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    paramStringBuilder.append(paramBuffer.getClass().getSimpleName());
+    paramStringBuilder.append("[pos ").append(paramBuffer.position()).append(", lim ").append(paramBuffer.limit()).append(", cap ").append(paramBuffer.capacity());
+    paramStringBuilder.append(", remaining ").append(paramBuffer.remaining());
+    paramStringBuilder.append("; array ").append(paramBuffer.hasArray()).append(", direct ").append(paramBuffer.isDirect());
+    paramStringBuilder.append(", r/w ").append(!paramBuffer.isReadOnly()).append(": ");
+    Object localObject; int i; if ((paramBuffer instanceof ByteBuffer)) {
+      localObject = (ByteBuffer)paramBuffer;
+      for (i = 0; i < ((ByteBuffer)localObject).limit(); i++) {
+        if (0 < i) paramStringBuilder.append(", ");
+        if (null == paramString) {
+          paramStringBuilder.append(((ByteBuffer)localObject).get(i));
+        } else {
+          paramStringBuilder.append(String.format(paramString, new Object[] { Byte.valueOf(((ByteBuffer)localObject).get(i)) }));
+        }
+      }
+    } else if ((paramBuffer instanceof FloatBuffer)) {
+      localObject = (FloatBuffer)paramBuffer;
+      for (i = 0; i < ((FloatBuffer)localObject).limit(); i++) {
+        if (0 < i) paramStringBuilder.append(", ");
+        if (null == paramString) {
+          paramStringBuilder.append(((FloatBuffer)localObject).get(i));
+        } else {
+          paramStringBuilder.append(String.format(paramString, new Object[] { Float.valueOf(((FloatBuffer)localObject).get(i)) }));
+        }
+      }
+    } else if ((paramBuffer instanceof IntBuffer)) {
+      localObject = (IntBuffer)paramBuffer;
+      for (i = 0; i < ((IntBuffer)localObject).limit(); i++) {
+        if (0 < i) paramStringBuilder.append(", ");
+        if (null == paramString) {
+          paramStringBuilder.append(((IntBuffer)localObject).get(i));
+        } else {
+          paramStringBuilder.append(String.format(paramString, new Object[] { Integer.valueOf(((IntBuffer)localObject).get(i)) }));
+        }
+      }
+    } else if ((paramBuffer instanceof ShortBuffer)) {
+      localObject = (ShortBuffer)paramBuffer;
+      for (i = 0; i < ((ShortBuffer)localObject).limit(); i++) {
+        if (0 < i) paramStringBuilder.append(", ");
+        if (null == paramString) {
+          paramStringBuilder.append(((ShortBuffer)localObject).get(i));
+        } else {
+          paramStringBuilder.append(String.format(paramString, new Object[] { Short.valueOf(((ShortBuffer)localObject).get(i)) }));
+        }
+      }
+    } else if ((paramBuffer instanceof DoubleBuffer)) {
+      localObject = (DoubleBuffer)paramBuffer;
+      for (i = 0; i < ((DoubleBuffer)localObject).limit(); i++) {
+        if (0 < i) paramStringBuilder.append(", ");
+        if (null == paramString) {
+          paramStringBuilder.append(((DoubleBuffer)localObject).get(i));
+        } else {
+          paramStringBuilder.append(String.format(paramString, new Object[] { Double.valueOf(((DoubleBuffer)localObject).get(i)) }));
+        }
+      }
+    } else if ((paramBuffer instanceof LongBuffer)) {
+      localObject = (LongBuffer)paramBuffer;
+      for (i = 0; i < ((LongBuffer)localObject).limit(); i++) {
+        if (0 < i) paramStringBuilder.append(", ");
+        if (null == paramString) {
+          paramStringBuilder.append(((LongBuffer)localObject).get(i));
+        } else {
+          paramStringBuilder.append(String.format(paramString, new Object[] { Long.valueOf(((LongBuffer)localObject).get(i)) }));
+        }
+      }
+    } else if ((paramBuffer instanceof CharBuffer)) {
+      localObject = (CharBuffer)paramBuffer;
+      for (i = 0; i < ((CharBuffer)localObject).limit(); i++) {
+        if (0 < i) paramStringBuilder.append(", ");
+        if (null == paramString) {
+          paramStringBuilder.append(((CharBuffer)localObject).get(i));
+        } else {
+          paramStringBuilder.append(String.format(paramString, new Object[] { Character.valueOf(((CharBuffer)localObject).get(i)) }));
+        }
+      }
+    }
+    paramStringBuilder.append("]");
+    return paramStringBuilder;
+  }
+}

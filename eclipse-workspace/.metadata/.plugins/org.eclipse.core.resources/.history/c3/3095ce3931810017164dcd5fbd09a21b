@@ -1,0 +1,423 @@
+package com.jogamp.common.os;
+
+import com.jogamp.common.jvm.JNILibLoaderBase;
+import com.jogamp.common.util.RunnableExecutor;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class DynamicLibraryBundle
+  implements DynamicLookupHelper
+{
+  private final DynamicLibraryBundleInfo info;
+  protected final List<NativeLibrary> nativeLibraries;
+  private final DynamicLinker dynLinkGlobal;
+  private final List<List<String>> toolLibNames;
+  private final List<String> glueLibNames;
+  private final boolean[] toolLibLoaded;
+  private int toolLibLoadedNumber;
+  private final boolean[] glueLibLoaded;
+  private int glueLibLoadedNumber;
+  private long toolGetProcAddressHandle;
+  private boolean toolGetProcAddressComplete;
+  private HashSet<String> toolGetProcAddressFuncNameSet;
+  private final List<String> toolGetProcAddressFuncNameList;
+  
+  public static RunnableExecutor getDefaultRunnableExecutor()
+  {
+    return RunnableExecutor.currentThreadExecutor;
+  }
+  
+
+
+
+
+
+
+  public DynamicLibraryBundle(DynamicLibraryBundleInfo paramDynamicLibraryBundleInfo)
+  {
+    if (null == paramDynamicLibraryBundleInfo) {
+      throw new RuntimeException("Null DynamicLibraryBundleInfo");
+    }
+    info = paramDynamicLibraryBundleInfo;
+    if (DEBUG) {
+      System.err.println(Thread.currentThread().getName() + " - DynamicLibraryBundle.init start with: " + paramDynamicLibraryBundleInfo.getClass().getName());
+    }
+    nativeLibraries = new ArrayList();
+    toolLibNames = paramDynamicLibraryBundleInfo.getToolLibNames();
+    glueLibNames = paramDynamicLibraryBundleInfo.getGlueLibNames();
+    toolLibLoaded = new boolean[toolLibNames.size()];
+    if (DEBUG) {
+      if (toolLibNames.size() == 0) {
+        System.err.println("No Tool native library names given");
+      }
+      
+      if (glueLibNames.size() == 0) {
+        System.err.println("No Glue native library names given");
+      }
+    }
+    
+    for (int i = toolLibNames.size() - 1; i >= 0; i--) {
+      toolLibLoaded[i] = false;
+    }
+    glueLibLoaded = new boolean[glueLibNames.size()];
+    for (i = glueLibNames.size() - 1; i >= 0; i--) {
+      glueLibLoaded[i] = false;
+    }
+    
+
+    final DynamicLinker[] arrayOfDynamicLinker = { null };
+    paramDynamicLibraryBundleInfo.getLibLoaderExecutor().invoke(true, new Runnable()
+    {
+
+      public void run() { arrayOfDynamicLinker[0] = loadLibraries(); }
+    });
+    dynLinkGlobal = arrayOfDynamicLinker[0];
+    
+
+    toolGetProcAddressFuncNameList = paramDynamicLibraryBundleInfo.getToolGetProcAddressFuncNameList();
+    if (null != toolGetProcAddressFuncNameList) {
+      toolGetProcAddressFuncNameSet = new HashSet(toolGetProcAddressFuncNameList);
+      toolGetProcAddressHandle = getToolGetProcAddressHandle();
+      toolGetProcAddressComplete = (0L != toolGetProcAddressHandle);
+    } else {
+      toolGetProcAddressFuncNameSet = new HashSet();
+      toolGetProcAddressHandle = 0L;
+      toolGetProcAddressComplete = true;
+    }
+    if (DEBUG) {
+      System.err.println("DynamicLibraryBundle.init Summary: " + paramDynamicLibraryBundleInfo.getClass().getName());
+      System.err.println("     toolGetProcAddressFuncNameList: " + toolGetProcAddressFuncNameList + ", complete: " + toolGetProcAddressComplete + ", 0x" + Long.toHexString(toolGetProcAddressHandle));
+      System.err.println("     Tool Lib Names : " + toolLibNames);
+      System.err.println("     Tool Lib Loaded: " + getToolLibLoadedNumber() + "/" + getToolLibNumber() + " " + Arrays.toString(toolLibLoaded) + ", complete " + isToolLibComplete());
+      System.err.println("     Glue Lib Names : " + glueLibNames);
+      System.err.println("     Glue Lib Loaded: " + getGlueLibLoadedNumber() + "/" + getGlueLibNumber() + " " + Arrays.toString(glueLibLoaded) + ", complete " + isGlueLibComplete());
+      System.err.println("     All Complete: " + isLibComplete());
+      System.err.println("     LibLoaderExecutor: " + paramDynamicLibraryBundleInfo.getLibLoaderExecutor().getClass().getName());
+    }
+  }
+  
+  public final void destroy()
+  {
+    if (DEBUG) {
+      System.err.println(Thread.currentThread().getName() + " - DynamicLibraryBundle.destroy() START: " + info.getClass().getName());
+    }
+    toolGetProcAddressFuncNameSet = null;
+    toolGetProcAddressHandle = 0L;
+    toolGetProcAddressComplete = false;
+    for (int i = 0; i < nativeLibraries.size(); i++) {
+      ((NativeLibrary)nativeLibraries.get(i)).close();
+    }
+    nativeLibraries.clear();
+    toolLibNames.clear();
+    glueLibNames.clear();
+    if (DEBUG) {
+      System.err.println(Thread.currentThread().getName() + " - DynamicLibraryBundle.destroy() END: " + info.getClass().getName());
+    }
+  }
+  
+  public final boolean isLibComplete() {
+    return (isToolLibComplete()) && (isGlueLibComplete());
+  }
+  
+  public final int getToolLibNumber() {
+    return toolLibNames.size();
+  }
+  
+  public final int getToolLibLoadedNumber() {
+    return toolLibLoadedNumber;
+  }
+  
+
+
+
+
+
+  public final boolean isToolLibComplete()
+  {
+    int i = getToolLibNumber();
+    if ((toolGetProcAddressComplete) && ((0 == i) || (null != dynLinkGlobal))) {}
+    
+    return i == getToolLibLoadedNumber();
+  }
+  
+  public final boolean isToolLibLoaded() {
+    return 0 < toolLibLoadedNumber;
+  }
+  
+  public final boolean isToolLibLoaded(int paramInt) {
+    if ((0 <= paramInt) && (paramInt < toolLibLoaded.length)) {
+      return toolLibLoaded[paramInt];
+    }
+    return false;
+  }
+  
+  public final int getGlueLibNumber() {
+    return glueLibNames.size();
+  }
+  
+  public final int getGlueLibLoadedNumber() {
+    return glueLibLoadedNumber;
+  }
+  
+
+
+
+
+
+
+  public final boolean isGlueLibComplete()
+  {
+    return (0 == getGlueLibNumber()) || (isGlueLibLoaded(getGlueLibNumber() - 1));
+  }
+  
+  public final boolean isGlueLibLoaded(int paramInt) {
+    if ((0 <= paramInt) && (paramInt < glueLibLoaded.length)) {
+      return glueLibLoaded[paramInt];
+    }
+    return false;
+  }
+  
+  public final DynamicLibraryBundleInfo getBundleInfo() { return info; }
+  
+  protected final long getToolGetProcAddressHandle() throws SecurityException {
+    if (!isToolLibLoaded()) {
+      return 0L;
+    }
+    long l = 0L;
+    for (int i = 0; i < toolGetProcAddressFuncNameList.size(); i++) {
+      String str = (String)toolGetProcAddressFuncNameList.get(i);
+      l = dynamicLookupFunctionOnLibs(str);
+      if (DEBUG) {
+        System.err.println("getToolGetProcAddressHandle: " + str + " -> 0x" + Long.toHexString(l));
+      }
+    }
+    return l;
+  }
+  
+  protected static final NativeLibrary loadFirstAvailable(List<String> paramList, ClassLoader paramClassLoader, boolean paramBoolean) throws SecurityException {
+    for (int i = 0; i < paramList.size(); i++) {
+      NativeLibrary localNativeLibrary = NativeLibrary.open((String)paramList.get(i), paramClassLoader, paramBoolean);
+      if (localNativeLibrary != null) {
+        return localNativeLibrary;
+      }
+    }
+    return null;
+  }
+  
+  final DynamicLinker loadLibraries() throws SecurityException
+  {
+    toolLibLoadedNumber = 0;
+    ClassLoader localClassLoader = info.getClass().getClassLoader();
+    NativeLibrary localNativeLibrary = null;
+    DynamicLinker localDynamicLinker = null;
+    Object localObject;
+    for (int i = 0; i < toolLibNames.size(); i++) {
+      localObject = (List)toolLibNames.get(i);
+      if ((null != localObject) && (((List)localObject).size() > 0)) {
+        localNativeLibrary = loadFirstAvailable((List)localObject, localClassLoader, info.shallLinkGlobal());
+        if (null == localNativeLibrary) {
+          if (DEBUG) {
+            System.err.println("Unable to load any Tool library of: " + localObject);
+          }
+        } else {
+          if (null == localDynamicLinker) {
+            localDynamicLinker = localNativeLibrary.getDynamicLinker();
+          }
+          nativeLibraries.add(localNativeLibrary);
+          toolLibLoaded[i] = true;
+          toolLibLoadedNumber += 1;
+          if (DEBUG) {
+            System.err.println("Loaded Tool library: " + localNativeLibrary);
+          }
+        }
+      }
+    }
+    if ((toolLibNames.size() > 0) && (!isToolLibLoaded())) {
+      if (DEBUG) {
+        System.err.println("No Tool libraries loaded");
+      }
+      return localDynamicLinker;
+    }
+    
+    glueLibLoadedNumber = 0;
+    for (i = 0; i < glueLibNames.size(); i++) {
+      localObject = (String)glueLibNames.get(i);
+      boolean bool;
+      try
+      {
+        bool = GlueJNILibLoader.loadLibrary((String)localObject, true, localClassLoader);
+        if ((DEBUG) && (!bool)) {
+          System.err.println("Info: Could not load JNI/Glue library: " + (String)localObject);
+        }
+      } catch (UnsatisfiedLinkError localUnsatisfiedLinkError) {
+        bool = false;
+        if (DEBUG) {
+          System.err.println("Unable to load JNI/Glue library: " + (String)localObject);
+          localUnsatisfiedLinkError.printStackTrace();
+        }
+      }
+      glueLibLoaded[i] = bool;
+      if (bool) {
+        glueLibLoadedNumber += 1;
+      }
+    }
+    
+    return localDynamicLinker;
+  }
+  
+
+
+
+  private final long dynamicLookupFunctionOnLibs(String paramString)
+    throws SecurityException
+  {
+    if ((!isToolLibLoaded()) || (null == paramString)) {
+      if ((DEBUG_LOOKUP) && (!isToolLibLoaded())) {
+        System.err.println("Lookup-Native: <" + paramString + "> ** FAILED ** Tool native library not loaded");
+      }
+      return 0L;
+    }
+    long l = 0L;
+    NativeLibrary localNativeLibrary = null;
+    
+    if (info.shallLookupGlobal())
+    {
+
+      l = dynLinkGlobal.lookupSymbolGlobal(paramString);
+    }
+    
+    for (int i = 0; (0L == l) && (i < nativeLibraries.size()); i++) {
+      localNativeLibrary = (NativeLibrary)nativeLibraries.get(i);
+      l = localNativeLibrary.dynamicLookupFunction(paramString);
+    }
+    if (DEBUG_LOOKUP) {
+      String str = null == localNativeLibrary ? "GLOBAL" : localNativeLibrary.toString();
+      if (0L != l) {
+        System.err.println("Lookup-Native: <" + paramString + "> 0x" + Long.toHexString(l) + " in lib " + str);
+      } else {
+        System.err.println("Lookup-Native: <" + paramString + "> ** FAILED ** in libs " + nativeLibraries);
+      }
+    }
+    return l;
+  }
+  
+  private final long toolDynamicLookupFunction(String paramString) {
+    if (0L != toolGetProcAddressHandle) {
+      long l = info.toolGetProcAddress(toolGetProcAddressHandle, paramString);
+      if ((DEBUG_LOOKUP) && 
+        (0L != l)) {
+        System.err.println("Lookup-Tool: <" + paramString + "> 0x" + Long.toHexString(l) + ", via tool 0x" + Long.toHexString(toolGetProcAddressHandle));
+      }
+      
+      return l;
+    }
+    return 0L;
+  }
+  
+  public final void claimAllLinkPermission() throws SecurityException
+  {
+    for (int i = 0; i < nativeLibraries.size(); i++) {
+      ((NativeLibrary)nativeLibraries.get(i)).claimAllLinkPermission();
+    }
+  }
+  
+  public final void releaseAllLinkPermission() throws SecurityException {
+    for (int i = 0; i < nativeLibraries.size(); i++) {
+      ((NativeLibrary)nativeLibraries.get(i)).releaseAllLinkPermission();
+    }
+  }
+  
+  public final long dynamicLookupFunction(String paramString) throws SecurityException
+  {
+    if ((!isToolLibLoaded()) || (null == paramString)) {
+      if ((DEBUG_LOOKUP) && (!isToolLibLoaded())) {
+        System.err.println("Lookup: <" + paramString + "> ** FAILED ** Tool native library not loaded");
+      }
+      return 0L;
+    }
+    
+    if (toolGetProcAddressFuncNameSet.contains(paramString)) {
+      return toolGetProcAddressHandle;
+    }
+    
+    long l = 0L;
+    boolean bool = info.useToolGetProcAdressFirst(paramString);
+    
+    if (bool) {
+      l = toolDynamicLookupFunction(paramString);
+    }
+    if (0L == l) {
+      l = dynamicLookupFunctionOnLibs(paramString);
+    }
+    if ((0L == l) && (!bool)) {
+      l = toolDynamicLookupFunction(paramString);
+    }
+    return l;
+  }
+  
+  public final boolean isFunctionAvailable(String paramString) throws SecurityException
+  {
+    return 0L != dynamicLookupFunction(paramString);
+  }
+  
+  static final class GlueJNILibLoader extends JNILibLoaderBase {
+    GlueJNILibLoader() {}
+    
+    protected static synchronized boolean loadLibrary(String paramString, boolean paramBoolean, ClassLoader paramClassLoader) { return JNILibLoaderBase.loadLibrary(paramString, paramBoolean, paramClassLoader); }
+  }
+}

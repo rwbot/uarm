@@ -1,0 +1,126 @@
+package com.jogamp.opengl.util.awt;
+
+import java.awt.Graphics2D;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
+import java.awt.Image;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.awt.image.WritableRaster;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ImageUtil
+{
+  private ImageUtil() {}
+  
+  public static void flipImageVertically(BufferedImage paramBufferedImage)
+  {
+    WritableRaster localWritableRaster = paramBufferedImage.getRaster();
+    Object localObject1 = null;
+    Object localObject2 = null;
+    
+    for (int i = 0; i < paramBufferedImage.getHeight() / 2; i++) {
+      localObject1 = localWritableRaster.getDataElements(0, i, paramBufferedImage.getWidth(), 1, localObject1);
+      localObject2 = localWritableRaster.getDataElements(0, paramBufferedImage.getHeight() - i - 1, paramBufferedImage.getWidth(), 1, localObject2);
+      localWritableRaster.setDataElements(0, i, paramBufferedImage.getWidth(), 1, localObject2);
+      localWritableRaster.setDataElements(0, paramBufferedImage.getHeight() - i - 1, paramBufferedImage.getWidth(), 1, localObject1);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static BufferedImage createCompatibleImage(int paramInt1, int paramInt2)
+  {
+    GraphicsConfiguration localGraphicsConfiguration = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration();
+    return localGraphicsConfiguration.createCompatibleImage(paramInt1, paramInt2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public static BufferedImage createThumbnail(BufferedImage paramBufferedImage, int paramInt)
+  {
+    if (paramInt > paramBufferedImage.getWidth()) {
+      throw new IllegalArgumentException("Thumbnail width must be greater than image width");
+    }
+    
+    if (paramInt == paramBufferedImage.getWidth()) {
+      return paramBufferedImage;
+    }
+    
+    float f = paramBufferedImage.getWidth() / paramBufferedImage.getHeight();
+    int i = paramBufferedImage.getWidth();
+    Object localObject = paramBufferedImage;
+    do
+    {
+      i /= 2;
+      if (i < paramInt) {
+        i = paramInt;
+      }
+      
+      BufferedImage localBufferedImage = createCompatibleImage(i, (int)(i / f));
+      Graphics2D localGraphics2D = localBufferedImage.createGraphics();
+      localGraphics2D.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+      
+      localGraphics2D.drawImage((Image)localObject, 0, 0, localBufferedImage.getWidth(), localBufferedImage.getHeight(), null);
+      localGraphics2D.dispose();
+      localObject = localBufferedImage;
+    } while (i != paramInt);
+    
+    return localObject;
+  }
+}

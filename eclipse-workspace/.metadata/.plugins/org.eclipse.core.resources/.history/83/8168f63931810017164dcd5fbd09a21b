@@ -1,0 +1,132 @@
+package com.jogamp.opengl.util.texture;
+
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.util.TimeFrameI;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract interface TextureSequence
+{
+  public static final String samplerExternalOES = "samplerExternalOES";
+  public static final String sampler2D = "sampler2D";
+  
+  public abstract int getTextureTarget();
+  
+  public abstract int getTextureUnit();
+  
+  public abstract int[] getTextureMinMagFilter();
+  
+  public abstract int[] getTextureWrapST();
+  
+  public abstract boolean isTextureAvailable();
+  
+  public abstract TextureFrame getLastTexture()
+    throws IllegalStateException;
+  
+  public abstract TextureFrame getNextTexture(GL paramGL)
+    throws IllegalStateException;
+  
+  public abstract String getRequiredExtensionsShaderStub()
+    throws IllegalStateException;
+  
+  public abstract String getTextureSampler2DType()
+    throws IllegalStateException;
+  
+  public abstract String getTextureLookupFunctionName(String paramString)
+    throws IllegalStateException;
+  
+  public abstract String getTextureLookupFragmentShaderImpl()
+    throws IllegalStateException;
+  
+  public abstract int getTextureFragmentShaderHashCode();
+  
+  public static abstract interface TexSeqEventListener<T extends TextureSequence>
+  {
+    public abstract void newFrameAvailable(T paramT, TextureSequence.TextureFrame paramTextureFrame, long paramLong);
+  }
+  
+  public static class TextureFrame
+    extends TimeFrameI
+  {
+    protected final Texture texture;
+    
+    public TextureFrame(Texture paramTexture, int paramInt1, int paramInt2)
+    {
+      super(paramInt2);
+      texture = paramTexture;
+    }
+    
+    public TextureFrame(Texture paramTexture) { texture = paramTexture; }
+    
+    public final Texture getTexture() {
+      return texture;
+    }
+    
+    public String toString() {
+      return "TextureFrame[pts " + pts + " ms, l " + duration + " ms, texID " + (null != texture ? texture.getTextureObject() : 0) + "]";
+    }
+  }
+}

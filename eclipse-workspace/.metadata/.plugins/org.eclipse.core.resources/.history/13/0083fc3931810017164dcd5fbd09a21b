@@ -1,0 +1,130 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class GlyfDescript
+  extends Program
+  implements GlyphDescription
+{
+  public static final byte onCurve = 1;
+  public static final byte xShortVector = 2;
+  public static final byte yShortVector = 4;
+  public static final byte repeat = 8;
+  public static final byte xDual = 16;
+  public static final byte yDual = 32;
+  protected GlyfTable _parentTable;
+  private int _glyphIndex;
+  private final int _numberOfContours;
+  private final short _xMin;
+  private final short _yMin;
+  private final short _xMax;
+  private final short _yMax;
+  
+  protected GlyfDescript(GlyfTable paramGlyfTable, int paramInt, short paramShort, DataInput paramDataInput)
+    throws IOException
+  {
+    _parentTable = paramGlyfTable;
+    _numberOfContours = paramShort;
+    _xMin = paramDataInput.readShort();
+    _yMin = paramDataInput.readShort();
+    _xMax = paramDataInput.readShort();
+    _yMax = paramDataInput.readShort();
+  }
+  
+  public int getNumberOfContours() {
+    return _numberOfContours;
+  }
+  
+  public int getGlyphIndex()
+  {
+    return _glyphIndex;
+  }
+  
+  public short getXMaximum()
+  {
+    return _xMax;
+  }
+  
+  public short getXMinimum()
+  {
+    return _xMin;
+  }
+  
+  public short getYMaximum()
+  {
+    return _yMax;
+  }
+  
+  public short getYMinimum()
+  {
+    return _yMin;
+  }
+  
+
+
+
+
+
+
+  public String toString()
+  {
+    return "          numberOfContours: " + _numberOfContours + "\n          xMin:             " + _xMin + "\n          yMin:             " + _yMin + "\n          xMax:             " + _xMax + "\n          yMax:             " + _yMax;
+  }
+}

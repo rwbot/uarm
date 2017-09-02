@@ -1,0 +1,149 @@
+package com.jogamp.newt.event;
+
+import java.util.EventObject;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class NEWTEvent
+  extends EventObject
+{
+  public static final Object consumedTag = new Object();
+  
+  private final short eventType;
+  private final long when;
+  private Object attachment;
+  static final boolean DEBUG = false;
+  
+  protected NEWTEvent(short paramShort, Object paramObject, long paramLong)
+  {
+    super(paramObject);
+    eventType = paramShort;
+    when = paramLong;
+    attachment = null;
+  }
+  
+  public final short getEventType()
+  {
+    return eventType;
+  }
+  
+  public final long getWhen()
+  {
+    return when;
+  }
+  
+
+
+
+
+
+
+
+  public final void setAttachment(Object paramObject)
+  {
+    attachment = paramObject;
+  }
+  
+
+
+  public final Object getAttachment()
+  {
+    return attachment;
+  }
+  
+
+
+
+
+  public final boolean isConsumed()
+  {
+    return consumedTag == attachment;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void setConsumed(boolean paramBoolean)
+  {
+    if (paramBoolean) {
+      setAttachment(consumedTag);
+    } else if (consumedTag == attachment) {
+      setAttachment(null);
+    }
+  }
+  
+  public String toString()
+  {
+    return toString(null).toString();
+  }
+  
+  public StringBuilder toString(StringBuilder paramStringBuilder) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    return paramStringBuilder.append("NEWTEvent[source:").append(getSource().getClass().getName()).append(", consumed ").append(isConsumed()).append(", when:").append(getWhen()).append(" d ").append(System.currentTimeMillis() - getWhen()).append("ms]");
+  }
+  
+  public static String toHexString(short paramShort) {
+    return "0x" + Integer.toHexString(paramShort & 0xFFFF);
+  }
+}

@@ -1,0 +1,132 @@
+package jogamp.opengl.egl;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.egl.EGLGraphicsDevice;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.egl.EGL;
+import java.io.PrintStream;
+import jogamp.nativewindow.ProxySurfaceImpl;
+import jogamp.opengl.GLDrawableImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class EGLDrawable
+  extends GLDrawableImpl
+{
+  static boolean DEBUG = GLDrawableImpl.DEBUG;
+  
+  protected EGLDrawable(EGLDrawableFactory paramEGLDrawableFactory, EGLSurface paramEGLSurface) throws GLException {
+    super(paramEGLDrawableFactory, paramEGLSurface, false);
+  }
+  
+  public final GLContext createContext(GLContext paramGLContext)
+  {
+    return new EGLContext(this, paramGLContext);
+  }
+  
+  protected final void createHandle()
+  {
+    EGLSurface localEGLSurface = (EGLSurface)surface;
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": createHandle of " + localEGLSurface);
+      ProxySurfaceImpl.dumpHierarchy(System.err, localEGLSurface);
+    }
+    if (localEGLSurface.containsUpstreamOptionBits(64)) {
+      if (0L != localEGLSurface.getSurfaceHandle()) {
+        throw new InternalError("Set surface but claimed to be invalid: " + localEGLSurface);
+      }
+      if (!localEGLSurface.containsUpstreamOptionBits(512)) {
+        localEGLSurface.setEGLSurfaceHandle();
+      }
+    } else if (0L == localEGLSurface.getSurfaceHandle()) {
+      throw new InternalError("Nil surface but claimed to be valid: " + localEGLSurface);
+    }
+  }
+  
+  protected void destroyHandle()
+  {
+    EGLSurface localEGLSurface = (EGLSurface)surface;
+    long l = localEGLSurface.getSurfaceHandle();
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": EGLDrawable: destroyHandle of " + toHexString(l));
+      ProxySurfaceImpl.dumpHierarchy(System.err, localEGLSurface);
+      System.err.println(getThreadName() + ": EGLSurface         : " + localEGLSurface);
+      ExceptionUtils.dumpStack(System.err);
+    }
+    if ((!localEGLSurface.containsUpstreamOptionBits(512)) && (0L == l))
+    {
+      throw new InternalError("Nil surface but claimed to be valid: " + localEGLSurface);
+    }
+    EGLGraphicsDevice localEGLGraphicsDevice = (EGLGraphicsDevice)localEGLSurface.getGraphicsConfiguration().getScreen().getDevice();
+    if ((localEGLSurface.containsUpstreamOptionBits(64)) && 
+      (0L != l)) {
+      EGL.eglDestroySurface(localEGLGraphicsDevice.getHandle(), l);
+      localEGLSurface.setSurfaceHandle(0L);
+    }
+  }
+  
+
+  protected final void setRealizedImpl()
+  {
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": EGLDrawable.setRealized(" + realized + "): NOP - " + surface);
+    }
+  }
+  
+  protected final void swapBuffersImpl(boolean paramBoolean)
+  {
+    if (paramBoolean) {
+      EGLGraphicsDevice localEGLGraphicsDevice = (EGLGraphicsDevice)surface.getGraphicsConfiguration().getScreen().getDevice();
+      
+      if (!EGL.eglSwapBuffers(localEGLGraphicsDevice.getHandle(), surface.getSurfaceHandle())) {
+        throw new GLException("Error swapping buffers, eglError " + toHexString(EGL.eglGetError()) + ", " + this);
+      }
+    }
+  }
+  
+
+
+
+
+
+
+  public String toString()
+  {
+    return getClass().getName() + "[realized " + isRealized() + ",\n\tfactory    " + getFactory() + ",\n\tsurface    " + getNativeSurface() + ",\n\teglSurface " + toHexString(surface.getSurfaceHandle()) + ",\n\teglConfig  " + surface.getGraphicsConfiguration() + ",\n\trequested  " + getRequestedGLCapabilities() + ",\n\tchosen     " + getChosenGLCapabilities() + "]";
+  }
+}

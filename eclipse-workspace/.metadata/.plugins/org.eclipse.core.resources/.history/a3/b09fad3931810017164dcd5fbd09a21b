@@ -1,0 +1,98 @@
+package de.voidplus.leapmotion;
+
+import com.leapmotion.leap.Vector;
+import processing.core.PApplet;
+import processing.core.PVector;
+
+public class Pointable
+{
+  protected PApplet parent;
+  protected LeapMotion leap;
+  protected com.leapmotion.leap.Pointable _pointable;
+  
+  public Pointable(PApplet paramPApplet, LeapMotion paramLeapMotion, com.leapmotion.leap.Pointable paramPointable)
+  {
+    parent = paramPApplet;
+    leap = paramLeapMotion;
+    _pointable = paramPointable;
+  }
+  
+  public int getId()
+  {
+    return _pointable.id();
+  }
+  
+  public PVector getPosition()
+  {
+    return leap.map(_pointable.tipPosition());
+  }
+  
+  public PVector getRawPosition()
+  {
+    return leap.convert(_pointable.tipPosition());
+  }
+  
+  public PVector getStabilizedPosition()
+  {
+    return leap.map(_pointable.stabilizedTipPosition());
+  }
+  
+  public PVector getRawStabilizedPosition()
+  {
+    return leap.convert(_pointable.tipPosition());
+  }
+  
+  public PVector getVelocity()
+  {
+    return leap.map(_pointable.tipVelocity());
+  }
+  
+  public PVector getRawVelocity()
+  {
+    return leap.convert(_pointable.tipVelocity());
+  }
+  
+  public PVector getDirection()
+  {
+    return new PVector(_pointable.direction().getX(), -_pointable.direction().getY(), _pointable.direction().getZ());
+  }
+  
+  public float getTouchDistance()
+  {
+    return _pointable.touchDistance();
+  }
+  
+  public int getTouchZone()
+  {
+    switch (1.$SwitchMap$com$leapmotion$leap$Pointable$Zone[_pointable.touchZone().ordinal()])
+    {
+    case 1: 
+      return -1;
+    case 2: 
+      return 0;
+    case 3: 
+      return 1;
+    }
+    return -1;
+  }
+  
+  public float getLength()
+  {
+    return _pointable.length();
+  }
+  
+  public float getTimeVisible()
+  {
+    return _pointable.timeVisible();
+  }
+  
+  protected boolean isFinger()
+  {
+    return _pointable.isFinger();
+  }
+  
+  protected boolean isTool()
+  {
+    return _pointable.isTool();
+  }
+}

@@ -1,0 +1,72 @@
+package com.leapmotion.leap;
+
+import java.util.Iterator;
+
+
+
+public class GestureList
+  extends Interface
+  implements Iterable<Gesture>
+{
+  private long swigCPtr;
+  
+  public GestureList(long paramLong, boolean paramBoolean)
+  {
+    super(LeapJNI.GestureList_SWIGUpcast(paramLong), paramBoolean);
+    swigCPtr = paramLong;
+  }
+  
+  public static long getCPtr(GestureList paramGestureList) {
+    return paramGestureList == null ? 0L : swigCPtr;
+  }
+  
+  protected void finalize() {
+    delete();
+  }
+  
+  public synchronized void delete() {
+    if (swigCPtr != 0L) {
+      if (swigCMemOwn) {
+        swigCMemOwn = false;
+        LeapJNI.delete_GestureList(swigCPtr);
+      }
+      swigCPtr = 0L;
+    }
+    super.delete(); }
+  
+  public class GestureListIterator implements Iterator<Gesture> { public GestureListIterator() {}
+    
+    int index = 0;
+    
+    public boolean hasNext() { return index < count(); }
+    
+    public Gesture next() {
+      return get(index++);
+    }
+    
+    public void remove() {}
+  }
+  
+  public Iterator<Gesture> iterator() { return new GestureListIterator(); }
+  
+  public GestureList()
+  {
+    this(LeapJNI.new_GestureList(), true);
+  }
+  
+  public int count() {
+    return LeapJNI.GestureList_count(swigCPtr, this);
+  }
+  
+  public boolean isEmpty() {
+    return LeapJNI.GestureList_isEmpty(swigCPtr, this);
+  }
+  
+  public Gesture get(int paramInt) {
+    return new Gesture(LeapJNI.GestureList_get(swigCPtr, this, paramInt), true);
+  }
+  
+  public GestureList append(GestureList paramGestureList) {
+    return new GestureList(LeapJNI.GestureList_append(swigCPtr, this, getCPtr(paramGestureList), paramGestureList), false);
+  }
+}

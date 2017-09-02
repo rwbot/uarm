@@ -1,0 +1,514 @@
+package jogamp.opengl.util.glsl.fixedfunc;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.util.ValueConv;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.GLArrayData;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.fixedfunc.GLLightingFunc;
+import com.jogamp.opengl.fixedfunc.GLMatrixFunc;
+import com.jogamp.opengl.fixedfunc.GLPointerFunc;
+import com.jogamp.opengl.util.GLArrayDataWrapper;
+import com.jogamp.opengl.util.GLBuffers;
+import com.jogamp.opengl.util.PMVMatrix;
+import com.jogamp.opengl.util.glsl.fixedfunc.ShaderSelectionMode;
+import java.nio.Buffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class FixedFuncHook
+  implements GLLightingFunc, GLMatrixFunc, GLPointerFunc
+{
+  public static final int MAX_TEXTURE_UNITS = 8;
+  protected final GLProfile gl2es1GLProfile;
+  protected FixedFuncPipeline fixedFunction;
+  protected PMVMatrix pmvMatrix;
+  protected boolean ownsPMVMatrix;
+  protected GL2ES2 gl;
+  
+  public FixedFuncHook(GL2ES2 paramGL2ES2, ShaderSelectionMode paramShaderSelectionMode, PMVMatrix paramPMVMatrix)
+  {
+    gl2es1GLProfile = GLProfile.createCustomGLProfile("GL2ES1", paramGL2ES2.getGLProfile().getImpl());
+    gl = paramGL2ES2;
+    if (null != paramPMVMatrix) {
+      ownsPMVMatrix = false;
+      pmvMatrix = paramPMVMatrix;
+    } else {
+      ownsPMVMatrix = true;
+      pmvMatrix = new PMVMatrix();
+    }
+    fixedFunction = new FixedFuncPipeline(gl, paramShaderSelectionMode, pmvMatrix);
+  }
+  
+
+
+
+
+
+
+
+  public FixedFuncHook(GL2ES2 paramGL2ES2, ShaderSelectionMode paramShaderSelectionMode, PMVMatrix paramPMVMatrix, Class<?> paramClass, String paramString1, String paramString2, String paramString3, String paramString4, String paramString5, String paramString6)
+  {
+    gl2es1GLProfile = GLProfile.createCustomGLProfile("GL2ES1", paramGL2ES2.getGLProfile().getImpl());
+    gl = paramGL2ES2;
+    if (null != paramPMVMatrix) {
+      ownsPMVMatrix = false;
+      pmvMatrix = paramPMVMatrix;
+    } else {
+      ownsPMVMatrix = true;
+      pmvMatrix = new PMVMatrix();
+    }
+    
+    fixedFunction = new FixedFuncPipeline(gl, paramShaderSelectionMode, pmvMatrix, paramClass, paramString1, paramString2, paramString3, paramString4, paramString5, paramString6);
+  }
+  
+
+  public boolean verbose() { return fixedFunction.verbose(); }
+  
+  public void setVerbose(boolean paramBoolean) { fixedFunction.setVerbose(paramBoolean); }
+  
+  public void destroy() {
+    fixedFunction.destroy(gl);
+    fixedFunction = null;
+    pmvMatrix = null;
+    gl = null;
+  }
+  
+  public PMVMatrix getMatrix() { return pmvMatrix; }
+  
+
+
+  public final boolean isGL4core()
+  {
+    return false;
+  }
+  
+  public final boolean isGL3core() { return false; }
+  
+  public final boolean isGLcore() {
+    return false;
+  }
+  
+  public final boolean isGLES2Compatible() { return false; }
+  
+  public final boolean isGLES3Compatible() {
+    return false;
+  }
+  
+  public final GLProfile getGLProfile() { return gl2es1GLProfile; }
+  
+  public void glDrawArrays(int paramInt1, int paramInt2, int paramInt3) {
+    fixedFunction.glDrawArrays(gl, paramInt1, paramInt2, paramInt3);
+  }
+  
+  public void glDrawElements(int paramInt1, int paramInt2, int paramInt3, Buffer paramBuffer) { fixedFunction.glDrawElements(gl, paramInt1, paramInt2, paramInt3, paramBuffer); }
+  
+  public void glDrawElements(int paramInt1, int paramInt2, int paramInt3, long paramLong) {
+    fixedFunction.glDrawElements(gl, paramInt1, paramInt2, paramInt3, paramLong);
+  }
+  
+  public void glActiveTexture(int paramInt) {
+    fixedFunction.glActiveTexture(paramInt);
+    gl.glActiveTexture(paramInt);
+  }
+  
+  public void glEnable(int paramInt) { if (fixedFunction.glEnable(paramInt, true))
+      gl.glEnable(paramInt);
+  }
+  
+  public void glDisable(int paramInt) {
+    if (fixedFunction.glEnable(paramInt, false)) {
+      gl.glDisable(paramInt);
+    }
+  }
+  
+  public void glGetFloatv(int paramInt, FloatBuffer paramFloatBuffer) {
+    if (PMVMatrix.isMatrixGetName(paramInt)) {
+      pmvMatrix.glGetFloatv(paramInt, paramFloatBuffer);
+      return;
+    }
+    gl.glGetFloatv(paramInt, paramFloatBuffer);
+  }
+  
+  public void glGetFloatv(int paramInt1, float[] paramArrayOfFloat, int paramInt2) {
+    if (PMVMatrix.isMatrixGetName(paramInt1)) {
+      pmvMatrix.glGetFloatv(paramInt1, paramArrayOfFloat, paramInt2);
+      return;
+    }
+    gl.glGetFloatv(paramInt1, paramArrayOfFloat, paramInt2);
+  }
+  
+  public void glGetIntegerv(int paramInt, IntBuffer paramIntBuffer) {
+    if (PMVMatrix.isMatrixGetName(paramInt)) {
+      pmvMatrix.glGetIntegerv(paramInt, paramIntBuffer);
+      return;
+    }
+    gl.glGetIntegerv(paramInt, paramIntBuffer);
+  }
+  
+  public void glGetIntegerv(int paramInt1, int[] paramArrayOfInt, int paramInt2) {
+    if (PMVMatrix.isMatrixGetName(paramInt1)) {
+      pmvMatrix.glGetIntegerv(paramInt1, paramArrayOfInt, paramInt2);
+      return;
+    }
+    gl.glGetIntegerv(paramInt1, paramArrayOfInt, paramInt2);
+  }
+  
+  public void glTexEnvi(int paramInt1, int paramInt2, int paramInt3) {
+    fixedFunction.glTexEnvi(paramInt1, paramInt2, paramInt3);
+  }
+  
+  public void glGetTexEnviv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer) { fixedFunction.glGetTexEnviv(paramInt1, paramInt2, paramIntBuffer); }
+  
+
+  public void glGetTexEnviv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3) { fixedFunction.glGetTexEnviv(paramInt1, paramInt2, paramArrayOfInt, paramInt3); }
+  
+  public void glBindTexture(int paramInt1, int paramInt2) {
+    fixedFunction.glBindTexture(paramInt1, paramInt2);
+    gl.glBindTexture(paramInt1, paramInt2);
+  }
+  
+  public void glTexImage2D(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, Buffer paramBuffer)
+  {
+    switch (paramInt3) {
+    case 3:  paramInt3 = 6408 == paramInt7 ? 6408 : 6407; break;
+    case 4:  paramInt3 = 6407 == paramInt7 ? 6407 : 6408;
+    }
+    fixedFunction.glTexImage2D(paramInt1, paramInt3, paramInt7);
+    gl.glTexImage2D(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8, paramBuffer);
+  }
+  
+  public void glTexImage2D(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, long paramLong)
+  {
+    switch (paramInt3) {
+    case 3:  paramInt3 = 6408 == paramInt7 ? 6408 : 6407; break;
+    case 4:  paramInt3 = 6407 == paramInt7 ? 6407 : 6408;
+    }
+    fixedFunction.glTexImage2D(paramInt1, paramInt3, paramInt7);
+    gl.glTexImage2D(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8, paramLong);
+  }
+  
+  public void glPointSize(float paramFloat) {
+    fixedFunction.glPointSize(paramFloat);
+  }
+  
+  public void glPointParameterf(int paramInt, float paramFloat) { fixedFunction.glPointParameterf(paramInt, paramFloat); }
+  
+  public void glPointParameterfv(int paramInt1, float[] paramArrayOfFloat, int paramInt2) {
+    fixedFunction.glPointParameterfv(paramInt1, paramArrayOfFloat, paramInt2);
+  }
+  
+  public void glPointParameterfv(int paramInt, FloatBuffer paramFloatBuffer) { fixedFunction.glPointParameterfv(paramInt, paramFloatBuffer); }
+  
+
+
+
+  public int glGetMatrixMode()
+  {
+    return pmvMatrix.glGetMatrixMode();
+  }
+  
+  public void glMatrixMode(int paramInt) {
+    pmvMatrix.glMatrixMode(paramInt);
+  }
+  
+  public void glLoadMatrixf(FloatBuffer paramFloatBuffer) {
+    pmvMatrix.glLoadMatrixf(paramFloatBuffer);
+  }
+  
+  public void glLoadMatrixf(float[] paramArrayOfFloat, int paramInt) {
+    glLoadMatrixf(Buffers.newDirectFloatBuffer(paramArrayOfFloat, paramInt));
+  }
+  
+  public void glPopMatrix() {
+    pmvMatrix.glPopMatrix();
+  }
+  
+  public void glPushMatrix() {
+    pmvMatrix.glPushMatrix();
+  }
+  
+  public void glLoadIdentity() {
+    pmvMatrix.glLoadIdentity();
+  }
+  
+  public void glMultMatrixf(FloatBuffer paramFloatBuffer) {
+    pmvMatrix.glMultMatrixf(paramFloatBuffer);
+  }
+  
+  public void glMultMatrixf(float[] paramArrayOfFloat, int paramInt) {
+    glMultMatrixf(Buffers.newDirectFloatBuffer(paramArrayOfFloat, paramInt));
+  }
+  
+  public void glTranslatef(float paramFloat1, float paramFloat2, float paramFloat3) {
+    pmvMatrix.glTranslatef(paramFloat1, paramFloat2, paramFloat3);
+  }
+  
+  public void glRotatef(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4) {
+    pmvMatrix.glRotatef(paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+  }
+  
+  public void glScalef(float paramFloat1, float paramFloat2, float paramFloat3) {
+    pmvMatrix.glScalef(paramFloat1, paramFloat2, paramFloat3);
+  }
+  
+  public void glOrtho(double paramDouble1, double paramDouble2, double paramDouble3, double paramDouble4, double paramDouble5, double paramDouble6) { glOrthof((float)paramDouble1, (float)paramDouble2, (float)paramDouble3, (float)paramDouble4, (float)paramDouble5, (float)paramDouble6); }
+  
+  public void glOrthof(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6)
+  {
+    pmvMatrix.glOrthof(paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramFloat5, paramFloat6);
+  }
+  
+  public void glFrustum(double paramDouble1, double paramDouble2, double paramDouble3, double paramDouble4, double paramDouble5, double paramDouble6) { glFrustumf((float)paramDouble1, (float)paramDouble2, (float)paramDouble3, (float)paramDouble4, (float)paramDouble5, (float)paramDouble6); }
+  
+  public void glFrustumf(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6)
+  {
+    pmvMatrix.glFrustumf(paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramFloat5, paramFloat6);
+  }
+  
+
+
+
+  public void glColor4f(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    fixedFunction.glColor4f(gl, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+  }
+  
+  public void glColor4ub(byte paramByte1, byte paramByte2, byte paramByte3, byte paramByte4) {
+    glColor4f(ValueConv.byte_to_float(paramByte1, false), 
+      ValueConv.byte_to_float(paramByte2, false), 
+      ValueConv.byte_to_float(paramByte3, false), 
+      ValueConv.byte_to_float(paramByte4, false));
+  }
+  
+  public void glLightfv(int paramInt1, int paramInt2, FloatBuffer paramFloatBuffer) {
+    fixedFunction.glLightfv(gl, paramInt1, paramInt2, paramFloatBuffer);
+  }
+  
+  public void glLightfv(int paramInt1, int paramInt2, float[] paramArrayOfFloat, int paramInt3) {
+    glLightfv(paramInt1, paramInt2, Buffers.newDirectFloatBuffer(paramArrayOfFloat, paramInt3));
+  }
+  
+  public void glMaterialfv(int paramInt1, int paramInt2, FloatBuffer paramFloatBuffer) {
+    fixedFunction.glMaterialfv(gl, paramInt1, paramInt2, paramFloatBuffer);
+  }
+  
+  public void glMaterialfv(int paramInt1, int paramInt2, float[] paramArrayOfFloat, int paramInt3) {
+    glMaterialfv(paramInt1, paramInt2, Buffers.newDirectFloatBuffer(paramArrayOfFloat, paramInt3));
+  }
+  
+  public void glMaterialf(int paramInt1, int paramInt2, float paramFloat) {
+    glMaterialfv(paramInt1, paramInt2, Buffers.newDirectFloatBuffer(new float[] { paramFloat }));
+  }
+  
+
+
+
+  public void glShadeModel(int paramInt)
+  {
+    fixedFunction.glShadeModel(gl, paramInt);
+  }
+  
+  public void glAlphaFunc(int paramInt, float paramFloat) { fixedFunction.glAlphaFunc(paramInt, paramFloat); }
+  
+
+
+
+
+
+
+
+
+
+  public void glClientActiveTexture(int paramInt)
+  {
+    fixedFunction.glClientActiveTexture(paramInt);
+  }
+  
+  public void glEnableClientState(int paramInt) {
+    fixedFunction.glEnableClientState(gl, paramInt);
+  }
+  
+  public void glDisableClientState(int paramInt) {
+    fixedFunction.glDisableClientState(gl, paramInt);
+  }
+  
+  public void glVertexPointer(GLArrayData paramGLArrayData)
+  {
+    if (paramGLArrayData.isVBO()) {
+      if (!gl.isVBOArrayBound()) {
+        throw new GLException("VBO array is not enabled: " + paramGLArrayData);
+      }
+    } else {
+      if (gl.isVBOArrayBound()) {
+        throw new GLException("VBO array is not disabled: " + paramGLArrayData);
+      }
+      Buffers.rangeCheck(paramGLArrayData.getBuffer(), 1);
+      if (!Buffers.isDirect(paramGLArrayData.getBuffer()))
+        throw new GLException("Argument \"pointer\" was not a direct buffer");
+    }
+    fixedFunction.glVertexPointer(gl, paramGLArrayData);
+  }
+  
+  public void glVertexPointer(int paramInt1, int paramInt2, int paramInt3, Buffer paramBuffer)
+  {
+    glVertexPointer(GLArrayDataWrapper.createFixed(32884, paramInt1, paramInt2, GLBuffers.isGLTypeFixedPoint(paramInt2), paramInt3, paramBuffer, 0, 0L, 0, 34962));
+  }
+  
+  public void glVertexPointer(int paramInt1, int paramInt2, int paramInt3, long paramLong)
+  {
+    int i = gl.getBoundBuffer(34962);
+    if (i == 0) {
+      throw new GLException("no GL_ARRAY_BUFFER VBO bound");
+    }
+    glVertexPointer(GLArrayDataWrapper.createFixed(32884, paramInt1, paramInt2, GLBuffers.isGLTypeFixedPoint(paramInt2), paramInt3, null, i, paramLong, 35044, 34962));
+  }
+  
+
+  public void glColorPointer(GLArrayData paramGLArrayData)
+  {
+    if (paramGLArrayData.isVBO()) {
+      if (!gl.isVBOArrayBound()) {
+        throw new GLException("VBO array is not enabled: " + paramGLArrayData);
+      }
+    } else {
+      if (gl.isVBOArrayBound()) {
+        throw new GLException("VBO array is not disabled: " + paramGLArrayData);
+      }
+      Buffers.rangeCheck(paramGLArrayData.getBuffer(), 1);
+      if (!Buffers.isDirect(paramGLArrayData.getBuffer()))
+        throw new GLException("Argument \"pointer\" was not a direct buffer");
+    }
+    fixedFunction.glColorPointer(gl, paramGLArrayData);
+  }
+  
+  public void glColorPointer(int paramInt1, int paramInt2, int paramInt3, Buffer paramBuffer) {
+    glColorPointer(GLArrayDataWrapper.createFixed(32886, paramInt1, paramInt2, GLBuffers.isGLTypeFixedPoint(paramInt2), paramInt3, paramBuffer, 0, 0L, 0, 34962));
+  }
+  
+  public void glColorPointer(int paramInt1, int paramInt2, int paramInt3, long paramLong)
+  {
+    int i = gl.getBoundBuffer(34962);
+    if (i == 0) {
+      throw new GLException("no GL_ARRAY_BUFFER VBO bound");
+    }
+    glColorPointer(GLArrayDataWrapper.createFixed(32886, paramInt1, paramInt2, GLBuffers.isGLTypeFixedPoint(paramInt2), paramInt3, null, i, paramLong, 35044, 34962));
+  }
+  
+
+  public void glNormalPointer(GLArrayData paramGLArrayData)
+  {
+    if (paramGLArrayData.getComponentCount() != 3) {
+      throw new GLException("Only 3 components per normal allowed");
+    }
+    if (paramGLArrayData.isVBO()) {
+      if (!gl.isVBOArrayBound()) {
+        throw new GLException("VBO array is not enabled: " + paramGLArrayData);
+      }
+    } else {
+      if (gl.isVBOArrayBound()) {
+        throw new GLException("VBO array is not disabled: " + paramGLArrayData);
+      }
+      Buffers.rangeCheck(paramGLArrayData.getBuffer(), 1);
+      if (!Buffers.isDirect(paramGLArrayData.getBuffer()))
+        throw new GLException("Argument \"pointer\" was not a direct buffer");
+    }
+    fixedFunction.glNormalPointer(gl, paramGLArrayData);
+  }
+  
+  public void glNormalPointer(int paramInt1, int paramInt2, Buffer paramBuffer) {
+    glNormalPointer(GLArrayDataWrapper.createFixed(32885, 3, paramInt1, GLBuffers.isGLTypeFixedPoint(paramInt1), paramInt2, paramBuffer, 0, 0L, 0, 34962));
+  }
+  
+  public void glNormalPointer(int paramInt1, int paramInt2, long paramLong)
+  {
+    int i = gl.getBoundBuffer(34962);
+    if (i == 0) {
+      throw new GLException("no GL_ARRAY_BUFFER VBO bound");
+    }
+    glNormalPointer(GLArrayDataWrapper.createFixed(32885, 3, paramInt1, GLBuffers.isGLTypeFixedPoint(paramInt1), paramInt2, null, i, paramLong, 35044, 34962));
+  }
+  
+
+  public void glTexCoordPointer(GLArrayData paramGLArrayData)
+  {
+    if (paramGLArrayData.isVBO()) {
+      if (!gl.isVBOArrayBound()) {
+        throw new GLException("VBO array is not enabled: " + paramGLArrayData);
+      }
+    } else {
+      if (gl.isVBOArrayBound()) {
+        throw new GLException("VBO array is not disabled: " + paramGLArrayData);
+      }
+      Buffers.rangeCheck(paramGLArrayData.getBuffer(), 1);
+      if (!Buffers.isDirect(paramGLArrayData.getBuffer()))
+        throw new GLException("Argument \"pointer\" was not a direct buffer");
+    }
+    fixedFunction.glTexCoordPointer(gl, paramGLArrayData);
+  }
+  
+  public void glTexCoordPointer(int paramInt1, int paramInt2, int paramInt3, Buffer paramBuffer) {
+    glTexCoordPointer(
+      GLArrayDataWrapper.createFixed(32888, paramInt1, paramInt2, GLBuffers.isGLTypeFixedPoint(paramInt2), paramInt3, paramBuffer, 0, 0L, 0, 34962));
+  }
+  
+  public void glTexCoordPointer(int paramInt1, int paramInt2, int paramInt3, long paramLong)
+  {
+    int i = gl.getBoundBuffer(34962);
+    if (i == 0) {
+      throw new GLException("no GL_ARRAY_BUFFER VBO bound");
+    }
+    glTexCoordPointer(
+      GLArrayDataWrapper.createFixed(32888, paramInt1, paramInt2, GLBuffers.isGLTypeFixedPoint(paramInt2), paramInt3, null, i, paramLong, 35044, 34962));
+  }
+  
+
+  public final String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append(getClass().getName() + " (");
+    if (null != pmvMatrix) {
+      localStringBuilder.append(", matrixDirty: " + (0 != pmvMatrix.getModifiedBits(false)));
+    }
+    localStringBuilder.append("\n\t, FixedFunction: " + fixedFunction);
+    localStringBuilder.append(gl);
+    localStringBuilder.append(" )");
+    
+    return localStringBuilder.toString();
+  }
+}

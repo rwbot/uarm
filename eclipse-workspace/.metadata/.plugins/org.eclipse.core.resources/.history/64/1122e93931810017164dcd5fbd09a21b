@@ -1,0 +1,257 @@
+package com.jogamp.newt.util;
+
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.SurfaceSize;
+import com.jogamp.newt.MonitorMode;
+import com.jogamp.newt.MonitorMode.SizeAndRRate;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class MonitorModeUtil
+{
+  public MonitorModeUtil() {}
+  
+  public static int getIndex(List<MonitorMode> paramList, MonitorMode paramMonitorMode)
+  {
+    return paramList.indexOf(paramMonitorMode);
+  }
+  
+  public static int getIndexByHashCode(List<MonitorMode> paramList, MonitorMode paramMonitorMode) {
+    if ((null != paramList) && (paramList.size() > 0)) {
+      for (int i = 0; i < paramList.size(); i++) {
+        if (paramMonitorMode.hashCode() == ((MonitorMode)paramList.get(i)).hashCode()) {
+          return i;
+        }
+      }
+    }
+    return -1;
+  }
+  
+  public static MonitorMode getByNativeSizeRateIdAndRotation(List<MonitorMode> paramList, MonitorMode.SizeAndRRate paramSizeAndRRate, int paramInt1, int paramInt2) {
+    if ((null != paramList) && (paramList.size() > 0)) {
+      for (int i = 0; i < paramList.size(); i++) {
+        MonitorMode localMonitorMode = (MonitorMode)paramList.get(i);
+        if ((localMonitorMode.getSizeAndRRate().equals(paramSizeAndRRate)) && (localMonitorMode.getId() == paramInt1) && (localMonitorMode.getRotation() == paramInt2)) {
+          return localMonitorMode;
+        }
+      }
+    }
+    return null;
+  }
+  
+  public static void sort(List<MonitorMode> paramList, boolean paramBoolean)
+  {
+    if (paramBoolean) {
+      Collections.sort(paramList);
+    } else {
+      Collections.sort(paramList, MonitorMode.monitorModeComparatorInv);
+    }
+  }
+  
+
+
+
+
+
+  public static List<MonitorMode> filterBySurfaceSize(List<MonitorMode> paramList, SurfaceSize paramSurfaceSize)
+  {
+    ArrayList localArrayList = new ArrayList();
+    if ((null != paramList) && (paramList.size() > 0)) {
+      for (int i = 0; (null != paramList) && (i < paramList.size()); i++) {
+        MonitorMode localMonitorMode = (MonitorMode)paramList.get(i);
+        if (localMonitorMode.getSurfaceSize().equals(paramSurfaceSize)) {
+          localArrayList.add(localMonitorMode);
+        }
+      }
+    }
+    return localArrayList;
+  }
+  
+
+
+
+
+
+  public static List<MonitorMode> filterByRotation(List<MonitorMode> paramList, int paramInt)
+  {
+    ArrayList localArrayList = new ArrayList();
+    if ((null != paramList) && (paramList.size() > 0)) {
+      for (int i = 0; (null != paramList) && (i < paramList.size()); i++) {
+        MonitorMode localMonitorMode = (MonitorMode)paramList.get(i);
+        if (localMonitorMode.getRotation() == paramInt) {
+          localArrayList.add(localMonitorMode);
+        }
+      }
+    }
+    return localArrayList;
+  }
+  
+
+
+
+
+
+  public static List<MonitorMode> filterByBpp(List<MonitorMode> paramList, int paramInt)
+  {
+    ArrayList localArrayList = new ArrayList();
+    if ((null != paramList) && (paramList.size() > 0)) {
+      for (int i = 0; (null != paramList) && (i < paramList.size()); i++) {
+        MonitorMode localMonitorMode = (MonitorMode)paramList.get(i);
+        if (localMonitorMode.getSurfaceSize().getBitsPerPixel() == paramInt) {
+          localArrayList.add(localMonitorMode);
+        }
+      }
+    }
+    return localArrayList;
+  }
+  
+
+
+
+
+
+  public static List<MonitorMode> filterByFlags(List<MonitorMode> paramList, int paramInt)
+  {
+    ArrayList localArrayList = new ArrayList();
+    if ((null != paramList) && (paramList.size() > 0)) {
+      for (int i = 0; (null != paramList) && (i < paramList.size()); i++) {
+        MonitorMode localMonitorMode = (MonitorMode)paramList.get(i);
+        if (localMonitorMode.getFlags() == paramInt) {
+          localArrayList.add(localMonitorMode);
+        }
+      }
+    }
+    return localArrayList;
+  }
+  
+
+
+
+
+  public static List<MonitorMode> filterByResolution(List<MonitorMode> paramList, DimensionImmutable paramDimensionImmutable)
+  {
+    ArrayList localArrayList = new ArrayList();
+    if ((null != paramList) && (paramList.size() > 0)) {
+      int i = paramDimensionImmutable.getHeight() * paramDimensionImmutable.getWidth();
+      int j = Integer.MAX_VALUE;int k = 0;
+      
+      for (int m = 0; (null != paramList) && (m < paramList.size()); m++) {
+        MonitorMode localMonitorMode = (MonitorMode)paramList.get(m);
+        DimensionImmutable localDimensionImmutable = localMonitorMode.getSurfaceSize().getResolution();
+        int n = Math.abs(i - localDimensionImmutable.getHeight() * localDimensionImmutable.getWidth());
+        if (n < j) {
+          j = n;
+          k = m;
+        }
+        if (localDimensionImmutable.equals(paramDimensionImmutable)) {
+          localArrayList.add(localMonitorMode);
+        }
+      }
+      if ((localArrayList.size() == 0) && (0 <= k))
+      {
+        localArrayList.add(paramList.get(k));
+      }
+    }
+    return localArrayList;
+  }
+  
+
+
+
+
+
+  public static List<MonitorMode> filterByRate(List<MonitorMode> paramList, float paramFloat)
+  {
+    ArrayList localArrayList = new ArrayList();
+    if ((null != paramList) && (paramList.size() > 0)) {
+      float f1 = Float.MAX_VALUE;
+      int i = -1;
+      for (int j = 0; (null != paramList) && (j < paramList.size()); j++) {
+        MonitorMode localMonitorMode = (MonitorMode)paramList.get(j);
+        float f2 = Math.abs(paramFloat - localMonitorMode.getRefreshRate());
+        if (f2 < f1) {
+          f1 = f2;
+          i = j;
+        }
+        if (0.0F == f2) {
+          localArrayList.add(localMonitorMode);
+        }
+      }
+      if ((localArrayList.size() == 0) && (0 <= i))
+      {
+        localArrayList.add(paramList.get(i));
+      }
+    }
+    return localArrayList;
+  }
+  
+
+
+
+  public static List<MonitorMode> getHighestAvailableBpp(List<MonitorMode> paramList)
+  {
+    if ((null != paramList) && (paramList.size() > 0)) {
+      int i = -1;
+      for (int j = 0; (null != paramList) && (j < paramList.size()); j++) {
+        MonitorMode localMonitorMode = (MonitorMode)paramList.get(j);
+        int k = localMonitorMode.getSurfaceSize().getBitsPerPixel();
+        if (k > i) {
+          i = k;
+        }
+      }
+      return filterByBpp(paramList, i);
+    }
+    return new ArrayList();
+  }
+  
+
+
+
+
+  public static List<MonitorMode> getHighestAvailableRate(List<MonitorMode> paramList)
+  {
+    if ((null != paramList) && (paramList.size() > 0)) {
+      float f1 = -1.0F;
+      for (int i = 0; (null != paramList) && (i < paramList.size()); i++) {
+        MonitorMode localMonitorMode = (MonitorMode)paramList.get(i);
+        float f2 = localMonitorMode.getRefreshRate();
+        if (f2 > f1) {
+          f1 = f2;
+        }
+      }
+      return filterByRate(paramList, f1);
+    }
+    return new ArrayList();
+  }
+}

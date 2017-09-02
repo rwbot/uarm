@@ -1,0 +1,36 @@
+package g4p_controls;
+
+import java.io.File;
+import java.io.FilenameFilter;
+import processing.core.PApplet;
+
+class FilenameChooserFilter
+  implements FilenameFilter
+{
+  private final String[] ftypes;
+  
+  public FilenameChooserFilter(String paramString)
+  {
+    ftypes = PApplet.split(paramString.toLowerCase(), ',');
+    for (String str : ftypes) {
+      str = str.trim();
+    }
+  }
+  
+  public boolean accept(File paramFile, String paramString)
+  {
+    String str1 = null;
+    int i = paramString.lastIndexOf('.');
+    if ((i > 0) && (i < paramString.length() - 1)) {
+      str1 = paramString.substring(i + 1).toLowerCase();
+    }
+    if (str1 != null) {
+      for (String str2 : ftypes) {
+        if (str1.equals(str2)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+}

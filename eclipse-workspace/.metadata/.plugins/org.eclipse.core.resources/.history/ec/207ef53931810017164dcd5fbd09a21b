@@ -1,0 +1,56 @@
+package com.jogamp.opengl.util.stereo;
+
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.RectangleImmutable;
+import com.jogamp.opengl.GL;
+
+public abstract interface StereoDeviceRenderer
+{
+  public static final int DISTORTION_BARREL = 1;
+  public static final int DISTORTION_CHROMATIC = 2;
+  public static final int DISTORTION_VIGNETTE = 4;
+  public static final int DISTORTION_TIMEWARP = 8;
+  
+  public abstract StereoDevice getDevice();
+  
+  public abstract Eye getEye(int paramInt);
+  
+  public abstract ViewerPose updateViewerPose();
+  
+  public abstract ViewerPose getLastViewerPose();
+  
+  public abstract int getDistortionBits();
+  
+  public abstract boolean usesSideBySideStereo();
+  
+  public abstract DimensionImmutable[] getEyeSurfaceSize();
+  
+  public abstract DimensionImmutable getTotalSurfaceSize();
+  
+  public abstract int getTextureCount();
+  
+  public abstract int getTextureUnit();
+  
+  public abstract void init(GL paramGL);
+  
+  public abstract void dispose(GL paramGL);
+  
+  public abstract void beginFrame(GL paramGL);
+  
+  public abstract void endFrame(GL paramGL);
+  
+  public abstract boolean ppAvailable();
+  
+  public abstract void ppBegin(GL paramGL);
+  
+  public abstract void ppOneEye(GL paramGL, int paramInt);
+  
+  public abstract void ppEnd(GL paramGL);
+  
+  public static abstract interface Eye
+  {
+    public abstract RectangleImmutable getViewport();
+    
+    public abstract EyeParameter getEyeParameter();
+  }
+}

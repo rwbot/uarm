@@ -1,0 +1,149 @@
+package processing.event;
+
+
+
+
+public class MouseEvent
+  extends Event
+{
+  public static final int PRESS = 1;
+  
+
+
+  public static final int RELEASE = 2;
+  
+
+
+  public static final int CLICK = 3;
+  
+
+
+  public static final int DRAG = 4;
+  
+
+
+  public static final int MOVE = 5;
+  
+
+
+  public static final int ENTER = 6;
+  
+
+
+  public static final int EXIT = 7;
+  
+
+
+  public static final int WHEEL = 8;
+  
+
+  protected int x;
+  
+
+  protected int y;
+  
+
+  protected int button;
+  
+
+  protected int count;
+  
+
+
+  public MouseEvent(Object nativeObject, long millis, int action, int modifiers, int x, int y, int button, int count)
+  {
+    super(nativeObject, millis, action, modifiers);
+    flavor = 2;
+    this.x = x;
+    this.y = y;
+    this.button = button;
+    
+
+    this.count = count;
+  }
+  
+  public int getX()
+  {
+    return x;
+  }
+  
+  public int getY()
+  {
+    return y;
+  }
+  
+
+  public int getButton()
+  {
+    return button;
+  }
+  
+
+
+
+
+
+
+
+  @Deprecated
+  public int getClickCount()
+  {
+    return count;
+  }
+  
+
+
+  @Deprecated
+  public float getAmount()
+  {
+    return count;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public int getCount()
+  {
+    return count;
+  }
+  
+
+
+
+
+  private String actionString()
+  {
+    switch (action) {
+    default: 
+      return "UNKNOWN";
+    case 3: 
+      return "CLICK";
+    case 4: 
+      return "DRAG";
+    case 6: 
+      return "ENTER";
+    case 7: 
+      return "EXIT";
+    case 5: 
+      return "MOVE";
+    case 1: 
+      return "PRESS";
+    case 2: 
+      return "RELEASE";
+    }
+    return "WHEEL";
+  }
+  
+
+  public String toString()
+  {
+    return String.format("<MouseEvent %s@%d,%d count:%d button:%d>", new Object[] {
+      actionString(), Integer.valueOf(x), Integer.valueOf(y), Integer.valueOf(count), Integer.valueOf(button) });
+  }
+}

@@ -1,0 +1,234 @@
+package jogamp.graph.curve.tess;
+
+import com.jogamp.graph.curve.tess.Triangulator;
+import com.jogamp.graph.geom.Outline;
+import com.jogamp.graph.geom.Triangle;
+import com.jogamp.graph.geom.Vertex;
+import com.jogamp.opengl.math.VectorUtil;
+import com.jogamp.opengl.math.VectorUtil.Winding;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.List;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class CDTriangulator2D
+  implements Triangulator
+{
+  protected static final boolean DEBUG = Debug.debug("graph.curve.Triangulation");
+  
+  private static final boolean TEST_LINE_AA = Debug.debug("graph.curve.triangulation.LINE_AA");
+  private static final boolean TEST_MARK_LINE = Debug.debug("graph.curve.triangulation.MARK_AA");
+  private static final boolean TEST_ENABLED = (TEST_LINE_AA) || (TEST_MARK_LINE);
+  
+  private final ArrayList<Loop> loops = new ArrayList();
+  
+  private int addedVerticeCount;
+  
+  private int maxTriID;
+  
+
+  public CDTriangulator2D()
+  {
+    reset();
+  }
+  
+  public final void reset()
+  {
+    maxTriID = 0;
+    addedVerticeCount = 0;
+    loops.clear();
+  }
+  
+  public final int getAddedVerticeCount()
+  {
+    return addedVerticeCount;
+  }
+  
+
+  public final void addCurve(List<Triangle> paramList, Outline paramOutline, float paramFloat)
+  {
+    Loop localLoop = null;
+    
+    if (!loops.isEmpty())
+      localLoop = getContainerLoop(paramOutline);
+    GraphOutline localGraphOutline1;
+    GraphOutline localGraphOutline2;
+    if (localLoop == null) {
+      localGraphOutline1 = new GraphOutline(paramOutline);
+      localGraphOutline2 = extractBoundaryTriangles(paramList, localGraphOutline1, false, paramFloat);
+      
+      localLoop = new Loop(localGraphOutline2, VectorUtil.Winding.CCW);
+      loops.add(localLoop);
+    } else {
+      localGraphOutline1 = new GraphOutline(paramOutline);
+      localGraphOutline2 = extractBoundaryTriangles(paramList, localGraphOutline1, true, paramFloat);
+      
+      localLoop.addConstraintCurve(localGraphOutline2);
+    }
+  }
+  
+  public final void generate(List<Triangle> paramList)
+  {
+    int i = loops.size();
+    Object localObject; int k; int m; Triangle localTriangle1; for (int j = 0; j < i; j++) {
+      localObject = (Loop)loops.get(j);
+      k = 0;
+      m = ((Loop)localObject).computeLoopSize();
+      while (!((Loop)localObject).isSimplex())
+      {
+        if (k > m) {
+          localTriangle1 = ((Loop)localObject).cut(false);
+        }
+        else {
+          localTriangle1 = ((Loop)localObject).cut(true);
+        }
+        k++;
+        
+        if (localTriangle1 != null) {
+          k = 0;
+          m--;
+          localTriangle1.setId(maxTriID++);
+          paramList.add(localTriangle1);
+          if (DEBUG) {
+            System.err.println("CDTri.gen[" + j + "].0: " + localTriangle1);
+          }
+        }
+        if (k > m * 2) {
+          if (!DEBUG) break;
+          System.err.println("CDTri.gen[" + j + "].X: Triangulation not complete!"); break;
+        }
+      }
+      
+
+      localTriangle1 = ((Loop)localObject).cut(true);
+      if (localTriangle1 != null) {
+        paramList.add(localTriangle1);
+        if (DEBUG) {
+          System.err.println("CDTri.gen[" + j + "].1: " + localTriangle1);
+        }
+      }
+    }
+    if (TEST_ENABLED) {
+      float[] arrayOfFloat = new float[2];
+      localObject = new CDTriangulator2DExpAddOn();
+      k = paramList.size();
+      if (TEST_MARK_LINE) {
+        for (m = 0; m < k; m++) {
+          localTriangle1 = (Triangle)paramList.get(m);
+          ((CDTriangulator2DExpAddOn)localObject).markLineInTriangle(localTriangle1, arrayOfFloat);
+        }
+      } else if (TEST_LINE_AA) {
+        for (m = 0; m < k - 1; m += 2) {
+          localTriangle1 = (Triangle)paramList.get(m);
+          Triangle localTriangle2 = (Triangle)paramList.get(m + 1);
+          ((CDTriangulator2DExpAddOn)localObject).processLineAA(m, localTriangle1, localTriangle2, arrayOfFloat);
+        }
+      }
+    }
+  }
+  
+  private GraphOutline extractBoundaryTriangles(List<Triangle> paramList, GraphOutline paramGraphOutline, boolean paramBoolean, float paramFloat) {
+    GraphOutline localGraphOutline = new GraphOutline();
+    ArrayList localArrayList = paramGraphOutline.getGraphPoint();
+    int i = localArrayList.size();
+    for (int j = 0; j < i; j++) {
+      GraphVertex localGraphVertex1 = (GraphVertex)localArrayList.get(j);
+      GraphVertex localGraphVertex2 = (GraphVertex)localArrayList.get((j + i - 1) % i);
+      GraphVertex localGraphVertex3 = (GraphVertex)localArrayList.get((j + 1) % i);
+      
+      if (!localGraphVertex1.getPoint().isOnCurve()) {
+        Vertex localVertex1 = localGraphVertex2.getPoint().clone();
+        Vertex localVertex2 = localGraphVertex3.getPoint().clone();
+        Vertex localVertex3 = localGraphVertex1.getPoint().clone();
+        addedVerticeCount += 3;
+        boolean[] arrayOfBoolean = { true, true, true };
+        
+        localGraphVertex2.setBoundaryContained(true);
+        localGraphVertex1.setBoundaryContained(true);
+        localGraphVertex3.setBoundaryContained(true);
+        
+        int k;
+        Triangle localTriangle;
+        if (VectorUtil.ccw(localVertex1, localVertex3, localVertex2)) {
+          k = 0;
+          localTriangle = new Triangle(localVertex1, localVertex3, localVertex2, arrayOfBoolean);
+        } else {
+          k = 1;
+          localTriangle = new Triangle(localVertex2, localVertex3, localVertex1, arrayOfBoolean);
+        }
+        localTriangle.setId(maxTriID++);
+        paramList.add(localTriangle);
+        if (DEBUG) {
+          System.err.println(localTriangle);
+        }
+        if ((paramBoolean) || (k != 0)) {
+          localVertex1.setTexCoord(0.0F, -0.1F, 0.0F);
+          localVertex2.setTexCoord(1.0F, -0.1F, 0.0F);
+          localVertex3.setTexCoord(0.5F, -paramFloat - 0.1F, 0.0F);
+          localGraphOutline.addVertex(localGraphVertex1);
+        } else {
+          localVertex1.setTexCoord(0.0F, 0.1F, 0.0F);
+          localVertex2.setTexCoord(1.0F, 0.1F, 0.0F);
+          localVertex3.setTexCoord(0.5F, paramFloat + 0.1F, 0.0F);
+        }
+        if (DEBUG) {
+          System.err.println("CDTri.ebt[" + j + "].0: hole " + ((paramBoolean) || (k != 0)) + " " + localGraphVertex1 + ", " + localTriangle);
+        }
+      } else {
+        if ((!localGraphVertex3.getPoint().isOnCurve()) || (!localGraphVertex2.getPoint().isOnCurve())) {
+          localGraphVertex1.setBoundaryContained(true);
+        }
+        localGraphOutline.addVertex(localGraphVertex1);
+        if (DEBUG) {
+          System.err.println("CDTri.ebt[" + j + "].1: " + localGraphVertex1);
+        }
+      }
+    }
+    return localGraphOutline;
+  }
+  
+  private Loop getContainerLoop(Outline paramOutline) {
+    ArrayList localArrayList = paramOutline.getVertices();
+    for (int i = 0; i < loops.size(); i++) {
+      Loop localLoop = (Loop)loops.get(i);
+      for (int j = 0; j < localArrayList.size(); j++) {
+        if (localLoop.checkInside((Vertex)localArrayList.get(j))) {
+          return localLoop;
+        }
+      }
+    }
+    return null;
+  }
+}

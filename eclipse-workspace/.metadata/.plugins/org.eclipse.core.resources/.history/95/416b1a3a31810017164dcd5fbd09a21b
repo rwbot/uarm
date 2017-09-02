@@ -1,0 +1,4959 @@
+package jogamp.newt;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.util.ArrayHashSet;
+import com.jogamp.common.util.Bitfield;
+import com.jogamp.common.util.Bitfield.Factory;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.common.util.ReflectionUtil;
+import com.jogamp.common.util.locks.LockFactory;
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.CapabilitiesChooser;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindow;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.OffscreenLayerSurface;
+import com.jogamp.nativewindow.SurfaceUpdatedListener;
+import com.jogamp.nativewindow.WindowClosingProtocol.WindowClosingMode;
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.Insets;
+import com.jogamp.nativewindow.util.InsetsImmutable;
+import com.jogamp.nativewindow.util.Point;
+import com.jogamp.nativewindow.util.Rectangle;
+import com.jogamp.nativewindow.util.RectangleImmutable;
+import com.jogamp.newt.Display;
+import com.jogamp.newt.Display.PointerIcon;
+import com.jogamp.newt.MonitorDevice;
+import com.jogamp.newt.MonitorMode;
+import com.jogamp.newt.NewtFactory;
+import com.jogamp.newt.Screen;
+import com.jogamp.newt.Window;
+import com.jogamp.newt.Window.FocusRunnable;
+import com.jogamp.newt.Window.ReparentOperation;
+import com.jogamp.newt.event.DoubleTapScrollGesture;
+import com.jogamp.newt.event.GestureHandler;
+import com.jogamp.newt.event.GestureHandler.GestureEvent;
+import com.jogamp.newt.event.GestureHandler.GestureListener;
+import com.jogamp.newt.event.InputEvent;
+import com.jogamp.newt.event.KeyEvent;
+import com.jogamp.newt.event.KeyListener;
+import com.jogamp.newt.event.MonitorEvent;
+import com.jogamp.newt.event.MonitorModeListener;
+import com.jogamp.newt.event.MouseEvent;
+import com.jogamp.newt.event.MouseEvent.PointerClass;
+import com.jogamp.newt.event.MouseEvent.PointerType;
+import com.jogamp.newt.event.MouseListener;
+import com.jogamp.newt.event.NEWTEvent;
+import com.jogamp.newt.event.NEWTEventConsumer;
+import com.jogamp.newt.event.WindowEvent;
+import com.jogamp.newt.event.WindowListener;
+import com.jogamp.newt.event.WindowUpdateEvent;
+import com.jogamp.newt.util.EDTUtil;
+import java.io.PrintStream;
+import java.lang.ref.WeakReference;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+import jogamp.nativewindow.SurfaceScaleUtils;
+import jogamp.nativewindow.SurfaceUpdatedHelper;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class WindowImpl
+  implements Window, NEWTEventConsumer
+{
+  public static final boolean DEBUG_TEST_REPARENT_INCOMPATIBLE;
+  private static final boolean DEBUG_FREEZE_AT_VISIBILITY_FAILURE;
+  
+  static
+  {
+    Debug.initSingleton();
+    DEBUG_TEST_REPARENT_INCOMPATIBLE = PropertyAccess.isPropertyDefined("newt.test.Window.reparent.incompatible", true);
+    DEBUG_FREEZE_AT_VISIBILITY_FAILURE = PropertyAccess.isPropertyDefined("newt.debug.Window.visibility.failure.freeze", true);
+    ScreenImpl.initSingleton();
+  }
+  
+  protected static final ArrayList<WeakReference<WindowImpl>> windowList = new ArrayList();
+  static final long QUEUED_EVENT_TO = 1200L;
+  
+  public static final void shutdownAll() {
+    int i = windowList.size();
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("Window.shutdownAll " + i + " instances, on thread " + getThreadName());
+    }
+    for (int j = 0; (j < i) && (windowList.size() > 0); j++) {
+      WindowImpl localWindowImpl = (WindowImpl)((WeakReference)windowList.remove(0)).get();
+      if (DEBUG_IMPLEMENTATION) {
+        long l = null != localWindowImpl ? localWindowImpl.getWindowHandle() : 0L;
+        System.err.println("Window.shutdownAll[" + (j + 1) + "/" + i + "]: " + toHexString(l) + ", GCed " + (null == localWindowImpl));
+      }
+      if (null != localWindowImpl)
+        localWindowImpl.shutdown();
+    }
+  }
+  
+  private static void addWindow2List(WindowImpl paramWindowImpl) {
+    synchronized (windowList)
+    {
+      int i = 0;int j = 0;
+      while (i < windowList.size()) {
+        if (null == ((WeakReference)windowList.get(i)).get()) {
+          j++;
+          windowList.remove(i);
+        } else {
+          i++;
+        }
+      }
+      windowList.add(new WeakReference(paramWindowImpl));
+      if (DEBUG_IMPLEMENTATION) {
+        System.err.println("Window.addWindow2List: GCed " + j + ", size " + windowList.size());
+      }
+    }
+  }
+  
+
+
+
+  private static final MouseEvent.PointerType[] constMousePointerTypes = { MouseEvent.PointerType.Mouse };
+  
+
+
+
+  private volatile long windowHandle = 0L;
+  private volatile int pixWidth = 128; private volatile int pixHeight = 128;
+  private volatile int winWidth = 128; private volatile int winHeight = 128;
+  protected final float[] minPixelScale = { 1.0F, 1.0F };
+  protected final float[] maxPixelScale = { 1.0F, 1.0F };
+  protected final float[] hasPixelScale = { 1.0F, 1.0F };
+  protected final float[] reqPixelScale = { 0.0F, 0.0F };
+  
+  private volatile int x = 64; private volatile int y = 64;
+  private volatile Insets insets = new Insets();
+  private boolean blockInsetsChange = false;
+  
+  private final RecursiveLock windowLock = LockFactory.createRecursiveLock();
+  private int surfaceLockCount = 0;
+  
+  private ScreenImpl screen;
+  private boolean screenReferenceAdded = false;
+  private NativeWindow parentWindow = null;
+  private long parentWindowHandle = 0L;
+  private AbstractGraphicsConfiguration config = null;
+  protected CapabilitiesImmutable capsRequested = null;
+  protected CapabilitiesChooser capabilitiesChooser = null;
+  private List<MonitorDevice> fullscreenMonitors = null;
+  private int nfs_width;
+  private int nfs_height;
+  private int nfs_x; private int nfs_y; private NativeWindow nfs_parent = null;
+  private String title = "Newt Window";
+  private PointerIconImpl pointerIcon = null;
+  private LifecycleHook lifecycleHook = null;
+  
+
+
+
+
+
+
+
+
+  protected static final int QUIRK_BIT_VISIBILITY = 0;
+  
+
+
+
+
+
+
+
+  protected static final Bitfield quirks = Bitfield.Factory.synchronize(Bitfield.Factory.create(32));
+  
+
+
+  protected static final int STATE_BIT_COUNT_ALL_PUBLIC = 14;
+  
+
+
+  protected static final int STATE_MASK_ALL_PUBLIC = 16383;
+  
+
+
+  protected static final int STATE_BIT_FULLSCREEN_SPAN = 14;
+  
+
+
+  protected static final int STATE_BIT_COUNT_ALL_RECONFIG = 15;
+  
+
+
+  protected static final int STATE_MASK_ALL_RECONFIG = 32767;
+  
+
+
+  protected static final int STATE_MASK_ALL_PUBLIC_SUPPORTED = 16381;
+  
+
+  static final int PSTATE_BIT_FOCUS_CHANGE_BROKEN = 30;
+  
+
+  static final int PSTATE_BIT_FULLSCREEN_MAINMONITOR = 31;
+  
+
+  static final int STATE_MASK_FULLSCREEN_SPAN = 16384;
+  
+
+  static final int PSTATE_MASK_FOCUS_CHANGE_BROKEN = 1073741824;
+  
+
+  static final int PSTATE_MASK_FULLSCREEN_MAINMONITOR = Integer.MIN_VALUE;
+  
+
+  private static final int STATE_MASK_FULLSCREEN_NFS = 1824;
+  
+
+  protected static final int STATE_MASK_CREATENATIVE = 2047;
+  
+
+  protected static final int CHANGE_MASK_VISIBILITY = Integer.MIN_VALUE;
+  
+
+  protected static final int CHANGE_MASK_VISIBILITY_FAST = 1073741824;
+  
+
+  protected static final int CHANGE_MASK_PARENTING = 536870912;
+  
+
+  protected static final int CHANGE_MASK_DECORATION = 268435456;
+  
+
+  protected static final int CHANGE_MASK_ALWAYSONTOP = 134217728;
+  
+
+  protected static final int CHANGE_MASK_ALWAYSONBOTTOM = 67108864;
+  
+
+  protected static final int CHANGE_MASK_STICKY = 33554432;
+  
+
+  protected static final int CHANGE_MASK_RESIZABLE = 16777216;
+  
+
+  protected static final int CHANGE_MASK_MAXIMIZED_VERT = 8388608;
+  
+
+  protected static final int CHANGE_MASK_MAXIMIZED_HORZ = 4194304;
+  
+
+  protected static final int CHANGE_MASK_FULLSCREEN = 2097152;
+  
+
+  final Bitfield stateMask = Bitfield.Factory.synchronize(Bitfield.Factory.create(32));
+  
+  private final Bitfield stateMaskNFS = Bitfield.Factory.synchronize(Bitfield.Factory.create(32));
+  
+
+  protected int supportedReconfigStateMask = 0;
+  protected static final int minimumReconfigStateMask = 2057;
+  
+  final void resetStateMask()
+  {
+    stateMask.clearField(false);
+    stateMask.put32(0, 32, 0x2 | (null != parentWindow ? 4 : 0) | 0x100 | 0x1000 | 0x80000000);
+    
+
+
+
+
+    stateMaskNFS.clearField(false);
+    normPosSizeStored[0] = false;
+    normPosSizeStored[1] = false;
+    supportedReconfigStateMask = 32767;
+  }
+  
+  public final int getStatePublicBitCount()
+  {
+    return 14;
+  }
+  
+  public final int getStatePublicBitmask() {
+    return 16383;
+  }
+  
+  public final int getStateMask()
+  {
+    return stateMask.get32(0, 14);
+  }
+  
+  public final String getStateMaskString()
+  {
+    return appendStateBits(new StringBuilder(), stateMask.get32(0, 14), false).toString();
+  }
+  
+  public final int getSupportedStateMask()
+  {
+    return supportedReconfigStateMask & 0x3FFD;
+  }
+  
+  public final String getSupportedStateMaskString()
+  {
+    return appendStateBits(new StringBuilder(), getSupportedStateMask(), true).toString();
+  }
+  
+  protected static StringBuilder appendStateBits(StringBuilder paramStringBuilder, int paramInt, boolean paramBoolean) {
+    paramStringBuilder.append("[");
+    
+    if (paramBoolean) {
+      if (0 != (0x80000000 & paramInt)) {
+        paramStringBuilder.append("*");
+      }
+      if (0 != (0x40000000 & paramInt)) {
+        paramStringBuilder.append("*");
+      }
+    }
+    paramStringBuilder.append(0 != (0x1 & paramInt) ? "visible" : "invisible");
+    paramStringBuilder.append(", ");
+    
+    paramStringBuilder.append(0 != (0x2 & paramInt) ? "autopos, " : "");
+    
+    if (paramBoolean) {
+      if (0 != (0x20000000 & paramInt)) {
+        paramStringBuilder.append("*");
+      }
+      paramStringBuilder.append(0 != (0x4 & paramInt) ? "child" : "toplevel");
+      paramStringBuilder.append(", ");
+    } else if (0 != (0x4 & paramInt)) {
+      paramStringBuilder.append("child");
+      paramStringBuilder.append(", ");
+    }
+    
+    paramStringBuilder.append(0 != (0x8 & paramInt) ? "focused, " : "");
+    
+    if (paramBoolean) {
+      if (0 != (0x10000000 & paramInt)) {
+        paramStringBuilder.append("*");
+      }
+      paramStringBuilder.append(0 != (0x10 & paramInt) ? "undecor" : "decor");
+      paramStringBuilder.append(", ");
+    } else if (0 != (0x10 & paramInt)) {
+      paramStringBuilder.append("undecor");
+      paramStringBuilder.append(", ");
+    }
+    
+    if (paramBoolean) {
+      if (0 != (0x8000000 & paramInt)) {
+        paramStringBuilder.append("*");
+      }
+      paramStringBuilder.append(0 != (0x20 & paramInt) ? "aontop" : "!aontop");
+      paramStringBuilder.append(", ");
+    } else if (0 != (0x20 & paramInt)) {
+      paramStringBuilder.append("aontop");
+      paramStringBuilder.append(", ");
+    }
+    
+    if (paramBoolean) {
+      if (0 != (0x4000000 & paramInt)) {
+        paramStringBuilder.append("*");
+      }
+      paramStringBuilder.append(0 != (0x40 & paramInt) ? "aonbottom" : "!aonbottom");
+      paramStringBuilder.append(", ");
+    } else if (0 != (0x40 & paramInt)) {
+      paramStringBuilder.append("aonbottom");
+      paramStringBuilder.append(", ");
+    }
+    
+    if (paramBoolean) {
+      if (0 != (0x2000000 & paramInt)) {
+        paramStringBuilder.append("*");
+      }
+      paramStringBuilder.append(0 != (0x80 & paramInt) ? "sticky" : "unsticky");
+      paramStringBuilder.append(", ");
+    } else if (0 != (0x80 & paramInt)) {
+      paramStringBuilder.append("sticky");
+      paramStringBuilder.append(", ");
+    }
+    
+    if (paramBoolean) {
+      if (0 != (0x1000000 & paramInt)) {
+        paramStringBuilder.append("*");
+      }
+      paramStringBuilder.append(0 != (0x100 & paramInt) ? "resizable" : "unresizable");
+      paramStringBuilder.append(", ");
+    } else if (0 == (0x100 & paramInt)) {
+      paramStringBuilder.append("unresizable");
+      paramStringBuilder.append(", ");
+    }
+    
+    if (paramBoolean) {
+      paramStringBuilder.append("max[");
+      if (0 != (0x400000 & paramInt)) {
+        paramStringBuilder.append("*");
+      }
+      if (0 == (0x400 & paramInt)) {
+        paramStringBuilder.append("!");
+      }
+      paramStringBuilder.append("h");
+      paramStringBuilder.append(", ");
+      if (0 != (0x800000 & paramInt)) {
+        paramStringBuilder.append("*");
+      }
+      if (0 == (0x200 & paramInt)) {
+        paramStringBuilder.append("!");
+      }
+      paramStringBuilder.append("v");
+      paramStringBuilder.append("], ");
+    } else if (0 != (0x600 & paramInt)) {
+      paramStringBuilder.append("max[");
+      if (0 != (0x400 & paramInt)) {
+        paramStringBuilder.append("h");
+      }
+      if (0 != (0x200 & paramInt)) {
+        paramStringBuilder.append("v");
+      }
+      paramStringBuilder.append("], ");
+    }
+    
+    if (paramBoolean) {
+      if (0 != (0x200000 & paramInt)) {
+        paramStringBuilder.append("*");
+      }
+      paramStringBuilder.append("fullscreen[");
+      paramStringBuilder.append(0 != (0x800 & paramInt));
+      paramStringBuilder.append(0 != (0x4000 & paramInt) ? ", span" : "");
+      paramStringBuilder.append("], ");
+    } else if (0 != (0x800 & paramInt)) {
+      paramStringBuilder.append("fullscreen");
+      paramStringBuilder.append(", ");
+    }
+    
+    if (paramBoolean) {
+      paramStringBuilder.append("pointer[");
+      if (0 == (0x1000 & paramInt)) {
+        paramStringBuilder.append("invisible");
+      } else {
+        paramStringBuilder.append("visible");
+      }
+      paramStringBuilder.append(", ");
+      if (0 != (0x2000 & paramInt)) {
+        paramStringBuilder.append("confined");
+      } else {
+        paramStringBuilder.append("free");
+      }
+      paramStringBuilder.append("]");
+    }
+    else if ((0 == (0x1000 & paramInt)) || (0 != (0x2000 & paramInt)))
+    {
+
+      paramStringBuilder.append("pointer[");
+      if (0 == (0x1000 & paramInt)) {
+        paramStringBuilder.append("invisible");
+        paramStringBuilder.append(", ");
+      }
+      if (0 != (0x2000 & paramInt)) {
+        paramStringBuilder.append("confined");
+      }
+      paramStringBuilder.append("]");
+    }
+    
+    paramStringBuilder.append("]");
+    return paramStringBuilder;
+  }
+  
+  private Runnable windowDestroyNotifyAction = null;
+  
+  private Window.FocusRunnable focusAction = null;
+  private KeyListener keyboardFocusHandler = null;
+  
+  private final SurfaceUpdatedHelper surfaceUpdatedHelper = new SurfaceUpdatedHelper();
+  
+  private final Object childWindowsLock = new Object();
+  private final ArrayList<NativeWindow> childWindows = new ArrayList();
+  
+  private ArrayList<MouseListener> mouseListeners = new ArrayList();
+  
+  private static class PointerState0 {
+    private PointerState0() {}
+    
+    boolean insideSurface = false;
+    
+    boolean exitSent = false;
+    
+
+    long lastButtonPressTime = 0L;
+    
+
+    boolean dragging = false;
+    
+
+    void clearButton() { lastButtonPressTime = 0L; }
+    
+    public String toString() { return "PState0[inside " + insideSurface + ", exitSent " + exitSent + ", lastPress " + lastButtonPressTime + ", dragging " + dragging + "]"; } }
+  
+  private final PointerState0 pState0 = new PointerState0(null);
+  
+  private static class PointerState1 extends WindowImpl.PointerState0 {
+    private PointerState1() { super(); }
+    
+    short buttonPressed = 0;
+    
+    int buttonPressedMask = 0;
+    
+    short lastButtonClickCount = 0;
+    
+    final void clearButton()
+    {
+      super.clearButton();
+      lastButtonClickCount = 0;
+      if ((!dragging) || (0 == buttonPressedMask)) {
+        buttonPressed = 0;
+        buttonPressedMask = 0;
+        dragging = false;
+      }
+    }
+    
+
+    final Point[] movePositions = { new Point(), new Point(), new Point(), new Point(), new Point(), new Point(), new Point(), new Point() };
+    
+    final Point getMovePosition(int paramInt)
+    {
+      if ((0 <= paramInt) && (paramInt < movePositions.length)) {
+        return movePositions[paramInt];
+      }
+      return null; }
+    
+    public final String toString() { return "PState1[inside " + insideSurface + ", exitSent " + exitSent + ", lastPress " + lastButtonPressTime + ", pressed [button " + buttonPressed + ", mask " + buttonPressedMask + ", dragging " + dragging + ", clickCount " + lastButtonClickCount + "]"; }
+  }
+  
+  private final PointerState1 pState1 = new PointerState1(null);
+  
+
+  private final ArrayHashSet<Integer> pName2pID = new ArrayHashSet(false, 16, 0.75F);
+  
+  private boolean defaultGestureHandlerEnabled = true;
+  private DoubleTapScrollGesture gesture2PtrTouchScroll = null;
+  private ArrayList<GestureHandler> pointerGestureHandler = new ArrayList();
+  
+  private ArrayList<GestureHandler.GestureListener> gestureListeners = new ArrayList();
+  
+  private ArrayList<KeyListener> keyListeners = new ArrayList();
+  
+  private ArrayList<WindowListener> windowListeners = new ArrayList();
+  private boolean repaintQueued = false;
+  
+
+
+
+
+  private static Class<?> getWindowClass(String paramString)
+    throws ClassNotFoundException
+  {
+    Class localClass = NewtFactory.getCustomClass(paramString, "WindowDriver");
+    if (null == localClass) {
+      throw new ClassNotFoundException("Failed to find NEWT Window Class <" + paramString + ".WindowDriver>");
+    }
+    return localClass;
+  }
+  
+  public static WindowImpl create(NativeWindow paramNativeWindow, long paramLong, Screen paramScreen, CapabilitiesImmutable paramCapabilitiesImmutable) {
+    try {
+      Object localObject;
+      if (paramCapabilitiesImmutable.isOnscreen()) {
+        localObject = getWindowClass(paramScreen.getDisplay().getType());
+      } else {
+        localObject = OffscreenWindow.class;
+      }
+      WindowImpl localWindowImpl = (WindowImpl)((Class)localObject).newInstance();
+      parentWindow = paramNativeWindow;
+      parentWindowHandle = paramLong;
+      screen = ((ScreenImpl)paramScreen);
+      capsRequested = ((CapabilitiesImmutable)paramCapabilitiesImmutable.cloneMutable());
+      localWindowImpl.instantiationFinished();
+      addWindow2List(localWindowImpl);
+      return localWindowImpl;
+    } catch (Throwable localThrowable) {
+      localThrowable.printStackTrace();
+      throw new NativeWindowException(localThrowable);
+    }
+  }
+  
+  public static WindowImpl create(Object[] paramArrayOfObject, Screen paramScreen, CapabilitiesImmutable paramCapabilitiesImmutable) {
+    try {
+      Class localClass = getWindowClass(paramScreen.getDisplay().getType());
+      Class[] arrayOfClass = getCustomConstructorArgumentTypes(localClass);
+      if (null == arrayOfClass) {
+        throw new NativeWindowException("WindowClass " + localClass + " doesn't support custom arguments in constructor");
+      }
+      int i = verifyConstructorArgumentTypes(arrayOfClass, paramArrayOfObject);
+      if (i < paramArrayOfObject.length) {
+        throw new NativeWindowException("WindowClass " + localClass + " constructor mismatch at argument #" + i + "; Constructor: " + getTypeStrList(arrayOfClass) + ", arguments: " + getArgsStrList(paramArrayOfObject));
+      }
+      WindowImpl localWindowImpl = (WindowImpl)ReflectionUtil.createInstance(localClass, arrayOfClass, paramArrayOfObject);
+      screen = ((ScreenImpl)paramScreen);
+      capsRequested = ((CapabilitiesImmutable)paramCapabilitiesImmutable.cloneMutable());
+      localWindowImpl.instantiationFinished();
+      addWindow2List(localWindowImpl);
+      return localWindowImpl;
+    } catch (Throwable localThrowable) {
+      throw new NativeWindowException(localThrowable);
+    }
+  }
+  
+  private final void shutdown()
+  {
+    if (null != lifecycleHook) {
+      lifecycleHook.shutdownRenderingAction();
+    }
+    setWindowHandle(0L);
+    resetStateMask();
+    fullscreenMonitors = null;
+    parentWindowHandle = 0L;
+  }
+  
+  protected final void setGraphicsConfiguration(AbstractGraphicsConfiguration paramAbstractGraphicsConfiguration) {
+    config = paramAbstractGraphicsConfiguration;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private boolean createNative()
+  {
+    long l1;
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    if (DEBUG_IMPLEMENTATION) {
+      l1 = System.nanoTime();
+      System.err.println("Window.createNative() START (" + getThreadName() + ", " + this + ")");
+    } else {
+      l1 = 0L;
+    }
+    
+    if ((null != parentWindow) && 
+      (1 >= parentWindow.lockSurface())) {
+      throw new NativeWindowException("Parent surface lock: not ready: " + parentWindow);
+    }
+    
+    int i = (null != parentWindow) || (0L != parentWindowHandle) ? 1 : 0;
+    
+
+    if ((i != 0) && ((stateMask.get(1)) || (0 > getX()) || (0 > getY()))) {
+      definePosition(0, 0);
+    }
+    int j = 0;
+    try {
+      if (validateParentWindowHandle()) {
+        if (!screenReferenceAdded) {
+          screen.addReference();
+          screenReferenceAdded = true;
+        }
+        if (canCreateNativeImpl()) { int k;
+          int m;
+          boolean bool1;
+          if (stateMask.get(1)) {
+            k = 0;
+            m = 0;
+            bool1 = false;
+          } else {
+            k = getX();
+            m = getY();
+            bool1 = true;
+          }
+          long l2 = System.currentTimeMillis();
+          createNativeImpl();
+          supportedReconfigStateMask = (getSupportedReconfigMaskImpl() & 0x7FFF);
+          if (DEBUG_IMPLEMENTATION) {
+            boolean bool2 = 2057 == (0x809 & supportedReconfigStateMask);
+            System.err.println("Supported Reconfig (minimum-ok " + bool2 + "): " + appendStateBits(new StringBuilder(), supportedReconfigStateMask, true).toString());
+          }
+          screen.addMonitorModeListener(monitorModeListenerImpl);
+          setTitleImpl(title);
+          setPointerIconIntern(pointerIcon);
+          if (!stateMask.get(12))
+          {
+            if (isReconfigureMaskSupported(4096)) {
+              setPointerVisibleIntern(stateMask.get(12));
+            } else {
+              stateMask.set(12);
+            }
+          }
+          if (stateMask.get(13))
+          {
+            if (isReconfigureMaskSupported(8192)) {
+              confinePointerImpl(true);
+            } else {
+              stateMask.clear(13);
+            }
+          }
+          setKeyboardVisible(keyboardVisible);
+          long l3 = waitForVisible(true, false);
+          if (0L <= l3) {
+            if ((stateMask.get(11)) && (!isReconfigureMaskSupported(2048))) {
+              stateMask.clear(11);
+            }
+            if (stateMask.get(11)) {
+              synchronized (fullScreenAction) {
+                stateMask.clear(11);
+                fullScreenAction.init(true);
+                fullScreenAction.run();
+              }
+              
+            } else if (i == 0)
+            {
+              waitForPosition(bool1, k, m, 1000L);
+            }
+            
+            if (DEBUG_IMPLEMENTATION) {
+              System.err.println("Window.createNative(): elapsed " + (System.currentTimeMillis() - l2) + " ms");
+            }
+            j = 1;
+          }
+        }
+      }
+    } finally {
+      if (null != parentWindow) {
+        parentWindow.unlockSurface();
+      }
+    }
+    if (j != 0)
+    {
+      requestFocusInt(isFullscreen());
+      ((DisplayImpl)screen.getDisplay()).dispatchMessagesNative();
+    }
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("Window.createNative() END (" + getThreadName() + ", " + this + ") total " + (System.nanoTime() - l1) / 1000000.0D + "ms");
+    }
+    return isNativeValid();
+  }
+  
+  private void removeScreenReference() {
+    if (screenReferenceAdded)
+    {
+
+
+      screenReferenceAdded = false;
+      screen.removeReference();
+    }
+  }
+  
+  private boolean validateParentWindowHandle() {
+    if (null != parentWindow) {
+      parentWindowHandle = getNativeWindowHandle(parentWindow);
+      return 0L != parentWindowHandle;
+    }
+    return true;
+  }
+  
+  private static long getNativeWindowHandle(NativeWindow paramNativeWindow)
+  {
+    long l = 0L;
+    if (null != paramNativeWindow) {
+      boolean bool = false;
+      if (1 < paramNativeWindow.lockSurface()) {
+        bool = true;
+        try {
+          l = paramNativeWindow.getWindowHandle();
+          if (0L == l) {
+            throw new NativeWindowException("Parent native window handle is NULL, after succesful locking: " + paramNativeWindow);
+          }
+        } catch (NativeWindowException localNativeWindowException) {
+          if (DEBUG_IMPLEMENTATION) {
+            System.err.println("Window.getNativeWindowHandle: not successful yet: " + localNativeWindowException);
+          }
+        } finally {
+          paramNativeWindow.unlockSurface();
+        }
+      }
+      if (DEBUG_IMPLEMENTATION) {
+        System.err.println("Window.getNativeWindowHandle: locked " + bool + ", " + paramNativeWindow);
+      }
+    }
+    return l;
+  }
+  
+
+
+
+  protected int lockSurfaceImpl()
+  {
+    return 3;
+  }
+  
+
+
+
+
+  private final Object closingListenerLock = new Object();
+  private WindowClosingProtocol.WindowClosingMode defaultCloseOperation = WindowClosingProtocol.WindowClosingMode.DISPOSE_ON_CLOSE;
+  
+  public final WindowClosingProtocol.WindowClosingMode getDefaultCloseOperation()
+  {
+    synchronized (closingListenerLock) {
+      return defaultCloseOperation;
+    }
+  }
+  
+  public final WindowClosingProtocol.WindowClosingMode setDefaultCloseOperation(WindowClosingProtocol.WindowClosingMode paramWindowClosingMode)
+  {
+    synchronized (closingListenerLock) {
+      WindowClosingProtocol.WindowClosingMode localWindowClosingMode = defaultCloseOperation;
+      defaultCloseOperation = paramWindowClosingMode;
+      return localWindowClosingMode;
+    }
+  }
+  
+
+
+
+
+
+
+
+  private final void instantiationFinished()
+  {
+    resetStateMask();
+    instantiationFinishedImpl();
+  }
+  
+
+
+  protected boolean canCreateNativeImpl()
+  {
+    return true;
+  }
+  
+
+
+
+
+
+
+  public static abstract interface LifecycleHook
+  {
+    public abstract void resetCounter();
+    
+
+
+
+
+
+
+    public abstract void setVisibleActionPost(boolean paramBoolean1, boolean paramBoolean2);
+    
+
+
+
+
+
+
+    public abstract void preserveGLStateAtDestroy(boolean paramBoolean);
+    
+
+
+
+
+
+
+    public abstract void destroyActionPreLock();
+    
+
+
+
+
+
+
+    public abstract void destroyActionInLock();
+    
+
+
+
+
+
+
+    public abstract boolean pauseRenderingAction();
+    
+
+
+
+
+
+
+    public abstract void resumeRenderingAction();
+    
+
+
+
+
+
+    public abstract void shutdownRenderingAction();
+  }
+  
+
+
+
+
+
+  protected final boolean isReconfigureMaskSupported(int paramInt)
+  {
+    return paramInt == (paramInt & supportedReconfigStateMask);
+  }
+  
+  protected int getReconfigureMask(int paramInt, boolean paramBoolean) {
+    int i = stateMask.get32(0, 15);
+    
+
+
+
+    return paramInt | i & 0xFFFFFFEA | (paramBoolean ? 1 : 0) | (isUndecorated(i) ? 16 : 0) | (0L != getParentWindowHandle() ? 4 : 0);
+  }
+  
+  protected static String getReconfigStateMaskString(int paramInt) {
+    return appendStateBits(new StringBuilder(), paramInt, true).toString();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected boolean setPointerVisibleImpl(boolean paramBoolean) { return false; }
+  protected boolean confinePointerImpl(boolean paramBoolean) { return false; }
+  
+
+
+
+
+
+  public final int lockSurface()
+    throws NativeWindowException, RuntimeException
+  {
+    RecursiveLock localRecursiveLock = windowLock;
+    localRecursiveLock.lock();
+    surfaceLockCount += 1;
+    int i = 1 == surfaceLockCount ? 1 : 3;
+    
+    if (1 == i) {
+      try {
+        if (isNativeValid()) {
+          AbstractGraphicsDevice localAbstractGraphicsDevice = getGraphicsConfiguration().getScreen().getDevice();
+          localAbstractGraphicsDevice.lock();
+          try {
+            i = lockSurfaceImpl();
+          } finally {
+            if (1 >= i) {
+              localAbstractGraphicsDevice.unlock();
+            }
+          }
+        }
+      } finally {
+        if (1 >= i) {
+          surfaceLockCount -= 1;
+          localRecursiveLock.unlock();
+        }
+      }
+    }
+    return i;
+  }
+  
+  public final void unlockSurface()
+  {
+    RecursiveLock localRecursiveLock = windowLock;
+    localRecursiveLock.validateLocked();
+    AbstractGraphicsDevice localAbstractGraphicsDevice;
+    if (1 == surfaceLockCount)
+      localAbstractGraphicsDevice = getGraphicsConfiguration().getScreen().getDevice();
+    try {
+      unlockSurfaceImpl();
+      
+      localAbstractGraphicsDevice.unlock(); } finally { localAbstractGraphicsDevice.unlock();
+    }
+    
+
+    localRecursiveLock.unlock();
+  }
+  
+  public final boolean isSurfaceLockedByOtherThread()
+  {
+    return windowLock.isLockedByOtherThread();
+  }
+  
+  public final Thread getSurfaceLockOwner()
+  {
+    return windowLock.getOwner();
+  }
+  
+  public final RecursiveLock getLock() {
+    return windowLock;
+  }
+  
+  public long getSurfaceHandle()
+  {
+    return windowHandle;
+  }
+  
+  public boolean surfaceSwap()
+  {
+    return false;
+  }
+  
+  public final void addSurfaceUpdatedListener(SurfaceUpdatedListener paramSurfaceUpdatedListener)
+  {
+    surfaceUpdatedHelper.addSurfaceUpdatedListener(paramSurfaceUpdatedListener);
+  }
+  
+  public final void addSurfaceUpdatedListener(int paramInt, SurfaceUpdatedListener paramSurfaceUpdatedListener) throws IndexOutOfBoundsException
+  {
+    surfaceUpdatedHelper.addSurfaceUpdatedListener(paramInt, paramSurfaceUpdatedListener);
+  }
+  
+  public final void removeSurfaceUpdatedListener(SurfaceUpdatedListener paramSurfaceUpdatedListener)
+  {
+    surfaceUpdatedHelper.removeSurfaceUpdatedListener(paramSurfaceUpdatedListener);
+  }
+  
+  public final void surfaceUpdated(Object paramObject, NativeSurface paramNativeSurface, long paramLong)
+  {
+    surfaceUpdatedHelper.surfaceUpdated(paramObject, paramNativeSurface, paramLong);
+  }
+  
+  public final AbstractGraphicsConfiguration getGraphicsConfiguration()
+  {
+    return config.getNativeGraphicsConfiguration();
+  }
+  
+  public final long getDisplayHandle()
+  {
+    return config.getNativeGraphicsConfiguration().getScreen().getDevice().getHandle();
+  }
+  
+  public final int getScreenIndex()
+  {
+    return screen.getIndex();
+  }
+  
+
+
+
+
+
+  public final NativeSurface getNativeSurface()
+  {
+    return this;
+  }
+  
+  public final NativeWindow getParent() {
+    return parentWindow;
+  }
+  
+  public final long getWindowHandle()
+  {
+    return windowHandle;
+  }
+  
+  public Point getLocationOnScreen(Point paramPoint)
+  {
+    if (isNativeValid())
+    {
+      RecursiveLock localRecursiveLock = windowLock;
+      localRecursiveLock.lock();
+      Point localPoint;
+      try { localPoint = getLocationOnScreenImpl(0, 0);
+      } finally {
+        localRecursiveLock.unlock();
+      }
+      if (null != localPoint) {
+        if (null != paramPoint) {
+          paramPoint.translate(localPoint.getX(), localPoint.getY());
+          return paramPoint;
+        }
+        return localPoint;
+      }
+    }
+    
+
+    if (null != paramPoint) {
+      paramPoint.translate(getX(), getY());
+    } else {
+      paramPoint = new Point(getX(), getY());
+    }
+    if (null != parentWindow)
+    {
+      parentWindow.getLocationOnScreen(paramPoint);
+    }
+    return paramPoint;
+  }
+  
+
+
+
+
+  public final boolean isNativeValid()
+  {
+    return 0L != windowHandle;
+  }
+  
+  public final Screen getScreen()
+  {
+    return screen;
+  }
+  
+  protected void setScreen(ScreenImpl paramScreenImpl) {
+    removeScreenReference();
+    screen = paramScreenImpl;
+  }
+  
+  public final MonitorDevice getMainMonitor()
+  {
+    return screen.getMainMonitor(getBounds());
+  }
+  
+
+
+
+
+  protected final void setVisibleImpl(boolean paramBoolean1, boolean paramBoolean2, int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    int i;
+    
+
+
+    if (paramBoolean2) {
+      i = getReconfigureMask(-1073741824, paramBoolean1);
+    } else {
+      i = getReconfigureMask(Integer.MIN_VALUE, paramBoolean1);
+    }
+    reconfigureWindowImpl(paramInt1, paramInt2, paramInt3, paramInt4, i);
+  }
+  
+  final void setVisibleActionImpl(boolean paramBoolean) {
+    boolean bool = false;
+    int i = -1;
+    
+    RecursiveLock localRecursiveLock = windowLock;
+    localRecursiveLock.lock();
+    try { int j;
+      NativeWindow localNativeWindow; if ((!paramBoolean) && (null != childWindows) && (childWindows.size() > 0)) {
+        synchronized (childWindowsLock) {
+          for (j = 0; j < childWindows.size(); j++) {
+            localNativeWindow = (NativeWindow)childWindows.get(j);
+            if ((localNativeWindow instanceof WindowImpl)) {
+              ((WindowImpl)localNativeWindow).setVisible(false);
+            }
+          }
+        }
+      }
+      if ((!isNativeValid()) && (paramBoolean)) {
+        if (0 < getWidth() * getHeight()) {
+          bool = createNative();
+          i = bool ? 1 : -1;
+        }
+        
+        stateMask.set(0);
+      } else if (stateMask.get(0) != paramBoolean) {
+        if (isNativeValid())
+        {
+          ??? = quirks.get(0);
+          setVisibleImpl(paramBoolean, (??? != 0) || (isChildWindow()), 
+            getX(), getY(), getWidth(), getHeight());
+          if (0L > waitForVisible(paramBoolean, false)) {
+            if (??? == 0) {
+              quirks.set(0);
+              if (DEBUG_IMPLEMENTATION) {
+                System.err.println("Setting VISIBILITY QUIRK, due to setVisible(" + paramBoolean + ") failure");
+              }
+              setVisibleImpl(paramBoolean, true, 
+                getX(), getY(), getWidth(), getHeight());
+              if (0L <= waitForVisible(paramBoolean, false)) {
+                i = paramBoolean ? 1 : 0;
+              }
+            }
+          } else {
+            i = paramBoolean ? 1 : 0;
+          }
+        } else {
+          stateMask.set(0);
+        }
+      }
+      
+      if (null != lifecycleHook) {
+        lifecycleHook.setVisibleActionPost(paramBoolean, bool);
+      }
+      
+      if ((isNativeValid()) && (paramBoolean) && (null != childWindows) && (childWindows.size() > 0)) {
+        synchronized (childWindowsLock) {
+          for (j = 0; j < childWindows.size(); j++) {
+            localNativeWindow = (NativeWindow)childWindows.get(j);
+            if ((localNativeWindow instanceof WindowImpl)) {
+              ((WindowImpl)localNativeWindow).setVisible(true);
+            }
+          }
+        }
+      }
+      if (DEBUG_IMPLEMENTATION) {
+        System.err.println("Window setVisible: END (" + getThreadName() + ") state " + getStateMaskString() + ", nativeWindowCreated: " + bool + ", madeVisible: " + i + ", geom " + 
+        
+          getX() + "/" + getY() + " " + getWidth() + "x" + getHeight() + ", windowHandle " + 
+          toHexString(windowHandle));
+      }
+    } finally {
+      if (null != lifecycleHook) {
+        lifecycleHook.resetCounter();
+      }
+      localRecursiveLock.unlock();
+    }
+    if ((bool) || (1 == i)) {
+      sendWindowEvent(100);
+    }
+  }
+  
+  private class VisibleAction implements Runnable
+  {
+    private VisibleAction(boolean paramBoolean) {
+      visible = paramBoolean;
+    }
+    
+    boolean visible;
+    public final void run() {
+      setVisibleActionImpl(visible);
+    }
+  }
+  
+  public final void setVisible(boolean paramBoolean1, boolean paramBoolean2)
+  {
+    if ((!isReconfigureMaskSupported(1)) && (isNativeValid())) {
+      return;
+    }
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("Window setVisible: START (" + getThreadName() + ") " + getX() + "/" + getY() + " " + getWidth() + "x" + getHeight() + ", windowHandle " + toHexString(windowHandle) + ", state " + getStateMaskString() + " -> visible " + paramBoolean2 + ", parentWindowHandle " + toHexString(parentWindowHandle) + ", parentWindow " + (null != parentWindow));
+    }
+    runOnEDTIfAvail(paramBoolean1, new VisibleAction(paramBoolean2, null));
+  }
+  
+  public final void setVisible(boolean paramBoolean)
+  {
+    setVisible(true, paramBoolean); }
+  
+  private class SetSizeAction implements Runnable {
+    int width;
+    int height;
+    boolean force;
+    
+    private SetSizeAction(int paramInt1, int paramInt2, boolean paramBoolean) {
+      width = paramInt1;
+      height = paramInt2;
+      force = paramBoolean;
+    }
+    
+    public final void run()
+    {
+      RecursiveLock localRecursiveLock = windowLock;
+      localRecursiveLock.lock();
+      try {
+        if ((force) || ((!isFullscreen()) && ((getWidth() != width) || (getHeight() != height)))) {
+          if (Window.DEBUG_IMPLEMENTATION) {
+            System.err.println("Window setSize: START force " + force + ", " + getWidth() + "x" + getHeight() + " -> " + width + "x" + height + ", windowHandle " + WindowImpl.toHexString(windowHandle) + ", state " + getStateMaskString());
+          }
+          boolean bool = stateMask.get(0);
+          int i;
+          if ((bool) && (isNativeValid()) && ((0 >= width) || (0 >= height))) {
+            i = 1;
+            defineSize(0, 0);
+          } else if ((bool) && (!isNativeValid()) && (0 < width) && (0 < height)) {
+            i = 2;
+            defineSize(width, height);
+          } else if ((bool) && (isNativeValid())) {
+            i = 0;
+            
+            reconfigureWindowImpl(getX(), getY(), width, height, getReconfigureMask(0, isVisible()));
+            WindowImpl.this.waitForSize(width, height, false, 1000L);
+          }
+          else {
+            i = 0;
+            defineSize(width, height);
+          }
+          if (Window.DEBUG_IMPLEMENTATION) {
+            System.err.println("Window setSize: END " + getWidth() + "x" + getHeight() + ", visibleAction " + i);
+          }
+          switch (i) {
+          case 1:  setVisibleActionImpl(false); break;
+          case 2:  setVisibleActionImpl(true);
+          }
+        }
+      } finally {
+        localRecursiveLock.unlock();
+      }
+    }
+  }
+  
+  private void setSize(int paramInt1, int paramInt2, boolean paramBoolean) {
+    runOnEDTIfAvail(true, new SetSizeAction(paramInt1, paramInt2, paramBoolean, null));
+  }
+  
+  public final void setSize(int paramInt1, int paramInt2) {
+    runOnEDTIfAvail(true, new SetSizeAction(paramInt1, paramInt2, false, null));
+  }
+  
+  public final void setSurfaceSize(int paramInt1, int paramInt2) {
+    setSize(SurfaceScaleUtils.scaleInv(paramInt1, getPixelScaleX()), 
+      SurfaceScaleUtils.scaleInv(paramInt2, getPixelScaleY()));
+  }
+  
+  public final void setTopLevelSize(int paramInt1, int paramInt2) {
+    InsetsImmutable localInsetsImmutable = getInsets();
+    setSize(paramInt1 - localInsetsImmutable.getTotalWidth(), paramInt2 - localInsetsImmutable.getTotalHeight());
+  }
+  
+  private final Runnable destroyAction = new Runnable()
+  {
+    public final void run() {
+      boolean bool = false;
+      if (null != lifecycleHook) {
+        bool = lifecycleHook.pauseRenderingAction();
+      }
+      if (null != lifecycleHook) {
+        lifecycleHook.destroyActionPreLock();
+      }
+      Object localObject1 = null;
+      RecursiveLock localRecursiveLock = windowLock;
+      localRecursiveLock.lock();
+      try {
+        if (Window.DEBUG_IMPLEMENTATION) {
+          System.err.println("Window DestroyAction() hasScreen " + (null != screen) + ", isNativeValid " + isNativeValid() + " - " + WindowImpl.getThreadName());
+        }
+        
+
+        sendWindowEvent(102);
+        
+
+        synchronized (childWindowsLock) {
+          if (childWindows.size() > 0)
+          {
+
+            ArrayList localArrayList = (ArrayList)childWindows.clone();
+            while (localArrayList.size() > 0) {
+              NativeWindow localNativeWindow = (NativeWindow)localArrayList.remove(0);
+              if ((localNativeWindow instanceof WindowImpl)) {
+                ((WindowImpl)localNativeWindow).windowDestroyNotify(true);
+              } else {
+                localNativeWindow.destroy();
+              }
+            }
+          }
+        }
+        
+        if (null != lifecycleHook) {
+          try
+          {
+            lifecycleHook.destroyActionInLock();
+          } catch (RuntimeException localRuntimeException) {
+            localObject1 = localRuntimeException;
+          }
+        }
+        
+        if (isNativeValid()) {
+          screen.removeMonitorModeListener(monitorModeListenerImpl);
+          closeNativeImpl();
+          localObject2 = config.getScreen().getDevice();
+          if (localObject2 != screen.getDisplay().getGraphicsDevice()) {
+            ((AbstractGraphicsDevice)localObject2).close();
+          }
+          setGraphicsConfiguration(null);
+        }
+        WindowImpl.this.removeScreenReference();
+        Object localObject2 = screen.getDisplay();
+        if (null != localObject2) {
+          ((Display)localObject2).validateEDTStopped();
+        }
+        
+
+        sendWindowEvent(106);
+        
+        if (Window.DEBUG_IMPLEMENTATION) {
+          System.err.println("Window.destroy() END " + WindowImpl.getThreadName());
+          if (null != localObject1) {
+            System.err.println("Window.destroy() caught: " + localObject1.getMessage());
+            localObject1.printStackTrace();
+          }
+        }
+        if (null != localObject1) {
+          throw localObject1;
+        }
+      }
+      finally {
+        setWindowHandle(0L);
+        resetStateMask();
+        fullscreenMonitors = null;
+        parentWindowHandle = 0L;
+        hasPixelScale[0] = 1.0F;
+        hasPixelScale[1] = 1.0F;
+        minPixelScale[0] = 1.0F;
+        minPixelScale[1] = 1.0F;
+        maxPixelScale[0] = 1.0F;
+        maxPixelScale[1] = 1.0F;
+        
+        localRecursiveLock.unlock();
+      }
+      if (bool) {
+        lifecycleHook.resumeRenderingAction();
+      }
+    }
+  };
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void destroy()
+  {
+    stateMask.clear(0);
+    runOnEDTIfAvail(true, destroyAction);
+  }
+  
+  protected void destroy(boolean paramBoolean) {
+    if (null != lifecycleHook) {
+      lifecycleHook.preserveGLStateAtDestroy(paramBoolean);
+    }
+    destroy();
+  }
+  
+
+
+
+
+  protected static boolean isOffscreenInstance(NativeWindow paramNativeWindow1, NativeWindow paramNativeWindow2)
+  {
+    boolean bool = false;
+    AbstractGraphicsConfiguration localAbstractGraphicsConfiguration1 = paramNativeWindow1.getGraphicsConfiguration();
+    if (null != localAbstractGraphicsConfiguration1) {
+      bool = !localAbstractGraphicsConfiguration1.getChosenCapabilities().isOnscreen();
+    }
+    if ((!bool) && (null != paramNativeWindow2)) {
+      AbstractGraphicsConfiguration localAbstractGraphicsConfiguration2 = paramNativeWindow2.getGraphicsConfiguration();
+      if (null != localAbstractGraphicsConfiguration2) {
+        bool = !localAbstractGraphicsConfiguration2.getChosenCapabilities().isOnscreen();
+      }
+    }
+    return bool;
+  }
+  
+  private class ReparentAction implements Runnable {
+    final NativeWindow newParentWindow;
+    final int topLevelX;
+    final int topLevelY;
+    final int hints;
+    Window.ReparentOperation operation;
+    
+    private ReparentAction(NativeWindow paramNativeWindow, int paramInt1, int paramInt2, int paramInt3) { newParentWindow = paramNativeWindow;
+      topLevelX = paramInt1;
+      topLevelY = paramInt2;
+      if (WindowImpl.DEBUG_TEST_REPARENT_INCOMPATIBLE) {
+        paramInt3 |= 0x1;
+      }
+      hints = paramInt3;
+      operation = Window.ReparentOperation.ACTION_INVALID;
+    }
+    
+    private Window.ReparentOperation getOp() {
+      return operation;
+    }
+    
+    public final void run()
+    {
+      if (isFullscreen())
+      {
+        if (Window.DEBUG_IMPLEMENTATION) {
+          System.err.println("Window.reparent: NOP (in fullscreen, " + WindowImpl.getThreadName() + ") valid " + isNativeValid() + ", windowHandle " + 
+            WindowImpl.toHexString(windowHandle) + " parentWindowHandle " + WindowImpl.toHexString(parentWindowHandle) + ", state " + getStateMaskString());
+        }
+        return;
+      }
+      boolean bool = false;
+      if (null != lifecycleHook) {
+        bool = lifecycleHook.pauseRenderingAction();
+      }
+      reparent();
+      if (bool) {
+        lifecycleHook.resumeRenderingAction();
+      }
+    }
+    
+    private void reparent()
+    {
+      int i = getX();
+      int j = getY();
+      int k = getWidth();
+      int m = getHeight();
+      
+      int i2 = k;
+      int i3 = m;
+      
+
+
+
+
+      RecursiveLock localRecursiveLock = windowLock;
+      localRecursiveLock.lock();
+      boolean bool1;
+      try {
+        boolean bool4 = 0 != (0x1 & hints);
+        if (isNativeValid())
+        {
+          bool4 |= WindowImpl.isOffscreenInstance(WindowImpl.this, newParentWindow);
+        }
+        boolean bool3 = bool4;
+        
+
+        bool1 = isVisible();
+        boolean bool2 = (bool1) || (0 != (0x2 & hints));
+        
+        Window localWindow = null;
+        if ((newParentWindow instanceof Window)) {
+          localWindow = (Window)newParentWindow;
+        }
+        
+        long l = 0L;
+        
+        if (Window.DEBUG_IMPLEMENTATION)
+          System.err.println("Window.reparent: START (" + WindowImpl.getThreadName() + ") valid " + isNativeValid() + ", windowHandle " + 
+            WindowImpl.toHexString(windowHandle) + " parentWindowHandle " + WindowImpl.toHexString(parentWindowHandle) + ", state " + 
+            getStateMaskString() + " -> visible " + bool2 + ", forceDestroyCreate " + bool3 + ", DEBUG_TEST_REPARENT_INCOMPATIBLE " + WindowImpl.DEBUG_TEST_REPARENT_INCOMPATIBLE + ", HINT_FORCE_RECREATION " + (0 != (0x1 & hints)) + ", HINT_BECOMES_VISIBLE " + (0 != (0x2 & hints)) + ", old parentWindow: " + 
+            
+
+
+
+            Display.hashCodeNullSafe(parentWindow) + ", new parentWindow: " + 
+            Display.hashCodeNullSafe(newParentWindow));
+        int n;
+        int i1;
+        Object localObject1; if (null != newParentWindow)
+        {
+
+
+          n = 0;
+          i1 = 0;
+          
+
+          if (i2 > newParentWindow.getWidth()) {
+            i2 = newParentWindow.getWidth();
+          }
+          if (i3 > newParentWindow.getHeight()) {
+            i3 = newParentWindow.getHeight();
+          }
+          
+
+          l = WindowImpl.getNativeWindowHandle(newParentWindow);
+          if (0L == l)
+          {
+            if (null == localWindow) {
+              throw new NativeWindowException("Reparenting with non NEWT Window type only available after it's realized: " + newParentWindow);
+            }
+            
+
+            destroy(bool2);
+            setScreen((ScreenImpl)localWindow.getScreen());
+            operation = Window.ReparentOperation.ACTION_NATIVE_CREATION_PENDING;
+          } else if (newParentWindow != getParent())
+          {
+            if (!isNativeValid())
+            {
+
+              if (null != localWindow) {
+                setScreen((ScreenImpl)localWindow.getScreen());
+              } else {
+                localObject1 = NewtFactory.createCompatibleScreen(newParentWindow, screen);
+                if (screen != localObject1)
+                {
+                  setScreen((ScreenImpl)localObject1);
+                }
+              }
+              if ((0 < i2) && (0 < i3)) {
+                operation = Window.ReparentOperation.ACTION_NATIVE_CREATION;
+              } else {
+                operation = Window.ReparentOperation.ACTION_NATIVE_CREATION_PENDING;
+              }
+            } else if ((bool3) || (!NewtFactory.isScreenCompatible(newParentWindow, screen)))
+            {
+              destroy(bool2);
+              if (null != localWindow) {
+                setScreen((ScreenImpl)localWindow.getScreen());
+              } else {
+                setScreen((ScreenImpl)NewtFactory.createCompatibleScreen(newParentWindow, screen));
+              }
+              operation = Window.ReparentOperation.ACTION_NATIVE_CREATION;
+            }
+            else {
+              operation = Window.ReparentOperation.ACTION_NATIVE_REPARENTING;
+            }
+          }
+          else {
+            operation = Window.ReparentOperation.ACTION_NOP;
+          }
+        }
+        else {
+          if ((0 <= topLevelX) && (0 <= topLevelY)) {
+            n = topLevelX;
+            i1 = topLevelY;
+          } else if (null != parentWindow)
+          {
+
+            localObject1 = getLocationOnScreen(null);
+            n = ((Point)localObject1).getX();
+            i1 = ((Point)localObject1).getY();
+          } else {
+            n = i;
+            i1 = j;
+          }
+          
+
+          if (0L == parentWindowHandle)
+          {
+            operation = Window.ReparentOperation.ACTION_NOP;
+          } else if ((!isNativeValid()) || (bool3))
+          {
+
+            destroy(bool2);
+            if ((0 < i2) && (0 < i3)) {
+              operation = Window.ReparentOperation.ACTION_NATIVE_CREATION;
+            } else {
+              operation = Window.ReparentOperation.ACTION_NATIVE_CREATION_PENDING;
+            }
+          }
+          else {
+            operation = Window.ReparentOperation.ACTION_NATIVE_REPARENTING;
+          }
+        }
+        parentWindowHandle = l;
+        
+        if (Window.ReparentOperation.ACTION_INVALID == operation) {
+          throw new NativeWindowException("Internal Error: reparentAction not set");
+        }
+        
+        if (Window.DEBUG_IMPLEMENTATION) {
+          System.err.println("Window.reparent: ACTION (" + WindowImpl.getThreadName() + ") windowHandle " + WindowImpl.toHexString(windowHandle) + " new parentWindowHandle " + WindowImpl.toHexString(l) + ", reparentAction " + operation + ", pos/size " + n + "/" + i1 + " " + i2 + "x" + i3 + ", visible " + bool1);
+        }
+        
+        if (Window.ReparentOperation.ACTION_NOP == operation) {
+          return;
+        }
+        
+        if (null == newParentWindow)
+        {
+          WindowImpl.this.setOffscreenPointerIcon(null);
+          WindowImpl.this.setOffscreenPointerVisible(true, null);
+        }
+        
+
+        if ((null != parentWindow) && ((parentWindow instanceof Window))) {
+          ((Window)parentWindow).removeChild(WindowImpl.this);
+        }
+        parentWindow = newParentWindow;
+        stateMask.put(2, null != parentWindow);
+        if ((parentWindow instanceof Window)) {
+          ((Window)parentWindow).addChild(WindowImpl.this);
+        }
+        
+        if (Window.ReparentOperation.ACTION_NATIVE_REPARENTING == operation) {
+          localObject1 = (DisplayImpl)screen.getDisplay();
+          ((DisplayImpl)localObject1).dispatchMessagesNative();
+          
+
+          if ((null != parentWindow) && (bool1) && (NativeWindowFactory.TYPE_X11 == NativeWindowFactory.getNativeWindowType(true))) {
+            setVisibleImpl(false, true, i, j, k, m);
+            WindowImpl.this.waitForVisible(false, false);
+            try
+            {
+              Thread.sleep(100L); } catch (InterruptedException localInterruptedException) {}
+            ((DisplayImpl)localObject1).dispatchMessagesNative();
+          }
+          
+          NativeWindow localNativeWindow;
+          
+          if (null != parentWindow) {
+            localNativeWindow = parentWindow;
+            if (1 >= localNativeWindow.lockSurface()) {
+              throw new NativeWindowException("Parent surface lock: not ready: " + localNativeWindow);
+            }
+            
+            parentWindowHandle = localNativeWindow.getWindowHandle();
+          } else {
+            localNativeWindow = null;
+          }
+          boolean bool5 = false;
+          try {
+            bool5 = reconfigureWindowImpl(n, i1, i2, i3, getReconfigureMask(805306368, isVisible()));
+          } finally {
+            if (null != localNativeWindow) {
+              localNativeWindow.unlockSurface();
+            }
+          }
+          definePosition(n, i1);
+          
+
+          if (bool5) {
+            ((DisplayImpl)localObject1).dispatchMessagesNative();
+            if (bool1) {
+              setVisibleImpl(true, true, n, i1, i2, i3);
+              bool5 = 0L <= WindowImpl.this.waitForVisible(true, false);
+              if (bool5) {
+                if ((isAlwaysOnTop()) && (0L == parentWindowHandle) && (NativeWindowFactory.TYPE_X11 == NativeWindowFactory.getNativeWindowType(true)))
+                {
+                  reconfigureWindowImpl(n, i1, i2, i3, getReconfigureMask(134217728, isVisible()));
+                }
+                bool5 = WindowImpl.this.waitForSize(i2, i3, false, 1000L);
+              }
+              if (bool5) {
+                if (0L == parentWindowHandle)
+                {
+                  WindowImpl.this.waitForPosition(true, n, i1, 1000L);
+                }
+                
+                WindowImpl.this.requestFocusInt(0L == parentWindowHandle);
+                ((DisplayImpl)localObject1).dispatchMessagesNative();
+              }
+            }
+          }
+          
+          if ((!bool5) || (!bool1))
+          {
+
+            definePosition(n, i1);
+            defineSize(i2, i3);
+          }
+          
+          if (!bool5)
+          {
+            if (Window.DEBUG_IMPLEMENTATION) {
+              System.err.println("Window.reparent: native reparenting failed (" + WindowImpl.getThreadName() + ") windowHandle " + WindowImpl.toHexString(windowHandle) + " parentWindowHandle " + WindowImpl.toHexString(parentWindowHandle) + " -> " + WindowImpl.toHexString(l) + " - Trying recreation");
+            }
+            destroy(bool2);
+            operation = Window.ReparentOperation.ACTION_NATIVE_CREATION;
+          }
+          else if (null != parentWindow)
+          {
+            WindowImpl.this.setOffscreenPointerIcon(pointerIcon);
+            WindowImpl.this.setOffscreenPointerVisible(stateMask.get(12), pointerIcon);
+
+          }
+          
+
+        }
+        else
+        {
+
+          definePosition(n, i1);
+          defineSize(i2, i3);
+        }
+        
+        if (Window.DEBUG_IMPLEMENTATION) {
+          System.err.println("Window.reparent: END-1 (" + WindowImpl.getThreadName() + ") state " + getStateMaskString() + ", windowHandle " + 
+            WindowImpl.toHexString(windowHandle) + ", parentWindowHandle " + 
+            WindowImpl.toHexString(parentWindowHandle) + ", parentWindow " + 
+            Display.hashCodeNullSafe(parentWindow) + " " + 
+            getX() + "/" + getY() + " " + getWidth() + "x" + getHeight());
+        }
+      } finally {
+        if (null != lifecycleHook) {
+          lifecycleHook.resetCounter();
+        }
+        localRecursiveLock.unlock();
+      }
+      if (bool1) {
+        switch (WindowImpl.6.$SwitchMap$com$jogamp$newt$Window$ReparentOperation[operation.ordinal()])
+        {
+        case 1: 
+          sendWindowEvent(100);
+          break;
+        
+
+        case 2: 
+          runOnEDTIfAvail(true, reparentActionRecreate);
+          break;
+        }
+        
+      }
+      
+      if (Window.DEBUG_IMPLEMENTATION) {
+        System.err.println("Window.reparent: END-X (" + WindowImpl.getThreadName() + ") state " + getStateMaskString() + ", windowHandle " + 
+          WindowImpl.toHexString(windowHandle) + ", parentWindowHandle " + 
+          WindowImpl.toHexString(parentWindowHandle) + ", parentWindow " + 
+          Display.hashCodeNullSafe(parentWindow) + " " + 
+          getX() + "/" + getY() + " " + getWidth() + "x" + getHeight());
+      }
+    }
+  }
+  
+  private final Runnable reparentActionRecreate = new Runnable()
+  {
+    public final void run() {
+      RecursiveLock localRecursiveLock = windowLock;
+      localRecursiveLock.lock();
+      try {
+        if (Window.DEBUG_IMPLEMENTATION) {
+          System.err.println("Window.reparent: ReparentActionRecreate (" + WindowImpl.getThreadName() + ") state " + getStateMaskString() + ", windowHandle " + WindowImpl.toHexString(windowHandle) + ", parentWindowHandle " + WindowImpl.toHexString(parentWindowHandle) + ", parentWindow " + Display.hashCodeNullSafe(parentWindow));
+        }
+        setVisibleActionImpl(true);
+        WindowImpl.this.requestFocusInt(0L == parentWindowHandle);
+        
+        localRecursiveLock.unlock(); } finally { localRecursiveLock.unlock();
+      }
+    }
+  };
+  
+  public final Window.ReparentOperation reparentWindow(NativeWindow paramNativeWindow, int paramInt1, int paramInt2, int paramInt3) {
+    if ((!isReconfigureMaskSupported(4)) && (isNativeValid())) {
+      return Window.ReparentOperation.ACTION_INVALID;
+    }
+    ReparentAction localReparentAction = new ReparentAction(paramNativeWindow, paramInt1, paramInt2, paramInt3, null);
+    runOnEDTIfAvail(true, localReparentAction);
+    return localReparentAction.getOp();
+  }
+  
+  public final boolean isChildWindow() {
+    return stateMask.get(2);
+  }
+  
+  public final CapabilitiesChooser setCapabilitiesChooser(CapabilitiesChooser paramCapabilitiesChooser)
+  {
+    CapabilitiesChooser localCapabilitiesChooser = capabilitiesChooser;
+    capabilitiesChooser = paramCapabilitiesChooser;
+    return localCapabilitiesChooser;
+  }
+  
+  public final CapabilitiesImmutable getChosenCapabilities()
+  {
+    return getGraphicsConfiguration().getChosenCapabilities();
+  }
+  
+  public final CapabilitiesImmutable getRequestedCapabilities()
+  {
+    return capsRequested;
+  }
+  
+  private class DecorationAction implements Runnable {
+    boolean undecorated;
+    
+    private DecorationAction(boolean paramBoolean) {
+      undecorated = paramBoolean;
+    }
+    
+    public final void run()
+    {
+      RecursiveLock localRecursiveLock = windowLock;
+      localRecursiveLock.lock();
+      try {
+        if ((stateMask.put(4, undecorated) != undecorated) && 
+          (isNativeValid()) && (!isFullscreen()))
+        {
+          int i = getX();
+          int j = getY();
+          int k = getWidth();
+          int m = getHeight();
+          
+          DisplayImpl localDisplayImpl = (DisplayImpl)screen.getDisplay();
+          localDisplayImpl.dispatchMessagesNative();
+          reconfigureWindowImpl(i, j, k, m, getReconfigureMask(268435456, isVisible()));
+          localDisplayImpl.dispatchMessagesNative();
+        }
+      }
+      finally {
+        localRecursiveLock.unlock();
+      }
+      sendWindowEvent(100);
+    }
+  }
+  
+  public final void setUndecorated(boolean paramBoolean)
+  {
+    if (isNativeValid()) {
+      if (!isReconfigureMaskSupported(16)) {
+        return;
+      }
+      if (isFullscreen()) {
+        stateMaskNFS.put(16, paramBoolean);
+        return;
+      }
+    }
+    runOnEDTIfAvail(true, new DecorationAction(paramBoolean, null));
+  }
+  
+  public final boolean isUndecorated() {
+    return isUndecorated(getStateMask());
+  }
+  
+  private static final boolean isUndecorated(int paramInt) { return 0 != (paramInt & 0x814); }
+  
+  private class AlwaysOnTopAction implements Runnable
+  {
+    boolean alwaysOnTop;
+    
+    private AlwaysOnTopAction(boolean paramBoolean) {
+      alwaysOnTop = paramBoolean;
+    }
+    
+    public final void run()
+    {
+      RecursiveLock localRecursiveLock = windowLock;
+      localRecursiveLock.lock();
+      try {
+        if ((stateMask.put(5, alwaysOnTop) != alwaysOnTop) && 
+          (isNativeValid()) && (!isFullscreen()))
+        {
+          int i = getX();
+          int j = getY();
+          int k = getWidth();
+          int m = getHeight();
+          
+          DisplayImpl localDisplayImpl = (DisplayImpl)screen.getDisplay();
+          localDisplayImpl.dispatchMessagesNative();
+          reconfigureWindowImpl(i, j, k, m, getReconfigureMask(134217728, isVisible()));
+          localDisplayImpl.dispatchMessagesNative();
+        }
+      }
+      finally {
+        localRecursiveLock.unlock();
+      }
+      sendWindowEvent(100);
+    }
+  }
+  
+  public final void setAlwaysOnTop(boolean paramBoolean) {
+    if (isChildWindow()) {
+      return;
+    }
+    if (isNativeValid()) {
+      if (!isReconfigureMaskSupported(32)) {
+        return;
+      }
+      if (isFullscreen()) {
+        if ((paramBoolean) && (isAlwaysOnBottom())) {
+          setAlwaysOnBottom(false);
+        }
+        stateMaskNFS.put(5, paramBoolean);
+        return;
+      }
+    }
+    if ((paramBoolean) && (isAlwaysOnBottom())) {
+      setAlwaysOnBottom(false);
+    }
+    runOnEDTIfAvail(true, new AlwaysOnTopAction(paramBoolean, null));
+  }
+  
+  public final boolean isAlwaysOnTop() {
+    return stateMask.get(5);
+  }
+  
+  private class AlwaysOnBottomAction implements Runnable {
+    boolean alwaysOnBottom;
+    
+    private AlwaysOnBottomAction(boolean paramBoolean) {
+      alwaysOnBottom = paramBoolean;
+    }
+    
+    public final void run()
+    {
+      RecursiveLock localRecursiveLock = windowLock;
+      localRecursiveLock.lock();
+      try {
+        if ((stateMask.put(6, alwaysOnBottom) != alwaysOnBottom) && 
+          (isNativeValid()))
+        {
+          int i = getX();
+          int j = getY();
+          int k = getWidth();
+          int m = getHeight();
+          
+          DisplayImpl localDisplayImpl = (DisplayImpl)screen.getDisplay();
+          localDisplayImpl.dispatchMessagesNative();
+          reconfigureWindowImpl(i, j, k, m, getReconfigureMask(67108864, isVisible()));
+          localDisplayImpl.dispatchMessagesNative();
+        }
+      }
+      finally {
+        localRecursiveLock.unlock();
+      }
+      sendWindowEvent(100);
+    }
+  }
+  
+  public final void setAlwaysOnBottom(boolean paramBoolean) {
+    if (isChildWindow()) {
+      return;
+    }
+    if ((!isReconfigureMaskSupported(64)) && (isNativeValid())) {
+      return;
+    }
+    if ((paramBoolean) && (isAlwaysOnTop())) {
+      setAlwaysOnTop(false);
+    }
+    runOnEDTIfAvail(true, new AlwaysOnBottomAction(paramBoolean, null));
+  }
+  
+  public final boolean isAlwaysOnBottom() {
+    return stateMask.get(6);
+  }
+  
+  private class ResizableAction implements Runnable {
+    boolean resizable;
+    
+    private ResizableAction(boolean paramBoolean) {
+      resizable = paramBoolean;
+    }
+    
+    public final void run()
+    {
+      RecursiveLock localRecursiveLock = windowLock;
+      localRecursiveLock.lock();
+      try {
+        if ((stateMask.put(8, resizable) != resizable) && 
+          (isNativeValid()))
+        {
+          int i = getX();
+          int j = getY();
+          int k = getWidth();
+          int m = getHeight();
+          
+          DisplayImpl localDisplayImpl = (DisplayImpl)screen.getDisplay();
+          localDisplayImpl.dispatchMessagesNative();
+          reconfigureWindowImpl(i, j, k, m, getReconfigureMask(16777216, isVisible()));
+          localDisplayImpl.dispatchMessagesNative();
+        }
+      }
+      finally {
+        localRecursiveLock.unlock();
+      }
+      sendWindowEvent(100);
+    }
+  }
+  
+  public final void setResizable(boolean paramBoolean) {
+    if (isChildWindow()) {
+      return;
+    }
+    if (isNativeValid()) {
+      if (!isReconfigureMaskSupported(256)) {
+        return;
+      }
+      if (isFullscreen()) {
+        stateMaskNFS.put(8, paramBoolean);
+        return;
+      }
+    }
+    runOnEDTIfAvail(true, new ResizableAction(paramBoolean, null));
+  }
+  
+  public final boolean isResizable() {
+    return stateMask.get(8);
+  }
+  
+  private class StickyAction implements Runnable {
+    boolean sticky;
+    
+    private StickyAction(boolean paramBoolean) {
+      sticky = paramBoolean;
+    }
+    
+    public final void run()
+    {
+      RecursiveLock localRecursiveLock = windowLock;
+      localRecursiveLock.lock();
+      try {
+        if ((stateMask.put(7, sticky) != sticky) && 
+          (isNativeValid()))
+        {
+          int i = getX();
+          int j = getY();
+          int k = getWidth();
+          int m = getHeight();
+          
+          DisplayImpl localDisplayImpl = (DisplayImpl)screen.getDisplay();
+          localDisplayImpl.dispatchMessagesNative();
+          reconfigureWindowImpl(i, j, k, m, getReconfigureMask(33554432, isVisible()));
+          localDisplayImpl.dispatchMessagesNative();
+        }
+      }
+      finally {
+        localRecursiveLock.unlock();
+      }
+      sendWindowEvent(100);
+    }
+  }
+  
+  public final void setSticky(boolean paramBoolean) {
+    if (isChildWindow()) {
+      return;
+    }
+    if ((!isReconfigureMaskSupported(128)) && (isNativeValid())) {
+      return;
+    }
+    runOnEDTIfAvail(true, new StickyAction(paramBoolean, null));
+  }
+  
+
+  public final boolean isSticky() { return stateMask.get(7); }
+  
+  private class MaximizeAction implements Runnable {
+    boolean horz;
+    boolean vert;
+    
+    private MaximizeAction(boolean paramBoolean1, boolean paramBoolean2) {
+      horz = paramBoolean1;
+      vert = paramBoolean2;
+    }
+    
+    public final void run()
+    {
+      RecursiveLock localRecursiveLock = windowLock;
+      localRecursiveLock.lock();
+      try {
+        int i = 0;
+        if (stateMask.put(9, vert) != vert) {
+          i |= 0x800000;
+        }
+        if (stateMask.put(10, horz) != horz) {
+          i |= 0x400000;
+        }
+        if ((0 != i) && 
+          (isNativeValid())) {
+          boolean bool = hasFocus();
+          
+          int j = getX();
+          int k = getY();
+          int m = getWidth();
+          int n = getHeight();
+          
+          DisplayImpl localDisplayImpl = (DisplayImpl)screen.getDisplay();
+          localDisplayImpl.dispatchMessagesNative();
+          
+          reconfigureWindowImpl(j, k, m, n, getReconfigureMask(i, isVisible()));
+          localDisplayImpl.dispatchMessagesNative();
+          
+          if (bool) {
+            WindowImpl.this.requestFocusInt(0L == parentWindowHandle);
+          }
+        }
+      }
+      finally {
+        localRecursiveLock.unlock();
+      }
+      sendWindowEvent(100);
+    }
+  }
+  
+  public final void setMaximized(boolean paramBoolean1, boolean paramBoolean2) {
+    if (isNativeValid()) {
+      if ((paramBoolean1) && (!isReconfigureMaskSupported(1024))) {
+        paramBoolean1 = false;
+      }
+      if ((paramBoolean2) && (!isReconfigureMaskSupported(512))) {
+        paramBoolean2 = false;
+      }
+    }
+    if (isChildWindow()) {
+      return;
+    }
+    if (isFullscreen()) {
+      stateMaskNFS.put(10, paramBoolean1);
+      stateMaskNFS.put(9, paramBoolean2);
+    } else {
+      runOnEDTIfAvail(true, new MaximizeAction(paramBoolean1, paramBoolean2, null));
+    }
+  }
+  
+  public final boolean isMaximizedVert() {
+    return stateMask.get(9);
+  }
+  
+
+  public final boolean isMaximizedHorz() { return stateMask.get(10); }
+  
+  protected final void maximizedChanged(boolean paramBoolean1, boolean paramBoolean2) { String str;
+    int i;
+    int j; if (!isFullscreen()) {
+      str = DEBUG_IMPLEMENTATION ? getStateMaskString() : null;
+      i = stateMask.put(10, paramBoolean1) != paramBoolean1 ? 1 : 0;
+      j = stateMask.put(9, paramBoolean2) != paramBoolean2 ? 1 : 0;
+      if ((DEBUG_IMPLEMENTATION) && (
+        (i != 0) || (j != 0))) {
+        System.err.println("Window.maximizedChanged.accepted: " + str + " -> " + getStateMaskString());
+      }
+    }
+    else if (DEBUG_IMPLEMENTATION) {
+      str = DEBUG_IMPLEMENTATION ? getStateMaskString() : null;
+      i = stateMask.get(10) != paramBoolean1 ? 1 : 0;
+      j = stateMask.get(9) != paramBoolean2 ? 1 : 0;
+      if ((i != 0) || (j != 0)) {
+        System.err.println("Window.maximizedChanged.ignored: " + str + " -> max[" + (paramBoolean1 ? "" : "!") + "h, " + (paramBoolean2 ? "" : "!") + "v]");
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  protected void reconfigMaximizedManual(int paramInt, int[] paramArrayOfInt, InsetsImmutable paramInsetsImmutable)
+  {
+    MonitorMode localMonitorMode = getMainMonitor().getCurrentMode();
+    
+    int i = SurfaceScaleUtils.scaleInv(localMonitorMode.getRotatedWidth(), getPixelScaleX());
+    int j = SurfaceScaleUtils.scaleInv(localMonitorMode.getRotatedHeight(), getPixelScaleY());
+    
+    if (0 != (0x400000 & paramInt)) {
+      if (0 != (0x400 & paramInt))
+      {
+        normPosSizeStored[0] = true;
+        normPosSize[0] = paramArrayOfInt[0];
+        normPosSize[2] = paramArrayOfInt[2];
+        paramArrayOfInt[0] = paramInsetsImmutable.getLeftWidth();
+        paramArrayOfInt[2] = (i - paramInsetsImmutable.getTotalWidth());
+      }
+      else {
+        normPosSizeStored[0] = false;
+        paramArrayOfInt[0] = normPosSize[0];
+        paramArrayOfInt[2] = normPosSize[2];
+      }
+    }
+    if (0 != (0x800000 & paramInt)) {
+      if (0 != (0x200 & paramInt))
+      {
+        normPosSizeStored[1] = true;
+        normPosSize[1] = paramArrayOfInt[1];
+        normPosSize[3] = paramArrayOfInt[3];
+        paramArrayOfInt[1] = paramInsetsImmutable.getTopHeight();
+        paramArrayOfInt[3] = (j - paramInsetsImmutable.getTotalHeight());
+      }
+      else {
+        normPosSizeStored[1] = false;
+        paramArrayOfInt[1] = normPosSize[1];
+        paramArrayOfInt[3] = normPosSize[3];
+      }
+    }
+  }
+  
+  protected void resetMaximizedManual(int[] paramArrayOfInt) {
+    if (normPosSizeStored[0] != 0)
+    {
+      normPosSizeStored[0] = false;
+      paramArrayOfInt[0] = normPosSize[0];
+      paramArrayOfInt[2] = normPosSize[2];
+    }
+    if (normPosSizeStored[1] != 0)
+    {
+      normPosSizeStored[1] = false;
+      paramArrayOfInt[1] = normPosSize[1];
+      paramArrayOfInt[3] = normPosSize[3];
+    } }
+  
+  private final int[] normPosSize = { 0, 0, 0, 0 };
+  private final boolean[] normPosSizeStored = { false, false };
+  
+  public final String getTitle()
+  {
+    return title;
+  }
+  
+  public final void setTitle(String paramString) {
+    if (paramString == null) {
+      paramString = "";
+    }
+    title = paramString;
+    if (0L != getWindowHandle()) {
+      setTitleImpl(paramString);
+    }
+  }
+  
+  public final boolean isPointerVisible()
+  {
+    return stateMask.get(12);
+  }
+  
+  public final void setPointerVisible(boolean paramBoolean) {
+    if ((!isReconfigureMaskSupported(4096)) && (isNativeValid())) {
+      return;
+    }
+    if (stateMask.get(12) != paramBoolean) {
+      boolean bool = 0L == getWindowHandle();
+      if (!bool) {
+        bool = setPointerVisibleIntern(paramBoolean);
+      }
+      if (bool)
+        stateMask.put(12, paramBoolean);
+    }
+  }
+  
+  private boolean setPointerVisibleIntern(boolean paramBoolean) {
+    boolean bool = setOffscreenPointerVisible(paramBoolean, pointerIcon);
+    return (setPointerVisibleImpl(paramBoolean)) || (bool);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private boolean setOffscreenPointerVisible(boolean paramBoolean, PointerIconImpl paramPointerIconImpl)
+  {
+    if (paramBoolean) {
+      return setOffscreenPointerIcon(paramPointerIconImpl);
+    }
+    NativeWindow localNativeWindow = getParent();
+    if ((localNativeWindow instanceof OffscreenLayerSurface)) {
+      OffscreenLayerSurface localOffscreenLayerSurface = (OffscreenLayerSurface)localNativeWindow;
+      try {
+        return localOffscreenLayerSurface.hideCursor();
+      } catch (Exception localException) {
+        localException.printStackTrace();
+      }
+    }
+    
+    return false;
+  }
+  
+  public final Display.PointerIcon getPointerIcon() {
+    return pointerIcon;
+  }
+  
+  public final void setPointerIcon(Display.PointerIcon paramPointerIcon) {
+    final PointerIconImpl localPointerIconImpl = (PointerIconImpl)paramPointerIcon;
+    if (pointerIcon != localPointerIconImpl) {
+      if (isNativeValid())
+        runOnEDTIfAvail(true, new Runnable() {
+          public void run() {
+            WindowImpl.this.setPointerIconIntern(localPointerIconImpl);
+          }
+        });
+      pointerIcon = localPointerIconImpl;
+    }
+  }
+  
+  private void setPointerIconIntern(PointerIconImpl paramPointerIconImpl) { setOffscreenPointerIcon(paramPointerIconImpl);
+    setPointerIconImpl(paramPointerIconImpl);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private boolean setOffscreenPointerIcon(PointerIconImpl paramPointerIconImpl)
+  {
+    NativeWindow localNativeWindow = getParent();
+    if ((localNativeWindow instanceof OffscreenLayerSurface)) {
+      OffscreenLayerSurface localOffscreenLayerSurface = (OffscreenLayerSurface)localNativeWindow;
+      try {
+        if (null != paramPointerIconImpl) {
+          return localOffscreenLayerSurface.setCursor(paramPointerIconImpl, paramPointerIconImpl.getHotspot());
+        }
+        return localOffscreenLayerSurface.setCursor(null, null);
+      }
+      catch (Exception localException) {
+        localException.printStackTrace();
+      }
+    }
+    return false;
+  }
+  
+  public final boolean isPointerConfined()
+  {
+    return stateMask.get(13);
+  }
+  
+  public final void confinePointer(boolean paramBoolean) {
+    if ((!isReconfigureMaskSupported(8192)) && (isNativeValid())) {
+      return;
+    }
+    if (stateMask.get(13) != paramBoolean) {
+      boolean bool = 0L == getWindowHandle();
+      if (!bool) {
+        if (paramBoolean) {
+          requestFocus();
+          warpPointer(getSurfaceWidth() / 2, getSurfaceHeight() / 2);
+        }
+        bool = confinePointerImpl(paramBoolean);
+        if (paramBoolean)
+        {
+          try
+          {
+            Thread.sleep(3L * screen.getDisplay().getEDTUtil().getPollPeriod());
+          } catch (InterruptedException localInterruptedException) {}
+        }
+      }
+      if (bool) {
+        stateMask.put(13, paramBoolean);
+      }
+    }
+  }
+  
+  public final void warpPointer(int paramInt1, int paramInt2)
+  {
+    if (0L != getWindowHandle()) {
+      warpPointerImpl(paramInt1, paramInt2);
+    }
+  }
+  
+  public final InsetsImmutable getInsets()
+  {
+    if (isUndecorated()) {
+      return Insets.getZero();
+    }
+    return insets;
+  }
+  
+
+  public final int getX()
+  {
+    return x;
+  }
+  
+  public final int getY()
+  {
+    return y;
+  }
+  
+  public final int getWidth()
+  {
+    return winWidth;
+  }
+  
+  public final int getHeight()
+  {
+    return winHeight;
+  }
+  
+  public final Rectangle getBounds()
+  {
+    return new Rectangle(x, y, winWidth, winHeight);
+  }
+  
+  public final int getSurfaceWidth()
+  {
+    return pixWidth;
+  }
+  
+  public final int getSurfaceHeight()
+  {
+    return pixHeight;
+  }
+  
+  public final int[] convertToWindowUnits(int[] paramArrayOfInt)
+  {
+    return SurfaceScaleUtils.scaleInv(paramArrayOfInt, paramArrayOfInt, hasPixelScale);
+  }
+  
+  public final int[] convertToPixelUnits(int[] paramArrayOfInt)
+  {
+    return SurfaceScaleUtils.scale(paramArrayOfInt, paramArrayOfInt, hasPixelScale);
+  }
+  
+  protected final Point convertToWindowUnits(Point paramPoint) {
+    return paramPoint.scaleInv(getPixelScaleX(), getPixelScaleY());
+  }
+  
+  protected final Point convertToPixelUnits(Point paramPoint) {
+    return paramPoint.scale(getPixelScaleX(), getPixelScaleY());
+  }
+  
+  protected final float getPixelScaleX()
+  {
+    return hasPixelScale[0];
+  }
+  
+  protected final float getPixelScaleY()
+  {
+    return hasPixelScale[1];
+  }
+  
+  public boolean setSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(paramArrayOfFloat, 0, reqPixelScale, 0, 2);
+    return false;
+  }
+  
+  public final float[] getRequestedSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(reqPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+  public final float[] getCurrentSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(hasPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+  public final float[] getMinimumSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(minPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+  public final float[] getMaximumSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(maxPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+  public final float[] getPixelsPerMM(float[] paramArrayOfFloat)
+  {
+    getMainMonitor().getPixelsPerMM(paramArrayOfFloat);
+    paramArrayOfFloat[0] *= hasPixelScale[0] / maxPixelScale[0];
+    paramArrayOfFloat[1] *= hasPixelScale[1] / maxPixelScale[1];
+    return paramArrayOfFloat;
+  }
+  
+  protected final boolean autoPosition() { return stateMask.get(1); }
+  
+  protected final void definePosition(int paramInt1, int paramInt2)
+  {
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("definePosition: " + x + "/" + y + " -> " + paramInt1 + "/" + paramInt2);
+    }
+    
+    stateMask.clear(1);
+    x = paramInt1;y = paramInt2;
+  }
+  
+
+
+
+
+  protected final void defineSize(int paramInt1, int paramInt2)
+  {
+    int i = SurfaceScaleUtils.scale(paramInt1, getPixelScaleX());
+    int j = SurfaceScaleUtils.scale(paramInt2, getPixelScaleY());
+    
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("defineSize: win[" + winWidth + "x" + winHeight + " -> " + paramInt1 + "x" + paramInt2 + "], pixel[" + pixWidth + "x" + pixHeight + " -> " + i + "x" + j + "]");
+    }
+    
+
+    winWidth = paramInt1;winHeight = paramInt2;
+    pixWidth = i;pixHeight = j;
+  }
+  
+  public final boolean isVisible()
+  {
+    return stateMask.get(0);
+  }
+  
+  public final boolean isFullscreen()
+  {
+    return stateMask.get(11);
+  }
+  
+
+
+
+
+  public final Window getDelegatedWindow()
+  {
+    return this;
+  }
+  
+
+
+
+
+
+
+
+  public boolean hasDeviceChanged()
+  {
+    return false;
+  }
+  
+  public final LifecycleHook getLifecycleHook() {
+    return lifecycleHook;
+  }
+  
+  public final LifecycleHook setLifecycleHook(LifecycleHook paramLifecycleHook) {
+    LifecycleHook localLifecycleHook = lifecycleHook;
+    lifecycleHook = paramLifecycleHook;
+    return localLifecycleHook;
+  }
+  
+
+
+
+  public NativeSurface getWrappedSurface()
+  {
+    return null;
+  }
+  
+  public final void setWindowDestroyNotifyAction(Runnable paramRunnable)
+  {
+    windowDestroyNotifyAction = paramRunnable;
+  }
+  
+  protected final long getParentWindowHandle() {
+    return isFullscreen() ? 0L : parentWindowHandle;
+  }
+  
+  public final String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    
+    localStringBuilder.append(getClass().getName() + "[State " + getStateMaskString() + ",\n " + screen + ",\n window[" + 
+    
+      getX() + "/" + getY() + " " + getWidth() + "x" + getHeight() + " wu, " + getSurfaceWidth() + "x" + getSurfaceHeight() + " pixel]" + ",\n Config " + config + ",\n ParentWindow " + parentWindow + ",\n ParentWindowHandle " + 
+      
+
+      toHexString(parentWindowHandle) + " (" + (0L != getParentWindowHandle()) + ")" + ",\n WindowHandle " + 
+      toHexString(getWindowHandle()) + ",\n SurfaceHandle " + 
+      toHexString(getSurfaceHandle()) + " (lockedExt window " + windowLock.isLockedByOtherThread() + ", surface " + isSurfaceLockedByOtherThread() + ")" + ",\n WrappedSurface " + 
+      getWrappedSurface() + ",\n ChildWindows " + childWindows
+      .size());
+    
+    localStringBuilder.append(", SurfaceUpdatedListeners num " + surfaceUpdatedHelper.size() + " [");
+    for (int i = 0; i < surfaceUpdatedHelper.size(); i++) {
+      localStringBuilder.append(surfaceUpdatedHelper.get(i) + ", ");
+    }
+    localStringBuilder.append("], WindowListeners num " + windowListeners.size() + " [");
+    for (i = 0; i < windowListeners.size(); i++) {
+      localStringBuilder.append(windowListeners.get(i) + ", ");
+    }
+    localStringBuilder.append("], MouseListeners num " + mouseListeners.size() + " [");
+    for (i = 0; i < mouseListeners.size(); i++) {
+      localStringBuilder.append(mouseListeners.get(i) + ", ");
+    }
+    localStringBuilder.append("], PointerGestures default " + defaultGestureHandlerEnabled + ", custom " + pointerGestureHandler.size() + " [");
+    for (i = 0; i < pointerGestureHandler.size(); i++) {
+      localStringBuilder.append(pointerGestureHandler.get(i) + ", ");
+    }
+    localStringBuilder.append("], KeyListeners num " + keyListeners.size() + " [");
+    for (i = 0; i < keyListeners.size(); i++) {
+      localStringBuilder.append(keyListeners.get(i) + ", ");
+    }
+    localStringBuilder.append("], windowLock " + windowLock + ", surfaceLockCount " + surfaceLockCount + "]");
+    return localStringBuilder.toString();
+  }
+  
+  protected final void setWindowHandle(long paramLong) {
+    windowHandle = paramLong;
+  }
+  
+  public final void runOnEDTIfAvail(boolean paramBoolean, Runnable paramRunnable)
+  {
+    if (windowLock.isOwner(Thread.currentThread())) {
+      paramRunnable.run();
+    } else {
+      ((DisplayImpl)screen.getDisplay()).runOnEDTIfAvail(paramBoolean, paramRunnable);
+    }
+  }
+  
+  private final Runnable requestFocusAction = new Runnable()
+  {
+    public final void run() {
+      if (Window.DEBUG_IMPLEMENTATION) {
+        System.err.println("Window.RequestFocusAction: force 0 - (" + WindowImpl.getThreadName() + "): state " + getStateMaskString() + " -> focus true - windowHandle " + WindowImpl.toHexString(windowHandle) + " parentWindowHandle " + WindowImpl.toHexString(parentWindowHandle));
+      }
+      requestFocusImpl(false);
+    }
+  };
+  private final Runnable requestFocusActionForced = new Runnable()
+  {
+    public final void run() {
+      if (Window.DEBUG_IMPLEMENTATION) {
+        System.err.println("Window.RequestFocusAction: force 1 - (" + WindowImpl.getThreadName() + "): state " + getStateMaskString() + " -> focus true - windowHandle " + WindowImpl.toHexString(windowHandle) + " parentWindowHandle " + WindowImpl.toHexString(parentWindowHandle));
+      }
+      requestFocusImpl(true);
+    }
+  };
+  
+  public final boolean hasFocus()
+  {
+    return stateMask.get(3);
+  }
+  
+  public final void requestFocus()
+  {
+    requestFocus(true);
+  }
+  
+  public final void requestFocus(boolean paramBoolean)
+  {
+    requestFocus(paramBoolean, false, stateMask.get(30));
+  }
+  
+  private void requestFocus(boolean paramBoolean1, boolean paramBoolean2, boolean paramBoolean3) {
+    if ((isNativeValid()) && ((paramBoolean3) || 
+      (!hasFocus())) && ((paramBoolean2) || 
+      (!focusAction()))) {
+      runOnEDTIfAvail(paramBoolean1, paramBoolean3 ? requestFocusActionForced : requestFocusAction);
+    }
+  }
+  
+  private void requestFocusInt(boolean paramBoolean)
+  {
+    if ((paramBoolean) || (!focusAction())) {
+      if (!isReconfigureMaskSupported(8)) {
+        return;
+      }
+      if (DEBUG_IMPLEMENTATION) {
+        System.err.println("Window.RequestFocusInt: forcing - (" + getThreadName() + "): skipFocusAction " + paramBoolean + ", state " + 
+          getStateMaskString() + " -> focus true - windowHandle " + 
+          toHexString(windowHandle) + " parentWindowHandle " + toHexString(parentWindowHandle));
+      }
+      requestFocusImpl(true);
+    }
+  }
+  
+  public final void setFocusAction(Window.FocusRunnable paramFocusRunnable)
+  {
+    focusAction = paramFocusRunnable;
+  }
+  
+  private boolean focusAction() {
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("Window.focusAction() START - " + getThreadName() + ", focusAction: " + focusAction + " - windowHandle " + toHexString(getWindowHandle()));
+    }
+    boolean bool;
+    if (null != focusAction) {
+      bool = focusAction.run();
+    } else {
+      bool = false;
+    }
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("Window.focusAction() END - " + getThreadName() + ", focusAction: " + focusAction + " - windowHandle " + toHexString(getWindowHandle()) + ", res: " + bool);
+    }
+    return bool;
+  }
+  
+  protected final void setBrokenFocusChange(boolean paramBoolean) {
+    stateMask.put(30, paramBoolean);
+  }
+  
+
+
+  public final void setKeyboardFocusHandler(KeyListener paramKeyListener) { keyboardFocusHandler = paramKeyListener; }
+  
+  private class SetPositionAction implements Runnable {
+    int x;
+    int y;
+    
+    private SetPositionAction(int paramInt1, int paramInt2) {
+      x = paramInt1;
+      y = paramInt2;
+    }
+    
+    public final void run()
+    {
+      RecursiveLock localRecursiveLock = windowLock;
+      localRecursiveLock.lock();
+      try {
+        if (Window.DEBUG_IMPLEMENTATION) {
+          System.err.println("Window setPosition: " + getX() + "/" + getY() + " -> " + x + "/" + y + ", fs " + stateMask.get(11) + ", windowHandle " + WindowImpl.toHexString(windowHandle));
+        }
+        
+        if ((!isFullscreen()) && ((getX() != x) || (getY() != y) || (null != getParent()))) {
+          if (isNativeValid())
+          {
+            reconfigureWindowImpl(x, y, getWidth(), getHeight(), getReconfigureMask(0, isVisible()));
+            if (null == parentWindow)
+            {
+              WindowImpl.this.waitForPosition(true, x, y, 1000L);
+            }
+          } else {
+            definePosition(x, y);
+          }
+        }
+        
+        localRecursiveLock.unlock(); } finally { localRecursiveLock.unlock();
+      }
+    }
+  }
+  
+  public void setPosition(int paramInt1, int paramInt2)
+  {
+    stateMask.clear(1);
+    runOnEDTIfAvail(true, new SetPositionAction(paramInt1, paramInt2, null));
+  }
+  
+  public final void setTopLevelPosition(int paramInt1, int paramInt2)
+  {
+    InsetsImmutable localInsetsImmutable = getInsets();
+    setPosition(paramInt1 + localInsetsImmutable.getLeftWidth(), paramInt2 + localInsetsImmutable.getTopHeight());
+  }
+  
+  private class FullScreenAction implements Runnable { boolean _fullscreen;
+    
+    private FullScreenAction() {}
+    
+    private boolean init(boolean paramBoolean) { if (isNativeValid()) {
+        if (!isReconfigureMaskSupported(2048)) {
+          return false;
+        }
+        _fullscreen = paramBoolean;
+        return isFullscreen() != paramBoolean;
+      }
+      
+      stateMask.put(11, paramBoolean);
+      return false;
+    }
+    
+    public boolean fsOn() { return _fullscreen; }
+    
+    public final void run()
+    {
+      RecursiveLock localRecursiveLock = windowLock;
+      localRecursiveLock.lock();
+      blockInsetsChange = true;
+      try {
+        int i = getX();
+        int j = getY();
+        int k = getWidth();
+        int m = getHeight();
+        
+
+
+        RectangleImmutable localRectangleImmutable = screen.getViewportInWindowUnits();
+        Rectangle localRectangle1;
+        int n;
+        int i1;
+        int i2; int i3; boolean bool1; int i4; if (_fullscreen) {
+          if (null == fullscreenMonitors) {
+            if (stateMask.get(31)) {
+              fullscreenMonitors = new ArrayList();
+              fullscreenMonitors.add(getMainMonitor());
+            } else {
+              fullscreenMonitors = getScreen().getMonitorDevices();
+            }
+          }
+          
+          Rectangle localRectangle2 = new Rectangle();
+          MonitorDevice.unionOfViewports(null, localRectangle2, fullscreenMonitors);
+          localRectangle1 = localRectangle2;
+          
+          if ((isReconfigureMaskSupported(16384)) && (
+            (fullscreenMonitors.size() > 1) || (localRectangleImmutable.compareTo(localRectangle1) > 0))) {
+            stateMask.set(14);
+          } else {
+            stateMask.clear(14);
+          }
+          nfs_x = i;
+          nfs_y = j;
+          nfs_width = k;
+          nfs_height = m;
+          stateMaskNFS.put32(0, 32, stateMask.get32(0, 32) & 0x720);
+          n = localRectangle1.getX();
+          i1 = localRectangle1.getY();
+          i2 = localRectangle1.getWidth();
+          i3 = localRectangle1.getHeight();
+          stateMask.clear(5);
+          stateMask.set(8);
+          bool1 = stateMaskNFS.get(5);
+          i4 = !stateMaskNFS.get(8) ? 1 : 0;
+        }
+        else {
+          stateMask.set(31);
+          fullscreenMonitors = null;
+          stateMask.clear(14);
+          localRectangle1 = null;
+          int i5 = nfs_x;
+          int i6 = nfs_y;
+          i7 = nfs_width;
+          int i8 = nfs_height;
+          bool1 = stateMaskNFS.get(5) != stateMask.get(5);
+          i4 = stateMaskNFS.get(8) != stateMask.get(8) ? 1 : 0;
+          stateMask.put32(0, 32, stateMaskNFS.get32(0, 32) | stateMask.get32(0, 32) & 0xF8DF);
+          
+          if (null != parentWindow)
+          {
+            n = 0;
+            i1 = 0;
+            
+
+            if (i7 > parentWindow.getWidth()) {
+              i2 = parentWindow.getWidth();
+            } else {
+              i2 = i7;
+            }
+            if (i8 > parentWindow.getHeight()) {
+              i3 = parentWindow.getHeight();
+            } else {
+              i3 = i8;
+            }
+          } else {
+            n = i5;
+            i1 = i6;
+            i2 = i7;
+            i3 = i8;
+          }
+        }
+        
+        DisplayImpl localDisplayImpl = (DisplayImpl)screen.getDisplay();
+        localDisplayImpl.dispatchMessagesNative();
+        boolean bool2 = isVisible();
+        int i7 = (!_fullscreen) && (bool2) && (NativeWindowFactory.TYPE_X11 == NativeWindowFactory.getNativeWindowType(true)) ? 1 : 0;
+        
+        if (Window.DEBUG_IMPLEMENTATION) {
+          System.err.println("Window " + n + "/" + i1 + " " + i2 + "x" + i3 + ", virtl-screenSize: " + localRectangleImmutable + " [wu], monitorsViewport " + localRectangle1 + " [wu]" + ", wasVisible " + bool2 + ", tempInvisible " + i7 + ", hasParent " + (null != 
+          
+
+            parentWindow) + ", state " + 
+            getStateMaskString() + " @ " + 
+            Thread.currentThread().getName());
+        }
+        
+
+        if (i7 != 0) {
+          setVisibleImpl(false, true, i, j, k, m);
+          WindowImpl.this.waitForVisible(false, false);
+          try { Thread.sleep(100L); } catch (InterruptedException localInterruptedException1) {}
+          localDisplayImpl.dispatchMessagesNative();
+        }
+        
+        NativeWindow localNativeWindow;
+        
+        if (null != parentWindow) {
+          localNativeWindow = parentWindow;
+          if (1 >= localNativeWindow.lockSurface()) {
+            throw new NativeWindowException("Parent surface lock: not ready: " + parentWindow);
+          }
+        } else {
+          localNativeWindow = null;
+        }
+        
+        int i9;
+        try
+        {
+          int i10 = 0;
+          if (bool1) {
+            i10 = 134217728;
+          }
+          if (i4 != 0) {
+            i10 |= 0x1000000;
+          }
+          i9 = i10;
+          
+          if ((_fullscreen) && (0 != i9))
+          {
+            reconfigureWindowImpl(i, j, k, m, getReconfigureMask(i9, isVisible()));
+          }
+          
+          stateMask.put(11, _fullscreen);
+          
+
+          reconfigureWindowImpl(n, i1, i2, i3, 
+            getReconfigureMask((null != localNativeWindow ? 536870912 : 0) | 0x200000 | 0x10000000, 
+            isVisible()));
+        } finally {
+          if (null != localNativeWindow) {
+            localNativeWindow.unlockSurface();
+          }
+        }
+        localDisplayImpl.dispatchMessagesNative();
+        
+        if (bool2) {
+          if (NativeWindowFactory.TYPE_X11 == NativeWindowFactory.getNativeWindowType(true)) {
+            try {
+              Thread.sleep(100L); } catch (InterruptedException localInterruptedException2) {}
+            localDisplayImpl.dispatchMessagesNative();
+          }
+          setVisibleImpl(true, true, n, i1, i2, i3);
+          boolean bool3 = 0L <= WindowImpl.this.waitForVisible(true, false);
+          if (bool3) {
+            bool3 = WindowImpl.this.waitForSize(i2, i3, false, 1000L);
+          }
+          if ((bool3) && (!_fullscreen) && (null == parentWindow))
+          {
+            WindowImpl.this.waitForPosition(true, n, i1, 1000L);
+          }
+          if (bool3)
+          {
+            if ((!_fullscreen) && (0 != i9))
+            {
+              reconfigureWindowImpl(n, i1, i2, i3, getReconfigureMask(i9, isVisible()));
+            }
+            if (isAlwaysOnBottom())
+            {
+              reconfigureWindowImpl(n, i1, i2, i3, getReconfigureMask(67108864, isVisible()));
+            }
+            if (isSticky())
+            {
+              reconfigureWindowImpl(n, i1, i2, i3, getReconfigureMask(33554432, isVisible()));
+            }
+          }
+          if (bool3) {
+            WindowImpl.this.requestFocusInt(_fullscreen);
+            localDisplayImpl.dispatchMessagesNative();
+          }
+          if (Window.DEBUG_IMPLEMENTATION) {
+            System.err.println("Window fs done: ok " + bool3 + ", " + WindowImpl.this);
+          }
+        }
+      } finally {
+        blockInsetsChange = false;
+        localRecursiveLock.unlock();
+      }
+      sendWindowEvent(100);
+    } }
+  
+  private final FullScreenAction fullScreenAction = new FullScreenAction(null);
+  
+  public boolean setFullscreen(boolean paramBoolean)
+  {
+    return setFullscreenImpl(paramBoolean, true, null);
+  }
+  
+  public boolean setFullscreen(List<MonitorDevice> paramList)
+  {
+    return setFullscreenImpl(true, false, paramList);
+  }
+  
+  private boolean setFullscreenImpl(boolean paramBoolean1, boolean paramBoolean2, List<MonitorDevice> paramList) {
+    synchronized (fullScreenAction) {
+      fullscreenMonitors = paramList;
+      
+      stateMask.put(31, paramBoolean2);
+      if (fullScreenAction.init(paramBoolean1)) {
+        if ((fullScreenAction.fsOn()) && (isOffscreenInstance(this, parentWindow)))
+        {
+          if (null != parentWindow) {
+            nfs_parent = parentWindow;
+            reparentWindow(null, -1, -1, 3);
+          } else {
+            throw new InternalError("Offscreen instance w/o parent unhandled");
+          }
+        }
+        
+        runOnEDTIfAvail(true, fullScreenAction);
+        
+        if ((!fullScreenAction.fsOn()) && (null != nfs_parent))
+        {
+          reparentWindow(nfs_parent, -1, -1, 3);
+          nfs_parent = null;
+        }
+      }
+      return stateMask.get(11);
+    }
+  }
+  
+
+
+  private class MonitorModeListenerImpl
+    implements MonitorModeListener
+  {
+    boolean animatorPaused = false;
+    boolean hidden = false;
+    boolean hadFocus = false;
+    boolean fullscreenPaused = false;
+    List<MonitorDevice> _fullscreenMonitors = null;
+    boolean _fullscreenUseMainMonitor = true;
+    
+    private MonitorModeListenerImpl() {}
+    
+    public void monitorModeChangeNotify(MonitorEvent paramMonitorEvent) { hadFocus = hasFocus();
+      boolean bool1 = stateMask.get(11);
+      int i = NativeWindowFactory.TYPE_MACOSX == NativeWindowFactory.getNativeWindowType(true) ? 1 : 0;
+      boolean bool2 = (bool1) && (isReconfigureMaskSupported(16384));
+      boolean bool3 = (!bool2) && (!bool1) && (isVisible()) && (i != 0);
+      if (Window.DEBUG_IMPLEMENTATION) {
+        System.err.println("Window.monitorModeChangeNotify: hadFocus " + hadFocus + ", qFSPause " + bool2 + ", qHide " + bool3 + ", " + paramMonitorEvent + " @ " + Thread.currentThread().getName());
+      }
+      
+      if (null != lifecycleHook) {
+        animatorPaused = lifecycleHook.pauseRenderingAction();
+      }
+      if (bool2) {
+        if (Window.DEBUG_IMPLEMENTATION) {
+          System.err.println("Window.monitorModeChangeNotify: FS Pause");
+        }
+        fullscreenPaused = true;
+        _fullscreenMonitors = fullscreenMonitors;
+        _fullscreenUseMainMonitor = stateMask.get(31);
+        WindowImpl.this.setFullscreenImpl(false, true, null);
+      }
+      if (bool3)
+      {
+
+        hidden = true;
+        setVisible(false);
+      }
+    }
+    
+    public void monitorModeChanged(MonitorEvent paramMonitorEvent, boolean paramBoolean)
+    {
+      if ((!animatorPaused) && (paramBoolean) && (null != lifecycleHook))
+      {
+        animatorPaused = lifecycleHook.pauseRenderingAction();
+      }
+      boolean bool = stateMask.get(11);
+      if (Window.DEBUG_IMPLEMENTATION) {
+        System.err.println("Window.monitorModeChanged.0: success: " + paramBoolean + ", hadFocus " + hadFocus + ", animPaused " + animatorPaused + ", hidden " + hidden + ", FS " + bool + ", FS-paused " + fullscreenPaused + " @ " + 
+        
+          Thread.currentThread().getName());
+        System.err.println("Window.monitorModeChanged.0: " + getScreen());
+        System.err.println("Window.monitorModeChanged.0: " + paramMonitorEvent);
+      }
+      WindowImpl.this.monitorModeChanged(paramMonitorEvent, paramBoolean);
+      Object localObject1;
+      Rectangle localRectangle; Object localObject2; if ((paramBoolean) && (!bool) && (!fullscreenPaused))
+      {
+        localObject1 = screen.getViewportInWindowUnits();
+        if ((((RectangleImmutable)localObject1).getWidth() > 0) && (((RectangleImmutable)localObject1).getHeight() > 0)) {
+          localRectangle = new Rectangle(getX(), getY(), getWidth(), getHeight());
+          localObject2 = ((RectangleImmutable)localObject1).intersection(localRectangle);
+          if ((getHeight() > ((RectangleImmutable)localObject2).getHeight()) || 
+            (getWidth() > ((RectangleImmutable)localObject2).getWidth())) {
+            if (Window.DEBUG_IMPLEMENTATION) {
+              System.err.println("Window.monitorModeChanged.1: Non-FS - Fit window " + localRectangle + " into screen viewport " + localObject1 + ", due to minimal intersection " + localObject2);
+            }
+            
+            definePosition(((RectangleImmutable)localObject1).getX(), ((RectangleImmutable)localObject1).getY());
+            WindowImpl.this.setSize(((RectangleImmutable)localObject1).getWidth(), ((RectangleImmutable)localObject1).getHeight(), true);
+          }
+        }
+      } else if (fullscreenPaused) {
+        if (Window.DEBUG_IMPLEMENTATION) {
+          System.err.println("Window.monitorModeChanged.2: FS Restore");
+        }
+        WindowImpl.this.setFullscreenImpl(true, _fullscreenUseMainMonitor, _fullscreenMonitors);
+        fullscreenPaused = false;
+        _fullscreenMonitors = null;
+        _fullscreenUseMainMonitor = true;
+      } else if ((paramBoolean) && (bool) && (null != fullscreenMonitors))
+      {
+        localObject1 = paramMonitorEvent.getMonitor();
+        if (fullscreenMonitors.contains(localObject1)) {
+          localRectangle = new Rectangle();
+          MonitorDevice.unionOfViewports(null, localRectangle, fullscreenMonitors);
+          if (Window.DEBUG_IMPLEMENTATION) {
+            localObject2 = getBounds();
+            System.err.println("Window.monitorModeChanged.3: FS Monitor Match: Fit window " + localObject2 + " into new viewport union " + localRectangle + " [window], provoked by " + localObject1);
+          }
+          definePosition(localRectangle.getX(), localRectangle.getY());
+          WindowImpl.this.setSize(localRectangle.getWidth(), localRectangle.getHeight(), true);
+        }
+      }
+      if (hidden) {
+        setVisible(true);
+        hidden = false;
+      }
+      sendWindowEvent(100);
+      if (animatorPaused) {
+        lifecycleHook.resumeRenderingAction();
+      }
+      if (hadFocus) {
+        requestFocus(true);
+      }
+      if (Window.DEBUG_IMPLEMENTATION)
+        System.err.println("Window.monitorModeChanged.X: @ " + Thread.currentThread().getName() + ", this: " + WindowImpl.this);
+    }
+  }
+  
+  private final MonitorModeListenerImpl monitorModeListenerImpl = new MonitorModeListenerImpl(null);
+  
+
+  private static final int keyTrackingRange = 255;
+  
+
+
+  public final boolean removeChild(NativeWindow paramNativeWindow)
+  {
+    synchronized (childWindowsLock) {
+      return childWindows.remove(paramNativeWindow);
+    }
+  }
+  
+  public final boolean addChild(NativeWindow paramNativeWindow)
+  {
+    if (paramNativeWindow == null) {
+      return false;
+    }
+    synchronized (childWindowsLock) {
+      return childWindows.add(paramNativeWindow);
+    }
+  }
+  
+
+
+  private void doEvent(boolean paramBoolean1, boolean paramBoolean2, NEWTEvent paramNEWTEvent)
+  {
+    boolean bool = false;
+    
+    if (!paramBoolean1) {
+      bool = consumeEvent(paramNEWTEvent);
+      paramBoolean2 = bool;
+    }
+    
+    if (!bool) {
+      enqueueEvent(paramBoolean2, paramNEWTEvent);
+    }
+  }
+  
+  public final void enqueueEvent(boolean paramBoolean, NEWTEvent paramNEWTEvent)
+  {
+    if (isNativeValid()) {
+      ((DisplayImpl)screen.getDisplay()).enqueueEvent(paramBoolean, paramNEWTEvent);
+    }
+  }
+  
+  public final boolean consumeEvent(NEWTEvent paramNEWTEvent) {
+    boolean bool;
+    switch (paramNEWTEvent.getEventType())
+    {
+
+    case 105: 
+      if (windowLock.isLockedByOtherThread())
+      {
+        if (!repaintQueued) {
+          repaintQueued = true;
+          bool = 1200L <= System.currentTimeMillis() - paramNEWTEvent.getWhen();
+          if (DEBUG_IMPLEMENTATION) {
+            System.err.println("Window.consumeEvent: REPAINT [me " + Thread.currentThread().getName() + ", owner " + windowLock.getOwner() + "] - queued " + paramNEWTEvent + ", discard-to " + bool);
+          }
+          
+          return bool;
+        }
+        return true;
+      }
+      repaintQueued = false;
+      break;
+    
+
+
+    case 100: 
+      if (windowLock.isLockedByOtherThread()) {
+        bool = 1200L <= System.currentTimeMillis() - paramNEWTEvent.getWhen();
+        if (DEBUG_IMPLEMENTATION) {
+          System.err.println("Window.consumeEvent: RESIZED [me " + Thread.currentThread().getName() + ", owner " + windowLock.getOwner() + "] - queued " + paramNEWTEvent + ", discard-to " + bool);
+        }
+        
+        return bool;
+      }
+      
+      break;
+    }
+    
+    if ((paramNEWTEvent instanceof WindowEvent)) {
+      consumeWindowEvent((WindowEvent)paramNEWTEvent);
+    } else if ((paramNEWTEvent instanceof KeyEvent)) {
+      consumeKeyEvent((KeyEvent)paramNEWTEvent);
+    } else if ((paramNEWTEvent instanceof MouseEvent)) {
+      consumePointerEvent((MouseEvent)paramNEWTEvent);
+    } else {
+      throw new NativeWindowException("Unexpected NEWTEvent type " + paramNEWTEvent);
+    }
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+  public final void sendMouseEvent(short paramShort1, int paramInt1, int paramInt2, int paramInt3, short paramShort2, float paramFloat)
+  {
+    doMouseEvent(false, false, paramShort1, paramInt1, paramInt2, paramInt3, paramShort2, MouseEvent.getRotationXYZ(paramFloat, paramInt1), 1.0F);
+  }
+  
+  public final void enqueueMouseEvent(boolean paramBoolean, short paramShort1, int paramInt1, int paramInt2, int paramInt3, short paramShort2, float paramFloat)
+  {
+    doMouseEvent(true, paramBoolean, paramShort1, paramInt1, paramInt2, paramInt3, paramShort2, MouseEvent.getRotationXYZ(paramFloat, paramInt1), 1.0F);
+  }
+  
+  protected final void doMouseEvent(boolean paramBoolean1, boolean paramBoolean2, short paramShort1, int paramInt1, int paramInt2, int paramInt3, short paramShort2, float paramFloat) {
+    doMouseEvent(paramBoolean1, paramBoolean2, paramShort1, paramInt1, paramInt2, paramInt3, paramShort2, MouseEvent.getRotationXYZ(paramFloat, paramInt1), 1.0F);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected void doMouseEvent(boolean paramBoolean1, boolean paramBoolean2, short paramShort1, int paramInt1, int paramInt2, int paramInt3, short paramShort2, float[] paramArrayOfFloat, float paramFloat)
+  {
+    if ((0 > paramShort2) || (paramShort2 > 16)) {
+      throw new NativeWindowException("Invalid mouse button number" + paramShort2);
+    }
+    doPointerEvent(paramBoolean1, paramBoolean2, constMousePointerTypes, paramShort1, paramInt1, 0, new short[] { 0 }, paramShort2, new int[] { paramInt2 }, new int[] { paramInt3 }, new float[] { 0.0F }, 1.0F, paramArrayOfFloat, paramFloat);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void doPointerEvent(boolean paramBoolean1, boolean paramBoolean2, MouseEvent.PointerType[] paramArrayOfPointerType, short paramShort, int paramInt1, int paramInt2, boolean paramBoolean3, int[] paramArrayOfInt1, int[] paramArrayOfInt2, int[] paramArrayOfInt3, float[] paramArrayOfFloat1, float paramFloat1, float[] paramArrayOfFloat2, float paramFloat2)
+  {
+    int i = paramArrayOfInt1.length;
+    short[] arrayOfShort = new short[i];
+    for (int j = 0; j < i; j++) {
+      if (!paramBoolean3)
+      {
+        int k = pName2pID.size();
+        Integer localInteger = (Integer)pName2pID.getOrAdd(Integer.valueOf(paramArrayOfInt1[j]));
+        int m = (short)pName2pID.indexOf(localInteger);
+        arrayOfShort[j] = m;
+        if (DEBUG_MOUSE_EVENT) {
+          int n = pName2pID.size();
+          if (k != n) {
+            System.err.println("PointerName2ID[sz " + n + "]: Map " + localInteger + " == " + m);
+          }
+        }
+        if (204 == paramShort) {
+          pName2pID.remove(localInteger);
+          if (DEBUG_MOUSE_EVENT) {
+            System.err.println("PointerName2ID[sz " + pName2pID.size() + "]: Unmap " + localInteger + " == " + m);
+          }
+        }
+      }
+      else {
+        arrayOfShort[j] = ((short)paramArrayOfInt1[j]);
+      }
+    }
+    j = 0 < i ? (short)(arrayOfShort[0] + 1) : 0;
+    doPointerEvent(paramBoolean1, paramBoolean2, paramArrayOfPointerType, paramShort, paramInt1, paramInt2, arrayOfShort, j, paramArrayOfInt2, paramArrayOfInt3, paramArrayOfFloat1, paramFloat1, paramArrayOfFloat2, paramFloat2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void doPointerEvent(boolean paramBoolean1, boolean paramBoolean2, MouseEvent.PointerType[] paramArrayOfPointerType, short paramShort1, int paramInt1, int paramInt2, short[] paramArrayOfShort, short paramShort2, int[] paramArrayOfInt1, int[] paramArrayOfInt2, float[] paramArrayOfFloat1, float paramFloat1, float[] paramArrayOfFloat2, float paramFloat2)
+  {
+    long l = System.currentTimeMillis();
+    int i = paramArrayOfPointerType.length;
+    
+    if ((0 > paramInt2) || (paramInt2 >= i)) {
+      throw new IllegalArgumentException("actionIdx out of bounds [0.." + (i - 1) + "]");
+    }
+    if (0 < paramInt2)
+    {
+
+      MouseEvent.PointerType localPointerType = paramArrayOfPointerType[paramInt2];
+      paramArrayOfPointerType[paramInt2] = paramArrayOfPointerType[0];
+      paramArrayOfPointerType[0] = localPointerType;
+      
+
+      int j = paramArrayOfShort[paramInt2];
+      paramArrayOfShort[paramInt2] = paramArrayOfShort[0];
+      paramArrayOfShort[0] = j;
+      
+
+      j = paramArrayOfInt1[paramInt2];
+      paramArrayOfInt1[paramInt2] = paramArrayOfInt1[0];
+      paramArrayOfInt1[0] = j;
+      j = paramArrayOfInt2[paramInt2];
+      paramArrayOfInt2[paramInt2] = paramArrayOfInt2[0];
+      paramArrayOfInt2[0] = j;
+      
+
+      float f = paramArrayOfFloat1[paramInt2];
+      paramArrayOfFloat1[paramInt2] = paramArrayOfFloat1[0];
+      paramArrayOfFloat1[0] = f;
+    }
+    
+
+    short s;
+    
+    if ((0 <= paramShort2) && (paramShort2 <= 16)) {
+      s = paramShort2;
+    } else {
+      s = 1;
+    }
+    
+
+
+
+
+
+
+    int k = paramArrayOfInt1[0];
+    int m = paramArrayOfInt2[0];
+    boolean bool = (k >= 0) && (m >= 0) && (k < getSurfaceWidth()) && (m < getSurfaceHeight());
+    Point localPoint = pState1.getMovePosition(paramArrayOfShort[0]);
+    switch (paramShort1) {
+    case 202: 
+      if (pState1.dragging)
+      {
+
+
+        if (DEBUG_MOUSE_EVENT) {
+          System.err.println("doPointerEvent: drop " + MouseEvent.getEventTypeString(paramShort1) + " due to dragging: " + pState1);
+        }
+        return;
+      }
+      if (null != localPoint) {
+        if ((k == -1) && (m == -1)) {
+          k = localPoint.getX();
+          m = localPoint.getY();
+        }
+        localPoint.set(0, 0);
+      }
+    
+
+    case 201: 
+      if (paramShort1 == 201) {
+        pState1.insideSurface = true;
+        pState1.exitSent = false;
+      } else {
+        pState1.insideSurface = false;
+        pState1.exitSent = true;
+      }
+      pState1.clearButton();
+      if (paramArrayOfPointerType[0] != MouseEvent.PointerType.Mouse)
+      {
+        if (DEBUG_MOUSE_EVENT) {
+          System.err.println("doPointerEvent: drop " + MouseEvent.getEventTypeString(paramShort1) + " due to !Mouse but " + paramArrayOfPointerType[0] + ": " + pState1);
+        }
+        return;
+      }
+      
+      k = Math.min(Math.max(k, 0), getSurfaceWidth() - 1);
+      m = Math.min(Math.max(m, 0), getSurfaceHeight() - 1);
+      break;
+    
+    case 205: 
+    case 206: 
+      if (null != localPoint) {
+        if ((localPoint.getX() == k) && (localPoint.getY() == m))
+        {
+          if (DEBUG_MOUSE_EVENT) {
+            System.err.println("doPointerEvent: drop " + MouseEvent.getEventTypeString(paramShort1) + " w/ same position: " + localPoint + ", " + pState1);
+          }
+          return;
+        }
+        localPoint.set(k, m);
+      }
+      
+      break;
+    }
+    
+    if (pState1.insideSurface != bool)
+    {
+      pState1.insideSurface = bool;
+      if (bool) {
+        pState1.exitSent = false;
+      }
+      pState1.clearButton();
+    }
+    
+
+
+
+
+
+    if ((!pState1.dragging) && (!bool) && (202 != paramShort1)) {
+      if (DEBUG_MOUSE_EVENT) {
+        System.err.println("doPointerEvent: drop: " + MouseEvent.getEventTypeString(paramShort1) + ", mod " + paramInt1 + ", pos " + k + "/" + m + ", button " + s + ", lastMousePosition: " + localPoint + ", insideWindow " + bool + ", " + pState1);
+      }
+      
+      return;
+    }
+    if (DEBUG_MOUSE_EVENT) {
+      System.err.println("doPointerEvent: enqueue " + paramBoolean1 + ", wait " + paramBoolean2 + ", " + MouseEvent.getEventTypeString(paramShort1) + ", mod " + paramInt1 + ", pos " + k + "/" + m + ", button " + s + ", lastMousePosition: " + localPoint + ", " + pState1);
+    }
+    
+
+    int n = InputEvent.getButtonMask(s);
+    paramInt1 |= n;
+    paramInt1 |= pState1.buttonPressedMask;
+    
+    if (isPointerConfined()) {
+      paramInt1 |= 0x40000000;
+    }
+    if (!isPointerVisible()) {
+      paramInt1 |= 0x80000000;
+    }
+    
+    paramArrayOfInt1[0] = k;
+    paramArrayOfInt2[0] = m;
+    
+
+
+
+    MouseEvent localMouseEvent;
+    
+
+
+    switch (paramShort1)
+    {
+    case 200: 
+      return;
+    
+    case 203: 
+      if (0.0F >= paramArrayOfFloat1[0]) {
+        paramArrayOfFloat1[0] = paramFloat1;
+      }
+      pState1.buttonPressedMask |= n;
+      if (1 == i) {
+        if (l - pState1.lastButtonPressTime < MouseEvent.getClickTimeout()) {
+          PointerState1 tmp1110_1107 = pState1;11101107lastButtonClickCount = ((short)(11101107lastButtonClickCount + 1));
+        } else {
+          pState1.lastButtonClickCount = 1;
+        }
+        pState1.lastButtonPressTime = l;
+        pState1.buttonPressed = s;
+        localMouseEvent = new MouseEvent(paramShort1, this, l, paramInt1, paramArrayOfPointerType, paramArrayOfShort, paramArrayOfInt1, paramArrayOfInt2, paramArrayOfFloat1, paramFloat1, s, pState1.lastButtonClickCount, paramArrayOfFloat2, paramFloat2);
+      }
+      else {
+        localMouseEvent = new MouseEvent(paramShort1, this, l, paramInt1, paramArrayOfPointerType, paramArrayOfShort, paramArrayOfInt1, paramArrayOfInt2, paramArrayOfFloat1, paramFloat1, s, (short)1, paramArrayOfFloat2, paramFloat2);
+      }
+      
+      break;
+    case 204: 
+      pState1.buttonPressedMask &= (n ^ 0xFFFFFFFF);
+      if (1 == i) {
+        localMouseEvent = new MouseEvent(paramShort1, this, l, paramInt1, paramArrayOfPointerType, paramArrayOfShort, paramArrayOfInt1, paramArrayOfInt2, paramArrayOfFloat1, paramFloat1, s, pState1.lastButtonClickCount, paramArrayOfFloat2, paramFloat2);
+        
+        if (l - pState1.lastButtonPressTime >= MouseEvent.getClickTimeout()) {
+          pState1.lastButtonClickCount = 0;
+          pState1.lastButtonPressTime = 0L;
+        }
+        pState1.buttonPressed = 0;
+        pState1.dragging = false;
+      } else {
+        localMouseEvent = new MouseEvent(paramShort1, this, l, paramInt1, paramArrayOfPointerType, paramArrayOfShort, paramArrayOfInt1, paramArrayOfInt2, paramArrayOfFloat1, paramFloat1, s, (short)1, paramArrayOfFloat2, paramFloat2);
+        
+        if (0 == pState1.buttonPressedMask) {
+          pState1.clearButton();
+        }
+      }
+      if (null != localPoint) {
+        localPoint.set(0, 0);
+      }
+      break;
+    case 205: 
+      if (0 != pState1.buttonPressedMask) {
+        localMouseEvent = new MouseEvent((short)206, this, l, paramInt1, paramArrayOfPointerType, paramArrayOfShort, paramArrayOfInt1, paramArrayOfInt2, paramArrayOfFloat1, paramFloat1, pState1.buttonPressed, (short)1, paramArrayOfFloat2, paramFloat2);
+        
+        pState1.dragging = true;
+      } else {
+        localMouseEvent = new MouseEvent(paramShort1, this, l, paramInt1, paramArrayOfPointerType, paramArrayOfShort, paramArrayOfInt1, paramArrayOfInt2, paramArrayOfFloat1, paramFloat1, s, (short)0, paramArrayOfFloat2, paramFloat2);
+      }
+      
+      break;
+    case 206: 
+      if (0.0F >= paramArrayOfFloat1[0]) {
+        paramArrayOfFloat1[0] = paramFloat1;
+      }
+      pState1.dragging = true;
+    case 201: case 202: 
+    default: 
+      localMouseEvent = new MouseEvent(paramShort1, this, l, paramInt1, paramArrayOfPointerType, paramArrayOfShort, paramArrayOfInt1, paramArrayOfInt2, paramArrayOfFloat1, paramFloat1, s, (short)0, paramArrayOfFloat2, paramFloat2);
+    }
+    
+    
+    doEvent(paramBoolean1, paramBoolean2, localMouseEvent);
+  }
+  
+  private static int step(int paramInt1, int paramInt2, int paramInt3) {
+    return paramInt3 < paramInt2 ? paramInt1 : paramInt3;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected void consumePointerEvent(MouseEvent paramMouseEvent)
+  {
+    if (DEBUG_MOUSE_EVENT) {
+      System.err.println("consumePointerEvent.in: " + paramMouseEvent + ", " + pState0 + ", pos " + paramMouseEvent.getX() + "/" + paramMouseEvent.getY() + ", win[" + getX() + "/" + getY() + " " + getWidth() + "x" + getHeight() + "], pixel[" + 
+        getSurfaceWidth() + "x" + getSurfaceHeight() + "]");
+    }
+    
+
+
+
+
+
+    long l = paramMouseEvent.getWhen();
+    int i = paramMouseEvent.getEventType();
+    
+    int j = 0;
+    MouseEvent localMouseEvent1 = null;MouseEvent localMouseEvent2 = null;
+    switch (i) {
+    case 202: 
+      if ((pState0.exitSent) || (pState0.dragging)) {
+        if (DEBUG_MOUSE_EVENT) {
+          System.err.println("consumePointerEvent: drop " + (pState0.exitSent ? "already sent" : "due to dragging") + ": " + paramMouseEvent + ", " + pState0);
+        }
+        return;
+      }
+    
+
+
+
+    case 201: 
+      pState0.clearButton();
+      if (i == 201) {
+        bool1 = true;
+        pState0.insideSurface = true;
+        pState0.exitSent = false;
+        pState0.dragging = false;
+      } else {
+        bool1 = false;
+        pState0.insideSurface = false;
+        pState0.exitSent = true;
+      }
+      break;
+    
+    case 204: 
+    case 205: 
+      if (1 >= paramMouseEvent.getButtonDownCount()) {
+        j = !pState0.exitSent ? 1 : 0;
+        pState0.dragging = false;
+      }
+      break;
+    }
+    
+    int k = paramMouseEvent.getX();
+    int m = paramMouseEvent.getY();
+    boolean bool1 = (k >= 0) && (m >= 0) && (k < getSurfaceWidth()) && (m < getSurfaceHeight());
+    if (paramMouseEvent.getPointerType(0) == MouseEvent.PointerType.Mouse) {
+      if ((!pState0.insideSurface) && (bool1))
+      {
+
+
+
+        localMouseEvent1 = new MouseEvent((short)201, paramMouseEvent.getSource(), paramMouseEvent.getWhen(), paramMouseEvent.getModifiers(), Math.min(Math.max(k, 0), getSurfaceWidth() - 1), Math.min(Math.max(m, 0), getSurfaceHeight() - 1), (short)0, (short)0, paramMouseEvent.getRotation(), paramMouseEvent.getRotationScale());
+        pState0.exitSent = false;
+      } else if ((!bool1) && (j != 0))
+      {
+
+
+
+        localMouseEvent2 = new MouseEvent((short)202, paramMouseEvent.getSource(), paramMouseEvent.getWhen(), paramMouseEvent.getModifiers(), Math.min(Math.max(k, 0), getSurfaceWidth() - 1), Math.min(Math.max(m, 0), getSurfaceHeight() - 1), (short)0, (short)0, paramMouseEvent.getRotation(), paramMouseEvent.getRotationScale());
+        pState0.exitSent = true;
+      }
+    }
+    if ((pState0.insideSurface != bool1) || (null != localMouseEvent1) || (null != localMouseEvent2)) {
+      pState0.clearButton();
+    }
+    pState0.insideSurface = bool1;
+    
+    if (null != localMouseEvent1) {
+      if (DEBUG_MOUSE_EVENT) {
+        System.err.println("consumePointerEvent.send.0: " + localMouseEvent1 + ", " + pState0);
+      }
+      dispatchMouseEvent(localMouseEvent1);
+    } else if ((DEBUG_MOUSE_EVENT) && (!bool1)) {
+      System.err.println("INFO consumePointerEvent.exterior: " + pState0 + ", " + paramMouseEvent);
+    }
+    
+
+    Object localObject;
+    
+    if ((defaultGestureHandlerEnabled) && 
+      (paramMouseEvent.getPointerType(0).getPointerClass() == MouseEvent.PointerClass.Onscreen))
+    {
+      if (null == gesture2PtrTouchScroll)
+      {
+
+        MonitorDevice localMonitorDevice = getMainMonitor();
+        if (null != localMonitorDevice) {
+          localObject = localMonitorDevice.getSizeMM();
+          float f1 = localMonitorDevice.getCurrentMode().getRotatedWidth() / ((DimensionImmutable)localObject).getWidth();
+          float f2 = localMonitorDevice.getCurrentMode().getRotatedHeight() / ((DimensionImmutable)localObject).getHeight();
+          float f3 = Math.min(f2, f1);
+          k = Math.round(DoubleTapScrollGesture.SCROLL_SLOP_MM * f3);
+          m = Math.round(DoubleTapScrollGesture.DOUBLE_TAP_SLOP_MM * f3);
+          if (DEBUG_MOUSE_EVENT) {
+            System.err.println("consumePointerEvent.gscroll: scrollSlop " + k + ", doubleTapSlop " + m + ", pixPerMM " + f3 + ", " + localMonitorDevice + ", " + pState0);
+          }
+        } else {
+          k = DoubleTapScrollGesture.SCROLL_SLOP_PIXEL;
+          m = DoubleTapScrollGesture.DOUBLE_TAP_SLOP_PIXEL;
+        }
+        
+        gesture2PtrTouchScroll = new DoubleTapScrollGesture(step(DoubleTapScrollGesture.SCROLL_SLOP_PIXEL, DoubleTapScrollGesture.SCROLL_SLOP_PIXEL / 2, k), step(DoubleTapScrollGesture.DOUBLE_TAP_SLOP_PIXEL, DoubleTapScrollGesture.DOUBLE_TAP_SLOP_PIXEL / 2, m));
+      }
+      if (gesture2PtrTouchScroll.process(paramMouseEvent)) {
+        paramMouseEvent = (MouseEvent)gesture2PtrTouchScroll.getGestureEvent();
+        gesture2PtrTouchScroll.clear(false);
+        if (DEBUG_MOUSE_EVENT) {
+          System.err.println("consumePointerEvent.gscroll: " + paramMouseEvent + ", " + pState0);
+        }
+        dispatchMouseEvent(paramMouseEvent);
+        return;
+      }
+      if (gesture2PtrTouchScroll.isWithinGesture()) {
+        return;
+      }
+    }
+    
+
+
+
+    k = pointerGestureHandler.size();
+    if (k > 0) {
+      m = 0;
+      boolean bool2; for (int n = 0; (!paramMouseEvent.isConsumed()) && (n < k); n++) {
+        localObject = (GestureHandler)pointerGestureHandler.get(n);
+        if (((GestureHandler)localObject).process(paramMouseEvent)) {
+          InputEvent localInputEvent = ((GestureHandler)localObject).getGestureEvent();
+          ((GestureHandler)localObject).clear(false);
+          if ((localInputEvent instanceof MouseEvent)) {
+            dispatchMouseEvent((MouseEvent)localInputEvent);
+          } else if ((localInputEvent instanceof GestureHandler.GestureEvent)) {
+            GestureHandler.GestureEvent localGestureEvent = (GestureHandler.GestureEvent)localInputEvent;
+            for (int i1 = 0; (!localGestureEvent.isConsumed()) && (i1 < gestureListeners.size()); i1++) {
+              ((GestureHandler.GestureListener)gestureListeners.get(i1)).gestureDetected(localGestureEvent);
+            }
+          }
+          return;
+        }
+        m |= ((GestureHandler)localObject).isWithinGesture();
+      }
+      if (bool2) {
+        return;
+      }
+    }
+    
+
+
+
+
+
+    MouseEvent localMouseEvent3 = null;
+    switch (i) {
+    case 203: 
+      if (1 == paramMouseEvent.getPointerCount()) {
+        pState0.lastButtonPressTime = l;
+      }
+      break;
+    case 204: 
+      if ((1 == paramMouseEvent.getPointerCount()) && (l - pState0.lastButtonPressTime < MouseEvent.getClickTimeout())) {
+        localMouseEvent3 = paramMouseEvent.createVariant((short)200);
+      } else {
+        pState0.lastButtonPressTime = 0L;
+      }
+      break;
+    
+    case 200: 
+      if (DEBUG_MOUSE_EVENT) {
+        System.err.println("consumePointerEvent: drop recv'ed (synth here) " + paramMouseEvent + ", " + pState0);
+      }
+      paramMouseEvent = null;
+      break;
+    
+    case 206: 
+      pState0.dragging = true;
+    }
+    
+    
+    if (null != paramMouseEvent) {
+      if (DEBUG_MOUSE_EVENT) {
+        System.err.println("consumePointerEvent.send.1: " + paramMouseEvent + ", " + pState0);
+      }
+      dispatchMouseEvent(paramMouseEvent);
+    }
+    if (null != localMouseEvent3) {
+      if (DEBUG_MOUSE_EVENT) {
+        System.err.println("consumePointerEvent.send.2: " + localMouseEvent3 + ", " + pState0);
+      }
+      dispatchMouseEvent(localMouseEvent3);
+    }
+    if (null != localMouseEvent2) {
+      if (DEBUG_MOUSE_EVENT) {
+        System.err.println("consumePointerEvent.send.3: " + localMouseEvent2 + ", " + pState0);
+      }
+      dispatchMouseEvent(localMouseEvent2);
+    }
+  }
+  
+  public final void addMouseListener(MouseListener paramMouseListener)
+  {
+    addMouseListener(-1, paramMouseListener);
+  }
+  
+  public final void addMouseListener(int paramInt, MouseListener paramMouseListener)
+  {
+    if (paramMouseListener == null) {
+      return;
+    }
+    
+
+    ArrayList localArrayList = (ArrayList)mouseListeners.clone();
+    if (0 > paramInt) {
+      paramInt = localArrayList.size();
+    }
+    localArrayList.add(paramInt, paramMouseListener);
+    mouseListeners = localArrayList;
+  }
+  
+  public final void removeMouseListener(MouseListener paramMouseListener)
+  {
+    if (paramMouseListener == null) {
+      return;
+    }
+    
+
+    ArrayList localArrayList = (ArrayList)mouseListeners.clone();
+    localArrayList.remove(paramMouseListener);
+    mouseListeners = localArrayList;
+  }
+  
+
+
+  public final MouseListener getMouseListener(int paramInt)
+  {
+    ArrayList localArrayList = (ArrayList)mouseListeners.clone();
+    if (0 > paramInt) {
+      paramInt = localArrayList.size() - 1;
+    }
+    return (MouseListener)localArrayList.get(paramInt);
+  }
+  
+  public final MouseListener[] getMouseListeners()
+  {
+    return (MouseListener[])mouseListeners.toArray(new MouseListener[mouseListeners.size()]);
+  }
+  
+  public final void setDefaultGesturesEnabled(boolean paramBoolean)
+  {
+    defaultGestureHandlerEnabled = paramBoolean;
+  }
+  
+  public final boolean areDefaultGesturesEnabled() {
+    return defaultGestureHandlerEnabled;
+  }
+  
+  public final void addGestureHandler(GestureHandler paramGestureHandler)
+  {
+    addGestureHandler(-1, paramGestureHandler);
+  }
+  
+  public final void addGestureHandler(int paramInt, GestureHandler paramGestureHandler) {
+    if (paramGestureHandler == null) {
+      return;
+    }
+    
+
+    ArrayList localArrayList = (ArrayList)pointerGestureHandler.clone();
+    if (0 > paramInt) {
+      paramInt = localArrayList.size();
+    }
+    localArrayList.add(paramInt, paramGestureHandler);
+    pointerGestureHandler = localArrayList;
+  }
+  
+  public final void removeGestureHandler(GestureHandler paramGestureHandler) {
+    if (paramGestureHandler == null) {
+      return;
+    }
+    
+
+    ArrayList localArrayList = (ArrayList)pointerGestureHandler.clone();
+    localArrayList.remove(paramGestureHandler);
+    pointerGestureHandler = localArrayList;
+  }
+  
+  public final void addGestureListener(GestureHandler.GestureListener paramGestureListener) {
+    addGestureListener(-1, paramGestureListener);
+  }
+  
+  public final void addGestureListener(int paramInt, GestureHandler.GestureListener paramGestureListener) {
+    if (paramGestureListener == null) {
+      return;
+    }
+    
+
+    ArrayList localArrayList = (ArrayList)gestureListeners.clone();
+    if (0 > paramInt) {
+      paramInt = localArrayList.size();
+    }
+    localArrayList.add(paramInt, paramGestureListener);
+    gestureListeners = localArrayList;
+  }
+  
+  public final void removeGestureListener(GestureHandler.GestureListener paramGestureListener) {
+    if (paramGestureListener == null) {
+      return;
+    }
+    
+
+    ArrayList localArrayList = (ArrayList)gestureListeners.clone();
+    localArrayList.remove(paramGestureListener);
+    gestureListeners = localArrayList;
+  }
+  
+  private final void dispatchMouseEvent(MouseEvent paramMouseEvent) {
+    for (int i = 0; (!paramMouseEvent.isConsumed()) && (i < mouseListeners.size()); i++) {
+      MouseListener localMouseListener = (MouseListener)mouseListeners.get(i);
+      switch (paramMouseEvent.getEventType()) {
+      case 200: 
+        localMouseListener.mouseClicked(paramMouseEvent);
+        break;
+      case 201: 
+        localMouseListener.mouseEntered(paramMouseEvent);
+        break;
+      case 202: 
+        localMouseListener.mouseExited(paramMouseEvent);
+        break;
+      case 203: 
+        localMouseListener.mousePressed(paramMouseEvent);
+        break;
+      case 204: 
+        localMouseListener.mouseReleased(paramMouseEvent);
+        break;
+      case 205: 
+        localMouseListener.mouseMoved(paramMouseEvent);
+        break;
+      case 206: 
+        localMouseListener.mouseDragged(paramMouseEvent);
+        break;
+      case 207: 
+        localMouseListener.mouseWheelMoved(paramMouseEvent);
+        break;
+      default: 
+        throw new NativeWindowException("Unexpected mouse event type " + paramMouseEvent.getEventType());
+      }
+      
+    }
+  }
+  
+
+
+
+  private final Bitfield keyPressedState = Bitfield.Factory.create(256);
+  
+  protected final boolean isKeyCodeTracked(short paramShort) {
+    return (0xFFFF & paramShort) <= 255;
+  }
+  
+
+
+
+
+  protected final boolean setKeyPressed(short paramShort, boolean paramBoolean)
+  {
+    int i = 0xFFFF & paramShort;
+    if (i <= 255) {
+      return keyPressedState.put(i, paramBoolean);
+    }
+    return false;
+  }
+  
+
+
+  protected final boolean isKeyPressed(short paramShort)
+  {
+    int i = 0xFFFF & paramShort;
+    if (i <= 255) {
+      return keyPressedState.get(i);
+    }
+    return false;
+  }
+  
+  public void sendKeyEvent(short paramShort1, int paramInt, short paramShort2, short paramShort3, char paramChar)
+  {
+    consumeKeyEvent(KeyEvent.create(paramShort1, this, System.currentTimeMillis(), paramInt | pState1.buttonPressedMask, paramShort2, paramShort3, paramChar));
+  }
+  
+  public void enqueueKeyEvent(boolean paramBoolean, short paramShort1, int paramInt, short paramShort2, short paramShort3, char paramChar)
+  {
+    enqueueEvent(paramBoolean, KeyEvent.create(paramShort1, this, System.currentTimeMillis(), paramInt | pState1.buttonPressedMask, paramShort2, paramShort3, paramChar));
+  }
+  
+  public final void setKeyboardVisible(boolean paramBoolean)
+  {
+    if (isNativeValid())
+    {
+
+      boolean bool = setKeyboardVisibleImpl(paramBoolean);
+      if ((DEBUG_IMPLEMENTATION) || (DEBUG_KEY_EVENT)) {
+        System.err.println("setKeyboardVisible(native): visible " + keyboardVisible + " -- op[visible:" + paramBoolean + ", ok " + bool + "] -> " + ((paramBoolean) && (bool)));
+      }
+      keyboardVisibilityChanged((paramBoolean) && (bool));
+    } else {
+      keyboardVisibilityChanged(paramBoolean);
+    }
+  }
+  
+  public final boolean isKeyboardVisible() {
+    return keyboardVisible;
+  }
+  
+
+
+
+
+
+  protected boolean setKeyboardVisibleImpl(boolean paramBoolean)
+  {
+    return false;
+  }
+  
+  protected void keyboardVisibilityChanged(boolean paramBoolean) {
+    if (keyboardVisible != paramBoolean) {
+      if ((DEBUG_IMPLEMENTATION) || (DEBUG_KEY_EVENT)) {
+        System.err.println("keyboardVisibilityChanged: " + keyboardVisible + " -> " + paramBoolean);
+      }
+      keyboardVisible = paramBoolean;
+    } }
+  
+  protected boolean keyboardVisible = false;
+  
+  public final void addKeyListener(KeyListener paramKeyListener)
+  {
+    addKeyListener(-1, paramKeyListener);
+  }
+  
+  public final void addKeyListener(int paramInt, KeyListener paramKeyListener)
+  {
+    if (paramKeyListener == null) {
+      return;
+    }
+    
+
+    ArrayList localArrayList = (ArrayList)keyListeners.clone();
+    if (0 > paramInt) {
+      paramInt = localArrayList.size();
+    }
+    localArrayList.add(paramInt, paramKeyListener);
+    keyListeners = localArrayList;
+  }
+  
+  public final void removeKeyListener(KeyListener paramKeyListener)
+  {
+    if (paramKeyListener == null) {
+      return;
+    }
+    
+
+    ArrayList localArrayList = (ArrayList)keyListeners.clone();
+    localArrayList.remove(paramKeyListener);
+    keyListeners = localArrayList;
+  }
+  
+
+
+  public final KeyListener getKeyListener(int paramInt)
+  {
+    ArrayList localArrayList = (ArrayList)keyListeners.clone();
+    if (0 > paramInt) {
+      paramInt = localArrayList.size() - 1;
+    }
+    return (KeyListener)localArrayList.get(paramInt);
+  }
+  
+  public final KeyListener[] getKeyListeners()
+  {
+    return (KeyListener[])keyListeners.toArray(new KeyListener[keyListeners.size()]);
+  }
+  
+  private final boolean propagateKeyEvent(KeyEvent paramKeyEvent, KeyListener paramKeyListener) {
+    switch (paramKeyEvent.getEventType()) {
+    case 300: 
+      paramKeyListener.keyPressed(paramKeyEvent);
+      break;
+    case 301: 
+      paramKeyListener.keyReleased(paramKeyEvent);
+      break;
+    default: 
+      throw new NativeWindowException("Unexpected key event type " + paramKeyEvent.getEventType());
+    }
+    return paramKeyEvent.isConsumed();
+  }
+  
+  protected void consumeKeyEvent(KeyEvent paramKeyEvent) {
+    boolean bool = false;
+    if ((null != keyboardFocusHandler) && (!paramKeyEvent.isAutoRepeat())) {
+      bool = propagateKeyEvent(paramKeyEvent, keyboardFocusHandler);
+      if ((DEBUG_KEY_EVENT) && 
+        (bool)) {
+        System.err.println("consumeKeyEvent(kfh): " + paramKeyEvent + ", consumed: " + bool);
+      }
+    }
+    
+    if (!bool) {
+      for (int i = 0; (!bool) && (i < keyListeners.size()); i++) {
+        bool = propagateKeyEvent(paramKeyEvent, (KeyListener)keyListeners.get(i));
+      }
+      if (DEBUG_KEY_EVENT) {
+        System.err.println("consumeKeyEvent(usr): " + paramKeyEvent + ", consumed: " + bool);
+      }
+    }
+  }
+  
+
+
+
+  public final void sendWindowEvent(int paramInt)
+  {
+    consumeWindowEvent(new WindowEvent((short)paramInt, this, System.currentTimeMillis()));
+  }
+  
+  public final void enqueueWindowEvent(boolean paramBoolean, int paramInt) {
+    enqueueEvent(paramBoolean, new WindowEvent((short)paramInt, this, System.currentTimeMillis()));
+  }
+  
+  public final void addWindowListener(WindowListener paramWindowListener)
+  {
+    addWindowListener(-1, paramWindowListener);
+  }
+  
+
+  public final void addWindowListener(int paramInt, WindowListener paramWindowListener)
+    throws IndexOutOfBoundsException
+  {
+    if (paramWindowListener == null) {
+      return;
+    }
+    
+
+    ArrayList localArrayList = (ArrayList)windowListeners.clone();
+    if (0 > paramInt) {
+      paramInt = localArrayList.size();
+    }
+    localArrayList.add(paramInt, paramWindowListener);
+    windowListeners = localArrayList;
+  }
+  
+  public final void removeWindowListener(WindowListener paramWindowListener)
+  {
+    if (paramWindowListener == null) {
+      return;
+    }
+    
+
+    ArrayList localArrayList = (ArrayList)windowListeners.clone();
+    localArrayList.remove(paramWindowListener);
+    windowListeners = localArrayList;
+  }
+  
+
+
+  public final WindowListener getWindowListener(int paramInt)
+  {
+    ArrayList localArrayList = (ArrayList)windowListeners.clone();
+    if (0 > paramInt) {
+      paramInt = localArrayList.size() - 1;
+    }
+    return (WindowListener)localArrayList.get(paramInt);
+  }
+  
+  public final WindowListener[] getWindowListeners()
+  {
+    return (WindowListener[])windowListeners.toArray(new WindowListener[windowListeners.size()]);
+  }
+  
+  protected void consumeWindowEvent(WindowEvent paramWindowEvent) {
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("consumeWindowEvent: " + paramWindowEvent + ", visible " + isVisible() + " " + getX() + "/" + getY() + ", win[" + getX() + "/" + getY() + " " + getWidth() + "x" + getHeight() + "], pixel[" + 
+        getSurfaceWidth() + "x" + getSurfaceHeight() + "]");
+    }
+    for (int i = 0; (!paramWindowEvent.isConsumed()) && (i < windowListeners.size()); i++) {
+      WindowListener localWindowListener = (WindowListener)windowListeners.get(i);
+      switch (paramWindowEvent.getEventType()) {
+      case 100: 
+        localWindowListener.windowResized(paramWindowEvent);
+        break;
+      case 101: 
+        localWindowListener.windowMoved(paramWindowEvent);
+        break;
+      case 102: 
+        localWindowListener.windowDestroyNotify(paramWindowEvent);
+        break;
+      case 106: 
+        localWindowListener.windowDestroyed(paramWindowEvent);
+        break;
+      case 103: 
+        localWindowListener.windowGainedFocus(paramWindowEvent);
+        break;
+      case 104: 
+        localWindowListener.windowLostFocus(paramWindowEvent);
+        break;
+      case 105: 
+        localWindowListener.windowRepaint((WindowUpdateEvent)paramWindowEvent);
+        break;
+      
+
+      default: 
+        throw new NativeWindowException("Unexpected window event type " + paramWindowEvent.getEventType());
+      }
+    }
+  }
+  
+  protected void focusChanged(boolean paramBoolean1, boolean paramBoolean2)
+  {
+    if ((stateMask.get(30)) || 
+      (stateMask.get(3) != paramBoolean2))
+    {
+      if (DEBUG_IMPLEMENTATION) {
+        System.err.println("Window.focusChanged: (" + getThreadName() + "): (defer: " + paramBoolean1 + ") state " + 
+          getStateMaskString() + " -> focus " + paramBoolean2 + " - windowHandle " + 
+          toHexString(windowHandle) + " parentWindowHandle " + 
+          toHexString(parentWindowHandle));
+      }
+      stateMask.put(3, paramBoolean2);
+      int i = paramBoolean2 ? 103 : 104;
+      if (!paramBoolean1) {
+        sendWindowEvent(i);
+      } else {
+        enqueueWindowEvent(false, i);
+      }
+    }
+  }
+  
+  protected final void visibleChanged(boolean paramBoolean1, boolean paramBoolean2)
+  {
+    if ((stateMask.put(0, paramBoolean2) != paramBoolean2) && 
+      (DEBUG_IMPLEMENTATION)) {
+      System.err.println("Window.visibleChanged (" + getThreadName() + "): (defer: " + paramBoolean1 + ") visible " + (!paramBoolean2) + " -> state " + getStateMaskString() + " - windowHandle " + toHexString(windowHandle) + " parentWindowHandle " + toHexString(parentWindowHandle));
+    }
+  }
+  
+
+  private long waitForVisible(boolean paramBoolean1, boolean paramBoolean2)
+  {
+    return waitForVisible(paramBoolean1, paramBoolean2, 1000L);
+  }
+  
+  private long waitForVisible(boolean paramBoolean1, boolean paramBoolean2, long paramLong)
+  {
+    DisplayImpl localDisplayImpl = (DisplayImpl)screen.getDisplay();
+    localDisplayImpl.dispatchMessagesNative();
+    
+    boolean bool = stateMask.get(0);
+    for (long l = paramLong; (0L < l) && (bool != paramBoolean1); l -= 10L) {
+      try { Thread.sleep(10L); } catch (InterruptedException localInterruptedException1) {}
+      localDisplayImpl.dispatchMessagesNative();
+      bool = stateMask.get(0);
+    }
+    if (paramBoolean1 != bool) {
+      String str = "Visibility not reached as requested within " + paramLong + "ms : requested " + paramBoolean1 + ", is " + bool;
+      if (DEBUG_FREEZE_AT_VISIBILITY_FAILURE) {
+        System.err.println("XXXX: " + str);
+        System.err.println("XXXX: FREEZE");
+        try {
+          for (;;) {
+            Thread.sleep(100L);
+            localDisplayImpl.dispatchMessagesNative();
+          }
+        } catch (InterruptedException localInterruptedException2) {
+          ExceptionUtils.dumpThrowable("", localInterruptedException2);
+          Thread.currentThread().interrupt();
+          
+          throw new NativeWindowException(str);
+        } }
+      if (paramBoolean2) {
+        throw new NativeWindowException(str);
+      }
+      if (DEBUG_IMPLEMENTATION) {
+        System.err.println(str);
+        ExceptionUtils.dumpStack(System.err);
+      }
+      return -1L;
+    }
+    
+    if (0L < l) {
+      return l;
+    }
+    return 0L;
+  }
+  
+
+
+
+
+
+
+
+  public final void pixelScaleChangeNotify(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2, boolean paramBoolean)
+  {
+    System.arraycopy(paramArrayOfFloat1, 0, minPixelScale, 0, 2);
+    System.arraycopy(paramArrayOfFloat2, 0, maxPixelScale, 0, 2);
+    if (paramBoolean) {
+      setSurfaceScale(reqPixelScale);
+    }
+  }
+  
+  protected void sizeChanged(boolean paramBoolean1, int paramInt1, int paramInt2, boolean paramBoolean2)
+  {
+    if ((paramBoolean2) || (getWidth() != paramInt1) || (getHeight() != paramInt2)) {
+      if (DEBUG_IMPLEMENTATION) {
+        System.err.println("Window.sizeChanged: (" + getThreadName() + "): (defer: " + paramBoolean1 + ") force " + paramBoolean2 + ", " + 
+          getWidth() + "x" + getHeight() + " -> " + paramInt1 + "x" + paramInt2 + ", state " + 
+          getStateMaskString() + " - windowHandle " + 
+          toHexString(windowHandle) + " parentWindowHandle " + toHexString(parentWindowHandle));
+      }
+      if ((0 > paramInt1) || (0 > paramInt2)) {
+        throw new NativeWindowException("Illegal width or height " + paramInt1 + "x" + paramInt2 + " (must be >= 0)");
+      }
+      defineSize(paramInt1, paramInt2);
+      if (isNativeValid()) {
+        if (!paramBoolean1) {
+          sendWindowEvent(100);
+        } else {
+          enqueueWindowEvent(false, 100);
+        }
+      }
+    }
+  }
+  
+  private boolean waitForSize(int paramInt1, int paramInt2, boolean paramBoolean, long paramLong) {
+    DisplayImpl localDisplayImpl = (DisplayImpl)screen.getDisplay();
+    localDisplayImpl.dispatchMessagesNative();
+    
+    for (long l = paramLong; (0L < l) && (paramInt1 != getWidth()) && (paramInt2 != getHeight()); l -= 10L) {
+      try { Thread.sleep(10L); } catch (InterruptedException localInterruptedException) {}
+      localDisplayImpl.dispatchMessagesNative();
+    }
+    if (0L >= l) {
+      String str = "Size/Pos not reached as requested within " + paramLong + "ms : requested " + paramInt1 + "x" + paramInt2 + ", is " + getWidth() + "x" + getHeight();
+      if (paramBoolean)
+        throw new NativeWindowException(str);
+      if (DEBUG_IMPLEMENTATION) {
+        System.err.println(str);
+        ExceptionUtils.dumpStack(System.err);
+      }
+      return false;
+    }
+    return true;
+  }
+  
+
+  protected final void positionChanged(boolean paramBoolean, int paramInt1, int paramInt2)
+  {
+    if ((getX() != paramInt1) || (getY() != paramInt2)) {
+      if (DEBUG_IMPLEMENTATION) {
+        System.err.println("Window.positionChanged: (" + getThreadName() + "): (defer: " + paramBoolean + ") " + getX() + "/" + getY() + " -> " + paramInt1 + "/" + paramInt2 + " - windowHandle " + toHexString(windowHandle) + " parentWindowHandle " + toHexString(parentWindowHandle));
+      }
+      definePosition(paramInt1, paramInt2);
+      if (!paramBoolean) {
+        sendWindowEvent(101);
+      } else {
+        enqueueWindowEvent(false, 101);
+      }
+    } else {
+      stateMask.clear(1);
+    }
+  }
+  
+
+
+
+
+
+  private boolean waitForPosition(boolean paramBoolean, int paramInt1, int paramInt2, long paramLong)
+  {
+    DisplayImpl localDisplayImpl = (DisplayImpl)screen.getDisplay();
+    
+
+    InsetsImmutable localInsetsImmutable = getInsets();
+    int i = Math.max(64, localInsetsImmutable.getLeftWidth() * 2);
+    int j = Math.max(64, localInsetsImmutable.getTopHeight() * 2);
+    
+    long l = paramLong;
+    boolean bool1 = false;
+    boolean bool2;
+    do {
+      if (paramBoolean) {
+        bool2 = (Math.abs(paramInt1 - getX()) <= i) && (Math.abs(paramInt2 - getY()) <= j);
+      } else {
+        bool1 = stateMask.get(1);
+        bool2 = !bool1;
+      }
+      if (!bool2) {
+        try { Thread.sleep(10L); } catch (InterruptedException localInterruptedException) {}
+        localDisplayImpl.dispatchMessagesNative();
+        l -= 10L;
+      }
+    } while ((0L < l) && (!bool2));
+    if ((DEBUG_IMPLEMENTATION) && 
+      (!bool2)) {
+      if (paramBoolean) {
+        System.err.println("Custom position " + paramInt1 + "/" + paramInt2 + " not reached within timeout, has " + getX() + "/" + getY() + ", remaining " + l);
+      } else {
+        System.err.println("Auto position not reached within timeout, has " + getX() + "/" + getY() + ", autoPosition " + bool1 + ", remaining " + l);
+      }
+      ExceptionUtils.dumpStack(System.err);
+    }
+    
+    return bool2;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  protected void insetsChanged(boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    if ((paramInt1 >= 0) && (paramInt2 >= 0) && (paramInt3 >= 0) && (paramInt4 >= 0))
+    {
+      int i = (paramInt1 != insets.getLeftWidth()) || (paramInt2 != insets.getRightWidth()) || (paramInt3 != insets.getTopHeight()) || (paramInt4 != insets.getBottomHeight()) ? 1 : 0;
+      
+      if ((blockInsetsChange) || (isUndecorated())) {
+        if ((DEBUG_IMPLEMENTATION) && 
+          (i != 0)) {
+          System.err.println("Window.insetsChanged (defer: " + paramBoolean + "): Skip insets change " + insets + " -> " + new Insets(paramInt1, paramInt2, paramInt3, paramInt4) + " (blocked " + blockInsetsChange + ", undecoration " + isUndecorated() + ")");
+        }
+      }
+      else if (i != 0) {
+        if (DEBUG_IMPLEMENTATION) {
+          System.err.println("Window.insetsChanged (defer: " + paramBoolean + "): Changed " + insets + " -> " + new Insets(paramInt1, paramInt2, paramInt3, paramInt4));
+        }
+        insets.set(paramInt1, paramInt2, paramInt3, paramInt4);
+      }
+    }
+  }
+  
+
+
+
+
+
+
+  public final boolean windowDestroyNotify(boolean paramBoolean)
+  {
+    WindowClosingProtocol.WindowClosingMode localWindowClosingMode1 = getDefaultCloseOperation();
+    WindowClosingProtocol.WindowClosingMode localWindowClosingMode2 = paramBoolean ? WindowClosingProtocol.WindowClosingMode.DISPOSE_ON_CLOSE : localWindowClosingMode1;
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("Window.windowDestroyNotify(isNativeValid: " + isNativeValid() + ", force: " + paramBoolean + ", mode " + localWindowClosingMode1 + " -> " + localWindowClosingMode2 + ") " + getThreadName() + ": " + this);
+    }
+    
+
+    boolean bool;
+    
+    if (isNativeValid()) {
+      if (WindowClosingProtocol.WindowClosingMode.DISPOSE_ON_CLOSE == localWindowClosingMode2) {
+        if (paramBoolean) {
+          setDefaultCloseOperation(localWindowClosingMode2);
+        }
+        try {
+          if (null == windowDestroyNotifyAction) {
+            destroy();
+          } else {
+            windowDestroyNotifyAction.run();
+          }
+        } finally {
+          if (paramBoolean) {
+            setDefaultCloseOperation(localWindowClosingMode1);
+          }
+        }
+      }
+      else {
+        sendWindowEvent(102);
+      }
+      
+      bool = !isNativeValid();
+    } else {
+      bool = true;
+    }
+    
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("Window.windowDestroyNotify(isNativeValid: " + isNativeValid() + ", force: " + paramBoolean + ", mode " + localWindowClosingMode2 + ") END " + getThreadName() + ": destroyed " + bool + ", " + this);
+    }
+    
+    return bool;
+  }
+  
+  public final void windowRepaint(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    windowRepaint(false, paramInt1, paramInt2, paramInt3, paramInt4);
+  }
+  
+
+
+
+
+
+
+
+  protected final void windowRepaint(boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    paramInt3 = 0 >= paramInt3 ? getSurfaceWidth() : paramInt3;
+    paramInt4 = 0 >= paramInt4 ? getSurfaceHeight() : paramInt4;
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("Window.windowRepaint " + getThreadName() + " (defer: " + paramBoolean + ") " + paramInt1 + "/" + paramInt2 + " " + paramInt3 + "x" + paramInt4);
+    }
+    
+    if (isNativeValid()) {
+      WindowUpdateEvent localWindowUpdateEvent = new WindowUpdateEvent((short)105, this, System.currentTimeMillis(), new Rectangle(paramInt1, paramInt2, paramInt3, paramInt4));
+      
+      doEvent(paramBoolean, false, localWindowUpdateEvent);
+    }
+  }
+  
+
+
+
+
+
+  protected final void sendMouseEventRequestFocus(short paramShort1, int paramInt1, int paramInt2, int paramInt3, short paramShort2, float paramFloat)
+  {
+    sendMouseEvent(paramShort1, paramInt1, paramInt2, paramInt3, paramShort2, paramFloat);
+    requestFocus(false);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected final void visibleChangedSendMouseEvent(boolean paramBoolean, int paramInt1, short paramShort1, int paramInt2, int paramInt3, int paramInt4, short paramShort2, float paramFloat)
+  {
+    if (0 <= paramInt1) {
+      visibleChanged(paramBoolean, 0 < paramInt1);
+    }
+    if (0 < paramShort1) {
+      if (paramBoolean) {
+        enqueueMouseEvent(false, paramShort1, paramInt2, paramInt3, paramInt4, paramShort2, paramFloat);
+      } else {
+        sendMouseEvent(paramShort1, paramInt2, paramInt3, paramInt4, paramShort2, paramFloat);
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  protected final void visibleChangedWindowRepaint(boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5)
+  {
+    if (0 <= paramInt1) {
+      visibleChanged(paramBoolean, 0 < paramInt1);
+    }
+    windowRepaint(paramBoolean, paramInt2, paramInt3, paramInt4, paramInt5);
+  }
+  
+
+
+
+
+
+
+
+  protected final void focusVisibleChanged(boolean paramBoolean, int paramInt1, int paramInt2)
+  {
+    if (0 <= paramInt1) {
+      focusChanged(paramBoolean, 0 < paramInt1);
+    }
+    if (0 <= paramInt2) {
+      visibleChanged(paramBoolean, 0 < paramInt2);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  protected final void insetsVisibleChanged(boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5)
+  {
+    insetsChanged(paramBoolean, paramInt1, paramInt2, paramInt3, paramInt4);
+    if (0 <= paramInt5) {
+      visibleChanged(paramBoolean, 0 < paramInt5);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected final void sizePosInsetsFocusVisibleChanged(boolean paramBoolean1, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, int paramInt10, boolean paramBoolean2)
+  {
+    sizeChanged(paramBoolean1, paramInt3, paramInt4, paramBoolean2);
+    positionChanged(paramBoolean1, paramInt1, paramInt2);
+    insetsChanged(paramBoolean1, paramInt5, paramInt6, paramInt7, paramInt8);
+    if (0 <= paramInt9) {
+      focusChanged(paramBoolean1, 0 < paramInt9);
+    }
+    if (0 <= paramInt10) {
+      visibleChanged(paramBoolean1, 0 < paramInt10);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected final void sizePosMaxInsetsVisibleChanged(boolean paramBoolean1, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, int paramInt10, int paramInt11, boolean paramBoolean2)
+  {
+    sizeChanged(paramBoolean1, paramInt3, paramInt4, paramBoolean2);
+    positionChanged(paramBoolean1, paramInt1, paramInt2);
+    if ((0 <= paramInt5) && (0 <= paramInt6)) {
+      maximizedChanged(0 < paramInt5, 0 < paramInt6);
+    }
+    insetsChanged(paramBoolean1, paramInt7, paramInt8, paramInt9, paramInt10);
+    if (0 <= paramInt11) {
+      visibleChanged(paramBoolean1, 0 < paramInt11);
+    }
+  }
+  
+
+
+
+  private static Class<?>[] getCustomConstructorArgumentTypes(Class<?> paramClass)
+  {
+    Class[] arrayOfClass = null;
+    try {
+      Method localMethod = paramClass.getDeclaredMethod("getCustomConstructorArgumentTypes", new Class[0]);
+      arrayOfClass = (Class[])localMethod.invoke(null, (Object[])null);
+    } catch (Throwable localThrowable) {}
+    return arrayOfClass;
+  }
+  
+  private static int verifyConstructorArgumentTypes(Class<?>[] paramArrayOfClass, Object[] paramArrayOfObject) {
+    if (paramArrayOfClass.length != paramArrayOfObject.length) {
+      return -1;
+    }
+    for (int i = 0; i < paramArrayOfObject.length; i++) {
+      if (!paramArrayOfClass[i].isInstance(paramArrayOfObject[i])) {
+        return i;
+      }
+    }
+    return paramArrayOfObject.length;
+  }
+  
+  private static String getArgsStrList(Object[] paramArrayOfObject) {
+    StringBuilder localStringBuilder = new StringBuilder();
+    for (int i = 0; i < paramArrayOfObject.length; i++) {
+      localStringBuilder.append(paramArrayOfObject[i].getClass());
+      if (i < paramArrayOfObject.length) {
+        localStringBuilder.append(", ");
+      }
+    }
+    return localStringBuilder.toString();
+  }
+  
+  private static String getTypeStrList(Class<?>[] paramArrayOfClass) {
+    StringBuilder localStringBuilder = new StringBuilder();
+    for (int i = 0; i < paramArrayOfClass.length; i++) {
+      localStringBuilder.append(paramArrayOfClass[i]);
+      if (i < paramArrayOfClass.length) {
+        localStringBuilder.append(", ");
+      }
+    }
+    return localStringBuilder.toString();
+  }
+  
+  public static String getThreadName() {
+    return Display.getThreadName();
+  }
+  
+  public static String toHexString(int paramInt) {
+    return Display.toHexString(paramInt);
+  }
+  
+  public static String toHexString(long paramLong) {
+    return Display.toHexString(paramLong);
+  }
+  
+  public WindowImpl() {}
+  
+  protected void unlockSurfaceImpl() {}
+  
+  protected void instantiationFinishedImpl() {}
+  
+  protected abstract void createNativeImpl();
+  
+  protected abstract void closeNativeImpl();
+  
+  protected abstract void requestFocusImpl(boolean paramBoolean);
+  
+  protected abstract int getSupportedReconfigMaskImpl();
+  
+  protected abstract boolean reconfigureWindowImpl(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5);
+  
+  protected void setTitleImpl(String paramString) {}
+  
+  protected abstract Point getLocationOnScreenImpl(int paramInt1, int paramInt2);
+  
+  protected void warpPointerImpl(int paramInt1, int paramInt2) {}
+  
+  protected void setPointerIconImpl(PointerIconImpl paramPointerIconImpl) {}
+  
+  protected void monitorModeChanged(MonitorEvent paramMonitorEvent, boolean paramBoolean) {}
+}

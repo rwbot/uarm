@@ -1,0 +1,769 @@
+package com.jogamp.opengl.util;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLException;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLBuffers
+  extends Buffers
+{
+  public GLBuffers() {}
+  
+  public static final boolean isSignedGLType(int paramInt)
+  {
+    switch (paramInt) {
+    case 5121: 
+    case 5123: 
+    case 5125: 
+    case 34552: 
+      return false;
+    }
+    
+    return true;
+  }
+  
+
+
+
+
+
+
+
+  public static final boolean isGLTypeFixedPoint(int paramInt)
+  {
+    switch (paramInt) {
+    case 5126: 
+    case 5130: 
+    case 5131: 
+    case 36193: 
+      return false;
+    }
+    
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final int sizeOfGLType(int paramInt)
+  {
+    switch (paramInt)
+    {
+    case 5120: 
+    case 5121: 
+    case 32818: 
+    case 33634: 
+      return 1;
+    
+    case 5122: 
+    case 5123: 
+    case 5131: 
+    case 32819: 
+    case 32820: 
+    case 33635: 
+    case 33636: 
+    case 33637: 
+    case 33638: 
+    case 34234: 
+    case 34235: 
+    case 36193: 
+      return 2;
+    
+    case 5124: 
+    case 5125: 
+    case 5132: 
+    case 32821: 
+    case 33639: 
+    case 33640: 
+    case 34042: 
+    case 34552: 
+    case 34554: 
+    case 35899: 
+    case 35902: 
+    case 36342: 
+      return 4;
+    
+    case 36269: 
+      return 8;
+    
+    case 5126: 
+      return 4;
+    
+    case 5130: 
+      return 8;
+    }
+    return -1;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final Buffer newDirectGLBuffer(int paramInt1, int paramInt2)
+  {
+    switch (paramInt1) {
+    case 5120: 
+    case 5121: 
+    case 32818: 
+    case 33634: 
+      return newDirectByteBuffer(paramInt2);
+    
+    case 5122: 
+    case 5123: 
+    case 5131: 
+    case 32819: 
+    case 32820: 
+    case 33635: 
+    case 33636: 
+    case 33637: 
+    case 33638: 
+    case 34234: 
+    case 34235: 
+    case 36193: 
+      return newDirectShortBuffer(paramInt2);
+    
+    case 5124: 
+    case 5125: 
+    case 5132: 
+    case 32821: 
+    case 33639: 
+    case 33640: 
+    case 34042: 
+    case 34552: 
+    case 34554: 
+    case 35899: 
+    case 35902: 
+    case 36342: 
+      return newDirectIntBuffer(paramInt2);
+    
+    case 36269: 
+      return newDirectLongBuffer(paramInt2);
+    
+    case 5126: 
+      return newDirectFloatBuffer(paramInt2);
+    
+    case 5130: 
+      return newDirectDoubleBuffer(paramInt2);
+    }
+    return null;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final Buffer sliceGLBuffer(ByteBuffer paramByteBuffer, int paramInt1, int paramInt2, int paramInt3)
+  {
+    if ((paramByteBuffer == null) || (paramInt2 == 0)) {
+      return null;
+    }
+    int i = paramByteBuffer.position();
+    int j = paramByteBuffer.limit();
+    
+    paramByteBuffer.position(paramInt1);
+    paramByteBuffer.limit(paramInt1 + paramInt2);
+    Object localObject = null;
+    
+    switch (paramInt3) {
+    case 5120: 
+    case 5121: 
+    case 32818: 
+    case 33634: 
+      localObject = paramByteBuffer.slice().order(paramByteBuffer.order());
+      break;
+    
+    case 5122: 
+    case 5123: 
+    case 5131: 
+    case 32819: 
+    case 32820: 
+    case 33635: 
+    case 33636: 
+    case 33637: 
+    case 33638: 
+    case 34234: 
+    case 34235: 
+    case 36193: 
+      localObject = paramByteBuffer.slice().order(paramByteBuffer.order()).asShortBuffer();
+      break;
+    
+    case 5124: 
+    case 5125: 
+    case 5132: 
+    case 32821: 
+    case 33639: 
+    case 33640: 
+    case 34042: 
+    case 34552: 
+    case 34554: 
+    case 35899: 
+    case 35902: 
+    case 36342: 
+      localObject = paramByteBuffer.slice().order(paramByteBuffer.order()).asIntBuffer();
+      break;
+    
+    case 36269: 
+      localObject = paramByteBuffer.slice().order(paramByteBuffer.order()).asLongBuffer();
+      break;
+    
+    case 5126: 
+      localObject = paramByteBuffer.slice().order(paramByteBuffer.order()).asFloatBuffer();
+      break;
+    
+    case 5130: 
+      localObject = paramByteBuffer.slice().order(paramByteBuffer.order()).asDoubleBuffer();
+    }
+    
+    paramByteBuffer.position(i).limit(j);
+    return localObject;
+  }
+  
+  private static final int glGetInteger(GL paramGL, int paramInt, int[] paramArrayOfInt) {
+    paramGL.glGetIntegerv(paramInt, paramArrayOfInt, 0);
+    return paramArrayOfInt[0];
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final int sizeof(GL paramGL, int[] paramArrayOfInt, int paramInt1, int paramInt2, int paramInt3, int paramInt4, boolean paramBoolean)
+  {
+    int i = 0;
+    int j = 0;
+    int k = 0;
+    int m = 1;
+    int n = 0;
+    int i1 = 0;
+    
+    if (paramBoolean) {
+      m = glGetInteger(paramGL, 3333, paramArrayOfInt);
+      if (paramGL.isGL2ES3()) {
+        i = glGetInteger(paramGL, 3330, paramArrayOfInt);
+        j = glGetInteger(paramGL, 3331, paramArrayOfInt);
+        k = glGetInteger(paramGL, 3332, paramArrayOfInt);
+        if ((paramInt4 > 1) && (paramGL.isGL2GL3()) && (paramGL.getContext().getGLVersionNumber().compareTo(GLContext.Version1_2) >= 0)) {
+          n = glGetInteger(paramGL, 32876, paramArrayOfInt);
+          i1 = glGetInteger(paramGL, 32875, paramArrayOfInt);
+        }
+      }
+    } else {
+      m = glGetInteger(paramGL, 3317, paramArrayOfInt);
+      if (paramGL.isGL2ES3()) {
+        i = glGetInteger(paramGL, 3314, paramArrayOfInt);
+        j = glGetInteger(paramGL, 3315, paramArrayOfInt);
+        k = glGetInteger(paramGL, 3316, paramArrayOfInt);
+        if ((paramInt4 > 1) && (
+          (paramGL.isGL3ES3()) || (
+          (paramGL.isGL2GL3()) && (paramGL.getContext().getGLVersionNumber().compareTo(GLContext.Version1_2) >= 0))))
+        {
+
+          n = glGetInteger(paramGL, 32878, paramArrayOfInt);
+          i1 = glGetInteger(paramGL, 32877, paramArrayOfInt);
+        }
+      }
+    }
+    
+
+    paramInt2 = Math.max(0, paramInt2);
+    paramInt3 = Math.max(1, paramInt3);
+    paramInt4 = Math.max(1, paramInt4);
+    j = Math.max(0, j);
+    k = Math.max(0, k);
+    m = Math.max(1, m);
+    i1 = Math.max(0, i1);
+    
+    n = n > 0 ? n : paramInt3;
+    i = i > 0 ? i : paramInt2;
+    
+    int i2 = i * paramInt1;
+    int i3 = k * paramInt1;
+    
+    switch (m)
+    {
+    case 1: 
+      break;
+    case 2: 
+    case 4: 
+    case 8: 
+      int i4 = i2 & m - 1;
+      if (i4 > 0) {
+        i2 += m - i4;
+      }
+      i4 = i3 & m - 1;
+      if (i4 > 0) {
+        i3 += m - i4;
+      }
+      
+      break;
+    case 3: case 5: case 6: case 7: default: 
+      throw new GLException("Invalid alignment " + m + ", must be 2**n (1,2,4,8). Pls notify the maintainer in case this is our bug.");
+    }
+    
+    
+
+
+
+
+
+
+
+
+
+    return i3 + (i1 + paramInt4 - 1) * n * i2 + (j + paramInt3 - 1) * i2 + paramInt2 * paramInt1;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final int sizeof(GL paramGL, int[] paramArrayOfInt, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, boolean paramBoolean)
+    throws GLException
+  {
+    if (paramInt3 < 0) return 0;
+    if (paramInt4 < 0) return 0;
+    if (paramInt5 < 0) { return 0;
+    }
+    int i = bytesPerPixel(paramInt1, paramInt2);
+    return sizeof(paramGL, paramArrayOfInt, i, paramInt3, paramInt4, paramInt5, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final int bytesPerPixel(int paramInt1, int paramInt2)
+    throws GLException
+  {
+    int i = 0;
+    
+    int j = componentCount(paramInt1);
+    
+    switch (paramInt2) {
+    case 6656: 
+      if ((6400 == paramInt1) || (6401 == paramInt1)) {
+        i = 1;
+      } else {
+        throw new GLException("BITMAP type only supported for format COLOR_INDEX and STENCIL_INDEX, not 0x" + Integer.toHexString(paramInt1));
+      }
+      break;
+    case 5120: 
+    case 5121: 
+      i = 1;
+      break;
+    case 5122: 
+    case 5123: 
+    case 5131: 
+    case 36193: 
+      i = 2;
+      break;
+    case 5124: 
+    case 5125: 
+    case 5126: 
+    case 5132: 
+      i = 4;
+      break;
+    case 5130: 
+      i = 8;
+      break;
+    
+    case 32818: 
+    case 33634: 
+      i = 1;
+      j = 1;
+      break;
+    case 32819: 
+    case 32820: 
+    case 33635: 
+    case 33636: 
+    case 33637: 
+    case 33638: 
+    case 34234: 
+    case 34235: 
+      i = 2;
+      j = 1;
+      break;
+    case 34552: 
+    case 34554: 
+      i = 2;
+      j = 2;
+      break;
+    case 32821: 
+    case 33639: 
+    case 33640: 
+    case 34042: 
+    case 35899: 
+    case 35902: 
+    case 36342: 
+      i = 4;
+      j = 1;
+      break;
+    case 36269: 
+      i = 8;
+      j = 1;
+      break;
+    
+    default: 
+      throw new GLException("type 0x" + Integer.toHexString(paramInt2) + "/" + "format 0x" + Integer.toHexString(paramInt1) + " not supported [yet], pls notify the maintainer in case this is our bug.");
+    }
+    return j * i;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final int componentCount(int paramInt)
+    throws GLException
+  {
+    int i;
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    switch (paramInt) {
+    case 6400: 
+    case 6401: 
+    case 6402: 
+    case 6403: 
+    case 6404: 
+    case 6405: 
+    case 6406: 
+    case 6409: 
+    case 34041: 
+    case 36244: 
+    case 36245: 
+    case 36246: 
+      i = 1;
+      break;
+    case 6410: 
+    case 33319: 
+    case 33320: 
+    case 34548: 
+    case 34553: 
+      i = 2;
+      break;
+    case 6407: 
+    case 32992: 
+    case 36248: 
+    case 36250: 
+      i = 3;
+      break;
+    case 34233: 
+      i = 3;
+      break;
+    case 6408: 
+    case 32768: 
+    case 32993: 
+    case 36249: 
+    case 36251: 
+      i = 4;
+      break;
+    
+
+
+
+    default: 
+      throw new GLException("format 0x" + Integer.toHexString(paramInt) + " not supported [yet], pls notify the maintainer in case this is our bug.");
+    }
+    return i;
+  }
+  
+  public static final int getNextPowerOf2(int paramInt) {
+    if ((paramInt - 1 & paramInt) == 0)
+    {
+      return paramInt;
+    }
+    int i = 0;
+    while (paramInt > 0) {
+      paramInt >>= 1;
+      i++;
+    }
+    return 1 << i;
+  }
+  
+
+
+  public static final float[] getFloatArray(double[] paramArrayOfDouble)
+  {
+    int i = paramArrayOfDouble.length;
+    float[] arrayOfFloat = new float[i--];
+    while (i >= 0) {
+      arrayOfFloat[i] = ((float)paramArrayOfDouble[i]);
+      i--;
+    }
+    return arrayOfFloat;
+  }
+}

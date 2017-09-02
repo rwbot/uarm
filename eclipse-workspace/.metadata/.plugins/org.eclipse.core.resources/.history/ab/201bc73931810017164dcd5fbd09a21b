@@ -1,0 +1,248 @@
+package g4p_controls;
+
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.io.File;
+import java.io.PrintStream;
+import processing.awt.PGraphicsJava2D;
+import processing.core.PApplet;
+import processing.core.PGraphics;
+import processing.core.PImage;
+
+public class GCustomSlider
+  extends GLinearTrackControl
+{
+  protected PImage leftEnd;
+  protected PImage thumb;
+  protected PImage thumb_mouseover;
+  protected PImage rightEnd;
+  protected PImage centre;
+  
+  public GCustomSlider(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    this(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4, null);
+  }
+  
+  public GCustomSlider(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, String paramString)
+  {
+    super(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+    paramString = paramString == null ? "grey_blue" : paramString.trim();
+    setStyle(paramString);
+    buffer.imageMode(3);
+    hotspots = new HotSpot[] { new HotSpot.HSalpha(THUMB_SPOT, width / 2.0F + (parametricPos - 0.5F) * trackLength, height / 2.0F, thumb, 3), new HotSpot.HSrect(TRACK_SPOT, (width - trackLength) / 2.0F, (height - trackWidth) / 2.0F, trackLength, trackWidth) };
+    opaque = false;
+    z = 24;
+    epsilon = 0.98F / trackLength;
+    ssStartLimit = new StyledString("0.00");
+    ssEndLimit = new StyledString("1.00");
+    ssValue = new StyledString("0.50");
+    createEventHandler(G4P.sketchWindow, "handleSliderEvents", new Class[] { GValueControl.class, GEvent.class }, new String[] { "slider", "event" });
+    registeredMethods = 7;
+    cursorOver = 12;
+    G4P.registerControl(this);
+  }
+  
+  public void setStyle(String paramString)
+  {
+    loadSkin(paramString);
+    float f = Math.max(leftEnd.width, rightEnd.width);
+    f = Math.max(f, 10.0F);
+    trackLength = Math.round(width - 2.0F * f - TINSET);
+    trackDisplayLength = (trackLength + 2 * Math.min(leftEnd.width, rightEnd.width));
+    trackWidth = centre.height;
+    trackOffset = calcTrackOffset();
+    extendCentreImage();
+    bufferInvalid = true;
+  }
+  
+  protected float calcTrackOffset()
+  {
+    float f = showTicks ? trackWidth : trackWidth / 2.0F;
+    f = Math.max(f, thumb.height / 2) + 2.0F;
+    if (f != trackOffset) {
+      bufferInvalid = true;
+    }
+    return f;
+  }
+  
+  protected void updateDueToValueChanging()
+  {
+    hotspots[0].x = (width / 2.0F + (parametricPos - 0.5F) * trackLength);
+  }
+  
+  protected void updateBuffer()
+  {
+    if (bufferInvalid)
+    {
+      bufferInvalid = false;
+      buffer.beginDraw();
+      Graphics2D localGraphics2D = buffer.g2;
+      localGraphics2D.setFont(localFont);
+      buffer.background(opaque ? palette[6].getRGB() : palette[2].getRGB() & 0xFFFFFF);
+      buffer.pushMatrix();
+      buffer.translate(width / 2.0F, height / 2.0F);
+      if (showTicks)
+      {
+        float f1 = 1.0F / (nbrTicks - 1);
+        for (int i = 0; i < nbrTicks; i++)
+        {
+          float f2 = Math.round((i * f1 - 0.5F) * trackLength);
+          buffer.strokeWeight(2.0F);
+          buffer.stroke(255);
+          buffer.line(f2 + 1.0F, -trackWidth, f2 + 1.0F, trackWidth);
+          buffer.strokeWeight(1.0F);
+          buffer.stroke(0);
+          buffer.line(f2, -trackWidth, f2, trackWidth);
+        }
+      }
+      buffer.image(centre, 0.0F, 0.0F);
+      buffer.image(leftEnd, -(trackLength + leftEnd.width) / 2.0F, 0.0F);
+      buffer.image(rightEnd, (trackLength + rightEnd.width) / 2.0F, 0.0F);
+      switch (status)
+      {
+      case 0: 
+        buffer.image(thumb, (parametricPos - 0.5F) * trackLength, 0.0F);
+        break;
+      case 1: 
+      case 2: 
+      case 3: 
+        buffer.image(thumb_mouseover, (parametricPos - 0.5F) * trackLength, 0.0F);
+      }
+      localGraphics2D.setColor(palette[2]);
+      if (labels != null)
+      {
+        drawLabels(localGraphics2D);
+      }
+      else
+      {
+        if (showLimits) {
+          drawLimits(localGraphics2D);
+        }
+        if (showValue) {
+          drawValue(localGraphics2D);
+        }
+      }
+      buffer.popMatrix();
+      buffer.endDraw();
+    }
+  }
+  
+  private void extendCentreImage()
+  {
+    int i = (int)trackLength;
+    PGraphics localPGraphics = winApp.createGraphics(i, centre.height, "processing.awt.PGraphicsJava2D");
+    int j = i % centre.width;
+    int k = i / centre.width;
+    k = j == 0 ? k : k + 1;
+    int m = (i - centre.width * k) / 2;
+    localPGraphics.beginDraw();
+    localPGraphics.background(winApp.color(255, 0));
+    localPGraphics.imageMode(0);
+    while (m < i)
+    {
+      localPGraphics.image(centre, m, 0.0F);
+      m += centre.width;
+    }
+    localPGraphics.endDraw();
+    centre = localPGraphics;
+  }
+  
+  private void loadSkin(String paramString)
+  {
+    String str = paramString;
+    boolean bool = false;
+    if (winApp.sketchPath("").length() == 0) {
+      bool = loadSkin_AppletInBrowser(paramString);
+    } else {
+      bool = loadStyle_FromSketch(paramString);
+    }
+    if (!bool) {
+      str = loadStyle_FromG4P(paramString);
+    }
+    if (!paramString.equalsIgnoreCase(str)) {
+      System.out.println("Unable to load the skin " + paramString + " using default '" + "grey_blue" + "' style instead");
+    }
+  }
+  
+  private String loadStyle_FromG4P(String paramString)
+  {
+    int i = "|grey_blue|blue18px|green_red20px|purple18px|red_yellow18px|".indexOf("|" + paramString + "|") >= 0 ? 1 : 0;
+    if (i == 0) {
+      paramString = "grey_blue";
+    }
+    leftEnd = winApp.loadImage(paramString + "/end_left.png");
+    rightEnd = winApp.loadImage(paramString + "/end_right.png");
+    thumb = winApp.loadImage(paramString + "/handle.png");
+    thumb_mouseover = winApp.loadImage(paramString + "/handle_mouseover.png");
+    centre = winApp.loadImage(paramString + "/centre.png");
+    return paramString;
+  }
+  
+  private boolean loadStyle_FromSketch(String paramString)
+  {
+    File localFile1 = new File(winApp.dataPath(paramString));
+    if (!localFile1.exists()) {
+      localFile1 = new File(winApp.sketchPath(paramString));
+    }
+    if (!localFile1.exists()) {
+      return false;
+    }
+    int i = 0;
+    String[] arrayOfString = { "centre.", "end_left.", "end_right.", "handle.", "handle_mouseover." };
+    PImage[] arrayOfPImage = new PImage[arrayOfString.length];
+    File[] arrayOfFile1 = localFile1.listFiles();
+    for (int j = 0; j < arrayOfString.length; j++) {
+      for (File localFile2 : arrayOfFile1)
+      {
+        String str = localFile2.getName();
+        if (str.startsWith(arrayOfString[j]))
+        {
+          arrayOfPImage[j] = winApp.loadImage(paramString + "/" + str);
+          i++;
+        }
+      }
+    }
+    if (i != arrayOfString.length) {
+      return false;
+    }
+    centre = arrayOfPImage[0];
+    leftEnd = arrayOfPImage[1];
+    rightEnd = arrayOfPImage[2];
+    thumb = arrayOfPImage[3];
+    thumb_mouseover = arrayOfPImage[4];
+    return true;
+  }
+  
+  private boolean loadSkin_AppletInBrowser(String paramString)
+  {
+    leftEnd = winApp.loadImage(paramString + "/end_left.png");
+    if (leftEnd == null) {
+      leftEnd = winApp.loadImage(paramString + "/end_left.jpg");
+    }
+    rightEnd = winApp.loadImage(paramString + "/end_right.png");
+    if (rightEnd == null) {
+      rightEnd = winApp.loadImage(paramString + "/end_right.jpg");
+    }
+    thumb = winApp.loadImage(paramString + "/handle.png");
+    if (thumb == null) {
+      thumb = winApp.loadImage(paramString + "/handle.jpg");
+    }
+    thumb_mouseover = winApp.loadImage(paramString + "/handle_mouseover.png");
+    if (thumb_mouseover == null) {
+      thumb_mouseover = winApp.loadImage(paramString + "/handle_mouseover.jpg");
+    }
+    centre = winApp.loadImage(paramString + "/centre.png");
+    if (centre == null) {
+      centre = winApp.loadImage(paramString + "/centre.jpg");
+    }
+    boolean bool = (leftEnd != null) && (rightEnd != null) && (thumb != null) && (thumb_mouseover != null) && (centre != null);
+    if (!bool)
+    {
+      System.out.println("Unable to load the skin " + paramString + " check the ");
+      System.out.println("skin name used and ensure all the image files are present.");
+      System.out.println("Reverting to default 'grey_blue' style");
+      loadSkin("grey_blue");
+    }
+    return bool;
+  }
+}

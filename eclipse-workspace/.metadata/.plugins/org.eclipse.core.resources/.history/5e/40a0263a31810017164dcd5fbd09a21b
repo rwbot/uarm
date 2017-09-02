@@ -1,0 +1,155 @@
+package jogamp.opengl.glu.nurbs;
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Bin
+{
+  private Arc head;
+  
+
+
+
+
+
+
+
+
+
+
+
+  private Arc current;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public Bin() {}
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean isnonempty()
+  {
+    return head != null;
+  }
+  
+
+
+
+
+
+
+
+  public void addarc(Arc paramArc)
+  {
+    link = head;
+    head = paramArc;
+  }
+  
+
+
+
+
+
+
+  public int numarcs()
+  {
+    int i = 0;
+    for (Arc localArc = firstarc(); localArc != null; localArc = nextarc())
+      i++;
+    return i;
+  }
+  
+
+
+
+
+  public Arc removearc()
+  {
+    Arc localArc = head;
+    if (localArc != null)
+      head = link;
+    return localArc;
+  }
+  
+
+
+
+
+  public void adopt()
+  {
+    markall();
+    
+    Arc localArc1;
+    while ((localArc1 = removearc()) != null) {
+      for (Arc localArc2 = next; !localArc2.equals(localArc1); localArc2 = next) {
+        if (!localArc2.ismarked()) {
+          link = link;
+          link = localArc1;
+          localArc1.clearmark();
+          break;
+        }
+      }
+    }
+  }
+  
+
+
+
+
+  private void markall()
+  {
+    for (Arc localArc = firstarc(); localArc != null; localArc = nextarc()) {
+      localArc.setmark();
+    }
+  }
+  
+
+
+
+  private Arc firstarc()
+  {
+    current = head;
+    return nextarc();
+  }
+  
+
+
+
+
+
+  private Arc nextarc()
+  {
+    Arc localArc = current;
+    if (localArc != null)
+      current = link;
+    return localArc;
+  }
+}

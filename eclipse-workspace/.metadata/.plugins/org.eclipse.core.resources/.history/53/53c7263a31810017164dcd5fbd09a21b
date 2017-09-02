@@ -1,0 +1,121 @@
+package jogamp.opengl.glu.nurbs;
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Curvelist
+{
+  private Curve curve;
+  
+
+
+
+
+
+
+
+
+
+
+
+  float[] range;
+  
+
+
+
+
+
+
+
+
+
+
+
+  public float stepsize;
+  
+
+
+
+
+
+
+
+
+
+
+
+  private boolean needsSubdivision;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public Curvelist(Quilt paramQuilt, float[] paramArrayOfFloat1, float[] paramArrayOfFloat2)
+  {
+    curve = null;
+    range = new float[3];
+    
+    for (Quilt localQuilt = paramQuilt; localQuilt != null; localQuilt = next) {
+      curve = new Curve(localQuilt, paramArrayOfFloat1, paramArrayOfFloat2, curve);
+    }
+    range[0] = paramArrayOfFloat1[0];
+    range[1] = paramArrayOfFloat2[0];
+    range[2] = (range[1] - range[0]);
+  }
+  
+
+
+
+  public void getstepsize()
+  {
+    stepsize = range[2];
+    
+    for (Curve localCurve = curve; localCurve != null; localCurve = next) {
+      localCurve.getStepSize();
+      localCurve.clamp();
+      stepsize = (stepsize < stepsize ? stepsize : stepsize);
+      if (localCurve.needsSamplingSubdivision())
+        break;
+    }
+    needsSubdivision = (localCurve != null);
+  }
+  
+
+
+
+
+
+  public boolean needsSamplingSubdivision()
+  {
+    return needsSubdivision;
+  }
+  
+
+
+
+
+  public int cullCheck()
+  {
+    for (Curve localCurve = curve; localCurve != null; localCurve = next)
+      if (localCurve.cullCheck() == 0)
+        return 0;
+    return 1;
+  }
+}

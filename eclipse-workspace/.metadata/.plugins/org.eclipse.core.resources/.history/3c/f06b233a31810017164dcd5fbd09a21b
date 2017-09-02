@@ -1,0 +1,83 @@
+package jogamp.opengl.egl;
+
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.os.Platform.OSType;
+import java.util.ArrayList;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public final class EGLGLnDynamicLibraryBundleInfo
+  extends EGLDynamicLibraryBundleInfo
+{
+  private static final List<String> glueLibNames = new ArrayList();
+  static { glueLibNames.add("jogl_desktop"); }
+  
+
+
+
+
+
+  public final List<List<String>> getToolLibNames()
+  {
+    ArrayList localArrayList1 = new ArrayList();
+    
+    ArrayList localArrayList2 = new ArrayList();
+    
+    Platform.OSType localOSType = Platform.getOSType();
+    if (Platform.OSType.MACOS == localOSType) {
+      localArrayList2.add("/System/Library/Frameworks/OpenGL.framework/Libraries/libGL.dylib");
+      localArrayList2.add("GL");
+    } else if (Platform.OSType.WINDOWS == Platform.getOSType()) {
+      localArrayList2.add("OpenGL32");
+    }
+    else {
+      localArrayList2.add("libGL.so.1");
+      
+
+      localArrayList2.add("libGL.so");
+      
+
+      localArrayList2.add("GL");
+    }
+    
+    localArrayList1.add(localArrayList2);
+    
+    localArrayList1.add(getEGLLibNamesList());
+    
+    return localArrayList1;
+  }
+  
+  protected EGLGLnDynamicLibraryBundleInfo() {}
+}

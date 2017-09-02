@@ -1,0 +1,151 @@
+package g4p_controls;
+
+import java.awt.Color;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
+import javax.swing.ImageIcon;
+import processing.core.PApplet;
+import processing.core.PConstants;
+import processing.core.PGraphics;
+import processing.core.PImage;
+
+public class GCScheme
+  implements GConstants, PConstants
+{
+  private static Color[][] palettes = (Color[][])null;
+  
+  public GCScheme() {}
+  
+  public static int[] getPalette(int paramInt)
+  {
+    paramInt = Math.abs(paramInt) % 16;
+    Color[] arrayOfColor = palettes[paramInt];
+    int[] arrayOfInt = new int[16];
+    for (int i = 0; i < 16; i++) {
+      arrayOfInt[i] = arrayOfColor[i].getRGB();
+    }
+    return arrayOfInt;
+  }
+  
+  public static void changePalette(int paramInt, int[] paramArrayOfInt)
+  {
+    paramInt = Math.abs(paramInt) % 16;
+    for (int i = 0; i < Math.min(16, paramArrayOfInt.length); i++) {
+      palettes[paramInt][i] = new Color(paramArrayOfInt[i], true);
+    }
+    G4P.invalidateBuffers();
+  }
+  
+  public static void copyPalette(int paramInt1, int paramInt2)
+  {
+    paramInt1 = Math.abs(paramInt1) % 16;
+    paramInt2 = Math.abs(paramInt2) % 16;
+    if (paramInt1 != paramInt2)
+    {
+      int[] arrayOfInt = getPalette(paramInt1);
+      changePalette(paramInt2, arrayOfInt);
+    }
+  }
+  
+  public static void changePaletteColor(int paramInt1, int paramInt2, int paramInt3)
+  {
+    paramInt1 = Math.abs(paramInt1) % 16;
+    paramInt2 = Math.abs(paramInt2) % 16;
+    palettes[paramInt1][paramInt2] = new Color(paramInt3, true);
+    G4P.invalidateBuffers();
+  }
+  
+  public static void savePalettes(PApplet paramPApplet)
+  {
+    savePalettes(paramPApplet, "user_gui_palette.png");
+  }
+  
+  public static void savePalettes(PApplet paramPApplet, String paramString)
+  {
+    PGraphics localPGraphics = paramPApplet.createGraphics(256, 256, "processing.awt.PGraphicsJava2D");
+    localPGraphics.beginDraw();
+    localPGraphics.clear();
+    localPGraphics.noStroke();
+    int j;
+    for (int i = 0; i < 16; i++) {
+      for (j = 0; j < 16; j++)
+      {
+        localPGraphics.fill(palettes[i][j].getRGB());
+        localPGraphics.rect(j * 16, i * 16, 16.0F, 16.0F);
+      }
+    }
+    localPGraphics.noFill();
+    localPGraphics.strokeWeight(2.0F);
+    localPGraphics.stroke(0);
+    for (i = 0; i <= 16; i++)
+    {
+      j = i * 16;
+      localPGraphics.line(0.0F, j, 256.0F, j);
+      localPGraphics.line(j, 0.0F, j, 256.0F);
+    }
+    localPGraphics.endDraw();
+    paramString = paramPApplet.dataPath("") + "/" + paramString;
+    System.out.println(paramString);
+    localPGraphics.save(paramString);
+  }
+  
+  public static void makeColorSchemes(PApplet paramPApplet)
+  {
+    if (palettes != null) {
+      return;
+    }
+    PImage localPImage = null;
+    InputStream localInputStream = paramPApplet.createInput("user_gui_palette.png");
+    if (localInputStream != null)
+    {
+      try
+      {
+        localInputStream.close();
+      }
+      catch (IOException localIOException)
+      {
+        localIOException.printStackTrace();
+      }
+      localPImage = paramPApplet.loadImage("user_gui_palette.png");
+      GMessenger.message(Integer.valueOf(65794), null);
+    }
+    else
+    {
+      localPImage = paramPApplet.loadImage("default_gui_palette.png");
+      if (localPImage == null) {
+        localPImage = new PImage(new ImageIcon(new GCScheme().getClass().getResource("/data/default_gui_palette.png")).getImage());
+      }
+    }
+    palettes = new Color[16][16];
+    for (int i = 0; i < 16; i++) {
+      for (int j = 0; j < 16; j++)
+      {
+        int k = localPImage.get(j * 16 + 8, i * 16 + 8);
+        palettes[i][j] = new Color(k >> 16 & 0xFF, k >> 8 & 0xFF, k & 0xFF);
+      }
+    }
+  }
+  
+  public static Color[] getJavaColor(int paramInt)
+  {
+    paramInt = Math.abs(paramInt) % 16;
+    return palettes[paramInt];
+  }
+  
+  public static void makeColorSchemes()
+  {
+    if (palettes != null) {
+      return;
+    }
+    PImage localPImage = new PImage(new ImageIcon(new GCScheme().getClass().getResource("/data/default_gui_palette.png")).getImage());
+    palettes = new Color[16][16];
+    for (int i = 0; i < 16; i++) {
+      for (int j = 0; j < 16; j++)
+      {
+        int k = localPImage.get(j * 16 + 8, i * 16 + 8);
+        palettes[i][j] = new Color(k >> 16 & 0xFF, k >> 8 & 0xFF, k & 0xFF);
+      }
+    }
+  }
+}

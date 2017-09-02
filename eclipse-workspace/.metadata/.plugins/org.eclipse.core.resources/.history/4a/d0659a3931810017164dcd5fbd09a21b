@@ -1,0 +1,487 @@
+package processing.serial;
+
+import java.io.PrintStream;
+import java.lang.reflect.Method;
+import java.util.Map;
+import jssc.SerialPort;
+import jssc.SerialPortEvent;
+import jssc.SerialPortEventListener;
+import jssc.SerialPortException;
+import jssc.SerialPortList;
+import processing.core.PApplet;
+
+public class Serial
+  implements SerialPortEventListener
+{
+  PApplet parent;
+  public SerialPort port;
+  Method serialAvailableMethod;
+  Method serialEventMethod;
+  byte[] buffer = new byte[32768];
+  int inBuffer = 0;
+  int readOffset = 0;
+  int bufferUntilSize = 1;
+  byte bufferUntilByte = 0;
+  volatile boolean invokeSerialAvailable = false;
+  
+  public Serial(PApplet paramPApplet)
+  {
+    this(paramPApplet, "COM1", 9600, 'N', 8, 1.0F);
+  }
+  
+  public Serial(PApplet paramPApplet, int paramInt)
+  {
+    this(paramPApplet, "COM1", paramInt, 'N', 8, 1.0F);
+  }
+  
+  public Serial(PApplet paramPApplet, String paramString)
+  {
+    this(paramPApplet, paramString, 9600, 'N', 8, 1.0F);
+  }
+  
+  public Serial(PApplet paramPApplet, String paramString, int paramInt)
+  {
+    this(paramPApplet, paramString, paramInt, 'N', 8, 1.0F);
+  }
+  
+  public Serial(PApplet paramPApplet, String paramString, int paramInt1, char paramChar, int paramInt2, float paramFloat)
+  {
+    parent = paramPApplet;
+    paramPApplet.registerMethod("dispose", this);
+    paramPApplet.registerMethod("pre", this);
+    if (paramChar == 'O') {
+      paramChar = '\001';
+    } else if (paramChar == 'E') {
+      paramChar = '\002';
+    } else if (paramChar == 'M') {
+      paramChar = '\003';
+    } else if (paramChar == 'S') {
+      paramChar = '\004';
+    } else {
+      paramChar = '\000';
+    }
+    int i = 1;
+    if (paramFloat == 1.5F) {
+      i = 3;
+    } else if (paramFloat == 2.0F) {
+      i = 2;
+    }
+    port = new SerialPort(paramString);
+    try
+    {
+      port.openPort();
+      port.setParams(paramInt1, paramInt2, i, paramChar);
+      port.addEventListener(this, 1);
+    }
+    catch (SerialPortException localSerialPortException)
+    {
+      throw new RuntimeException("Error opening serial port " + localSerialPortException.getPortName() + ": " + localSerialPortException.getExceptionType());
+    }
+    serialEventMethod = findCallback("serialEvent");
+    serialAvailableMethod = findCallback("serialAvailable");
+  }
+  
+  private Method findCallback(String paramString)
+  {
+    try
+    {
+      return parent.getClass().getMethod(paramString, new Class[] { getClass() });
+    }
+    catch (Exception localException1)
+    {
+      try
+      {
+        return parent.getClass().getMethod(paramString, new Class[] { Object.class });
+      }
+      catch (Exception localException2) {}
+    }
+    return null;
+  }
+  
+  public void dispose()
+  {
+    stop();
+  }
+  
+  public boolean active()
+  {
+    return port.isOpened();
+  }
+  
+  public void pre()
+  {
+    if ((serialAvailableMethod != null) && (invokeSerialAvailable))
+    {
+      invokeSerialAvailable = false;
+      try
+      {
+        serialAvailableMethod.invoke(parent, new Object[] { this });
+      }
+      catch (Exception localException)
+      {
+        System.err.println("Error, disabling serialAvailable() for " + port.getPortName());
+        System.err.println(localException.getLocalizedMessage());
+        serialAvailableMethod = null;
+      }
+    }
+  }
+  
+  public int available()
+  {
+    return inBuffer - readOffset;
+  }
+  
+  public void buffer(int paramInt)
+  {
+    bufferUntilSize = paramInt;
+  }
+  
+  public void bufferUntil(int paramInt)
+  {
+    bufferUntilSize = 0;
+    bufferUntilByte = ((byte)paramInt);
+  }
+  
+  public void clear()
+  {
+    synchronized (buffer)
+    {
+      inBuffer = 0;
+      readOffset = 0;
+    }
+  }
+  
+  public boolean getCTS()
+  {
+    try
+    {
+      return port.isCTS();
+    }
+    catch (SerialPortException localSerialPortException)
+    {
+      throw new RuntimeException("Error reading the CTS line: " + localSerialPortException.getExceptionType());
+    }
+  }
+  
+  public boolean getDSR()
+  {
+    try
+    {
+      return port.isDSR();
+    }
+    catch (SerialPortException localSerialPortException)
+    {
+      throw new RuntimeException("Error reading the DSR line: " + localSerialPortException.getExceptionType());
+    }
+  }
+  
+  public static Map<String, String> getProperties(String paramString)
+  {
+    return SerialPortList.getPortProperties(paramString);
+  }
+  
+  public int last()
+  {
+    if (inBuffer == readOffset) {
+      return -1;
+    }
+    synchronized (buffer)
+    {
+      int i = buffer[(inBuffer - 1)] & 0xFF;
+      inBuffer = 0;
+      readOffset = 0;
+      return i;
+    }
+  }
+  
+  public char lastChar()
+  {
+    return (char)last();
+  }
+  
+  public static String[] list()
+  {
+    return SerialPortList.getPortNames();
+  }
+  
+  public int read()
+  {
+    if (inBuffer == readOffset) {
+      return -1;
+    }
+    synchronized (buffer)
+    {
+      int i = buffer[(readOffset++)] & 0xFF;
+      if (inBuffer == readOffset)
+      {
+        inBuffer = 0;
+        readOffset = 0;
+      }
+      return i;
+    }
+  }
+  
+  public byte[] readBytes()
+  {
+    if (inBuffer == readOffset) {
+      return null;
+    }
+    synchronized (buffer)
+    {
+      byte[] arrayOfByte = new byte[inBuffer - readOffset];
+      System.arraycopy(buffer, readOffset, arrayOfByte, 0, arrayOfByte.length);
+      inBuffer = 0;
+      readOffset = 0;
+      return arrayOfByte;
+    }
+  }
+  
+  public byte[] readBytes(int paramInt)
+  {
+    if (inBuffer == readOffset) {
+      return null;
+    }
+    synchronized (buffer)
+    {
+      int i = inBuffer - readOffset;
+      if (i > paramInt) {
+        i = paramInt;
+      }
+      byte[] arrayOfByte = new byte[i];
+      System.arraycopy(buffer, readOffset, arrayOfByte, 0, i);
+      readOffset += i;
+      if (inBuffer == readOffset)
+      {
+        inBuffer = 0;
+        readOffset = 0;
+      }
+      return arrayOfByte;
+    }
+  }
+  
+  public int readBytes(byte[] paramArrayOfByte)
+  {
+    if (inBuffer == readOffset) {
+      return 0;
+    }
+    synchronized (buffer)
+    {
+      int i = inBuffer - readOffset;
+      if (paramArrayOfByte.length < i) {
+        i = paramArrayOfByte.length;
+      }
+      System.arraycopy(buffer, readOffset, paramArrayOfByte, 0, i);
+      readOffset += i;
+      if (inBuffer == readOffset)
+      {
+        inBuffer = 0;
+        readOffset = 0;
+      }
+      return i;
+    }
+  }
+  
+  public byte[] readBytesUntil(int paramInt)
+  {
+    if (inBuffer == readOffset) {
+      return null;
+    }
+    synchronized (buffer)
+    {
+      int i = -1;
+      for (int j = readOffset; j < inBuffer; j++) {
+        if (buffer[j] == (byte)paramInt)
+        {
+          i = j;
+          break;
+        }
+      }
+      if (i == -1) {
+        return null;
+      }
+      j = i - readOffset + 1;
+      byte[] arrayOfByte = new byte[j];
+      System.arraycopy(buffer, readOffset, arrayOfByte, 0, j);
+      readOffset += j;
+      if (inBuffer == readOffset)
+      {
+        inBuffer = 0;
+        readOffset = 0;
+      }
+      return arrayOfByte;
+    }
+  }
+  
+  public int readBytesUntil(int paramInt, byte[] paramArrayOfByte)
+  {
+    if (inBuffer == readOffset) {
+      return 0;
+    }
+    synchronized (buffer)
+    {
+      int i = -1;
+      for (int j = readOffset; j < inBuffer; j++) {
+        if (buffer[j] == (byte)paramInt)
+        {
+          i = j;
+          break;
+        }
+      }
+      if (i == -1) {
+        return 0;
+      }
+      j = i - readOffset + 1;
+      if (paramArrayOfByte.length < j)
+      {
+        System.err.println("The buffer passed to readBytesUntil() is to small to contain " + j + " bytes up to and including " + "char " + (byte)paramInt);
+        return -1;
+      }
+      System.arraycopy(buffer, readOffset, paramArrayOfByte, 0, j);
+      readOffset += j;
+      if (inBuffer == readOffset)
+      {
+        inBuffer = 0;
+        readOffset = 0;
+      }
+      return j;
+    }
+  }
+  
+  public char readChar()
+  {
+    return (char)read();
+  }
+  
+  public String readString()
+  {
+    if (inBuffer == readOffset) {
+      return null;
+    }
+    return new String(readBytes());
+  }
+  
+  public String readStringUntil(int paramInt)
+  {
+    byte[] arrayOfByte = readBytesUntil(paramInt);
+    if (arrayOfByte == null) {
+      return null;
+    }
+    return new String(arrayOfByte);
+  }
+  
+  public void serialEvent(SerialPortEvent paramSerialPortEvent)
+  {
+    if (paramSerialPortEvent.getEventType() == 1) {
+      try
+      {
+        int i;
+        while ((i = port.getInputBufferBytesCount()) > 0)
+        {
+          synchronized (buffer)
+          {
+            if (serialEventMethod != null) {
+              i = 1;
+            }
+            if (buffer.length < inBuffer + i)
+            {
+              arrayOfByte = new byte[buffer.length << 1];
+              System.arraycopy(buffer, 0, arrayOfByte, 0, inBuffer);
+              buffer = arrayOfByte;
+            }
+            byte[] arrayOfByte = port.readBytes(i);
+            System.arraycopy(arrayOfByte, 0, buffer, inBuffer, arrayOfByte.length);
+            inBuffer += arrayOfByte.length;
+          }
+          if ((serialEventMethod != null) && (((bufferUntilSize > 0) && (bufferUntilSize <= inBuffer - readOffset)) || ((bufferUntilSize == 0) && (bufferUntilByte == buffer[(inBuffer - 1)])))) {
+            try
+            {
+              serialEventMethod.invoke(parent, new Object[] { this });
+            }
+            catch (Exception localException)
+            {
+              System.err.println("Error, disabling serialEvent() for " + port.getPortName());
+              System.err.println(localException.getLocalizedMessage());
+              serialEventMethod = null;
+            }
+          }
+          invokeSerialAvailable = true;
+        }
+      }
+      catch (SerialPortException localSerialPortException)
+      {
+        throw new RuntimeException("Error reading from serial port " + localSerialPortException.getPortName() + ": " + localSerialPortException.getExceptionType());
+      }
+    }
+  }
+  
+  public void setDTR(boolean paramBoolean)
+  {
+    try
+    {
+      port.setDTR(paramBoolean);
+    }
+    catch (SerialPortException localSerialPortException)
+    {
+      throw new RuntimeException("Error setting the DTR line: " + localSerialPortException.getExceptionType());
+    }
+  }
+  
+  public void setRTS(boolean paramBoolean)
+  {
+    try
+    {
+      port.setRTS(paramBoolean);
+    }
+    catch (SerialPortException localSerialPortException)
+    {
+      throw new RuntimeException("Error setting the RTS line: " + localSerialPortException.getExceptionType());
+    }
+  }
+  
+  public void stop()
+  {
+    try
+    {
+      port.closePort();
+    }
+    catch (SerialPortException localSerialPortException) {}
+    inBuffer = 0;
+    readOffset = 0;
+  }
+  
+  public void write(byte[] paramArrayOfByte)
+  {
+    try
+    {
+      port.writeBytes(paramArrayOfByte);
+    }
+    catch (SerialPortException localSerialPortException)
+    {
+      throw new RuntimeException("Error writing to serial port " + localSerialPortException.getPortName() + ": " + localSerialPortException.getExceptionType());
+    }
+  }
+  
+  public void write(int paramInt)
+  {
+    try
+    {
+      port.writeInt(paramInt);
+    }
+    catch (SerialPortException localSerialPortException)
+    {
+      throw new RuntimeException("Error writing to serial port " + localSerialPortException.getPortName() + ": " + localSerialPortException.getExceptionType());
+    }
+  }
+  
+  public void write(String paramString)
+  {
+    try
+    {
+      port.writeString(paramString);
+    }
+    catch (SerialPortException localSerialPortException)
+    {
+      throw new RuntimeException("Error writing to serial port " + localSerialPortException.getPortName() + ": " + localSerialPortException.getExceptionType());
+    }
+  }
+}

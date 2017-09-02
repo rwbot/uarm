@@ -1,0 +1,151 @@
+package jogamp.opengl;
+
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.opengl.FBObject;
+import com.jogamp.opengl.FBObject.Colorbuffer;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLAutoDrawableDelegate;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawable;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLOffscreenAutoDrawable;
+import com.jogamp.opengl.GLOffscreenAutoDrawable.FBO;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLOffscreenAutoDrawableImpl
+  extends GLAutoDrawableDelegate
+  implements GLOffscreenAutoDrawable
+{
+  public GLOffscreenAutoDrawableImpl(GLDrawable paramGLDrawable, GLContext paramGLContext, Object paramObject, RecursiveLock paramRecursiveLock)
+  {
+    super(paramGLDrawable, paramGLContext, paramObject, true, paramRecursiveLock);
+  }
+  
+  public void setSurfaceSize(int paramInt1, int paramInt2) throws NativeWindowException, GLException
+  {
+    defaultWindowResizedOp(paramInt1, paramInt2);
+  }
+  
+
+
+
+
+
+  public static class FBOImpl
+    extends GLOffscreenAutoDrawableImpl
+    implements GLOffscreenAutoDrawable.FBO
+  {
+    public FBOImpl(GLFBODrawableImpl paramGLFBODrawableImpl, GLContext paramGLContext, Object paramObject, RecursiveLock paramRecursiveLock)
+    {
+      super(paramGLContext, paramObject, paramRecursiveLock);
+    }
+    
+    public boolean isInitialized()
+    {
+      return ((GLFBODrawableImpl)drawable).isInitialized();
+    }
+    
+    public final int getTextureUnit()
+    {
+      return ((GLFBODrawableImpl)drawable).getTextureUnit();
+    }
+    
+    public final void setTextureUnit(int paramInt)
+    {
+      ((GLFBODrawableImpl)drawable).setTextureUnit(paramInt);
+    }
+    
+    public final int getNumSamples()
+    {
+      return ((GLFBODrawableImpl)drawable).getNumSamples();
+    }
+    
+    public final void setNumSamples(GL paramGL, int paramInt) throws GLException
+    {
+      ((GLFBODrawableImpl)drawable).setNumSamples(paramGL, paramInt);
+      windowRepaintOp();
+    }
+    
+    public final int setNumBuffers(int paramInt) throws GLException
+    {
+      return ((GLFBODrawableImpl)drawable).setNumBuffers(paramInt);
+    }
+    
+    public final int getNumBuffers()
+    {
+      return ((GLFBODrawableImpl)drawable).getNumBuffers();
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+    public final FBObject getFBObject(int paramInt)
+    {
+      return ((GLFBODrawableImpl)drawable).getFBObject(paramInt);
+    }
+    
+    public final FBObject.Colorbuffer getColorbuffer(int paramInt)
+    {
+      return ((GLFBODrawableImpl)drawable).getColorbuffer(paramInt);
+    }
+    
+    public void resetSize(GL paramGL) throws GLException
+    {
+      ((GLFBODrawableImpl)drawable).resetSize(paramGL);
+    }
+    
+    public final void setFBOMode(int paramInt) throws IllegalStateException
+    {
+      ((GLFBODrawableImpl)drawable).setFBOMode(paramInt);
+    }
+    
+
+    public final int getFBOMode()
+    {
+      return ((GLFBODrawableImpl)drawable).getFBOMode();
+    }
+  }
+}

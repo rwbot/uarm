@@ -1,0 +1,157 @@
+package com.jogamp.common.util;
+
+
+
+
+
+
+
+
+
+
+public abstract interface InterruptSource
+{
+  public abstract Throwable getInterruptSource(boolean paramBoolean);
+  
+
+
+
+
+
+
+
+
+
+  public abstract int getInterruptCounter(boolean paramBoolean);
+  
+
+
+
+
+
+
+
+
+
+  public abstract void clearInterruptSource();
+  
+
+
+
+
+
+
+
+
+  public static class Util
+  {
+    public Util() {}
+    
+
+
+
+
+
+
+
+
+    public static InterruptSource get(Thread paramThread)
+    {
+      if ((paramThread instanceof InterruptSource)) {
+        return (InterruptSource)paramThread;
+      }
+      return null;
+    }
+    
+
+
+
+    public static InterruptSource currentThread()
+    {
+      return get(Thread.currentThread());
+    }
+  }
+  
+
+
+  public static class Thread
+    extends Thread
+    implements InterruptSource
+  {
+    volatile Throwable interruptSource = null;
+    volatile int interruptCounter = 0;
+    final Object sync = new Object();
+    
+
+
+
+
+    public Thread() {}
+    
+
+
+
+
+    public Thread(ThreadGroup paramThreadGroup, Runnable paramRunnable)
+    {
+      super(paramRunnable);
+    }
+    
+
+
+
+
+    public Thread(ThreadGroup paramThreadGroup, Runnable paramRunnable, String paramString)
+    {
+      super(paramRunnable, paramString);
+    }
+    
+
+
+
+
+
+
+
+    public static Thread create(ThreadGroup paramThreadGroup, Runnable paramRunnable, String paramString)
+    {
+      return null != paramString ? new Thread(paramThreadGroup, paramRunnable, paramString) : new Thread(paramThreadGroup, paramRunnable);
+    }
+    
+    public final Throwable getInterruptSource(boolean paramBoolean)
+    {
+      synchronized (sync) {
+        Throwable localThrowable = interruptSource;
+        if (paramBoolean) {
+          clearInterruptSource();
+        }
+        return localThrowable;
+      }
+    }
+    
+    public final int getInterruptCounter(boolean paramBoolean) {
+      synchronized (sync) {
+        int i = interruptCounter;
+        if (paramBoolean) {
+          clearInterruptSource();
+        }
+        return i;
+      }
+    }
+    
+    public final void clearInterruptSource() {
+      synchronized (sync) {
+        interruptCounter = 0;
+        interruptSource = null;
+      }
+    }
+    
+    public final void interrupt() {
+      synchronized (sync) {
+        interruptCounter += 1;
+        interruptSource = new Throwable(getName() + ".interrupt() #" + interruptCounter);
+      }
+      super.interrupt();
+    }
+  }
+}

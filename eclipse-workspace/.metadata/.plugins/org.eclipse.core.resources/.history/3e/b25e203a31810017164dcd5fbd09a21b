@@ -1,0 +1,822 @@
+package jogamp.opengl;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.DelegatedUpstreamSurfaceHookWithSurfaceSize;
+import com.jogamp.nativewindow.MutableGraphicsConfiguration;
+import com.jogamp.nativewindow.MutableSurface;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.OffscreenLayerSurface;
+import com.jogamp.nativewindow.ProxySurface;
+import com.jogamp.nativewindow.UpstreamSurfaceHook;
+import com.jogamp.nativewindow.UpstreamSurfaceHookMutableSize;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLAutoDrawableDelegate;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLCapabilitiesChooser;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawable;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLFBODrawable;
+import com.jogamp.opengl.GLOffscreenAutoDrawable;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.GLRendererQuirks;
+import java.io.PrintStream;
+import java.nio.Buffer;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class GLDrawableFactoryImpl
+  extends GLDrawableFactory
+{
+  protected static final boolean DEBUG = GLDrawableFactory.DEBUG;
+  
+
+
+
+
+
+
+
+
+
+
+
+  protected GLDrawableFactoryImpl() {}
+  
+
+
+
+
+
+
+
+
+
+
+  protected final boolean probeSurfacelessCtx(GLContext paramGLContext, boolean paramBoolean)
+  {
+    GLDrawable localGLDrawable = paramGLContext.getGLDrawable();
+    AbstractGraphicsDevice localAbstractGraphicsDevice = localGLDrawable.getNativeSurface().getGraphicsConfiguration().getScreen().getDevice();
+    
+    boolean bool1 = paramGLContext.hasRendererQuirk(22);
+    boolean bool2 = false;
+    
+    if (!bool1) {
+      GLDrawableImpl localGLDrawableImpl = null;
+      try {
+        GLCapabilitiesImmutable localGLCapabilitiesImmutable = localGLDrawable.getRequestedGLCapabilities();
+        ProxySurface localProxySurface = createSurfacelessImpl(localAbstractGraphicsDevice, true, localGLCapabilitiesImmutable, localGLCapabilitiesImmutable, null, 64, 64);
+        localGLDrawableImpl = createOnscreenDrawableImpl(localProxySurface);
+        localGLDrawableImpl.setRealized(true);
+        
+
+
+        paramGLContext.setGLDrawable(localGLDrawableImpl, false);
+        bool2 = true;
+        
+        if (paramBoolean) {
+          paramGLContext.setGLDrawable(localGLDrawable, false);
+        }
+      } catch (Throwable localThrowable) {
+        if ((DEBUG) || (GLContext.DEBUG)) {
+          ExceptionUtils.dumpThrowable("", localThrowable);
+        }
+      } finally {
+        if ((null != localGLDrawableImpl) && (paramBoolean)) {
+          localGLDrawableImpl.setRealized(false);
+        }
+      }
+    }
+    if ((!bool1) && (!bool2)) {
+      setNoSurfacelessCtxQuirkImpl(localAbstractGraphicsDevice, paramGLContext);
+    }
+    return bool2;
+  }
+  
+
+
+
+
+
+
+  protected final void setNoSurfacelessCtxQuirk(GLContext paramGLContext)
+  {
+    boolean bool = paramGLContext.hasRendererQuirk(22);
+    if (!bool) {
+      GLDrawable localGLDrawable = paramGLContext.getGLDrawable();
+      AbstractGraphicsDevice localAbstractGraphicsDevice = localGLDrawable.getNativeSurface().getGraphicsConfiguration().getScreen().getDevice();
+      setNoSurfacelessCtxQuirkImpl(localAbstractGraphicsDevice, paramGLContext);
+    }
+  }
+  
+  private final void setNoSurfacelessCtxQuirkImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLContext paramGLContext) {
+    if ((DEBUG) || (GLContext.DEBUG)) {
+      System.err.println("Quirk: " + GLRendererQuirks.toString(22) + " -> " + paramAbstractGraphicsDevice + ": cause: probe");
+    }
+    GLRendererQuirks localGLRendererQuirks = paramGLContext.getRendererQuirks();
+    if (null != localGLRendererQuirks) {
+      localGLRendererQuirks.addQuirk(22);
+    }
+    GLRendererQuirks.addStickyDeviceQuirk(paramAbstractGraphicsDevice, 22);
+  }
+  
+
+
+
+
+
+  protected final SharedResourceRunner.Resource getOrCreateSharedResource(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    try
+    {
+      paramAbstractGraphicsDevice = validateDevice(paramAbstractGraphicsDevice);
+      if (null != paramAbstractGraphicsDevice) {
+        return getOrCreateSharedResourceImpl(paramAbstractGraphicsDevice);
+      }
+    } catch (GLException localGLException) {
+      if (DEBUG) {
+        System.err.println("Caught exception on thread " + getThreadName());
+        localGLException.printStackTrace();
+      }
+    }
+    return null;
+  }
+  
+
+
+
+  protected abstract SharedResourceRunner.Resource getOrCreateSharedResourceImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice);
+  
+
+
+  public final GLContext getOrCreateSharedContext(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    SharedResourceRunner.Resource localResource = getOrCreateSharedResource(paramAbstractGraphicsDevice);
+    if (null != localResource) {
+      return localResource.getContext();
+    }
+    return null;
+  }
+  
+  protected final boolean createSharedResourceImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    SharedResourceRunner.Resource localResource = getOrCreateSharedResource(paramAbstractGraphicsDevice);
+    if (null != localResource) {
+      return localResource.isAvailable();
+    }
+    return false;
+  }
+  
+  public final GLRendererQuirks getRendererQuirks(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLProfile paramGLProfile)
+  {
+    SharedResourceRunner.Resource localResource = getOrCreateSharedResource(paramAbstractGraphicsDevice);
+    if (null != localResource) {
+      return localResource.getRendererQuirks(paramGLProfile);
+    }
+    return null;
+  }
+  
+
+
+
+
+
+
+
+  public abstract boolean hasMajorMinorCreateContextARB();
+  
+
+
+
+
+
+
+  protected final AbstractGraphicsDevice getOrCreateSharedDevice(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    SharedResourceRunner.Resource localResource = getOrCreateSharedResource(paramAbstractGraphicsDevice);
+    if (null != localResource) {
+      return localResource.getDevice();
+    }
+    return null;
+  }
+  
+
+
+
+
+  public abstract GLDynamicLookupHelper getGLDynamicLookupHelper(int paramInt1, int paramInt2);
+  
+
+
+
+
+  public final GLDrawable createGLDrawable(NativeSurface paramNativeSurface)
+  {
+    if (paramNativeSurface == null) {
+      throw new IllegalArgumentException("Null target");
+    }
+    MutableGraphicsConfiguration localMutableGraphicsConfiguration = (MutableGraphicsConfiguration)paramNativeSurface.getGraphicsConfiguration();
+    GLCapabilitiesImmutable localGLCapabilitiesImmutable = (GLCapabilitiesImmutable)localMutableGraphicsConfiguration.getChosenCapabilities();
+    AbstractGraphicsDevice localAbstractGraphicsDevice = localMutableGraphicsConfiguration.getScreen().getDevice();
+    boolean bool = GLContext.isFBOAvailable(localAbstractGraphicsDevice, localGLCapabilitiesImmutable.getGLProfile());
+    Object localObject1 = null;
+    localAbstractGraphicsDevice.lock();
+    try {
+      OffscreenLayerSurface localOffscreenLayerSurface = NativeWindowFactory.getOffscreenLayerSurface(paramNativeSurface, true);
+      Object localObject2; if (null != localOffscreenLayerSurface) {
+        localObject2 = GLGraphicsConfigurationUtil.fixOffscreenGLCapabilities(localGLCapabilitiesImmutable, this, localAbstractGraphicsDevice);
+        
+
+        if ((!((GLCapabilitiesImmutable)localObject2).isFBO()) && (!((GLCapabilitiesImmutable)localObject2).isPBuffer())) {
+          throw new GLException("Neither FBO nor Pbuffer is available for " + localObject2 + ", " + paramNativeSurface);
+        }
+        localMutableGraphicsConfiguration.setChosenCapabilities((CapabilitiesImmutable)localObject2);
+        localOffscreenLayerSurface.setChosenCapabilities((CapabilitiesImmutable)localObject2);
+        if (DEBUG) {
+          System.err.println("GLDrawableFactoryImpl.createGLDrawable -> OnscreenDrawable -> Offscreen-Layer");
+          System.err.println("chosenCaps:    " + localGLCapabilitiesImmutable);
+          System.err.println("chosenCapsMod: " + localObject2);
+          System.err.println("OffscreenLayerSurface: **** " + localOffscreenLayerSurface);
+          System.err.println("Target: **** " + paramNativeSurface);
+          ExceptionUtils.dumpStack(System.err);
+        }
+        if (!(paramNativeSurface instanceof MutableSurface)) {
+          throw new IllegalArgumentException("Passed NativeSurface must implement SurfaceChangeable for offscreen layered surface: " + paramNativeSurface);
+        }
+        if (((GLCapabilitiesImmutable)localObject2).isFBO()) {
+          localObject1 = createFBODrawableImpl(paramNativeSurface, (GLCapabilitiesImmutable)localObject2, 0);
+        } else {
+          localObject1 = createOffscreenDrawableImpl(paramNativeSurface);
+        }
+      } else if (localGLCapabilitiesImmutable.isOnscreen())
+      {
+        localObject2 = GLGraphicsConfigurationUtil.fixOnscreenGLCapabilities(localGLCapabilitiesImmutable);
+        localMutableGraphicsConfiguration.setChosenCapabilities((CapabilitiesImmutable)localObject2);
+        if (DEBUG) {
+          System.err.println("GLDrawableFactoryImpl.createGLDrawable -> OnscreenDrawable: " + paramNativeSurface);
+        }
+        localObject1 = createOnscreenDrawableImpl(paramNativeSurface);
+      }
+      else {
+        if (DEBUG) {
+          System.err.println("GLDrawableFactoryImpl.createGLDrawable -> OffScreenDrawable, FBO chosen / avail, PBuffer: " + localGLCapabilitiesImmutable
+            .isFBO() + " / " + bool + ", " + localGLCapabilitiesImmutable.isPBuffer() + ": " + paramNativeSurface);
+        }
+        if (!(paramNativeSurface instanceof MutableSurface)) {
+          throw new IllegalArgumentException("Passed NativeSurface must implement MutableSurface for offscreen: " + paramNativeSurface);
+        }
+        if ((localGLCapabilitiesImmutable.isFBO()) && (bool))
+        {
+          localObject2 = createDummySurfaceImpl(localAbstractGraphicsDevice, false, new GLCapabilities(localGLCapabilitiesImmutable.getGLProfile()), (GLCapabilitiesImmutable)localMutableGraphicsConfiguration.getRequestedCapabilities(), null, 64, 64);
+          ((ProxySurface)localObject2).setUpstreamSurfaceHook(new DelegatedUpstreamSurfaceHookWithSurfaceSize(((ProxySurface)localObject2).getUpstreamSurfaceHook(), paramNativeSurface));
+          localObject1 = createFBODrawableImpl((NativeSurface)localObject2, localGLCapabilitiesImmutable, 0);
+        } else {
+          localObject1 = createOffscreenDrawableImpl(paramNativeSurface);
+        }
+      }
+    } finally {
+      localAbstractGraphicsDevice.unlock();
+    }
+    if (DEBUG) {
+      System.err.println("GLDrawableFactoryImpl.createGLDrawable: " + localObject1);
+    }
+    return localObject1;
+  }
+  
+
+
+
+
+
+
+  protected abstract GLDrawableImpl createOnscreenDrawableImpl(NativeSurface paramNativeSurface);
+  
+
+
+
+
+
+  public abstract boolean canCreateGLPbuffer(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLProfile paramGLProfile);
+  
+
+
+
+
+
+  public final boolean canCreateFBO(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLProfile paramGLProfile)
+  {
+    AbstractGraphicsDevice localAbstractGraphicsDevice = getOrCreateSharedDevice(paramAbstractGraphicsDevice);
+    if (null == localAbstractGraphicsDevice) {
+      throw new GLException("No shared device for requested: " + paramAbstractGraphicsDevice);
+    }
+    return GLContext.isFBOAvailable(localAbstractGraphicsDevice, paramGLProfile);
+  }
+  
+
+
+
+  public final GLOffscreenAutoDrawable createOffscreenAutoDrawable(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser, int paramInt1, int paramInt2)
+  {
+    GLDrawable localGLDrawable = createOffscreenDrawable(paramAbstractGraphicsDevice, paramGLCapabilitiesImmutable, paramGLCapabilitiesChooser, paramInt1, paramInt2);
+    try {
+      localGLDrawable.setRealized(true);
+    } catch (GLException localGLException1) {
+      try {
+        localGLDrawable.setRealized(false);
+      } catch (GLException localGLException2) {}
+      throw localGLException1;
+    }
+    if ((localGLDrawable instanceof GLFBODrawableImpl)) {
+      return new GLOffscreenAutoDrawableImpl.FBOImpl((GLFBODrawableImpl)localGLDrawable, null, null, null);
+    }
+    return new GLOffscreenAutoDrawableImpl(localGLDrawable, null, null, null);
+  }
+  
+  public final GLAutoDrawable createDummyAutoDrawable(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser)
+  {
+    GLDrawable localGLDrawable = createDummyDrawable(paramAbstractGraphicsDevice, paramBoolean, paramGLCapabilitiesImmutable, paramGLCapabilitiesChooser);
+    try {
+      localGLDrawable.setRealized(true);
+    } catch (GLException localGLException1) {
+      try {
+        localGLDrawable.setRealized(false);
+      } catch (GLException localGLException2) {}
+      throw localGLException1;
+    }
+    GLAutoDrawableDelegate local1 = new GLAutoDrawableDelegate(localGLDrawable, null, null, true, null) {};
+    return local1;
+  }
+  
+
+
+
+  public final GLDrawable createOffscreenDrawable(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser, int paramInt1, int paramInt2)
+  {
+    if ((paramInt1 <= 0) || (paramInt2 <= 0)) {
+      throw new GLException("initial size must be positive (were (" + paramInt1 + " x " + paramInt2 + "))");
+    }
+    SharedResourceRunner.Resource localResource = getOrCreateSharedResource(paramAbstractGraphicsDevice);
+    if (null == localResource) {
+      throw new GLException("No shared device for requested: " + paramAbstractGraphicsDevice);
+    }
+    AbstractGraphicsDevice localAbstractGraphicsDevice = localResource.getDevice();
+    GLCapabilitiesImmutable localGLCapabilitiesImmutable = GLGraphicsConfigurationUtil.fixOffscreenGLCapabilities(paramGLCapabilitiesImmutable, this, localAbstractGraphicsDevice);
+    
+    if (localGLCapabilitiesImmutable.isFBO())
+    {
+      GLProfile localGLProfile = localGLCapabilitiesImmutable.getGLProfile();
+      GLCapabilities localGLCapabilities = new GLCapabilities(localGLProfile);
+      GLRendererQuirks localGLRendererQuirks = localResource.getRendererQuirks(localGLProfile);
+      ProxySurface localProxySurface;
+      if ((null != localGLRendererQuirks) && (!localGLRendererQuirks.exist(22))) {
+        localProxySurface = createSurfacelessImpl(localAbstractGraphicsDevice, true, localGLCapabilities, paramGLCapabilitiesImmutable, null, paramInt1, paramInt2);
+      } else {
+        localProxySurface = createDummySurfaceImpl(localAbstractGraphicsDevice, true, localGLCapabilities, paramGLCapabilitiesImmutable, null, paramInt1, paramInt2);
+      }
+      GLDrawableImpl localGLDrawableImpl = createOnscreenDrawableImpl(localProxySurface);
+      return new GLFBODrawableImpl.ResizeableImpl(this, localGLDrawableImpl, localProxySurface, localGLCapabilitiesImmutable, 0);
+    }
+    return createOffscreenDrawableImpl(createMutableSurfaceImpl(localAbstractGraphicsDevice, true, localGLCapabilitiesImmutable, paramGLCapabilitiesImmutable, paramGLCapabilitiesChooser, new UpstreamSurfaceHookMutableSize(paramInt1, paramInt2)));
+  }
+  
+
+  public final GLDrawable createDummyDrawable(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser)
+  {
+    AbstractGraphicsDevice localAbstractGraphicsDevice = paramBoolean ? getOrCreateSharedDevice(paramAbstractGraphicsDevice) : paramAbstractGraphicsDevice;
+    if (null == localAbstractGraphicsDevice) {
+      throw new GLException("No shared device for requested: " + paramAbstractGraphicsDevice + ", createNewDevice " + paramBoolean);
+    }
+    if (!paramBoolean) {
+      localAbstractGraphicsDevice.lock();
+    }
+    try {
+      ProxySurface localProxySurface = createDummySurfaceImpl(localAbstractGraphicsDevice, paramBoolean, paramGLCapabilitiesImmutable, paramGLCapabilitiesImmutable, paramGLCapabilitiesChooser, 64, 64);
+      return createOnscreenDrawableImpl(localProxySurface);
+    } finally {
+      if (!paramBoolean) {
+        localAbstractGraphicsDevice.unlock();
+      }
+    }
+  }
+  
+  protected final GLFBODrawable createFBODrawableImpl(NativeSurface paramNativeSurface, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, int paramInt)
+  {
+    GLDrawableImpl localGLDrawableImpl = createOnscreenDrawableImpl(paramNativeSurface);
+    return new GLFBODrawableImpl(this, localGLDrawableImpl, paramNativeSurface, paramGLCapabilitiesImmutable, paramInt);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected abstract GLDrawableImpl createOffscreenDrawableImpl(NativeSurface paramNativeSurface);
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected abstract ProxySurface createMutableSurfaceImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean, GLCapabilitiesImmutable paramGLCapabilitiesImmutable1, GLCapabilitiesImmutable paramGLCapabilitiesImmutable2, GLCapabilitiesChooser paramGLCapabilitiesChooser, UpstreamSurfaceHook paramUpstreamSurfaceHook);
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final ProxySurface createDummySurface(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser, int paramInt1, int paramInt2)
+  {
+    AbstractGraphicsDevice localAbstractGraphicsDevice = getOrCreateSharedDevice(paramAbstractGraphicsDevice);
+    if (null == localAbstractGraphicsDevice) {
+      throw new GLException("No shared device for requested: " + paramAbstractGraphicsDevice);
+    }
+    return createDummySurfaceImpl(localAbstractGraphicsDevice, true, paramGLCapabilitiesImmutable, paramGLCapabilitiesImmutable, paramGLCapabilitiesChooser, paramInt1, paramInt2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public abstract ProxySurface createDummySurfaceImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean, GLCapabilitiesImmutable paramGLCapabilitiesImmutable1, GLCapabilitiesImmutable paramGLCapabilitiesImmutable2, GLCapabilitiesChooser paramGLCapabilitiesChooser, int paramInt1, int paramInt2);
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public abstract ProxySurface createSurfacelessImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean, GLCapabilitiesImmutable paramGLCapabilitiesImmutable1, GLCapabilitiesImmutable paramGLCapabilitiesImmutable2, GLCapabilitiesChooser paramGLCapabilitiesChooser, int paramInt1, int paramInt2);
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public ProxySurface createProxySurface(AbstractGraphicsDevice paramAbstractGraphicsDevice, int paramInt, long paramLong, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser, UpstreamSurfaceHook paramUpstreamSurfaceHook)
+  {
+    AbstractGraphicsDevice localAbstractGraphicsDevice = getOrCreateSharedDevice(paramAbstractGraphicsDevice);
+    if (null == localAbstractGraphicsDevice) {
+      throw new GLException("No shared device for requested: " + paramAbstractGraphicsDevice);
+    }
+    if (0L == paramLong) {
+      throw new IllegalArgumentException("Null windowHandle");
+    }
+    
+    localAbstractGraphicsDevice.lock();
+    try {
+      return createProxySurfaceImpl(localAbstractGraphicsDevice, paramInt, paramLong, paramGLCapabilitiesImmutable, paramGLCapabilitiesChooser, paramUpstreamSurfaceHook);
+    } finally {
+      localAbstractGraphicsDevice.unlock();
+    }
+  }
+  
+
+
+
+
+
+  protected abstract ProxySurface createProxySurfaceImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice, int paramInt, long paramLong, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser, UpstreamSurfaceHook paramUpstreamSurfaceHook);
+  
+
+
+
+
+  protected abstract GLContext createExternalGLContextImpl();
+  
+
+
+
+
+  public GLContext createExternalGLContext()
+  {
+    return createExternalGLContextImpl();
+  }
+  
+  protected abstract GLDrawable createExternalGLDrawableImpl();
+  
+  public GLDrawable createExternalGLDrawable()
+  {
+    return createExternalGLDrawableImpl();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static GLDrawableFactoryImpl getFactoryImpl(GLProfile paramGLProfile)
+  {
+    return (GLDrawableFactoryImpl)getFactory(paramGLProfile);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final synchronized boolean setDisplayGamma(NativeSurface paramNativeSurface, float paramFloat1, float paramFloat2, float paramFloat3)
+    throws IllegalArgumentException
+  {
+    if ((paramFloat2 < -1.0F) || (paramFloat2 > 1.0F)) {
+      throw new IllegalArgumentException("Brightness must be between -1.0 and 1.0");
+    }
+    if (paramFloat3 < 0.0F) {
+      throw new IllegalArgumentException("Contrast must be greater than 0.0");
+    }
+    if (1 >= paramNativeSurface.lockSurface()) {
+      return false;
+    }
+    try
+    {
+      int i = getGammaRampLength(paramNativeSurface);
+      if (i == 0) {
+        return false;
+      }
+      float[] arrayOfFloat = new float[i];
+      for (int j = 0; j < i; j++) {
+        float f1 = j / (i - 1);
+        
+        float f2 = (float)Math.pow(f1, paramFloat1);
+        
+        f2 += paramFloat2;
+        
+        f2 = (f2 - 0.5F) * paramFloat3 + 0.5F;
+        
+        if (f2 > 1.0F) {
+          f2 = 1.0F;
+        } else if (f2 < 0.0F)
+          f2 = 0.0F;
+        arrayOfFloat[j] = f2;
+      }
+      AbstractGraphicsScreen localAbstractGraphicsScreen = paramNativeSurface.getGraphicsConfiguration().getScreen();
+      DeviceScreenID localDeviceScreenID = new DeviceScreenID(localAbstractGraphicsScreen.getDevice().getConnection(), localAbstractGraphicsScreen.getIndex());
+      if (null == screen2OrigGammaRamp.get(localDeviceScreenID)) {
+        screen2OrigGammaRamp.put(localDeviceScreenID, getGammaRamp(paramNativeSurface));
+        if (DEBUG) {
+          System.err.println("DisplayGamma: Stored: " + localDeviceScreenID);
+          dumpGammaStore();
+        }
+      }
+      return setGammaRamp(paramNativeSurface, arrayOfFloat);
+    } finally {
+      paramNativeSurface.unlockSurface();
+    }
+  }
+  
+  public final synchronized void resetDisplayGamma(NativeSurface paramNativeSurface)
+  {
+    if (1 >= paramNativeSurface.lockSurface()) {
+      return;
+    }
+    try {
+      AbstractGraphicsScreen localAbstractGraphicsScreen = paramNativeSurface.getGraphicsConfiguration().getScreen();
+      DeviceScreenID localDeviceScreenID = new DeviceScreenID(localAbstractGraphicsScreen.getDevice().getConnection(), localAbstractGraphicsScreen.getIndex());
+      Buffer localBuffer = (Buffer)screen2OrigGammaRamp.remove(localDeviceScreenID);
+      if (null != localBuffer) {
+        resetGammaRamp(paramNativeSurface, localBuffer);
+      }
+    } finally {
+      paramNativeSurface.unlockSurface();
+    }
+  }
+  
+  public final synchronized void resetAllDisplayGamma()
+  {
+    resetAllDisplayGammaNoSync();
+  }
+  
+  protected final void resetAllDisplayGammaNoSync()
+  {
+    if (DEBUG) {
+      System.err.println("DisplayGamma: Reset");
+      dumpGammaStore();
+    }
+    Set localSet = screen2OrigGammaRamp.keySet();
+    for (Iterator localIterator = localSet.iterator(); localIterator.hasNext();) {
+      DeviceScreenID localDeviceScreenID = (DeviceScreenID)localIterator.next();
+      Buffer localBuffer = (Buffer)screen2OrigGammaRamp.remove(localDeviceScreenID);
+      if (null != localBuffer)
+        resetGammaRamp(localDeviceScreenID, localBuffer);
+    }
+  }
+  
+  private void dumpGammaStore() {
+    Set localSet = screen2OrigGammaRamp.keySet();
+    int i = 0;
+    for (Iterator localIterator = localSet.iterator(); localIterator.hasNext(); i++) {
+      DeviceScreenID localDeviceScreenID = (DeviceScreenID)localIterator.next();
+      Buffer localBuffer = (Buffer)screen2OrigGammaRamp.get(localDeviceScreenID);
+      System.err.printf("%4d/%4d: %s -> %s%n", new Object[] { Integer.valueOf(i), Integer.valueOf(localSet.size()), localDeviceScreenID, localBuffer });
+    }
+  }
+  
+
+
+
+
+
+
+  protected int getGammaRampLength(NativeSurface paramNativeSurface)
+  {
+    return 0;
+  }
+  
+
+
+  protected boolean setGammaRamp(NativeSurface paramNativeSurface, float[] paramArrayOfFloat)
+  {
+    return false;
+  }
+  
+
+
+
+  protected Buffer getGammaRamp(NativeSurface paramNativeSurface)
+  {
+    return null;
+  }
+  
+
+  protected void resetGammaRamp(NativeSurface paramNativeSurface, Buffer paramBuffer) {}
+  
+
+  protected void resetGammaRamp(DeviceScreenID paramDeviceScreenID, Buffer paramBuffer) {}
+  
+  public final class DeviceScreenID
+  {
+    public final String deviceConnection;
+    public final int screenIdx;
+    
+    DeviceScreenID(String paramString, int paramInt)
+    {
+      deviceConnection = paramString;
+      screenIdx = paramInt;
+    }
+    
+    public int hashCode()
+    {
+      int i = 31 + deviceConnection.hashCode();
+      i = (i << 5) - i + screenIdx;
+      return i;
+    }
+    
+    public boolean equals(Object paramObject) {
+      if (this == paramObject) return true;
+      if ((paramObject instanceof DeviceScreenID)) {
+        DeviceScreenID localDeviceScreenID = (DeviceScreenID)paramObject;
+        return (deviceConnection.equals(deviceConnection)) && (screenIdx == screenIdx);
+      }
+      
+      return false;
+    }
+    
+
+    public String toString() { return "DeviceScreenID[devCon " + deviceConnection + ", screenIdx " + screenIdx + ", hash 0x" + Integer.toHexString(hashCode()) + "]"; }
+  }
+  
+  private final Map<DeviceScreenID, Buffer> screen2OrigGammaRamp = new HashMap();
+}

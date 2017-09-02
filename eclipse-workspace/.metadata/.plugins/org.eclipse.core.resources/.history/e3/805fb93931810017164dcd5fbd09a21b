@@ -1,0 +1,92 @@
+package com.leapmotion.leap;
+
+import java.util.Iterator;
+
+
+
+public class FingerList
+  extends Interface
+  implements Iterable<Finger>
+{
+  private long swigCPtr;
+  
+  public FingerList(long paramLong, boolean paramBoolean)
+  {
+    super(LeapJNI.FingerList_SWIGUpcast(paramLong), paramBoolean);
+    swigCPtr = paramLong;
+  }
+  
+  public static long getCPtr(FingerList paramFingerList) {
+    return paramFingerList == null ? 0L : swigCPtr;
+  }
+  
+  protected void finalize() {
+    delete();
+  }
+  
+  public synchronized void delete() {
+    if (swigCPtr != 0L) {
+      if (swigCMemOwn) {
+        swigCMemOwn = false;
+        LeapJNI.delete_FingerList(swigCPtr);
+      }
+      swigCPtr = 0L;
+    }
+    super.delete(); }
+  
+  public class FingerListIterator implements Iterator<Finger> { public FingerListIterator() {}
+    
+    int index = 0;
+    
+    public boolean hasNext() { return index < count(); }
+    
+    public Finger next() {
+      return get(index++);
+    }
+    
+    public void remove() {}
+  }
+  
+  public Iterator<Finger> iterator() { return new FingerListIterator(); }
+  
+  public FingerList()
+  {
+    this(LeapJNI.new_FingerList(), true);
+  }
+  
+  public int count() {
+    return LeapJNI.FingerList_count(swigCPtr, this);
+  }
+  
+  public boolean isEmpty() {
+    return LeapJNI.FingerList_isEmpty(swigCPtr, this);
+  }
+  
+  public Finger get(int paramInt) {
+    return new Finger(LeapJNI.FingerList_get(swigCPtr, this, paramInt), true);
+  }
+  
+  public FingerList append(FingerList paramFingerList) {
+    return new FingerList(LeapJNI.FingerList_append(swigCPtr, this, getCPtr(paramFingerList), paramFingerList), false);
+  }
+  
+  public Finger leftmost() {
+    return new Finger(LeapJNI.FingerList_leftmost(swigCPtr, this), true);
+  }
+  
+  public Finger rightmost() {
+    return new Finger(LeapJNI.FingerList_rightmost(swigCPtr, this), true);
+  }
+  
+  public Finger frontmost() {
+    return new Finger(LeapJNI.FingerList_frontmost(swigCPtr, this), true);
+  }
+  
+  public FingerList extended() {
+    return new FingerList(LeapJNI.FingerList_extended(swigCPtr, this), true);
+  }
+  
+  public FingerList fingerType(Finger.Type paramType) {
+    return new FingerList(LeapJNI.FingerList_fingerType(swigCPtr, this, paramType.swigValue()), true);
+  }
+}

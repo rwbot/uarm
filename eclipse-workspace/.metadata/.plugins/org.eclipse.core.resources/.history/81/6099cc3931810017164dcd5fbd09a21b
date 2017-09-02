@@ -1,0 +1,96 @@
+package com.jogamp.common.net;
+
+import java.io.IOException;
+import java.net.JarURLConnection;
+import java.net.URL;
+import java.net.URLConnection;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AssetURLConnection
+  extends PiggybackURLConnection<AssetURLContext>
+{
+  public AssetURLConnection(URL paramURL, AssetURLContext paramAssetURLContext)
+  {
+    super(paramURL, paramAssetURLContext);
+  }
+  
+  public String getEntryName() throws IOException
+  {
+    if (!connected) {
+      throw new IOException("not connected");
+    }
+    
+    String str;
+    if ((subConn instanceof JarURLConnection)) {
+      str = ((JarURLConnection)subConn).getEntryName();
+    } else {
+      str = subConn.getURL().getPath();
+    }
+    
+    if (str.startsWith("assets/")) {
+      return str.substring("assets/".length());
+    }
+    return str;
+  }
+}

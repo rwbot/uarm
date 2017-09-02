@@ -1,0 +1,285 @@
+package com.jogamp.common.util;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class VersionNumber
+  implements Comparable<Object>
+{
+  public static final VersionNumber zeroVersion = new VersionNumber(0, 0, 0, -1, (short)0);
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Pattern getVersionNumberPattern(String paramString)
+  {
+    return Pattern.compile("\\D*(\\d+)[^\\" + paramString + "\\s]*(?:\\" + paramString + "\\D*(\\d+)[^\\" + paramString + "\\s]*(?:\\" + paramString + "\\D*(\\d+))?)?");
+  }
+  
+
+
+
+
+
+
+  public static Pattern getDefaultVersionNumberPattern()
+  {
+    if (null == defPattern) {
+      synchronized (VersionNumber.class) {
+        if (null == defPattern) {
+          defPattern = getVersionNumberPattern(".");
+        }
+      }
+    }
+    return defPattern; }
+  
+  private static volatile Pattern defPattern = null;
+  protected final int major;
+  protected final int minor;
+  protected final int sub;
+  protected final int strEnd;
+  protected final short state;
+  protected static final short HAS_MAJOR = 1;
+  protected static final short HAS_MINOR = 2;
+  protected static final short HAS_SUB = 4;
+  
+  protected VersionNumber(int paramInt1, int paramInt2, int paramInt3, int paramInt4, short paramShort) { major = paramInt1;
+    minor = paramInt2;
+    sub = paramInt3;
+    strEnd = paramInt4;
+    state = paramShort;
+  }
+  
+
+
+
+
+
+  public VersionNumber(int paramInt1, int paramInt2, int paramInt3)
+  {
+    this(paramInt1, paramInt2, paramInt3, -1, (short)7);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public VersionNumber(String paramString)
+  {
+    this(paramString, getDefaultVersionNumberPattern());
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public VersionNumber(String paramString1, String paramString2)
+  {
+    this(paramString1, getVersionNumberPattern(paramString2));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public VersionNumber(String paramString, Pattern paramPattern)
+  {
+    int[] arrayOfInt = new int[3];
+    int i = 0;
+    short s = 0;
+    try {
+      Matcher localMatcher = paramPattern.matcher(paramString);
+      if (localMatcher.lookingAt()) {
+        i = localMatcher.end();
+        int j = localMatcher.groupCount();
+        if (1 <= j) {
+          arrayOfInt[0] = Integer.parseInt(localMatcher.group(1));
+          s = 1;
+          if (2 <= j) {
+            arrayOfInt[1] = Integer.parseInt(localMatcher.group(2));
+            s = (short)(s | 0x2);
+            if (3 <= j) {
+              arrayOfInt[2] = Integer.parseInt(localMatcher.group(3));
+              s = (short)(s | 0x4);
+            }
+          }
+        }
+      }
+    }
+    catch (Exception localException) {}
+    major = arrayOfInt[0];
+    minor = arrayOfInt[1];
+    sub = arrayOfInt[2];
+    strEnd = i;
+    state = s;
+  }
+  
+  public final boolean isZero()
+  {
+    return (major == 0) && (minor == 0) && (sub == 0);
+  }
+  
+
+  public final boolean hasMajor() { return 0 != (0x1 & state); }
+  
+  public final boolean hasMinor() { return 0 != (0x2 & state); }
+  
+  public final boolean hasSub() { return 0 != (0x4 & state); }
+  
+
+
+  public final int endOfStringMatch()
+  {
+    return strEnd;
+  }
+  
+  public final int hashCode()
+  {
+    int i = 31 + major;
+    i = (i << 5) - i + minor;
+    return (i << 5) - i + sub;
+  }
+  
+  public final boolean equals(Object paramObject)
+  {
+    if ((paramObject instanceof VersionNumber)) {
+      return 0 == compareTo((VersionNumber)paramObject);
+    }
+    return false;
+  }
+  
+  public final int compareTo(Object paramObject)
+  {
+    if (!(paramObject instanceof VersionNumber)) {
+      Object localObject = null != paramObject ? paramObject.getClass() : null;
+      throw new ClassCastException("Not a VersionNumber object: " + localObject);
+    }
+    return compareTo((VersionNumber)paramObject);
+  }
+  
+  public final int compareTo(VersionNumber paramVersionNumber) {
+    if (major > major)
+      return 1;
+    if (major < major)
+      return -1;
+    if (minor > minor)
+      return 1;
+    if (minor < minor)
+      return -1;
+    if (sub > sub)
+      return 1;
+    if (sub < sub) {
+      return -1;
+    }
+    return 0;
+  }
+  
+  public final int getMajor() {
+    return major;
+  }
+  
+  public final int getMinor() {
+    return minor;
+  }
+  
+  public final int getSub() {
+    return sub;
+  }
+  
+  public String toString()
+  {
+    return major + "." + minor + "." + sub;
+  }
+}

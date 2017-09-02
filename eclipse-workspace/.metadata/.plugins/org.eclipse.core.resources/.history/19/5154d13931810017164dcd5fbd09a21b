@@ -1,0 +1,166 @@
+package com.jogamp.common.util;
+
+import java.nio.BufferOverflowException;
+import java.nio.BufferUnderflowException;
+import java.nio.IntBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class IntegerStack
+  implements PrimitiveStack
+{
+  private int position;
+  private int[] buffer;
+  private int growSize;
+  
+  public IntegerStack(int paramInt1, int paramInt2)
+  {
+    position = 0;
+    growSize = paramInt2;
+    buffer = new int[paramInt1];
+  }
+  
+  public final int capacity() {
+    return buffer.length;
+  }
+  
+  public final int position() { return position; }
+  
+  public final void position(int paramInt) throws IndexOutOfBoundsException
+  {
+    if ((0 > position) || (position >= buffer.length)) {
+      throw new IndexOutOfBoundsException("Invalid new position " + paramInt + ", " + toString());
+    }
+    position = paramInt;
+  }
+  
+  public final int remaining() {
+    return buffer.length - position;
+  }
+  
+  public final int getGrowSize() { return growSize; }
+  
+  public final void setGrowSize(int paramInt) {
+    growSize = paramInt;
+  }
+  
+  public final String toString() {
+    return "IntegerStack[0..(pos " + position + ").." + buffer.length + ", remaining " + remaining() + "]";
+  }
+  
+  public final int[] buffer() { return buffer; }
+  
+  private final void growIfNecessary(int paramInt) throws IndexOutOfBoundsException {
+    if (position + paramInt > buffer.length) {
+      if (0 >= growSize) {
+        throw new IndexOutOfBoundsException("Out of fixed stack size: " + this);
+      }
+      int[] arrayOfInt = new int[buffer.length + growSize];
+      
+      System.arraycopy(buffer, 0, arrayOfInt, 0, position);
+      buffer = arrayOfInt;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public final int[] putOnTop(int[] paramArrayOfInt, int paramInt1, int paramInt2)
+    throws IndexOutOfBoundsException
+  {
+    growIfNecessary(paramInt2);
+    System.arraycopy(paramArrayOfInt, paramInt1, buffer, position, paramInt2);
+    position += paramInt2;
+    return paramArrayOfInt;
+  }
+  
+
+
+
+
+
+
+
+
+  public final IntBuffer putOnTop(IntBuffer paramIntBuffer, int paramInt)
+    throws IndexOutOfBoundsException, BufferUnderflowException
+  {
+    growIfNecessary(paramInt);
+    paramIntBuffer.get(buffer, position, paramInt);
+    position += paramInt;
+    return paramIntBuffer;
+  }
+  
+
+
+
+
+
+
+
+
+  public final int[] getFromTop(int[] paramArrayOfInt, int paramInt1, int paramInt2)
+    throws IndexOutOfBoundsException
+  {
+    System.arraycopy(buffer, position - paramInt2, paramArrayOfInt, paramInt1, paramInt2);
+    position -= paramInt2;
+    return paramArrayOfInt;
+  }
+  
+
+
+
+
+
+
+
+
+  public final IntBuffer getFromTop(IntBuffer paramIntBuffer, int paramInt)
+    throws IndexOutOfBoundsException, BufferOverflowException
+  {
+    paramIntBuffer.put(buffer, position - paramInt, paramInt);
+    position -= paramInt;
+    return paramIntBuffer;
+  }
+}

@@ -1,0 +1,222 @@
+package com.jogamp.graph.font;
+
+import com.jogamp.common.net.Uri;
+import com.jogamp.common.util.IOUtil;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.common.util.ReflectionUtil;
+import com.jogamp.common.util.cache.TempJarCache;
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.net.URLConnection;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import jogamp.graph.font.FontConstructor;
+import jogamp.graph.font.JavaFontLoader;
+import jogamp.graph.font.UbuntuFontLoader;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class FontFactory
+{
+  private static final String FontConstructorPropKey = "jogamp.graph.font.ctor";
+  private static final String DefaultFontConstructor = "jogamp.graph.font.typecast.TypecastFontConstructor";
+  public static final int UBUNTU = 0;
+  public static final int JAVA = 1;
+  private static final FontConstructor fontConstr;
+  
+  static
+  {
+    String str = PropertyAccess.getProperty("jogamp.graph.font.ctor", true);
+    if (null == str) {
+      str = "jogamp.graph.font.typecast.TypecastFontConstructor";
+    }
+    fontConstr = (FontConstructor)ReflectionUtil.createInstance(str, FontFactory.class.getClassLoader());
+  }
+  
+  public static final FontSet getDefault() {
+    return get(0);
+  }
+  
+  public static final FontSet get(int paramInt) {
+    switch (paramInt) {
+    case 1: 
+      return JavaFontLoader.get();
+    }
+    return UbuntuFontLoader.get();
+  }
+  
+
+
+
+
+
+  public static final Font get(File paramFile)
+    throws IOException
+  {
+    return fontConstr.create(paramFile);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static final Font get(InputStream paramInputStream, int paramInt, boolean paramBoolean)
+    throws IOException
+  {
+    try
+    {
+      return fontConstr.create(paramInputStream, paramInt);
+    } finally {
+      if (paramBoolean) {
+        paramInputStream.close();
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static final Font get(final InputStream paramInputStream, final boolean paramBoolean)
+    throws IOException
+  {
+    final IOException[] arrayOfIOException = { null };
+    final int[] arrayOfInt = { 0 };
+    File[] arrayOfFile = { null };
+    
+    InputStream localInputStream = (InputStream)AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public InputStream run() {
+        BufferedInputStream localBufferedInputStream = null;
+        try {
+          val$tempFile[0] = IOUtil.createTempFile("jogl.font", ".ttf", false);
+          arrayOfInt[0] = IOUtil.copyStream2File(paramInputStream, val$tempFile[0], -1);
+          if (0 == arrayOfInt[0]) {
+            throw new IOException("Font stream has zero bytes");
+          }
+          localBufferedInputStream = new BufferedInputStream(new FileInputStream(val$tempFile[0]), arrayOfInt[0]);
+        } catch (IOException localIOException) {
+          arrayOfIOException[0] = localIOException;
+          if (null != val$tempFile[0]) {
+            val$tempFile[0].delete();
+            val$tempFile[0] = null;
+          }
+          arrayOfInt[0] = 0;
+        } finally {
+          if (paramBoolean) {
+            IOUtil.close(paramInputStream, arrayOfIOException, System.err);
+          }
+        }
+        return localBufferedInputStream;
+      } });
+    if (null != arrayOfIOException[0]) {
+      throw arrayOfIOException[0];
+    }
+    if (null == localInputStream) {
+      throw new IOException("Could not cache font stream");
+    }
+    try {
+      return fontConstr.create(localInputStream, arrayOfInt[0]);
+    } finally {
+      if (null != localInputStream) {
+        localInputStream.close();
+      }
+      if (null != arrayOfFile[0])
+        AccessController.doPrivileged(new PrivilegedAction()
+        {
+          public Object run() {
+            val$tempFile[0].delete();
+            return null;
+          }
+        });
+    }
+  }
+  
+  public static final Font get(Class<?> paramClass, String paramString, boolean paramBoolean) throws IOException {
+    InputStream localInputStream = null;
+    if (paramBoolean) {
+      try {
+        Uri localUri = TempJarCache.getResourceUri(paramString);
+        localInputStream = null != localUri ? localUri.toURL().openConnection().getInputStream() : null;
+      } catch (Exception localException) {
+        throw new IOException(localException);
+      }
+    } else {
+      localInputStream = IOUtil.getResource(paramString, paramClass.getClassLoader(), paramClass).getInputStream();
+    }
+    if (null != localInputStream) {
+      return get(localInputStream, true);
+    }
+    return null;
+  }
+  
+  public static boolean isPrintableChar(char paramChar) {
+    if (Character.isWhitespace(paramChar)) {
+      return true;
+    }
+    if (('\000' == paramChar) || (Character.isISOControl(paramChar))) {
+      return false;
+    }
+    Character.UnicodeBlock localUnicodeBlock = Character.UnicodeBlock.of(paramChar);
+    return (localUnicodeBlock != null) && (localUnicodeBlock != Character.UnicodeBlock.SPECIALS);
+  }
+  
+  public FontFactory() {}
+}

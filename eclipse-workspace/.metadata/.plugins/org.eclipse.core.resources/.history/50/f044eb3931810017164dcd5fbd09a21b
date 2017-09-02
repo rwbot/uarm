@@ -1,0 +1,169 @@
+package com.jogamp.opengl;
+
+import java.nio.ByteBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class GLBufferStorage
+{
+  private final int name;
+  private long size;
+  private int mutableUsage;
+  private int immutableFlags;
+  private ByteBuffer mappedBuffer;
+  private static final String msgClazzName = "GLBufferStorage";
+  
+  protected GLBufferStorage(int paramInt1, long paramLong, int paramInt2, int paramInt3)
+  {
+    name = paramInt1;
+    size = paramLong;
+    mutableUsage = paramInt2;
+    immutableFlags = paramInt3;
+    mappedBuffer = null;
+  }
+  
+  protected void reset(long paramLong, int paramInt1, int paramInt2) {
+    size = paramLong;
+    mutableUsage = paramInt1;
+    immutableFlags = paramInt2;
+    mappedBuffer = null;
+  }
+  
+  protected void setMappedBuffer(ByteBuffer paramByteBuffer) { mappedBuffer = paramByteBuffer; }
+  
+  public final int getName()
+  {
+    return name;
+  }
+  
+  public final long getSize() { return size; }
+  
+
+
+
+
+
+
+
+  public final boolean isMutableStorage()
+  {
+    return 0 != mutableUsage;
+  }
+  
+  public final int getMutableUsage()
+  {
+    return mutableUsage;
+  }
+  
+  public final int getImmutableFlags()
+  {
+    return immutableFlags;
+  }
+  
+
+
+
+
+
+
+
+  public final ByteBuffer getMappedBuffer()
+  {
+    return mappedBuffer;
+  }
+  
+  public final String toString() { return toString(false); }
+  
+  public final String toString(boolean paramBoolean) {
+    String str;
+    if (isMutableStorage()) {
+      str = String.format("%s[name %s, size %d, mutable usage 0x%X", new Object[] { "GLBufferStorage", Integer.valueOf(name), Long.valueOf(size), Integer.valueOf(mutableUsage) });
+    } else {
+      str = String.format("%s[name %s, size %d, immutable flags 0x%X", new Object[] { "GLBufferStorage", Integer.valueOf(name), Long.valueOf(size), Integer.valueOf(immutableFlags) });
+    }
+    if (paramBoolean) {
+      return str + "]";
+    }
+    return str + ", mapped " + mappedBuffer + "]";
+  }
+}

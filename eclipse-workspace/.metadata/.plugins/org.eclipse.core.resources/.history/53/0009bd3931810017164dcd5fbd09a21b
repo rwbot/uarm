@@ -1,0 +1,198 @@
+package g4p_controls;
+
+import processing.core.PApplet;
+import processing.core.PImage;
+import processing.event.MouseEvent;
+
+public class GImageToggleButton
+  extends GAbstractControl
+{
+  private static PImage toggle = null;
+  private static final String TOGGLE = "toggle.png";
+  protected int nbrStates = 2;
+  protected int stateValue = 0;
+  protected PImage[] offImage;
+  protected PImage[] overImage;
+  protected int status;
+  protected boolean reportAllButtonEvents = false;
+  
+  public GImageToggleButton(PApplet paramPApplet, float paramFloat1, float paramFloat2)
+  {
+    this(paramPApplet, paramFloat1, paramFloat2, null, null, 1, 1);
+  }
+  
+  public GImageToggleButton(PApplet paramPApplet, float paramFloat1, float paramFloat2, String paramString, int paramInt)
+  {
+    this(paramPApplet, paramFloat1, paramFloat2, paramString, null, paramInt, 1);
+  }
+  
+  public GImageToggleButton(PApplet paramPApplet, float paramFloat1, float paramFloat2, String paramString, int paramInt1, int paramInt2)
+  {
+    this(paramPApplet, paramFloat1, paramFloat2, paramString, null, paramInt1, paramInt2);
+  }
+  
+  public GImageToggleButton(PApplet paramPApplet, float paramFloat1, float paramFloat2, String paramString1, String paramString2, int paramInt)
+  {
+    this(paramPApplet, paramFloat1, paramFloat2, paramString1, paramString2, paramInt, 1);
+  }
+  
+  public GImageToggleButton(PApplet paramPApplet, float paramFloat1, float paramFloat2, String paramString1, String paramString2, int paramInt1, int paramInt2)
+  {
+    super(paramPApplet, paramFloat1, paramFloat2);
+    PImage localPImage = null;
+    if ((paramInt1 < 1) || (paramInt2 < 1) || (paramString1 == null) || (null == (localPImage = ImageManager.loadImage(winApp, paramString1))))
+    {
+      nbrStates = 2;
+      if (toggle == null) {
+        toggle = ImageManager.loadImage(winApp, "toggle.png");
+      }
+      offImage = ImageManager.makeTiles1D(winApp, toggle, 2, 1);
+    }
+    else
+    {
+      nbrStates = (paramInt1 * paramInt2);
+      offImage = ImageManager.makeTiles1D(winApp, localPImage, paramInt1, paramInt2);
+      if ((paramString2 != null) && (null != (localPImage = ImageManager.loadImage(winApp, paramString2)))) {
+        overImage = ImageManager.makeTiles1D(winApp, localPImage, paramInt1, paramInt2);
+      }
+    }
+    resize(offImage[0].width, offImage[0].height);
+    hotspots = new HotSpot[] { new HotSpot.HSalpha(1, 0.0F, 0.0F, offImage[stateValue], 0) };
+    z = 24;
+    createEventHandler(G4P.sketchWindow, "handleToggleButtonEvents", new Class[] { GImageToggleButton.class, GEvent.class }, new String[] { "button", "event" });
+    registeredMethods = 3;
+    cursorOver = 12;
+    G4P.registerControl(this);
+  }
+  
+  public void draw()
+  {
+    if (!visible) {
+      return;
+    }
+    winApp.pushStyle();
+    winApp.pushMatrix();
+    winApp.translate(cx, cy);
+    winApp.rotate(rotAngle);
+    winApp.translate(-halfWidth, -halfHeight);
+    winApp.imageMode(0);
+    if (alphaLevel < 255) {
+      winApp.tint(255, alphaLevel);
+    }
+    if ((status == 1) && (overImage != null)) {
+      winApp.image(overImage[stateValue], 0.0F, 0.0F);
+    } else {
+      winApp.image(offImage[stateValue], 0.0F, 0.0F);
+    }
+    winApp.popMatrix();
+    winApp.popStyle();
+  }
+  
+  public void mouseEvent(MouseEvent paramMouseEvent)
+  {
+    if ((!visible) || (!enabled) || (!available)) {
+      return;
+    }
+    calcTransformedOrigin(winApp.mouseX, winApp.mouseY);
+    currSpot = whichHotSpot(ox, oy);
+    if ((currSpot >= 0) || (focusIsWith == this)) {
+      cursorIsOver = this;
+    } else if (cursorIsOver == this) {
+      cursorIsOver = null;
+    }
+    switch (paramMouseEvent.getAction())
+    {
+    case 1: 
+      if ((focusIsWith != this) && (currSpot >= 0) && (z > focusObjectZ()))
+      {
+        dragging = false;
+        status = 2;
+        takeFocus();
+        if (reportAllButtonEvents) {
+          fireEvent(new Object[] { this, GEvent.PRESSED });
+        }
+      }
+      break;
+    case 3: 
+      if (focusIsWith == this)
+      {
+        status = 0;
+        loseFocus(null);
+        dragging = false;
+        nextState();
+        fireEvent(new Object[] { this, GEvent.CLICKED });
+      }
+      break;
+    case 2: 
+      if ((focusIsWith == this) && (dragging))
+      {
+        if (currSpot >= 0)
+        {
+          nextState();
+          fireEvent(new Object[] { this, GEvent.CLICKED });
+        }
+        else if (reportAllButtonEvents)
+        {
+          fireEvent(new Object[] { this, GEvent.RELEASED });
+        }
+        dragging = false;
+        loseFocus(null);
+        status = 0;
+      }
+      break;
+    case 5: 
+      if (currSpot >= 0) {
+        status = 1;
+      } else {
+        status = 0;
+      }
+      break;
+    case 4: 
+      dragging = (focusIsWith == this);
+    }
+  }
+  
+  private void nextState()
+  {
+    stateValue += 1;
+    stateValue %= nbrStates;
+    hotspots[0].adjust(new Object[] { Integer.valueOf(0), Integer.valueOf(0), offImage[stateValue] });
+  }
+  
+  @Deprecated
+  public int stateValue()
+  {
+    return stateValue;
+  }
+  
+  public int getState()
+  {
+    return stateValue;
+  }
+  
+  @Deprecated
+  public void stateValue(int paramInt)
+  {
+    if ((paramInt >= 0) && (paramInt < nbrStates) && (paramInt != stateValue))
+    {
+      stateValue = paramInt;
+      hotspots[0].adjust(new Object[] { Integer.valueOf(0), Integer.valueOf(0), offImage[stateValue] });
+      bufferInvalid = true;
+    }
+  }
+  
+  public void setState(int paramInt)
+  {
+    if ((paramInt >= 0) && (paramInt < nbrStates) && (paramInt != stateValue))
+    {
+      stateValue = paramInt;
+      hotspots[0].adjust(new Object[] { Integer.valueOf(0), Integer.valueOf(0), offImage[stateValue] });
+      bufferInvalid = true;
+    }
+  }
+  
+  public void fireAllEvents(boolean paramBoolean)
+  {
+    reportAllButtonEvents = paramBoolean;
+  }
+}

@@ -1,0 +1,109 @@
+package jogamp.graph.font.typecast.ot;
+
+
+
+
+
+
+
+
+
+
+
+public class Disassembler
+{
+  public Disassembler() {}
+  
+
+
+
+
+
+
+
+
+
+  public static int advanceIP(short[] paramArrayOfShort, int paramInt)
+  {
+    int i = paramInt & 0xFFFF;
+    
+    paramInt++;
+    int j; if (64 == paramArrayOfShort[i])
+    {
+      j = paramArrayOfShort[(++i)];
+      paramInt += j + 1;
+    } else if (65 == paramArrayOfShort[i])
+    {
+      j = paramArrayOfShort[(++i)];
+      paramInt += j * 2 + 1;
+    } else if (176 == (paramArrayOfShort[i] & 0xF8)) {
+      j = (short)((paramArrayOfShort[i] & 0x7) + 1);
+      paramInt += j;
+    } else if (184 == (paramArrayOfShort[i] & 0xF8)) {
+      j = (short)((paramArrayOfShort[i] & 0x7) + 1);
+      paramInt += j * 2;
+    }
+    return paramInt;
+  }
+  
+  public static short getPushCount(short[] paramArrayOfShort, int paramInt) {
+    int i = paramArrayOfShort[(paramInt & 0xFFFF)];
+    if ((64 == i) || (65 == i))
+      return paramArrayOfShort[((paramInt & 0xFFFF) + 1)];
+    if ((176 == (i & 0xF8)) || (184 == (i & 0xF8))) {
+      return (short)((i & 0x7) + 1);
+    }
+    return 0;
+  }
+  
+  public static int[] getPushData(short[] paramArrayOfShort, int paramInt) {
+    int i = getPushCount(paramArrayOfShort, paramInt);
+    int[] arrayOfInt = new int[i];
+    int j = paramInt & 0xFFFF;
+    int k = paramArrayOfShort[j];
+    int m; if (64 == k) {
+      for (m = 0; m < i; m++) {
+        arrayOfInt[m] = paramArrayOfShort[(j + m + 2)];
+      }
+    } else if (176 == (k & 0xF8)) {
+      for (m = 0; m < i; m++) {
+        arrayOfInt[m] = paramArrayOfShort[(j + m + 1)];
+      }
+    } else if (65 == k) {
+      for (m = 0; m < i; m++) {
+        arrayOfInt[m] = (paramArrayOfShort[(j + m * 2 + 2)] << 8 | paramArrayOfShort[(j + m * 2 + 3)]);
+      }
+    } else if (184 == (k & 0xF8)) {
+      for (m = 0; m < i; m++) {
+        arrayOfInt[m] = (paramArrayOfShort[(j + m * 2 + 1)] << 8 | paramArrayOfShort[(j + m * 2 + 2)]);
+      }
+    }
+    return arrayOfInt;
+  }
+  
+  public static String disassemble(short[] paramArrayOfShort, int paramInt) {
+    StringBuilder localStringBuilder = new StringBuilder();
+    int i = 0;
+    while (i < paramArrayOfShort.length) {
+      for (int j = 0; j < paramInt; j++) {
+        localStringBuilder.append(" ");
+      }
+      localStringBuilder.append(i).append(": ");
+      localStringBuilder.append(Mnemonic.getMnemonic(paramArrayOfShort[i]));
+      if (getPushCount(paramArrayOfShort, i) > 0) {
+        int[] arrayOfInt = getPushData(paramArrayOfShort, i);
+        for (int k = 0; k < arrayOfInt.length; k++) {
+          if ((paramArrayOfShort[i] == 184) || (paramArrayOfShort[i] == 65))
+          {
+            localStringBuilder.append(" ").append((short)arrayOfInt[k]);
+          } else {
+            localStringBuilder.append(" ").append(arrayOfInt[k]);
+          }
+        }
+      }
+      localStringBuilder.append("\n");
+      i = advanceIP(paramArrayOfShort, i);
+    }
+    return localStringBuilder.toString();
+  }
+}

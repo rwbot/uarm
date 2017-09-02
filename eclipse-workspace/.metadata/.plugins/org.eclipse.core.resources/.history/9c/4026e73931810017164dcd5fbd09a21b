@@ -1,0 +1,593 @@
+package com.jogamp.newt.event;
+
+import java.util.Arrays;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class MouseEvent
+  extends InputEvent
+{
+  public static final short BUTTON1 = 1;
+  public static final short BUTTON2 = 2;
+  public static final short BUTTON3 = 3;
+  public static final short BUTTON4 = 4;
+  public static final short BUTTON5 = 5;
+  public static final short BUTTON6 = 6;
+  public static final short BUTTON7 = 7;
+  public static final short BUTTON8 = 8;
+  public static final short BUTTON9 = 9;
+  public static final short BUTTON_COUNT = 16;
+  private final PointerType[] pointerType;
+  private final short[] pointerID;
+  private final int[] x;
+  private final int[] y;
+  private final float[] pressure;
+  private final short clickCount;
+  private final short button;
+  private final float[] rotationXYZ;
+  private final float rotationScale;
+  private final float maxPressure;
+  
+  public static enum PointerClass
+    implements InputEvent.InputClass
+  {
+    Offscreen,  Onscreen,  Undefined;
+    
+    private PointerClass() {}
+  }
+  
+  public static enum PointerType implements InputEvent.InputType {
+    Mouse(MouseEvent.PointerClass.Offscreen), 
+    
+    TouchPad(MouseEvent.PointerClass.Offscreen), 
+    
+    TouchScreen(MouseEvent.PointerClass.Onscreen), 
+    
+    Pen(MouseEvent.PointerClass.Onscreen), 
+    
+    Undefined(MouseEvent.PointerClass.Undefined);
+    
+    public MouseEvent.PointerClass getPointerClass() { return pc; }
+    
+
+
+
+
+
+
+
+
+    public static PointerType valueOf(int paramInt)
+      throws IllegalArgumentException
+    {
+      PointerType[] arrayOfPointerType = values();
+      if ((0 <= paramInt) && (paramInt < arrayOfPointerType.length)) {
+        return arrayOfPointerType[paramInt];
+      }
+      throw new IllegalArgumentException("Ordinal " + paramInt + " out of range of PointerType.values()[0.." + (arrayOfPointerType.length - 1) + "]");
+    }
+    
+
+
+
+
+
+    public static PointerType[] valuesOf(int[] paramArrayOfInt)
+      throws IllegalArgumentException
+    {
+      int i = paramArrayOfInt.length;
+      PointerType[] arrayOfPointerType = new PointerType[i];
+      for (int j = i - 1; j >= 0; j--) {
+        arrayOfPointerType[j] = valueOf(paramArrayOfInt[j]);
+      }
+      return arrayOfPointerType;
+    }
+    
+    private PointerType(MouseEvent.PointerClass paramPointerClass) {
+      pc = paramPointerClass;
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+    MouseEvent.PointerClass pc;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static final float[] getRotationXYZ(float paramFloat, int paramInt)
+  {
+    float[] arrayOfFloat = { 0.0F, 0.0F, 0.0F };
+    if (0 != (paramInt & 0x1)) {
+      arrayOfFloat[0] = paramFloat;
+    } else {
+      arrayOfFloat[1] = paramFloat;
+    }
+    return arrayOfFloat;
+  }
+  
+  public static final short getClickTimeout() {
+    return 300;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public MouseEvent(short paramShort1, Object paramObject, long paramLong, int paramInt1, int paramInt2, int paramInt3, short paramShort2, short paramShort3, float[] paramArrayOfFloat, float paramFloat)
+  {
+    super(paramShort1, paramObject, paramLong, paramInt1);
+    x = new int[] { paramInt2 };
+    y = new int[] { paramInt3 };
+    switch (paramShort1) {
+    case 200: 
+    case 203: 
+    case 206: 
+      pressure = constMousePressure1;
+      break;
+    default: 
+      pressure = constMousePressure0;
+    }
+    maxPressure = 1.0F;
+    pointerID = new short[] { 0 };
+    clickCount = paramShort2;
+    button = paramShort3;
+    rotationXYZ = paramArrayOfFloat;
+    rotationScale = paramFloat;
+    pointerType = constMousePointerTypes;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public MouseEvent(short paramShort1, Object paramObject, long paramLong, int paramInt, PointerType[] paramArrayOfPointerType, short[] paramArrayOfShort, int[] paramArrayOfInt1, int[] paramArrayOfInt2, float[] paramArrayOfFloat1, float paramFloat1, short paramShort2, short paramShort3, float[] paramArrayOfFloat2, float paramFloat2)
+  {
+    super(paramShort1, paramObject, paramLong, paramInt);
+    x = paramArrayOfInt1;
+    y = paramArrayOfInt2;
+    int i = paramArrayOfPointerType.length;
+    if ((i != paramArrayOfShort.length) || (i != paramArrayOfInt1.length) || (i != paramArrayOfInt2.length) || (i != paramArrayOfFloat1.length))
+    {
+
+
+      throw new IllegalArgumentException("All multiple pointer arrays must be of same size");
+    }
+    if (0.0F >= paramFloat1) {
+      throw new IllegalArgumentException("maxPressure must be > 0.0f");
+    }
+    pressure = paramArrayOfFloat1;
+    maxPressure = paramFloat1;
+    pointerID = paramArrayOfShort;
+    clickCount = paramShort3;
+    button = paramShort2;
+    rotationXYZ = paramArrayOfFloat2;
+    rotationScale = paramFloat2;
+    pointerType = paramArrayOfPointerType;
+  }
+  
+  public final MouseEvent createVariant(short paramShort) {
+    return new MouseEvent(paramShort, source, getWhen(), getModifiers(), pointerType, pointerID, x, y, pressure, maxPressure, button, clickCount, rotationXYZ, rotationScale);
+  }
+  
+
+
+
+
+  public final int getPointerCount()
+  {
+    return pointerType.length;
+  }
+  
+
+
+
+  public final PointerType getPointerType(int paramInt)
+  {
+    if ((0 > paramInt) || (paramInt >= pointerType.length)) {
+      return null;
+    }
+    return pointerType[paramInt];
+  }
+  
+
+
+
+  public final PointerType[] getAllPointerTypes()
+  {
+    return pointerType;
+  }
+  
+
+
+
+
+
+
+
+
+  public final short getPointerId(int paramInt)
+  {
+    if ((0 > paramInt) || (paramInt >= pointerID.length)) {
+      return -1;
+    }
+    return pointerID[paramInt];
+  }
+  
+
+
+
+  public final int getPointerIdx(short paramShort)
+  {
+    if (paramShort >= 0) {
+      for (int i = pointerID.length - 1; i >= 0; i--) {
+        if (pointerID[i] == paramShort) {
+          return i;
+        }
+      }
+    }
+    return -1;
+  }
+  
+
+
+
+  public final short[] getAllPointerIDs()
+  {
+    return pointerID;
+  }
+  
+
+
+
+
+
+
+
+
+  public final short getButton()
+  {
+    return button;
+  }
+  
+  public final short getClickCount() {
+    return clickCount;
+  }
+  
+
+
+
+  public final int getX()
+  {
+    return x[0];
+  }
+  
+
+
+
+  public final int getY()
+  {
+    return y[0];
+  }
+  
+
+
+
+
+
+  public final int getX(int paramInt)
+  {
+    return x[paramInt];
+  }
+  
+
+
+
+
+
+  public final int getY(int paramInt)
+  {
+    return y[paramInt];
+  }
+  
+
+
+
+  public final int[] getAllX()
+  {
+    return x;
+  }
+  
+
+
+
+  public final int[] getAllY()
+  {
+    return y;
+  }
+  
+
+
+
+
+
+  public final float getPressure(boolean paramBoolean)
+  {
+    return paramBoolean ? pressure[0] / maxPressure : pressure[0];
+  }
+  
+
+
+
+
+
+
+
+  public final float getPressure(int paramInt, boolean paramBoolean)
+  {
+    return paramBoolean ? pressure[paramInt] / maxPressure : pressure[paramInt];
+  }
+  
+
+
+
+  public final float[] getAllPressures()
+  {
+    return pressure;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public final float getMaxPressure()
+  {
+    return maxPressure;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final float[] getRotation()
+  {
+    return rotationXYZ;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public final float getRotationScale()
+  {
+    return rotationScale;
+  }
+  
+  public final String toString()
+  {
+    return toString(null).toString();
+  }
+  
+  public final StringBuilder toString(StringBuilder paramStringBuilder)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    
+
+
+    paramStringBuilder.append("MouseEvent[").append(getEventTypeString(getEventType())).append(", ").append(Arrays.toString(x)).append("/").append(Arrays.toString(y)).append(", button ").append(button).append(", count ").append(clickCount).append(", rotation [").append(rotationXYZ[0]).append(", ").append(rotationXYZ[1]).append(", ").append(rotationXYZ[2]).append("] * ").append(rotationScale);
+    if (pointerID.length > 0) {
+      paramStringBuilder.append(", pointer<").append(pointerID.length).append(">[");
+      for (int i = 0; i < pointerID.length; i++) {
+        if (i > 0) {
+          paramStringBuilder.append(", ");
+        }
+        
+
+        paramStringBuilder.append(pointerID[i]).append("/").append(pointerType[i]).append(": ").append(x[i]).append("/").append(y[i]).append(", ").append("p[").append(pressure[i]).append("/").append(maxPressure).append("=").append(pressure[i] / maxPressure).append("]");
+      }
+      paramStringBuilder.append("]");
+    }
+    paramStringBuilder.append(", ");
+    return super.toString(paramStringBuilder).append("]");
+  }
+  
+  public static String getEventTypeString(short paramShort) {
+    switch (paramShort) {
+    case 200:  return "EVENT_MOUSE_CLICKED";
+    case 201:  return "EVENT_MOUSE_ENTERED";
+    case 202:  return "EVENT_MOUSE_EXITED";
+    case 203:  return "EVENT_MOUSE_PRESSED";
+    case 204:  return "EVENT_MOUSE_RELEASED";
+    case 205:  return "EVENT_MOUSE_MOVED";
+    case 206:  return "EVENT_MOUSE_DRAGGED";
+    case 207:  return "EVENT_MOUSE_WHEEL_MOVED"; }
+    return "unknown (" + paramShort + ")";
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private static final float[] constMousePressure0 = { 0.0F };
+  private static final float[] constMousePressure1 = { 1.0F };
+  private static final PointerType[] constMousePointerTypes = { PointerType.Mouse };
+  public static final short EVENT_MOUSE_CLICKED = 200;
+  public static final short EVENT_MOUSE_ENTERED = 201;
+  public static final short EVENT_MOUSE_EXITED = 202;
+  public static final short EVENT_MOUSE_PRESSED = 203;
+  public static final short EVENT_MOUSE_RELEASED = 204;
+  public static final short EVENT_MOUSE_MOVED = 205;
+  public static final short EVENT_MOUSE_DRAGGED = 206;
+  public static final short EVENT_MOUSE_WHEEL_MOVED = 207;
+}

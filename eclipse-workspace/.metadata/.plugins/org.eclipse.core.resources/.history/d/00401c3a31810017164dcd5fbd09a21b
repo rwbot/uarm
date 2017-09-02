@@ -1,0 +1,335 @@
+package jogamp.newt.driver.bcm.vc.iv;
+
+import com.jogamp.common.util.Bitfield;
+import com.jogamp.common.util.Bitfield.Factory;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.Capabilities;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.DefaultGraphicsScreen;
+import com.jogamp.nativewindow.GraphicsConfigurationFactory;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.egl.EGLGraphicsDevice;
+import com.jogamp.nativewindow.util.Point;
+import com.jogamp.nativewindow.util.Rectangle;
+import com.jogamp.nativewindow.util.RectangleImmutable;
+import com.jogamp.newt.Display;
+import com.jogamp.newt.Screen;
+import jogamp.newt.PointerIconImpl;
+import jogamp.newt.WindowImpl;
+import jogamp.newt.driver.KeyTracker;
+import jogamp.newt.driver.MouseTracker;
+import jogamp.newt.driver.linux.LinuxEventDeviceTracker;
+import jogamp.newt.driver.linux.LinuxMouseTracker;
+import jogamp.newt.driver.x11.X11UnderlayTracker;
+import jogamp.opengl.egl.EGLDisplayUtil;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class WindowDriver
+  extends WindowImpl
+{
+  private static final String WINDOW_CLASS_NAME = "NewtWindow";
+  private LinuxMouseTracker linuxMouseTracker;
+  private LinuxEventDeviceTracker linuxEventDeviceTracker;
+  private X11UnderlayTracker x11UnderlayTracker;
+  private MouseTracker mouseTracker;
+  private KeyTracker keyTracker;
+  private int layer;
+  private long nativeWindowHandle;
+  private long windowHandleClose;
+  
+  public WindowDriver()
+  {
+    try
+    {
+      x11UnderlayTracker = X11UnderlayTracker.getSingleton();
+      
+      mouseTracker = x11UnderlayTracker;
+      keyTracker = x11UnderlayTracker;
+    } catch (ExceptionInInitializerError localExceptionInInitializerError) {
+      linuxMouseTracker = LinuxMouseTracker.getSingleton();
+      linuxEventDeviceTracker = LinuxEventDeviceTracker.getSingleton();
+      
+      mouseTracker = linuxMouseTracker;
+      keyTracker = linuxEventDeviceTracker;
+    }
+    
+    layer = -1;
+    nativeWindowHandle = 0L;
+    windowHandleClose = 0L;
+  }
+  
+
+
+
+
+
+
+
+
+
+  private RectangleImmutable clampRect(ScreenDriver paramScreenDriver, RectangleImmutable paramRectangleImmutable, boolean paramBoolean)
+  {
+    int i = paramRectangleImmutable.getX();
+    int j = paramRectangleImmutable.getY();
+    int k = paramRectangleImmutable.getWidth();
+    int m = paramRectangleImmutable.getHeight();
+    int n = paramScreenDriver.getWidth();
+    int i1 = paramScreenDriver.getHeight();
+    int i2 = 0;
+    int i3 = 0;
+    if (0 > i) {
+      i = 0;
+      i2 = 1;
+    }
+    if (0 > j) {
+      j = 0;
+      i2 = 1;
+    }
+    if (n < i + k) {
+      if (0 < i) {
+        i = 0;
+        i2 = 1;
+      }
+      if (n < k) {
+        k = n;
+        i3 = 1;
+      }
+    }
+    if (i1 < j + m) {
+      if (0 < j) {
+        j = 0;
+        i2 = 1;
+      }
+      if (i1 < m) {
+        m = i1;
+        i3 = 1;
+      }
+    }
+    if ((i2 != 0) || (i3 != 0)) {
+      if (paramBoolean) {
+        if (i2 != 0) {
+          definePosition(i, j);
+        }
+        if (i3 != 0) {
+          defineSize(k, m);
+        }
+      }
+      return new Rectangle(i, j, k, m);
+    }
+    return paramRectangleImmutable;
+  }
+  
+
+
+  protected boolean canCreateNativeImpl()
+  {
+    clampRect((ScreenDriver)getScreen(), new Rectangle(getX(), getY(), getWidth(), getHeight()), true);
+    return true;
+  }
+  
+  protected void createNativeImpl()
+  {
+    if (0L != getParentWindowHandle()) {
+      throw new RuntimeException("Window parenting not supported (yet)");
+    }
+    synchronized (layerSync) {
+      if (layerCount >= 32) {
+        throw new RuntimeException("Max windows reached: " + layerCount + " ( " + 32 + " )");
+      }
+      for (int i = 0; (0 > layer) && (i < 32); i++) {
+        if (!usedLayers.get(nextLayer)) {
+          layer = nextLayer;
+          usedLayers.set(layer);
+          layerCount += 1;
+        }
+        nextLayer += 1;
+        if (32 == nextLayer) {
+          nextLayer = 0;
+        }
+      }
+    }
+    
+    if (0 > layer) {
+      throw new InternalError("Could not find a free layer: count " + layerCount + ", max " + 32);
+    }
+    ??? = (ScreenDriver)getScreen();
+    DisplayDriver localDisplayDriver = (DisplayDriver)((ScreenDriver)???).getDisplay();
+    
+
+
+    AbstractGraphicsScreen localAbstractGraphicsScreen = ((ScreenDriver)???).getGraphicsScreen();
+    EGLGraphicsDevice localEGLGraphicsDevice1 = (EGLGraphicsDevice)localAbstractGraphicsScreen.getDevice();
+    EGLGraphicsDevice localEGLGraphicsDevice2 = EGLDisplayUtil.eglCreateEGLGraphicsDevice(localEGLGraphicsDevice1.getNativeDisplayID(), localEGLGraphicsDevice1.getConnection(), localEGLGraphicsDevice1.getUnitID());
+    localEGLGraphicsDevice2.open();
+    DefaultGraphicsScreen localDefaultGraphicsScreen = new DefaultGraphicsScreen(localEGLGraphicsDevice2, localAbstractGraphicsScreen.getIndex());
+    
+    AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = GraphicsConfigurationFactory.getFactory(getScreen().getDisplay().getGraphicsDevice(), capsRequested).chooseGraphicsConfiguration(capsRequested, capsRequested, capabilitiesChooser, localDefaultGraphicsScreen, 0);
+    
+    if (null == localAbstractGraphicsConfiguration) {
+      throw new NativeWindowException("Error choosing GraphicsConfiguration creating window: " + this);
+    }
+    Capabilities localCapabilities = (Capabilities)localAbstractGraphicsConfiguration.getChosenCapabilities();
+    
+    if (capsRequested.isBackgroundOpaque() != localCapabilities.isBackgroundOpaque()) {
+      localCapabilities.setBackgroundOpaque(capsRequested.isBackgroundOpaque());
+    }
+    setGraphicsConfiguration(localAbstractGraphicsConfiguration);
+    nativeWindowHandle = CreateWindow0(localDisplayDriver.getBCMHandle(), layer, 
+      getX(), getY(), getWidth(), getHeight(), localCapabilities
+      .isBackgroundOpaque(), localCapabilities.getAlphaBits());
+    if (nativeWindowHandle == 0L) {
+      throw new NativeWindowException("Error creating egl window: " + localAbstractGraphicsConfiguration);
+    }
+    setWindowHandle(nativeWindowHandle);
+    if (0L == getWindowHandle()) {
+      throw new NativeWindowException("Error native Window Handle is null");
+    }
+    windowHandleClose = nativeWindowHandle;
+    
+    addWindowListener(keyTracker);
+    addWindowListener(mouseTracker);
+    
+
+    focusChanged(false, true);
+  }
+  
+  protected void closeNativeImpl()
+  {
+    DisplayDriver localDisplayDriver = (DisplayDriver)getScreen().getDisplay();
+    EGLGraphicsDevice localEGLGraphicsDevice = (EGLGraphicsDevice)getGraphicsConfiguration().getScreen().getDevice();
+    
+    removeWindowListener(mouseTracker);
+    removeWindowListener(keyTracker);
+    
+    if (0L != windowHandleClose) {
+      CloseWindow0(localDisplayDriver.getBCMHandle(), windowHandleClose);
+    }
+    
+    localEGLGraphicsDevice.close();
+    
+    synchronized (layerSync) {
+      usedLayers.clear(layer);
+      layerCount -= 1;
+      layer = -1;
+    }
+  }
+  
+
+  protected void requestFocusImpl(boolean paramBoolean)
+  {
+    focusChanged(false, true);
+  }
+  
+  protected final int getSupportedReconfigMaskImpl()
+  {
+    return 14345;
+  }
+  
+
+
+
+
+
+
+
+
+
+  protected boolean reconfigureWindowImpl(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5)
+  {
+    RectangleImmutable localRectangleImmutable = clampRect((ScreenDriver)getScreen(), new Rectangle(paramInt1, paramInt2, paramInt3, paramInt4), false);
+    
+    reconfigure0(nativeWindowHandle, localRectangleImmutable.getX(), localRectangleImmutable.getY(), localRectangleImmutable.getWidth(), localRectangleImmutable.getHeight(), paramInt5);
+    
+    return true;
+  }
+  
+  protected Point getLocationOnScreenImpl(int paramInt1, int paramInt2)
+  {
+    return new Point(paramInt1, paramInt2);
+  }
+  
+
+  protected final void doMouseEvent(boolean paramBoolean1, boolean paramBoolean2, short paramShort1, int paramInt1, int paramInt2, int paramInt3, short paramShort2, float[] paramArrayOfFloat, float paramFloat)
+  {
+    if ((205 == paramShort1) || (206 == paramShort1)) {
+      DisplayDriver localDisplayDriver = (DisplayDriver)getScreen().getDisplay();
+      localDisplayDriver.moveActivePointerIcon(getX() + paramInt2, getY() + paramInt3);
+    }
+    super.doMouseEvent(paramBoolean1, paramBoolean2, paramShort1, paramInt1, paramInt2, paramInt3, paramShort2, paramArrayOfFloat, paramFloat);
+  }
+  
+  protected void setPointerIconImpl(PointerIconImpl paramPointerIconImpl)
+  {
+    DisplayDriver localDisplayDriver = (DisplayDriver)getScreen().getDisplay();
+    localDisplayDriver.setPointerIconActive(null != paramPointerIconImpl ? paramPointerIconImpl.validatedHandle() : 0L, mouseTracker.getLastX(), mouseTracker.getLastY());
+  }
+  
+  protected boolean setPointerVisibleImpl(boolean paramBoolean)
+  {
+    DisplayDriver localDisplayDriver = (DisplayDriver)getScreen().getDisplay();
+    localDisplayDriver.setActivePointerIconVisible(paramBoolean, mouseTracker.getLastX(), mouseTracker.getLastY());
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private static int nextLayer = 0;
+  private static int layerCount = 0;
+  private static final int MAX_LAYERS = 32;
+  private static final Bitfield usedLayers = Bitfield.Factory.create(32);
+  private static final Object layerSync = new Object();
+  
+  protected static native boolean initIDs();
+  
+  private native long CreateWindow0(long paramLong, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, boolean paramBoolean, int paramInt6);
+  
+  private native void CloseWindow0(long paramLong1, long paramLong2);
+  
+  private native void reconfigure0(long paramLong, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5);
+  
+  static {}
+}

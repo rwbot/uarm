@@ -1,0 +1,151 @@
+package com.jogamp.opengl.util.packrect;
+
+
+
+
+
+
+
+
+
+public class Rect
+{
+  private int x;
+  
+
+
+
+
+
+
+
+  private int y;
+  
+
+
+
+
+
+
+
+  private int w;
+  
+
+
+
+
+
+
+
+  private int h;
+  
+
+
+
+
+
+
+
+  private Level level;
+  
+
+
+
+
+
+
+
+  private Object userData;
+  
+
+
+
+
+
+
+  private Rect nextLocation;
+  
+
+
+
+
+
+
+
+  public Rect()
+  {
+    this(null);
+  }
+  
+  public Rect(Object paramObject) {
+    this(0, 0, 0, 0, paramObject);
+  }
+  
+  public Rect(int paramInt1, int paramInt2, int paramInt3, int paramInt4, Object paramObject) {
+    setPosition(paramInt1, paramInt2);
+    setSize(paramInt3, paramInt4);
+    setUserData(paramObject);
+  }
+  
+  public int x() { return x; }
+  public int y() { return y; }
+  public int w() { return w; }
+  public int h() { return h; }
+  public Object getUserData() { return userData; }
+  public Rect getNextLocation() { return nextLocation; }
+  
+  public void setPosition(int paramInt1, int paramInt2) {
+    if (paramInt1 < 0)
+      throw new IllegalArgumentException("Negative x");
+    if (paramInt2 < 0)
+      throw new IllegalArgumentException("Negative y");
+    x = paramInt1;
+    y = paramInt2;
+  }
+  
+  public void setSize(int paramInt1, int paramInt2) throws IllegalArgumentException {
+    if (paramInt1 < 0)
+      throw new IllegalArgumentException("Negative width");
+    if (paramInt2 < 0)
+      throw new IllegalArgumentException("Negative height");
+    w = paramInt1;
+    h = paramInt2;
+  }
+  
+  public void setUserData(Object paramObject) { userData = paramObject; }
+  public void setNextLocation(Rect paramRect) { nextLocation = paramRect; }
+  
+
+
+
+
+
+
+  public int maxX()
+  {
+    if (w() < 1)
+      return -1;
+    return x() + w() - 1;
+  }
+  
+
+
+
+
+  public int maxY()
+  {
+    if (h() < 1)
+      return -1;
+    return y() + h() - 1;
+  }
+  
+  public boolean canContain(Rect paramRect)
+  {
+    return (w() >= paramRect.w()) && (h() >= paramRect.h());
+  }
+  
+  public String toString()
+  {
+    return "[Rect x: " + x() + " y: " + y() + " w: " + w() + " h: " + h() + "]";
+  }
+}

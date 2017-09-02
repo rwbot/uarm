@@ -1,0 +1,633 @@
+package com.jogamp.newt.swt;
+
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.Capabilities;
+import com.jogamp.nativewindow.GraphicsConfigurationFactory;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindow;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.SurfaceUpdatedListener;
+import com.jogamp.nativewindow.WindowClosingProtocol;
+import com.jogamp.nativewindow.WindowClosingProtocol.WindowClosingMode;
+import com.jogamp.nativewindow.swt.SWTAccessor;
+import com.jogamp.nativewindow.util.Insets;
+import com.jogamp.nativewindow.util.InsetsImmutable;
+import com.jogamp.newt.Screen;
+import com.jogamp.newt.Window;
+import com.jogamp.newt.util.EDTUtil;
+import java.io.PrintStream;
+import jogamp.nativewindow.macosx.OSXUtil;
+import jogamp.nativewindow.windows.GDIUtil;
+import jogamp.nativewindow.x11.X11Lib;
+import jogamp.newt.Debug;
+import jogamp.newt.swt.SWTEDTUtil;
+import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.widgets.Canvas;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Listener;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class NewtCanvasSWT
+  extends Canvas
+  implements WindowClosingProtocol
+{
+  private static final boolean DEBUG = Debug.debug("Window");
+  
+  private final AbstractGraphicsScreen screen;
+  
+  private WindowClosingProtocol.WindowClosingMode newtChildCloseOp = WindowClosingProtocol.WindowClosingMode.DISPOSE_ON_CLOSE;
+  
+  private volatile Rectangle clientArea;
+  private volatile SWTNativeWindow nativeWindow;
+  private volatile Window newtChild = null;
+  private volatile boolean newtChildReady = false;
+  private volatile boolean postSetSize = false;
+  private volatile boolean postSetPos = false;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static NewtCanvasSWT create(final Composite paramComposite, final int paramInt, final Window paramWindow)
+  {
+    NewtCanvasSWT[] arrayOfNewtCanvasSWT = { null };
+    paramComposite.getDisplay().syncExec(new Runnable()
+    {
+      public void run() {
+        val$res[0] = new NewtCanvasSWT(paramComposite, paramInt, paramWindow);
+      }
+    });
+    return arrayOfNewtCanvasSWT[0];
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public NewtCanvasSWT(Composite paramComposite, int paramInt, Window paramWindow)
+  {
+    super(paramComposite, paramInt | 0x40000);
+    
+    SWTAccessor.setRealized(this, true);
+    
+    clientArea = getClientArea();
+    
+    AbstractGraphicsDevice localAbstractGraphicsDevice = SWTAccessor.getDevice(this);
+    screen = SWTAccessor.getScreen(localAbstractGraphicsDevice, -1);
+    nativeWindow = null;
+    
+    if (null != paramWindow) {
+      setNEWTChild(paramWindow);
+    }
+    
+    Listener local2 = new Listener()
+    {
+      public void handleEvent(Event paramAnonymousEvent) {
+        switch (type) {
+        case 9: 
+          if (NewtCanvasSWT.DEBUG) {
+            System.err.println("NewtCanvasSWT.Event.PAINT, " + paramAnonymousEvent);
+          }
+          if (((null != nativeWindow) || (validateNative())) && 
+            (newtChildReady)) {
+            if (postSetSize) {
+              newtChild.setSize(clientArea.width, clientArea.height);
+              postSetSize = false;
+            }
+            if (postSetPos) {
+              newtChild.setPosition(clientArea.x, clientArea.y);
+              postSetPos = false;
+            }
+            newtChild.windowRepaint(0, 0, clientArea.width, clientArea.height);
+          }
+          
+          break;
+        case 10: 
+          if (NewtCanvasSWT.DEBUG) {
+            System.err.println("NewtCanvasSWT.Event.MOVE, " + paramAnonymousEvent);
+          }
+          
+          break;
+        case 11: 
+          if (NewtCanvasSWT.DEBUG) {
+            System.err.println("NewtCanvasSWT.Event.RESIZE, " + paramAnonymousEvent);
+          }
+          updateSizeCheck();
+          break;
+        case 12: 
+          if (NewtCanvasSWT.DEBUG) {
+            System.err.println("NewtCanvasSWT.Event.DISPOSE, " + paramAnonymousEvent);
+          }
+          dispose();
+          break;
+        default: 
+          if (NewtCanvasSWT.DEBUG) {
+            System.err.println("NewtCanvasSWT.Event.misc: " + type + ", " + paramAnonymousEvent);
+          }
+          break;
+        }
+      }
+    };
+    addListener(11, local2);
+    addListener(9, local2);
+    addListener(12, local2);
+  }
+  
+  public void setBounds(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    super.setBounds(paramInt1, paramInt2, paramInt3, paramInt4);
+    if (DEBUG) {
+      System.err.println("NewtCanvasSWT.setBounds: " + paramInt1 + "/" + paramInt2 + " " + paramInt3 + "x" + paramInt4);
+    }
+    if (SWTAccessor.isOSX)
+    {
+      updatePosSizeCheck(paramInt1, paramInt2, paramInt3, paramInt4, true);
+    }
+  }
+  
+  protected final boolean validateNative()
+  {
+    updateSizeCheck();
+    Rectangle localRectangle = clientArea;
+    if ((0 >= width) || (0 >= height)) {
+      return false;
+    }
+    screen.getDevice().open();
+    
+
+    long l = SWTAccessor.getWindowHandle(this);
+    int i = SWTAccessor.getNativeVisualID(screen.getDevice(), l);
+    boolean bool = NativeWindowFactory.isNativeVisualIDValidForProcessing(i);
+    if (DEBUG) {
+      System.err.println("NewtCanvasSWT.validateNative() windowHandle 0x" + Long.toHexString(l) + ", visualID 0x" + Integer.toHexString(i) + ", valid " + bool);
+    }
+    if (bool)
+    {
+
+      Capabilities localCapabilities = new Capabilities();
+      GraphicsConfigurationFactory localGraphicsConfigurationFactory = GraphicsConfigurationFactory.getFactory(screen.getDevice(), localCapabilities);
+      AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = localGraphicsConfigurationFactory.chooseGraphicsConfiguration(localCapabilities, localCapabilities, null, screen, i);
+      if (DEBUG) {
+        System.err.println("NewtCanvasSWT.validateNative() factory: " + localGraphicsConfigurationFactory + ", windowHandle 0x" + Long.toHexString(l) + ", visualID 0x" + Integer.toHexString(i) + ", chosen config: " + localAbstractGraphicsConfiguration);
+      }
+      
+      if (null == localAbstractGraphicsConfiguration) {
+        throw new NativeWindowException("Error choosing GraphicsConfiguration creating window: " + this);
+      }
+      
+      nativeWindow = new SWTNativeWindow(localAbstractGraphicsConfiguration, l);
+      reparentWindow(true);
+      if ((SWTAccessor.isOSX) && (newtChildReady))
+      {
+        newtChild.setPosition(getLocationx, getLocationy);
+      }
+    }
+    
+    return null != nativeWindow;
+  }
+  
+  protected final void updateSizeCheck() {
+    Rectangle localRectangle = getClientArea();
+    if (null != localRectangle)
+      updatePosSizeCheck(x, y, width, height, false);
+  }
+  
+  protected final void updatePosSizeCheck() {
+    Rectangle localRectangle = getClientArea();
+    if (null != localRectangle) {
+      updatePosSizeCheck(x, y, width, height, true);
+    }
+  }
+  
+
+  protected final void updatePosSizeCheck(int paramInt1, int paramInt2, int paramInt3, int paramInt4, boolean paramBoolean)
+  {
+    Rectangle localRectangle2 = clientArea;
+    boolean bool1 = (paramInt3 != width) || (paramInt4 != height);
+    boolean bool2 = (paramInt1 != x) || (paramInt2 != y);
+    Rectangle localRectangle1; if ((bool1) || (bool2)) {
+      localRectangle1 = new Rectangle(paramBoolean ? paramInt1 : x, paramBoolean ? paramInt2 : y, paramInt3, paramInt4);
+      clientArea = localRectangle1;
+    } else {
+      localRectangle1 = clientArea;
+    }
+    
+    if (DEBUG) {
+      long l = newtChildReady ? newtChild.getSurfaceHandle() : 0L;
+      System.err.println("NewtCanvasSWT.updatePosSizeCheck: sizeChanged " + bool1 + ", posChanged " + bool2 + ", updatePos " + paramBoolean + ", (" + Thread.currentThread().getName() + "): newtChildReady " + newtChildReady + ", " + x + "/" + y + " " + width + "x" + height + " - surfaceHandle 0x" + Long.toHexString(l));
+    }
+    if (bool1) {
+      if (newtChildReady) {
+        newtChild.setSize(width, height);
+      } else {
+        postSetSize = true;
+      }
+    }
+    if ((paramBoolean) && (bool2)) {
+      if (newtChildReady) {
+        newtChild.setPosition(x, y);
+      } else {
+        postSetPos = true;
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+  public void update() {}
+  
+
+
+
+
+
+
+  public void dispose()
+  {
+    if (null != newtChild) {
+      if (DEBUG) {
+        System.err.println("NewtCanvasSWT.dispose.0: EDTUtil cur " + newtChild.getScreen().getDisplay().getEDTUtil() + ",\n\t" + newtChild);
+      }
+      
+      configureNewtChild(false);
+      newtChild.setVisible(false);
+      newtChild.reparentWindow(null, -1, -1, 0);
+      newtChild.destroy();
+      newtChild = null;
+    }
+    screen.getDevice().close();
+    nativeWindow = null;
+    super.dispose();
+  }
+  
+  private com.jogamp.nativewindow.util.Point getParentLocationOnScreen() {
+    final org.eclipse.swt.graphics.Point[] arrayOfPoint = { null };
+    SWTAccessor.invoke(true, new Runnable()
+    {
+      public void run() { arrayOfPoint[0] = getParent().toDisplay(0, 0); }
+    });
+    return new com.jogamp.nativewindow.util.Point(0x, 0y);
+  }
+  
+  public NativeWindow getNativeWindow() {
+    return nativeWindow;
+  }
+  
+  public WindowClosingProtocol.WindowClosingMode getDefaultCloseOperation() {
+    return newtChildCloseOp;
+  }
+  
+  public WindowClosingProtocol.WindowClosingMode setDefaultCloseOperation(WindowClosingProtocol.WindowClosingMode paramWindowClosingMode)
+  {
+    return this.newtChildCloseOp = paramWindowClosingMode;
+  }
+  
+  boolean isParent()
+  {
+    return null != newtChild;
+  }
+  
+  boolean isFullscreen() {
+    return (null != newtChild) && (newtChild.isFullscreen());
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public Window setNEWTChild(Window paramWindow)
+  {
+    Window localWindow = newtChild;
+    if (DEBUG) {
+      System.err.println("NewtCanvasSWT.setNEWTChild.0: win " + newtWinHandleToHexString(localWindow) + " -> " + newtWinHandleToHexString(paramWindow));
+    }
+    
+    if (null != newtChild) {
+      reparentWindow(false);
+      newtChild = null;
+    }
+    
+    newtChild = paramWindow;
+    if ((null != nativeWindow) && (null != paramWindow)) {
+      reparentWindow(true);
+    }
+    return localWindow;
+  }
+  
+  public Window getNEWTChild()
+  {
+    return newtChild;
+  }
+  
+  public boolean setParent(Composite paramComposite)
+  {
+    return super.setParent(paramComposite);
+  }
+  
+  void configureNewtChild(boolean paramBoolean) {
+    newtChildReady = paramBoolean;
+    if (null != newtChild) {
+      newtChild.setKeyboardFocusHandler(null);
+      if (paramBoolean) {
+        newtChildCloseOp = newtChild.setDefaultCloseOperation(WindowClosingProtocol.WindowClosingMode.DO_NOTHING_ON_CLOSE);
+      } else {
+        newtChild.setFocusAction(null);
+        newtChild.setDefaultCloseOperation(newtChildCloseOp);
+      }
+    }
+  }
+  
+  void reparentWindow(boolean paramBoolean) {
+    if (null == newtChild) {
+      return;
+    }
+    if (DEBUG) {
+      System.err.println("NewtCanvasSWT.reparentWindow.0: add=" + paramBoolean + ", win " + newtWinHandleToHexString(newtChild) + ", EDTUtil: cur " + newtChild.getScreen().getDisplay().getEDTUtil());
+    }
+    
+    newtChild.setFocusAction(null);
+    if (paramBoolean) {
+      updateSizeCheck();
+      int i = clientArea.width;
+      int j = clientArea.height;
+      
+
+
+      com.jogamp.newt.Display localDisplay = newtChild.getScreen().getDisplay();
+      SWTEDTUtil localSWTEDTUtil = new SWTEDTUtil(localDisplay, getDisplay());
+      localSWTEDTUtil.start();
+      localDisplay.setEDTUtil(localSWTEDTUtil);
+      
+
+      newtChild.setSize(i, j);
+      newtChild.reparentWindow(nativeWindow, -1, -1, 2);
+      newtChild.setVisible(true);
+      configureNewtChild(true);
+      newtChild.sendWindowEvent(100);
+      
+
+
+      setEnabled(true);
+    } else {
+      configureNewtChild(false);
+      newtChild.setVisible(false);
+      newtChild.reparentWindow(null, -1, -1, 0);
+    }
+    if (DEBUG) {
+      System.err.println("NewtCanvasSWT.reparentWindow.X: add=" + paramBoolean + ", win " + newtWinHandleToHexString(newtChild) + ", EDTUtil: cur " + newtChild.getScreen().getDisplay().getEDTUtil());
+    }
+  }
+  
+  private final void requestFocusNEWTChild() {
+    if (newtChildReady) {
+      newtChild.setFocusAction(null);
+      newtChild.requestFocus();
+    }
+  }
+  
+  public boolean forceFocus()
+  {
+    boolean bool = super.forceFocus();
+    requestFocusNEWTChild();
+    return bool;
+  }
+  
+  private class SWTNativeWindow implements NativeWindow {
+    private final AbstractGraphicsConfiguration config;
+    private final long nativeWindowHandle;
+    private final InsetsImmutable insets;
+    
+    public SWTNativeWindow(AbstractGraphicsConfiguration paramAbstractGraphicsConfiguration, long paramLong) {
+      config = paramAbstractGraphicsConfiguration;
+      nativeWindowHandle = paramLong;
+      if (SWTAccessor.isOSX) {
+        insets = OSXUtil.GetInsets(paramLong);
+      } else {
+        insets = new Insets(0, 0, 0, 0);
+      }
+    }
+    
+    public int lockSurface() throws NativeWindowException, RuntimeException
+    {
+      return 3;
+    }
+    
+
+    public void unlockSurface() {}
+    
+    public boolean isSurfaceLockedByOtherThread()
+    {
+      return false;
+    }
+    
+    public Thread getSurfaceLockOwner()
+    {
+      return null;
+    }
+    
+    public boolean surfaceSwap()
+    {
+      return false;
+    }
+    
+
+    public void addSurfaceUpdatedListener(SurfaceUpdatedListener paramSurfaceUpdatedListener) {}
+    
+
+    public void addSurfaceUpdatedListener(int paramInt, SurfaceUpdatedListener paramSurfaceUpdatedListener)
+      throws IndexOutOfBoundsException
+    {}
+    
+    public void removeSurfaceUpdatedListener(SurfaceUpdatedListener paramSurfaceUpdatedListener) {}
+    
+    public long getSurfaceHandle()
+    {
+      return 0L;
+    }
+    
+    public int getWidth()
+    {
+      return getSurfaceWidth();
+    }
+    
+    public int getHeight()
+    {
+      return getSurfaceHeight();
+    }
+    
+    public final int[] convertToWindowUnits(int[] paramArrayOfInt)
+    {
+      return paramArrayOfInt;
+    }
+    
+    public final int[] convertToPixelUnits(int[] paramArrayOfInt)
+    {
+      return paramArrayOfInt;
+    }
+    
+    public int getSurfaceWidth()
+    {
+      return clientArea.width;
+    }
+    
+    public int getSurfaceHeight()
+    {
+      return clientArea.height;
+    }
+    
+    public final NativeSurface getNativeSurface() {
+      return this;
+    }
+    
+    public AbstractGraphicsConfiguration getGraphicsConfiguration() {
+      return config;
+    }
+    
+    public long getDisplayHandle()
+    {
+      return config.getScreen().getDevice().getHandle();
+    }
+    
+    public int getScreenIndex()
+    {
+      return config.getScreen().getIndex();
+    }
+    
+
+    public void surfaceUpdated(Object paramObject, NativeSurface paramNativeSurface, long paramLong) {}
+    
+
+    public void destroy() {}
+    
+    public NativeWindow getParent()
+    {
+      return null;
+    }
+    
+    public long getWindowHandle()
+    {
+      return nativeWindowHandle;
+    }
+    
+    public InsetsImmutable getInsets()
+    {
+      return insets;
+    }
+    
+    public int getX()
+    {
+      return 0;
+    }
+    
+    public int getY()
+    {
+      return 0;
+    }
+    
+    public com.jogamp.nativewindow.util.Point getLocationOnScreen(com.jogamp.nativewindow.util.Point paramPoint)
+    {
+      com.jogamp.nativewindow.util.Point localPoint;
+      if (SWTAccessor.isOSX)
+      {
+
+        localPoint = NewtCanvasSWT.this.getParentLocationOnScreen();
+      } else if (SWTAccessor.isX11) {
+        AbstractGraphicsScreen localAbstractGraphicsScreen = config.getScreen();
+        localPoint = X11Lib.GetRelativeLocation(localAbstractGraphicsScreen.getDevice().getHandle(), localAbstractGraphicsScreen.getIndex(), nativeWindowHandle, 0L, 0, 0);
+      } else if (SWTAccessor.isWindows) {
+        localPoint = GDIUtil.GetRelativeLocation(nativeWindowHandle, 0L, 0, 0);
+      }
+      else {
+        localPoint = new com.jogamp.nativewindow.util.Point(0, 0);
+      }
+      if (null != paramPoint) {
+        return paramPoint.translate(localPoint);
+      }
+      return localPoint;
+    }
+    
+
+    public boolean hasFocus()
+    {
+      return isFocusControl();
+    }
+  }
+  
+  static String newtWinHandleToHexString(Window paramWindow) {
+    return null != paramWindow ? toHexString(paramWindow.getWindowHandle()) : "nil";
+  }
+  
+  static String toHexString(long paramLong) { return "0x" + Long.toHexString(paramLong); }
+}

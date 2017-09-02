@@ -1,0 +1,128 @@
+package jogamp.opengl.x11.glx;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.MutableSurface;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import java.io.PrintStream;
+import java.nio.IntBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class X11PbufferGLXDrawable
+  extends X11GLXDrawable
+{
+  protected X11PbufferGLXDrawable(GLDrawableFactory paramGLDrawableFactory, NativeSurface paramNativeSurface)
+  {
+    super(paramGLDrawableFactory, paramNativeSurface, false);
+  }
+  
+  protected void setRealizedImpl()
+  {
+    if (realized) {
+      createPbuffer();
+    } else {
+      destroyPbuffer();
+    }
+  }
+  
+  public GLContext createContext(GLContext paramGLContext)
+  {
+    return new X11GLXContext(this, paramGLContext);
+  }
+  
+  protected void destroyPbuffer() {
+    NativeSurface localNativeSurface = getNativeSurface();
+    if (localNativeSurface.getSurfaceHandle() != 0L) {
+      GLX.glXDestroyPbuffer(localNativeSurface.getDisplayHandle(), localNativeSurface.getSurfaceHandle());
+    }
+    ((MutableSurface)localNativeSurface).setSurfaceHandle(0L);
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": Destroyed pbuffer " + this);
+    }
+  }
+  
+  private void createPbuffer() {
+    MutableSurface localMutableSurface = (MutableSurface)getNativeSurface();
+    X11GLXGraphicsConfiguration localX11GLXGraphicsConfiguration = (X11GLXGraphicsConfiguration)localMutableSurface.getGraphicsConfiguration();
+    AbstractGraphicsScreen localAbstractGraphicsScreen = localX11GLXGraphicsConfiguration.getScreen();
+    AbstractGraphicsDevice localAbstractGraphicsDevice = localAbstractGraphicsScreen.getDevice();
+    long l1 = localAbstractGraphicsDevice.getHandle();
+    
+    if (DEBUG) {
+      System.out.println(getThreadName() + ": Pbuffer config: " + localX11GLXGraphicsConfiguration);
+    }
+    
+    if (l1 == 0L) {
+      throw new GLException("Null display");
+    }
+    
+
+    int i = 0;
+    IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(7);
+    
+    localIntBuffer.put(i++, 32833);
+    localIntBuffer.put(i++, localMutableSurface.getSurfaceWidth());
+    localIntBuffer.put(i++, 32832);
+    localIntBuffer.put(i++, localMutableSurface.getSurfaceHeight());
+    localIntBuffer.put(i++, 32796);
+    localIntBuffer.put(i++, 0);
+    localIntBuffer.put(i++, 0);
+    
+    long l2 = GLX.glXCreatePbuffer(l1, localX11GLXGraphicsConfiguration.getFBConfig(), localIntBuffer);
+    if (l2 == 0L)
+    {
+      throw new GLException("pbuffer creation error: glXCreatePbuffer() failed");
+    }
+    
+
+    localMutableSurface.setSurfaceHandle(l2);
+    
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": Created pbuffer " + this);
+    }
+  }
+}

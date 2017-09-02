@@ -1,0 +1,268 @@
+package jogamp.opengl.egl;
+
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.DefaultGraphicsScreen;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.ProxySurface;
+import com.jogamp.nativewindow.UpstreamSurfaceHook;
+import com.jogamp.nativewindow.UpstreamSurfaceHook.MutableSize;
+import com.jogamp.nativewindow.VisualIDHolder.VIDType;
+import com.jogamp.nativewindow.egl.EGLGraphicsDevice;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.egl.EGL;
+import java.io.PrintStream;
+import jogamp.nativewindow.WrappedSurface;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class EGLUpstreamSurfaceHook
+  implements UpstreamSurfaceHook.MutableSize
+{
+  private static final boolean DEBUG = EGLDrawableFactory.DEBUG;
+  private final NativeSurface upstreamSurface;
+  private final UpstreamSurfaceHook.MutableSize upstreamSurfaceHookMutableSize;
+  
+  public EGLUpstreamSurfaceHook(NativeSurface paramNativeSurface) {
+    upstreamSurface = paramNativeSurface;
+    if ((upstreamSurface instanceof ProxySurface)) {
+      UpstreamSurfaceHook localUpstreamSurfaceHook = ((ProxySurface)upstreamSurface).getUpstreamSurfaceHook();
+      if ((localUpstreamSurfaceHook instanceof UpstreamSurfaceHook.MutableSize))
+      {
+        upstreamSurfaceHookMutableSize = ((UpstreamSurfaceHook.MutableSize)localUpstreamSurfaceHook);
+      } else {
+        upstreamSurfaceHookMutableSize = null;
+      }
+    } else {
+      upstreamSurfaceHookMutableSize = null;
+    }
+  }
+  
+  public EGLUpstreamSurfaceHook(EGLGraphicsConfiguration paramEGLGraphicsConfiguration, long paramLong, UpstreamSurfaceHook paramUpstreamSurfaceHook, boolean paramBoolean)
+  {
+    this(new WrappedSurface(paramEGLGraphicsConfiguration, paramLong, paramUpstreamSurfaceHook, paramBoolean));
+  }
+  
+  static String getThreadName() { return Thread.currentThread().getName(); }
+  
+
+
+
+
+
+  public final NativeSurface getUpstreamSurface()
+  {
+    return upstreamSurface;
+  }
+  
+  public final void setSurfaceSize(int paramInt1, int paramInt2) {
+    if (null != upstreamSurfaceHookMutableSize) {
+      upstreamSurfaceHookMutableSize.setSurfaceSize(paramInt1, paramInt2);
+    }
+  }
+  
+  public final void create(ProxySurface paramProxySurface)
+  {
+    String str;
+    if (DEBUG) {
+      str = getThreadName() + ": EGLUpstreamSurfaceHook.create( up " + upstreamSurface.getClass().getSimpleName() + " -> this " + paramProxySurface.getClass().getSimpleName() + " ): ";
+      System.err.println(str + this);
+    } else {
+      str = null;
+    }
+    
+    if ((upstreamSurface instanceof ProxySurface))
+    {
+      ((ProxySurface)upstreamSurface).createNotify();
+    }
+    
+
+    if (1 >= upstreamSurface.lockSurface()) {
+      throw new GLException("Could not lock: " + upstreamSurface);
+    }
+    try {
+      evalUpstreamSurface(str, paramProxySurface);
+      
+      upstreamSurface.unlockSurface(); } finally { upstreamSurface.unlockSurface();
+    }
+  }
+  
+
+
+
+  private final void evalUpstreamSurface(String paramString, ProxySurface paramProxySurface)
+  {
+    boolean bool = true;
+    
+
+
+
+    Object localObject2 = paramProxySurface.getGraphicsConfiguration();
+    Object localObject3 = null != localObject2 ? ((AbstractGraphicsConfiguration)localObject2).getScreen().getDevice() : null;
+    if (DEBUG) {
+      System.err.println(paramString + "SurfaceDevice: " + localObject3.getClass().getSimpleName() + ", hash 0x" + Integer.toHexString(localObject3.hashCode()) + ", " + localObject3);
+      System.err.println(paramString + "SurfaceConfig: " + localObject2.getClass().getSimpleName() + ", hash 0x" + Integer.toHexString(localObject2.hashCode()) + ", " + localObject2);
+    }
+    
+    Object localObject4 = upstreamSurface.getGraphicsConfiguration();
+    Object localObject5 = ((AbstractGraphicsConfiguration)localObject4).getScreen().getDevice();
+    if (DEBUG) {
+      System.err.println(paramString + "UpstreamDevice: " + localObject5.getClass().getSimpleName() + ", hash 0x" + Integer.toHexString(localObject5.hashCode()) + ", " + localObject5);
+      System.err.println(paramString + "UpstreamConfig: " + localObject4.getClass().getSimpleName() + ", hash 0x" + Integer.toHexString(localObject4.hashCode()) + ", " + localObject4); }
+    EGLGraphicsDevice localEGLGraphicsDevice;
+    Object localObject1;
+    if ((localObject3 instanceof EGLGraphicsDevice)) {
+      localEGLGraphicsDevice = (EGLGraphicsDevice)localObject3;
+      localObject1 = localObject2;
+      if (DEBUG) {
+        System.err.println(paramString + "Reusing this eglDevice: " + localEGLGraphicsDevice + ", using this config " + localObject1.getClass().getSimpleName() + " " + localObject1);
+      }
+      if (0L == localEGLGraphicsDevice.getHandle()) {
+        localEGLGraphicsDevice.open();
+        bool = false;
+        paramProxySurface.addUpstreamOptionBits(128);
+      }
+    } else if ((localObject5 instanceof EGLGraphicsDevice)) {
+      localEGLGraphicsDevice = (EGLGraphicsDevice)localObject5;
+      localObject1 = localObject4;
+      if (DEBUG) {
+        System.err.println(paramString + "Reusing upstream eglDevice: " + localEGLGraphicsDevice + ", using upstream config " + localObject1.getClass().getSimpleName() + " " + localObject1);
+      }
+      if (0L == localEGLGraphicsDevice.getHandle()) {
+        localEGLGraphicsDevice.open();
+        bool = false;
+        paramProxySurface.addUpstreamOptionBits(128);
+      }
+    } else {
+      localEGLGraphicsDevice = EGLDisplayUtil.eglCreateEGLGraphicsDevice(upstreamSurface);
+      localEGLGraphicsDevice.open();
+      localObject1 = localObject4;
+      bool = false;
+      paramProxySurface.addUpstreamOptionBits(128);
+    }
+    
+
+    localObject2 = (GLCapabilitiesImmutable)localObject1.getRequestedCapabilities();
+    
+    if ((localObject1 instanceof EGLGraphicsConfiguration))
+    {
+      localObject4 = (EGLGLCapabilities)localObject1.getChosenCapabilities();
+      if ((!bool) || (!EGLGraphicsConfiguration.isEGLConfigValid(localEGLGraphicsDevice.getHandle(), ((EGLGLCapabilities)localObject4).getEGLConfig())))
+      {
+        ((EGLGLCapabilities)localObject4).setEGLConfig(EGLGraphicsConfiguration.EGLConfigId2EGLConfig(localEGLGraphicsDevice.getHandle(), ((EGLGLCapabilities)localObject4).getEGLConfigID()));
+        if (0L == ((EGLGLCapabilities)localObject4).getEGLConfig()) {
+          throw new GLException("Refreshing native EGLConfig handle failed with error " + EGLContext.toHexString(EGL.eglGetError()) + ": " + localEGLGraphicsDevice + ", " + localObject4 + " of " + localObject1);
+        }
+        localObject5 = new DefaultGraphicsScreen(localEGLGraphicsDevice, localObject1.getScreen().getIndex());
+        localObject3 = new EGLGraphicsConfiguration((AbstractGraphicsScreen)localObject5, (EGLGLCapabilities)localObject4, (GLCapabilitiesImmutable)localObject2, null);
+        if (DEBUG) {
+          System.err.println(paramString + "Refreshing eglConfig: " + localObject3);
+        }
+        bool = false;
+      } else {
+        localObject3 = (EGLGraphicsConfiguration)localObject1;
+        if (DEBUG) {
+          System.err.println(paramString + "Reusing eglConfig: " + localObject3);
+        }
+      }
+    } else {
+      localObject4 = new DefaultGraphicsScreen(localEGLGraphicsDevice, localObject1.getScreen().getIndex());
+      localObject3 = EGLGraphicsConfigurationFactory.chooseGraphicsConfigurationStatic((GLCapabilitiesImmutable)localObject2, (GLCapabilitiesImmutable)localObject2, null, (AbstractGraphicsScreen)localObject4, localObject1
+        .getVisualID(VisualIDHolder.VIDType.NATIVE), false);
+      
+      if (null == localObject3)
+        throw new GLException("Couldn't create EGLGraphicsConfiguration from " + localObject4);
+      if (DEBUG) {
+        System.err.println(paramString + "Chosen eglConfig: " + localObject3);
+      }
+      bool = false;
+    }
+    paramProxySurface.setGraphicsConfiguration((AbstractGraphicsConfiguration)localObject3);
+    
+    if (bool) {
+      bool = EGLSurface.isValidEGLSurfaceHandle(localEGLGraphicsDevice.getHandle(), upstreamSurface.getSurfaceHandle());
+    }
+    if (bool) {
+      paramProxySurface.setSurfaceHandle(upstreamSurface.getSurfaceHandle());
+      paramProxySurface.clearUpstreamOptionBits(64);
+      if (DEBUG) {
+        System.err.println(paramString + "Fin: Already valid EGL surface - use as-is: " + upstreamSurface);
+      }
+    } else {
+      paramProxySurface.setSurfaceHandle(0L);
+      paramProxySurface.addUpstreamOptionBits(64);
+      if (DEBUG) {
+        System.err.println(paramString + "Fin: EGL surface n/a - TBD: " + upstreamSurface);
+      }
+    }
+  }
+  
+  public final void destroy(ProxySurface paramProxySurface)
+  {
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": EGLUpstreamSurfaceHook.destroy(" + paramProxySurface.getClass().getSimpleName() + "): " + this);
+    }
+    paramProxySurface.clearUpstreamOptionBits(64);
+    if ((upstreamSurface instanceof ProxySurface)) {
+      ((ProxySurface)upstreamSurface).destroyNotify();
+    }
+  }
+  
+  public final int getSurfaceWidth(ProxySurface paramProxySurface)
+  {
+    return upstreamSurface.getSurfaceWidth();
+  }
+  
+  public final int getSurfaceHeight(ProxySurface paramProxySurface)
+  {
+    return upstreamSurface.getSurfaceHeight();
+  }
+  
+  public String toString() {
+    String str;
+    int i;
+    int j;
+    if (null != upstreamSurface) {
+      str = upstreamSurface.getClass().getName() + ": 0x" + Long.toHexString(upstreamSurface.getSurfaceHandle());
+      i = upstreamSurface.getSurfaceWidth();
+      j = upstreamSurface.getSurfaceHeight();
+    } else {
+      str = "nil";
+      i = -1;
+      j = -1;
+    }
+    return "EGLUpstreamSurfaceHook[ " + i + "x" + j + ", " + str + "]";
+  }
+}

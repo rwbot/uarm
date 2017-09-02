@@ -1,0 +1,683 @@
+package com.jogamp.opengl.util;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.nativewindow.util.PixelFormat;
+import com.jogamp.nativewindow.util.PixelFormat.Composition;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import java.nio.Buffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLPixelBuffer
+{
+  public static abstract interface GLPixelBufferProvider
+  {
+    public abstract boolean getAllowRowStride();
+    
+    public abstract GLPixelBuffer.GLPixelAttributes getAttributes(GL paramGL, int paramInt, boolean paramBoolean);
+    
+    public abstract PixelFormat.Composition getHostPixelComp(GLProfile paramGLProfile, int paramInt);
+    
+    public abstract GLPixelBuffer allocate(GL paramGL, PixelFormat.Composition paramComposition, GLPixelBuffer.GLPixelAttributes paramGLPixelAttributes, boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3, int paramInt4);
+  }
+  
+  public static abstract interface SingletonGLPixelBufferProvider
+    extends GLPixelBuffer.GLPixelBufferProvider
+  {
+    public abstract GLPixelBuffer allocate(GL paramGL, PixelFormat.Composition paramComposition, GLPixelBuffer.GLPixelAttributes paramGLPixelAttributes, boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3, int paramInt4);
+    
+    public abstract GLPixelBuffer getSingleBuffer(PixelFormat.Composition paramComposition, GLPixelBuffer.GLPixelAttributes paramGLPixelAttributes, boolean paramBoolean);
+    
+    public abstract GLPixelBuffer initSingleton(GLProfile paramGLProfile, int paramInt1, boolean paramBoolean, int paramInt2, int paramInt3, int paramInt4);
+    
+    public abstract void dispose();
+  }
+  
+  public static class DefaultGLPixelBufferProvider
+    implements GLPixelBuffer.GLPixelBufferProvider
+  {
+    private final boolean allowRowStride;
+    
+    public DefaultGLPixelBufferProvider(boolean paramBoolean)
+    {
+      allowRowStride = paramBoolean;
+    }
+    
+    public boolean getAllowRowStride() {
+      return allowRowStride;
+    }
+    
+    public GLPixelBuffer.GLPixelAttributes getAttributes(GL paramGL, int paramInt, boolean paramBoolean) {
+      GLPixelBuffer.GLPixelAttributes localGLPixelAttributes = GLPixelBuffer.GLPixelAttributes.convert(paramGL, paramInt, paramBoolean);
+      if (null == localGLPixelAttributes) {
+        throw new GLException("Unsupported componentCount " + paramInt + ", contact maintainer to enhance");
+      }
+      return localGLPixelAttributes;
+    }
+    
+
+
+
+
+
+
+
+    public PixelFormat.Composition getHostPixelComp(GLProfile paramGLProfile, int paramInt)
+    {
+      return null;
+    }
+    
+
+
+
+
+
+
+
+
+    public GLPixelBuffer allocate(GL paramGL, PixelFormat.Composition paramComposition, GLPixelBuffer.GLPixelAttributes paramGLPixelAttributes, boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+    {
+      if (paramInt4 > 0) {
+        return new GLPixelBuffer(paramGLPixelAttributes, paramBoolean, paramInt1, paramInt2, paramInt3, Buffers.newDirectByteBuffer(paramInt4), getAllowRowStride());
+      }
+      int[] arrayOfInt = { 0 };
+      int i = GLBuffers.sizeof(paramGL, arrayOfInt, pfmt.comp.bytesPerPixel(), paramInt1, paramInt2, paramInt3, paramBoolean);
+      return new GLPixelBuffer(paramGLPixelAttributes, paramBoolean, paramInt1, paramInt2, paramInt3, Buffers.newDirectByteBuffer(i), getAllowRowStride());
+    }
+  }
+  
+
+
+
+
+
+
+  public static final GLPixelBufferProvider defaultProviderNoRowStride = new DefaultGLPixelBufferProvider(false);
+  
+
+
+
+
+
+  public static final GLPixelBufferProvider defaultProviderWithRowStride = new DefaultGLPixelBufferProvider(true);
+  public final GLPixelAttributes pixelAttributes;
+  public final int width;
+  
+  public static class GLPixelAttributes {
+    public static final GLPixelAttributes UNDEF = new GLPixelAttributes(null, PixelFormat.LUMINANCE, 0, 0, true, false);
+    public final int format;
+    public final int type;
+    public final PixelFormat pfmt;
+    
+    public static final PixelFormat getPixelFormat(int paramInt1, int paramInt2)
+    {
+      PixelFormat localPixelFormat = null;
+      
+      switch (paramInt1) {
+      case 6403: 
+      case 6406: 
+      case 6409: 
+        localPixelFormat = PixelFormat.LUMINANCE;
+        break;
+      case 6407: 
+        switch (paramInt2) {
+        case 33636: 
+          localPixelFormat = PixelFormat.RGB565;
+          break;
+        case 33635: 
+          localPixelFormat = PixelFormat.BGR565;
+          break;
+        case 5121: 
+          localPixelFormat = PixelFormat.RGB888;
+        }
+        
+        break;
+      case 6408: 
+        switch (paramInt2) {
+        case 33638: 
+          localPixelFormat = PixelFormat.RGBA5551;
+          break;
+        case 32820: 
+          localPixelFormat = PixelFormat.ABGR1555;
+          break;
+        
+        case 5121: 
+        case 33639: 
+          localPixelFormat = PixelFormat.RGBA8888;
+          break;
+        case 32821: 
+          localPixelFormat = PixelFormat.ABGR8888;
+        }
+        
+        break;
+      case 32992: 
+        if (5121 == paramInt2) {
+          localPixelFormat = PixelFormat.BGR888;
+        }
+        break;
+      case 32993: 
+        switch (paramInt2) {
+        case 32821: 
+          localPixelFormat = PixelFormat.ARGB8888;
+          break;
+        
+        case 5121: 
+        case 33639: 
+          localPixelFormat = PixelFormat.BGRA8888;
+        }
+        
+        break;
+      }
+      return localPixelFormat;
+    }
+    
+
+
+
+
+
+
+
+
+
+    public static GLPixelAttributes convert(GL paramGL, int paramInt, boolean paramBoolean)
+    {
+      int k = (paramBoolean) && (paramGL.isGLES()) ? 1 : 0;
+      int i;
+      int j; if ((1 == paramInt) && (k == 0)) {
+        if (paramGL.isGL3ES3())
+        {
+          i = 6403;
+        }
+        else {
+          i = 6406;
+        }
+        j = 5121;
+      } else if ((3 == paramInt) && (k == 0)) {
+        i = 6407;
+        j = 5121;
+      } else if ((4 == paramInt) || (k != 0)) {
+        GLContext localGLContext = paramGL.getContext();
+        int m = localGLContext.getDefaultPixelDataFormat();
+        int n = GLBuffers.componentCount(m);
+        if ((n == paramInt) || (4 == n)) {
+          i = m;
+          j = localGLContext.getDefaultPixelDataType();
+        } else {
+          i = 6408;
+          j = 5121;
+        }
+      } else {
+        return null;
+      }
+      return new GLPixelAttributes(i, j);
+    }
+    
+
+
+
+
+
+
+
+    public static final GLPixelAttributes convert(GLProfile paramGLProfile, PixelFormat paramPixelFormat, boolean paramBoolean)
+    {
+      int[] arrayOfInt1 = new int[1];
+      int[] arrayOfInt2 = new int[1];
+      convert(paramGLProfile, paramPixelFormat, paramBoolean, arrayOfInt1, arrayOfInt2);
+      if (0 != arrayOfInt1[0]) {
+        return new GLPixelAttributes(null, paramPixelFormat, arrayOfInt1[0], arrayOfInt2[0], true, true);
+      }
+      return null;
+    }
+    
+    private static final int convert(GLProfile paramGLProfile, PixelFormat paramPixelFormat, boolean paramBoolean, int[] paramArrayOfInt1, int[] paramArrayOfInt2) {
+      int i = (paramBoolean) && (paramGLProfile.isGLES()) ? 1 : 0;
+      int j = 0;
+      int k = 5121;
+      switch (GLPixelBuffer.1.$SwitchMap$com$jogamp$nativewindow$util$PixelFormat[paramPixelFormat.ordinal()]) {
+      case 1: 
+        if (i == 0) {
+          if (paramGLProfile.isGL3ES3())
+          {
+            j = 6403;
+          }
+          else {
+            j = 6409;
+          }
+        }
+        break;
+      case 2: 
+        if (paramGLProfile.isGL2GL3()) {
+          j = 6407;k = 33636;
+        }
+        break;
+      case 3: 
+        if (paramGLProfile.isGL2GL3()) {
+          j = 6407;k = 33635;
+        }
+        break;
+      case 4: 
+        if (paramGLProfile.isGL2GL3()) {
+          j = 6408;k = 33638;
+        }
+        break;
+      case 5: 
+        if (paramGLProfile.isGL2GL3()) {
+          j = 6408;k = 32820;
+        }
+        break;
+      case 6: 
+        if (i == 0) {
+          j = 6407;
+        }
+        break;
+      case 7: 
+        if (paramGLProfile.isGL2GL3()) {
+          j = 32992;
+        }
+        break;
+      case 8: 
+      case 9: 
+        j = 6408;
+        break;
+      case 10: 
+        if (paramGLProfile.isGL2GL3()) {
+          j = 6408;k = 32821;
+        }
+        break;
+      case 11: 
+        if (paramGLProfile.isGL2GL3()) {
+          j = 32993;k = 32821;
+        }
+        break;
+      case 12: 
+      case 13: 
+        if (paramGLProfile.isGL2GL3()) {
+          j = 32993;
+        }
+        break;
+      }
+      paramArrayOfInt1[0] = j;
+      paramArrayOfInt2[0] = k;
+      return j;
+    }
+    
+
+
+
+
+
+
+
+
+
+    public final int hashCode()
+    {
+      int i = pfmt.hashCode();
+      i = (i << 5) - i + format;
+      return (i << 5) - i + type;
+    }
+    
+    public final boolean equals(Object paramObject)
+    {
+      if (this == paramObject) return true;
+      if ((paramObject instanceof GLPixelAttributes)) {
+        GLPixelAttributes localGLPixelAttributes = (GLPixelAttributes)paramObject;
+        if ((format == format) && (type == type)) {}
+        
+        return pfmt.equals(pfmt);
+      }
+      return false;
+    }
+    
+
+
+
+
+
+    public GLPixelAttributes(int paramInt1, int paramInt2)
+      throws GLException
+    {
+      this(null, null, paramInt1, paramInt2, true, true);
+    }
+    
+
+
+
+
+
+
+    public GLPixelAttributes(GLProfile paramGLProfile, PixelFormat paramPixelFormat, boolean paramBoolean)
+      throws GLException
+    {
+      this(paramGLProfile, paramPixelFormat, 0, 0, paramBoolean, true);
+    }
+    
+    private GLPixelAttributes(GLProfile paramGLProfile, PixelFormat paramPixelFormat, int paramInt1, int paramInt2, boolean paramBoolean1, boolean paramBoolean2) throws GLException
+    {
+      if ((paramBoolean2) && ((0 == paramInt1) || (0 == paramInt2))) {
+        if ((null == paramPixelFormat) || (null == paramGLProfile)) {
+          throw new GLException("Zero format and/or type w/o pixFmt or glp: " + this);
+        }
+        int[] arrayOfInt1 = new int[1];
+        int[] arrayOfInt2 = new int[1];
+        if (0 == convert(paramGLProfile, paramPixelFormat, paramBoolean1, arrayOfInt1, arrayOfInt2)) {
+          throw new GLException("Could not find format and type for " + paramPixelFormat + " and " + paramGLProfile + ", " + this);
+        }
+        format = arrayOfInt1[0];
+        type = arrayOfInt2[0];
+        pfmt = paramPixelFormat;
+      } else {
+        format = paramInt1;
+        type = paramInt2;
+        pfmt = (null != paramPixelFormat ? paramPixelFormat : getPixelFormat(paramInt1, paramInt2));
+        if (null == pfmt) {
+          throw new GLException("Could not find PixelFormat for format and/or type: " + this);
+        }
+      }
+      if (paramBoolean2) {
+        int i = GLBuffers.bytesPerPixel(format, type);
+        if (0 == i) {
+          throw new GLException("Zero bytesPerPixel: " + this);
+        }
+      }
+    }
+    
+    public String toString()
+    {
+      return "PixelAttributes[fmt 0x" + Integer.toHexString(format) + ", type 0x" + Integer.toHexString(type) + ", " + pfmt + "]";
+    }
+  }
+  
+
+
+
+
+
+  public final int height;
+  
+
+
+
+  public final int depth;
+  
+
+
+
+  public final boolean pack;
+  
+
+
+
+  public final int byteSize;
+  
+
+
+
+  public final Buffer buffer;
+  
+
+
+
+  public final int bufferElemSize;
+  
+
+
+
+  public final boolean allowRowStride;
+  
+
+
+
+  private boolean disposed = false;
+  
+  public StringBuilder toString(StringBuilder paramStringBuilder) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    
+
+    paramStringBuilder.append(pixelAttributes).append(", dim ").append(width).append("x").append(height).append("x").append(depth).append(", pack ").append(pack).append(", disposed ").append(disposed).append(", valid ").append(isValid()).append(", buffer[bytes ").append(byteSize).append(", elemSize ").append(bufferElemSize).append(", ").append(buffer).append("]");
+    return paramStringBuilder;
+  }
+  
+  public String toString() {
+    return "GLPixelBuffer[" + toString(null).toString() + "]";
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public GLPixelBuffer(GLPixelAttributes paramGLPixelAttributes, boolean paramBoolean1, int paramInt1, int paramInt2, int paramInt3, Buffer paramBuffer, boolean paramBoolean2)
+  {
+    pixelAttributes = paramGLPixelAttributes;
+    width = paramInt1;
+    height = paramInt2;
+    depth = paramInt3;
+    pack = paramBoolean1;
+    buffer = paramBuffer;
+    byteSize = Buffers.remainingBytes(paramBuffer);
+    bufferElemSize = Buffers.sizeOfBufferElem(paramBuffer);
+    allowRowStride = paramBoolean2;
+  }
+  
+  public final boolean getAllowRowStride() {
+    return allowRowStride;
+  }
+  
+  public boolean isValid() {
+    return (!disposed) && (0 < byteSize);
+  }
+  
+  public Buffer rewind()
+  {
+    return buffer.rewind();
+  }
+  
+  public int position()
+  {
+    return buffer.position() * bufferElemSize;
+  }
+  
+  public Buffer position(int paramInt)
+  {
+    return buffer.position(paramInt / bufferElemSize);
+  }
+  
+  public int capacity()
+  {
+    return buffer.capacity() * bufferElemSize;
+  }
+  
+  public int limit()
+  {
+    return buffer.limit() * bufferElemSize;
+  }
+  
+  public Buffer flip()
+  {
+    return buffer.flip();
+  }
+  
+  public Buffer clear()
+  {
+    return buffer.clear();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean requiresNewBuffer(GL paramGL, int paramInt1, int paramInt2, int paramInt3)
+  {
+    if (!isValid()) {
+      return true;
+    }
+    if (0 >= paramInt3) {
+      int[] arrayOfInt = { 0 };
+      paramInt3 = GLBuffers.sizeof(paramGL, arrayOfInt, pixelAttributes.pfmt.comp.bytesPerPixel(), paramInt1, paramInt2, 1, true);
+    }
+    if (allowRowStride) {
+      return byteSize < paramInt3;
+    }
+    return (byteSize < paramInt3) || (width != paramInt1);
+  }
+  
+  public void dispose()
+  {
+    disposed = true;
+    buffer.clear();
+  }
+}

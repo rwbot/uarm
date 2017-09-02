@@ -1,0 +1,207 @@
+package jogamp.common.util;
+
+import com.jogamp.common.util.Bitfield;
+import com.jogamp.common.util.Bitfield.Util;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Int32ArrayBitfield
+  implements Bitfield
+{
+  private static final int UNIT_SHIFT = 5;
+  private final int[] storage;
+  private final int bitSize;
+  
+  public Int32ArrayBitfield(int paramInt)
+  {
+    int i = Math.max(1, paramInt + 31 >>> 5);
+    storage = new int[i];
+    bitSize = (i << 5);
+  }
+  
+  public int size()
+  {
+    return bitSize;
+  }
+  
+  public final void clearField(boolean paramBoolean)
+  {
+    int i;
+    if (paramBoolean) {
+      i = -1;
+    } else {
+      i = 0;
+    }
+    for (int j = storage.length - 1; j >= 0; j--) {
+      storage[j] = i;
+    }
+  }
+  
+  private static final void check(int paramInt1, int paramInt2) throws IndexOutOfBoundsException {
+    if ((0 > paramInt2) || (paramInt2 >= paramInt1)) {
+      throw new IndexOutOfBoundsException("Bitnum should be within [0.." + (paramInt1 - 1) + "], but is " + paramInt2);
+    }
+  }
+  
+  public final int get32(int paramInt1, int paramInt2) throws IndexOutOfBoundsException
+  {
+    if ((0 > paramInt2) || (paramInt2 > 32)) {
+      throw new IndexOutOfBoundsException("length should be within [0..32], but is " + paramInt2);
+    }
+    check(bitSize - paramInt2 + 1, paramInt1);
+    int i = paramInt1 >>> 5;
+    int j = 32 - (paramInt1 - (i << 5));
+    if (32 == j)
+    {
+      k = Bitfield.Util.getBitMask(paramInt2);
+      return k & storage[i];
+    }
+    
+    int k = Math.min(paramInt2, j);
+    int m = (1 << k) - 1;
+    int n = m & storage[i] >>> paramInt1;
+    int i1 = paramInt2 - k;
+    if (i1 > 0) {
+      int i2 = (1 << i1) - 1;
+      return n | (i2 & storage[(i + 1)]) << k;
+    }
+    return n;
+  }
+  
+  public final void put32(int paramInt1, int paramInt2, int paramInt3)
+    throws IndexOutOfBoundsException
+  {
+    if ((0 > paramInt2) || (paramInt2 > 32)) {
+      throw new IndexOutOfBoundsException("length should be within [0..32], but is " + paramInt2);
+    }
+    check(bitSize - paramInt2 + 1, paramInt1);
+    int i = paramInt1 >>> 5;
+    int j = 32 - (paramInt1 - (i << 5));
+    int k; if (32 == j)
+    {
+      k = Bitfield.Util.getBitMask(paramInt2);
+      storage[i] = ((k ^ 0xFFFFFFFF) & storage[i] | k & paramInt3);
+    }
+    else
+    {
+      k = Math.min(paramInt2, j);
+      int m = (1 << k) - 1;
+      storage[i] = ((m << paramInt1 ^ 0xFFFFFFFF) & storage[i] | (m & paramInt3) << paramInt1);
+      
+      int n = paramInt2 - k;
+      if (n > 0) {
+        int i1 = (1 << n) - 1;
+        storage[(i + 1)] = ((i1 ^ 0xFFFFFFFF) & storage[(i + 1)] | i1 & paramInt3 >>> k);
+      }
+    }
+  }
+  
+  public final int copy32(int paramInt1, int paramInt2, int paramInt3) throws IndexOutOfBoundsException
+  {
+    int i = get32(paramInt1, paramInt3);
+    put32(paramInt2, paramInt3, i);
+    return i;
+  }
+  
+  public final boolean get(int paramInt) throws IndexOutOfBoundsException
+  {
+    check(bitSize, paramInt);
+    int i = paramInt >>> 5;
+    int j = paramInt - (i << 5);
+    return 0 != (storage[i] & 1 << j);
+  }
+  
+  public final boolean put(int paramInt, boolean paramBoolean) throws IndexOutOfBoundsException
+  {
+    check(bitSize, paramInt);
+    int i = paramInt >>> 5;
+    int j = paramInt - (i << 5);
+    int k = 1 << j;
+    boolean bool = 0 != (storage[i] & k);
+    if (bool != paramBoolean) {
+      if (paramBoolean) {
+        storage[i] |= k;
+      } else {
+        storage[i] &= (k ^ 0xFFFFFFFF);
+      }
+    }
+    return bool;
+  }
+  
+  public final void set(int paramInt) throws IndexOutOfBoundsException {
+    check(bitSize, paramInt);
+    int i = paramInt >>> 5;
+    int j = paramInt - (i << 5);
+    int k = 1 << j;
+    storage[i] |= k;
+  }
+  
+  public final void clear(int paramInt) throws IndexOutOfBoundsException {
+    check(bitSize, paramInt);
+    int i = paramInt >>> 5;
+    int j = paramInt - (i << 5);
+    int k = 1 << j;
+    storage[i] &= (k ^ 0xFFFFFFFF);
+  }
+  
+  public final boolean copy(int paramInt1, int paramInt2) throws IndexOutOfBoundsException {
+    check(bitSize, paramInt1);
+    check(bitSize, paramInt2);
+    
+
+
+    int i = paramInt1 >>> 5;
+    int j = paramInt1 - (i << 5);
+    boolean bool = 0 != (storage[i] & 1 << j);
+    
+
+    i = paramInt2 >>> 5;
+    j = paramInt2 - (i << 5);
+    int k = 1 << j;
+    if (bool) {
+      storage[i] |= k;
+    } else {
+      storage[i] &= (k ^ 0xFFFFFFFF);
+    }
+    return bool;
+  }
+  
+  public int bitCount()
+  {
+    int i = 0;
+    for (int j = storage.length - 1; j >= 0; j--) {
+      i += Bitfield.Util.bitCount(storage[j]);
+    }
+    return i;
+  }
+}

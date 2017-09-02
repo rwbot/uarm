@@ -1,0 +1,677 @@
+package com.jogamp.opengl.util;
+
+import com.jogamp.nativewindow.util.Dimension;
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLEventListener;
+import com.jogamp.opengl.GLException;
+import java.io.PrintStream;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class TileRendererBase
+{
+  public static final int TR_IMAGE_WIDTH = 1;
+  public static final int TR_IMAGE_HEIGHT = 2;
+  public static final int TR_CURRENT_TILE_X_POS = 3;
+  public static final int TR_CURRENT_TILE_Y_POS = 4;
+  public static final int TR_CURRENT_TILE_WIDTH = 5;
+  public static final int TR_CURRENT_TILE_HEIGHT = 6;
+  static final boolean DEBUG = Debug.debug("TileRenderer");
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected final Dimension imageSize = new Dimension(0, 0);
+  protected final GLPixelStorageModes psm = new GLPixelStorageModes();
+  protected GLPixelBuffer imageBuffer;
+  protected GLPixelBuffer tileBuffer;
+  protected boolean beginCalled = false;
+  protected int currentTileXPos;
+  protected int currentTileYPos;
+  protected int currentTileWidth;
+  protected int currentTileHeight;
+  protected GLAutoDrawable glad;
+  protected boolean gladRequiresPreSwap;
+  protected boolean gladAutoSwapBufferMode = true;
+  protected GLEventListener[] listeners;
+  protected boolean[] listenersInit;
+  protected GLEventListener glEventListenerPre = null;
+  protected GLEventListener glEventListenerPost = null;
+  
+  private final String hashStr(Object paramObject) {
+    int i = null != paramObject ? paramObject.hashCode() : 0;
+    return "0x" + Integer.toHexString(i);
+  }
+  
+  protected StringBuilder tileDetails(StringBuilder paramStringBuilder) { return paramStringBuilder.append("cur " + currentTileXPos + "/" + currentTileYPos + " " + currentTileWidth + "x" + currentTileHeight + ", buffer " + hashStr(tileBuffer)); }
+  
+  public StringBuilder toString(StringBuilder paramStringBuilder) {
+    int i = null != listeners ? listeners.length : 0;
+    paramStringBuilder.append("tile[");
+    tileDetails(paramStringBuilder);
+    paramStringBuilder.append("], image[size " + imageSize + ", buffer " + hashStr(imageBuffer) + "], glad[" + i + " listener, pre " + (null != glEventListenerPre) + ", post " + (null != glEventListenerPost) + ", preSwap " + gladRequiresPreSwap + "]");
+    
+    paramStringBuilder.append(", isSetup " + isSetup());
+    return paramStringBuilder;
+  }
+  
+  public String toString() {
+    StringBuilder localStringBuilder = new StringBuilder();
+    
+    return getClass().getSimpleName() + "[" + toString(localStringBuilder).toString() + "]";
+  }
+  
+
+
+
+
+
+  protected TileRendererBase() {}
+  
+
+
+
+
+  public abstract int getParam(int paramInt)
+    throws IllegalArgumentException;
+  
+
+
+
+
+  public final void setTileBuffer(GLPixelBuffer paramGLPixelBuffer)
+  {
+    tileBuffer = paramGLPixelBuffer;
+    if (DEBUG) {
+      System.err.println("TileRenderer: tile-buffer " + tileBuffer);
+    }
+  }
+  
+  public final GLPixelBuffer getTileBuffer() {
+    return tileBuffer;
+  }
+  
+
+
+
+
+  public void setImageSize(int paramInt1, int paramInt2)
+  {
+    imageSize.set(paramInt1, paramInt2);
+  }
+  
+  public final DimensionImmutable getImageSize() {
+    return imageSize;
+  }
+  
+
+
+
+  public final void setImageBuffer(GLPixelBuffer paramGLPixelBuffer)
+  {
+    imageBuffer = paramGLPixelBuffer;
+    if (DEBUG) {
+      System.err.println("TileRenderer: image-buffer " + imageBuffer);
+    }
+  }
+  
+
+  public final GLPixelBuffer getImageBuffer() { return imageBuffer; }
+  
+  final void validateGL(GL paramGL) throws GLException {
+    if ((imageBuffer != null) && (!paramGL.isGL2ES3())) {
+      throw new GLException("Using image-buffer w/ inssufficient GL context: " + paramGL.getContext().getGLVersion() + ", " + paramGL.getGLProfile());
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public abstract boolean isSetup();
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public abstract boolean eot();
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public abstract void reset();
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public abstract void beginTile(GL paramGL)
+    throws IllegalStateException, GLException;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public abstract void endTile(GL paramGL)
+    throws IllegalStateException, GLException;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean reqPreSwapBuffers(GLCapabilitiesImmutable paramGLCapabilitiesImmutable)
+  {
+    return GLDrawableUtil.swapBuffersBeforeRead(paramGLCapabilitiesImmutable);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void attachAutoDrawable(GLAutoDrawable paramGLAutoDrawable)
+    throws IllegalStateException
+  {
+    if (null != glad) {
+      throw new IllegalStateException("GLAutoDrawable already attached");
+    }
+    glad = paramGLAutoDrawable;
+    
+    int i = paramGLAutoDrawable.getGLEventListenerCount();
+    listeners = new GLEventListener[i];
+    listenersInit = new boolean[i];
+    for (int j = 0; j < i; j++) {
+      GLEventListener localGLEventListener = paramGLAutoDrawable.getGLEventListener(0);
+      listenersInit[j] = paramGLAutoDrawable.getGLEventListenerInitState(localGLEventListener);
+      listeners[j] = paramGLAutoDrawable.removeGLEventListener(localGLEventListener);
+      boolean bool;
+      if ((listeners[j] instanceof TileRendererListener)) {
+        bool = true;
+        ((TileRendererListener)listeners[j]).addTileRendererNotify(this);
+      } else {
+        bool = false;
+      }
+      if (DEBUG) {
+        System.err.println("TileRenderer.attach[" + j + "]: isInit " + listenersInit[j] + ", isTRN " + bool + ", " + listeners[j].getClass().getName());
+      }
+    }
+    paramGLAutoDrawable.addGLEventListener(tiledGLEL);
+    gladAutoSwapBufferMode = paramGLAutoDrawable.getAutoSwapBufferMode();
+    gladRequiresPreSwap = reqPreSwapBuffers(paramGLAutoDrawable.getChosenGLCapabilities());
+    paramGLAutoDrawable.setAutoSwapBufferMode(false);
+    if (DEBUG) {
+      System.err.println("TileRenderer: attached: " + paramGLAutoDrawable);
+      System.err.println("TileRenderer: preSwap " + gladRequiresPreSwap + ", " + paramGLAutoDrawable.getChosenGLCapabilities() + ", cached " + listeners.length + " listener");
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final GLAutoDrawable getAttachedDrawable()
+  {
+    return glad;
+  }
+  
+
+
+
+
+  public final void detachAutoDrawable()
+  {
+    if (null != glad) {
+      glad.removeGLEventListener(tiledGLEL);
+      int i = listenersInit.length;
+      for (int j = 0; j < i; j++) {
+        GLEventListener localGLEventListener = listeners[j];
+        if ((localGLEventListener instanceof TileRendererListener)) {
+          ((TileRendererListener)localGLEventListener).removeTileRendererNotify(this);
+        }
+        glad.addGLEventListener(localGLEventListener);
+        glad.setGLEventListenerInitState(localGLEventListener, listenersInit[j]);
+      }
+      glad.setAutoSwapBufferMode(gladAutoSwapBufferMode);
+      if (DEBUG) {
+        System.err.println("TileRenderer: detached: " + glad);
+        System.err.println("TileRenderer: " + glad.getChosenGLCapabilities());
+      }
+      
+      listeners = null;
+      listenersInit = null;
+      glad = null;
+    }
+  }
+  
+
+
+
+
+
+
+  public final void setGLEventListener(GLEventListener paramGLEventListener1, GLEventListener paramGLEventListener2)
+  {
+    glEventListenerPre = paramGLEventListener1;
+    glEventListenerPost = paramGLEventListener2;
+  }
+  
+
+
+
+
+  public final void display()
+    throws IllegalStateException
+  {
+    if (null == glad) {
+      throw new IllegalStateException("No GLAutoDrawable attached");
+    }
+    glad.display();
+  }
+  
+  private final GLEventListener tiledGLEL = new GLEventListener() {
+    final TileRenderer tileRenderer = (TileRendererBase.this instanceof TileRenderer) ? (TileRenderer)TileRendererBase.this : null;
+    
+    public void init(GLAutoDrawable paramAnonymousGLAutoDrawable)
+    {
+      if (null != glEventListenerPre) {
+        glEventListenerPre.init(paramAnonymousGLAutoDrawable);
+      }
+      int i = listenersInit.length;
+      for (int j = 0; j < i; j++) {
+        GLEventListener localGLEventListener = listeners[j];
+        if ((listenersInit[j] == 0) && ((localGLEventListener instanceof TileRendererBase.TileRendererListener))) {
+          localGLEventListener.init(paramAnonymousGLAutoDrawable);
+          listenersInit[j] = true;
+        }
+      }
+      if (null != glEventListenerPost) {
+        glEventListenerPost.init(paramAnonymousGLAutoDrawable);
+      }
+    }
+    
+    public void dispose(GLAutoDrawable paramAnonymousGLAutoDrawable) {
+      if (null != glEventListenerPre) {
+        glEventListenerPre.dispose(paramAnonymousGLAutoDrawable);
+      }
+      int i = listenersInit.length;
+      for (int j = 0; j < i; j++) {
+        listeners[j].dispose(paramAnonymousGLAutoDrawable);
+      }
+      if (null != glEventListenerPost) {
+        glEventListenerPost.dispose(paramAnonymousGLAutoDrawable);
+      }
+    }
+    
+    public void display(GLAutoDrawable paramAnonymousGLAutoDrawable) {
+      if (null != glEventListenerPre) {
+        glEventListenerPre.reshape(paramAnonymousGLAutoDrawable, 0, 0, currentTileWidth, currentTileHeight);
+        glEventListenerPre.display(paramAnonymousGLAutoDrawable);
+      }
+      if (!isSetup()) {
+        if (TileRendererBase.DEBUG) {
+          System.err.println("TileRenderer.glel.display: !setup: " + TileRendererBase.this);
+        }
+        return;
+      }
+      if (eot()) {
+        if (TileRendererBase.DEBUG) {
+          System.err.println("TileRenderer.glel.display: EOT: " + TileRendererBase.this);
+        }
+        return;
+      }
+      GL localGL = paramAnonymousGLAutoDrawable.getGL();
+      
+      beginTile(localGL);
+      
+      int i = listenersInit.length;
+      GLEventListener localGLEventListener; for (int j = 0; j < i; j++) {
+        localGLEventListener = listeners[j];
+        if ((localGLEventListener instanceof TileRendererBase.TileRendererListener)) {
+          TileRendererBase.TileRendererListener localTileRendererListener = (TileRendererBase.TileRendererListener)localGLEventListener;
+          if ((null == tileRenderer) || (0 == tileRenderer.getCurrentTile())) {
+            localTileRendererListener.startTileRendering(TileRendererBase.this);
+          }
+          localTileRendererListener.reshapeTile(TileRendererBase.this, currentTileXPos, currentTileYPos, currentTileWidth, currentTileHeight, imageSize
+          
+            .getWidth(), imageSize.getHeight());
+          localGLEventListener.display(paramAnonymousGLAutoDrawable);
+        }
+      }
+      
+      if (gladRequiresPreSwap) {
+        glad.swapBuffers();
+        endTile(localGL);
+      } else {
+        endTile(localGL);
+        glad.swapBuffers();
+      }
+      if ((null == tileRenderer) || (tileRenderer.eot())) {
+        for (j = 0; j < i; j++) {
+          localGLEventListener = listeners[j];
+          if ((localGLEventListener instanceof TileRendererBase.TileRendererListener)) {
+            ((TileRendererBase.TileRendererListener)localGLEventListener).endTileRendering(TileRendererBase.this);
+          }
+        }
+      }
+      if (null != glEventListenerPost) {
+        glEventListenerPost.reshape(paramAnonymousGLAutoDrawable, 0, 0, currentTileWidth, currentTileHeight);
+        glEventListenerPost.display(paramAnonymousGLAutoDrawable);
+      }
+    }
+    
+    public void reshape(GLAutoDrawable paramAnonymousGLAutoDrawable, int paramAnonymousInt1, int paramAnonymousInt2, int paramAnonymousInt3, int paramAnonymousInt4) {}
+  };
+  
+  public static abstract interface TileRendererListener
+  {
+    public abstract void addTileRendererNotify(TileRendererBase paramTileRendererBase);
+    
+    public abstract void removeTileRendererNotify(TileRendererBase paramTileRendererBase);
+    
+    public abstract void reshapeTile(TileRendererBase paramTileRendererBase, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6);
+    
+    public abstract void startTileRendering(TileRendererBase paramTileRendererBase);
+    
+    public abstract void endTileRendering(TileRendererBase paramTileRendererBase);
+  }
+}

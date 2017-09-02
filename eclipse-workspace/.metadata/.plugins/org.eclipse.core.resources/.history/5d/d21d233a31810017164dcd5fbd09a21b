@@ -1,0 +1,120 @@
+package jogamp.opengl.egl;
+
+import com.jogamp.common.os.AndroidVersion;
+import com.jogamp.common.os.Platform.OSType;
+import java.util.ArrayList;
+import java.util.List;
+import jogamp.common.os.PlatformPropsImpl;
+import jogamp.opengl.GLDynamicLibraryBundleInfo;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class EGLDynamicLibraryBundleInfo
+  extends GLDynamicLibraryBundleInfo
+{
+  private static final List<String> glueLibNames = new ArrayList();
+  static { glueLibNames.add("jogl_mobile"); }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean shallLookupGlobal()
+  {
+    if (Platform.OSType.ANDROID == PlatformPropsImpl.OS_TYPE)
+    {
+      return true;
+    }
+    
+    return false;
+  }
+  
+  public final List<String> getToolGetProcAddressFuncNameList()
+  {
+    ArrayList localArrayList = new ArrayList();
+    localArrayList.add("eglGetProcAddress");
+    return localArrayList;
+  }
+  
+  public final long toolGetProcAddress(long paramLong, String paramString)
+  {
+    return EGLContext.eglGetProcAddress(paramLong, paramString);
+  }
+  
+  public final boolean useToolGetProcAdressFirst(String paramString)
+  {
+    if (AndroidVersion.isAvailable)
+    {
+      return false;
+    }
+    return true;
+  }
+  
+  protected final List<String> getEGLLibNamesList()
+  {
+    ArrayList localArrayList = new ArrayList();
+    
+
+    localArrayList.add("libEGL.so.1");
+    
+
+    localArrayList.add("libEGL.so");
+    localArrayList.add("EGL");
+    
+
+
+    localArrayList.add("libEGL");
+    
+    return localArrayList;
+  }
+  
+  public final List<String> getGlueLibNames()
+  {
+    return glueLibNames;
+  }
+  
+  protected EGLDynamicLibraryBundleInfo() {}
+}

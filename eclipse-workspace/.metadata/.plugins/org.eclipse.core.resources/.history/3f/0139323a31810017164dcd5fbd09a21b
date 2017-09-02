@@ -1,0 +1,273 @@
+package jogamp.opengl.windows.wgl;
+
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.VisualIDHolder.VIDType;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import java.nio.IntBuffer;
+import jogamp.nativewindow.windows.PIXELFORMATDESCRIPTOR;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class WGLGLCapabilities
+  extends GLCapabilities
+{
+  private final PIXELFORMATDESCRIPTOR pfd;
+  private final int pfdID;
+  private int arb_pixelformat;
+  
+  public WGLGLCapabilities(PIXELFORMATDESCRIPTOR paramPIXELFORMATDESCRIPTOR, int paramInt, GLProfile paramGLProfile)
+  {
+    super(paramGLProfile);
+    pfd = paramPIXELFORMATDESCRIPTOR;
+    pfdID = paramInt;
+    arb_pixelformat = 0;
+  }
+  
+  public boolean setValuesByGDI() {
+    arb_pixelformat = -1;
+    
+
+    setRedBits(pfd.getCRedBits());
+    setGreenBits(pfd.getCGreenBits());
+    setBlueBits(pfd.getCBlueBits());
+    setAlphaBits(pfd.getCAlphaBits());
+    setAccumRedBits(pfd.getCAccumRedBits());
+    setAccumGreenBits(pfd.getCAccumGreenBits());
+    setAccumBlueBits(pfd.getCAccumBlueBits());
+    setAccumAlphaBits(pfd.getCAccumAlphaBits());
+    setDepthBits(pfd.getCDepthBits());
+    setStencilBits(pfd.getCStencilBits());
+    int i = pfd.getDwFlags();
+    setDoubleBuffered((i & 0x1) != 0);
+    setStereo((i & 0x2) != 0);
+    setHardwareAccelerated(((i & 0x40) == 0) || ((i & 0x1000) != 0));
+    
+
+
+
+
+
+    return true;
+  }
+  
+  public static final String PFD2String(PIXELFORMATDESCRIPTOR paramPIXELFORMATDESCRIPTOR, int paramInt) {
+    int i = paramPIXELFORMATDESCRIPTOR.getDwFlags();
+    StringBuilder localStringBuilder = new StringBuilder();
+    int j = 0;
+    
+    if (0 != (0x4 & i)) {
+      j = 1;
+      localStringBuilder.append("window");
+    }
+    if (0 != (0x8 & i)) {
+      if (j != 0) localStringBuilder.append(", "); j = 1;
+      localStringBuilder.append("bitmap");
+    }
+    if (0 != (0x20 & i)) {
+      if (j != 0) localStringBuilder.append(", "); j = 1;
+      localStringBuilder.append("opengl");
+    }
+    if (0 != (0x1 & i)) {
+      if (j != 0) localStringBuilder.append(", "); j = 1;
+      localStringBuilder.append("dblbuf");
+    }
+    if (0 != (0x2 & i)) {
+      if (j != 0) localStringBuilder.append(", "); j = 1;
+      localStringBuilder.append("stereo");
+    }
+    if ((0 == (0x40 & i)) || (0 == (0x1000 & i))) {
+      if (j != 0) localStringBuilder.append(", "); j = 1;
+      localStringBuilder.append("hw-accel");
+    }
+    
+
+
+
+    return "PFD[id = " + paramInt + " (0x" + Integer.toHexString(paramInt) + "), colorBits " + paramPIXELFORMATDESCRIPTOR.getCColorBits() + ", rgba " + paramPIXELFORMATDESCRIPTOR.getCRedBits() + "/" + paramPIXELFORMATDESCRIPTOR.getCGreenBits() + "/" + paramPIXELFORMATDESCRIPTOR.getCBlueBits() + "/" + paramPIXELFORMATDESCRIPTOR.getCAlphaBits() + ", accum-rgba " + paramPIXELFORMATDESCRIPTOR.getCAccumRedBits() + "/" + paramPIXELFORMATDESCRIPTOR.getCAccumGreenBits() + "/" + paramPIXELFORMATDESCRIPTOR.getCAccumBlueBits() + "/" + paramPIXELFORMATDESCRIPTOR.getCAccumAlphaBits() + ", dp/st/ms: " + paramPIXELFORMATDESCRIPTOR.getCDepthBits() + "/" + paramPIXELFORMATDESCRIPTOR.getCStencilBits() + "/" + "0" + ", flags: " + localStringBuilder.toString();
+  }
+  
+  public boolean setValuesByARB(IntBuffer paramIntBuffer1, int paramInt, IntBuffer paramIntBuffer2) {
+    arb_pixelformat = 1;
+    
+    int i = 0;
+    for (int j = 0; j < paramInt; j++) {
+      int k = paramIntBuffer1.get(j);
+      int m = paramIntBuffer2.get(j);
+      switch (k)
+      {
+      case 8193: 
+      case 8194: 
+      case 8237: 
+        break;
+      case 8195: 
+        setHardwareAccelerated(m == 8231);
+        break;
+      
+      case 8208: 
+        if (m != 1) {
+          return false;
+        }
+        
+        break;
+      case 8226: 
+        setDepthBits(m);
+        break;
+      
+      case 8227: 
+        setStencilBits(m);
+        break;
+      
+      case 8209: 
+        setDoubleBuffered(m == 1);
+        break;
+      
+      case 8210: 
+        setStereo(m == 1);
+        break;
+      
+      case 8211: 
+        if (m == 8236) {
+          return false;
+        }
+        
+        if (m == 8608) {
+          return false;
+        }
+        
+
+
+
+        break;
+      case 8213: 
+        setRedBits(m);
+        break;
+      
+      case 8215: 
+        setGreenBits(m);
+        break;
+      
+      case 8217: 
+        setBlueBits(m);
+        break;
+      
+
+      case 8219: 
+        i = m;
+        break;
+      
+      case 8222: 
+        setAccumRedBits(m);
+        break;
+      
+      case 8223: 
+        setAccumGreenBits(m);
+        break;
+      
+      case 8224: 
+        setAccumBlueBits(m);
+        break;
+      
+      case 8225: 
+        setAccumAlphaBits(m);
+        break;
+      
+      case 8257: 
+        setSampleBuffers(m != 0);
+        break;
+      
+      case 8258: 
+        setNumSamples(m);
+        break;
+      case 8196: case 8197: case 8198: case 8199: case 8200: case 8201: case 8202: case 8203: case 8204: case 8205: case 8206: case 8207: case 8212: case 8214: case 8216: case 8218: case 8220: case 8221: case 8228: case 8229: case 8230: case 8231: case 8232: case 8233: 
+      case 8234: case 8235: case 8236: case 8238: case 8239: case 8240: case 8241: case 8242: case 8243: case 8244: case 8245: case 8246: case 8247: case 8248: case 8249: case 8250: case 8251: case 8252: case 8253: case 8254: case 8255: case 8256: default: 
+        throw new GLException("Unknown pixel format attribute " + k);
+      }
+    }
+    setAlphaBits(i);
+    return true;
+  }
+  
+  public Object cloneMutable()
+  {
+    return clone();
+  }
+  
+  public Object clone()
+  {
+    try {
+      return super.clone();
+    } catch (RuntimeException localRuntimeException) {
+      throw new GLException(localRuntimeException);
+    }
+  }
+  
+  public final PIXELFORMATDESCRIPTOR getPFD() { return pfd; }
+  public final int getPFDID() { return pfdID; }
+  
+  public final boolean isSetByARB() { return 0 < arb_pixelformat; }
+  public final boolean isSetByGDI() { return 0 > arb_pixelformat; }
+  public final boolean isSet() { return 0 != arb_pixelformat; }
+  
+  public final int getVisualID(VisualIDHolder.VIDType paramVIDType) throws NativeWindowException
+  {
+    switch (1.$SwitchMap$com$jogamp$nativewindow$VisualIDHolder$VIDType[paramVIDType.ordinal()]) {
+    case 1: 
+    case 2: 
+    case 3: 
+      return getPFDID();
+    }
+    throw new NativeWindowException("Invalid type <" + paramVIDType + ">");
+  }
+  
+
+  public StringBuilder toString(StringBuilder paramStringBuilder)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    paramStringBuilder.append("wgl vid ").append(pfdID).append(" ");
+    switch (arb_pixelformat) {
+    case -1: 
+      paramStringBuilder.append("gdi");
+      break;
+    case 0: 
+      paramStringBuilder.append("nop");
+      break;
+    case 1: 
+      paramStringBuilder.append("arb");
+      break;
+    default: 
+      throw new InternalError("invalid arb_pixelformat: " + arb_pixelformat);
+    }
+    paramStringBuilder.append(": ");
+    return super.toString(paramStringBuilder);
+  }
+}

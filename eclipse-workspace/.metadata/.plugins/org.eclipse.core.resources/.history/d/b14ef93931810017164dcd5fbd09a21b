@@ -1,0 +1,211 @@
+package jogamp.graph.font.typecast;
+
+import com.jogamp.common.util.IntIntHashMap;
+import com.jogamp.graph.curve.OutlineShape;
+import com.jogamp.graph.font.Font;
+import com.jogamp.graph.font.Font.Glyph;
+import com.jogamp.graph.font.Font.Metrics;
+import com.jogamp.opengl.math.geom.AABBox;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public final class TypecastGlyph
+  implements Font.Glyph
+{
+  public static final short INVALID_ID = -1;
+  public static final short MAX_ID = -2;
+  private final char symbol;
+  private final OutlineShape shape;
+  private final short id;
+  private final Metrics metrics;
+  
+  public static final class Advance
+  {
+    private final Font font;
+    private final float advance;
+    private final IntIntHashMap size2advanceI = new IntIntHashMap();
+    
+    public Advance(Font paramFont, float paramFloat)
+    {
+      font = paramFont;
+      advance = paramFloat;
+      size2advanceI.setKeyNotFoundValue(0);
+    }
+    
+    public final void reset() {
+      size2advanceI.clear();
+    }
+    
+    public final Font getFont() { return font; }
+    
+    public final float getScale(float paramFloat)
+    {
+      return font.getMetrics().getScale(paramFloat);
+    }
+    
+    public final void add(float paramFloat1, float paramFloat2)
+    {
+      size2advanceI.put(Float.floatToIntBits(paramFloat2), Float.floatToIntBits(paramFloat1));
+    }
+    
+    public final float get(float paramFloat, boolean paramBoolean)
+    {
+      int i = Float.floatToIntBits(paramFloat);
+      int j = size2advanceI.get(i);
+      if (0 != j) {
+        return Float.intBitsToFloat(j);
+      }
+      float f;
+      if (paramBoolean) {
+        f = advance * getScale(paramFloat);
+      }
+      else {
+        f = Math.round(advance * getScale(paramFloat));
+      }
+      size2advanceI.put(i, Float.floatToIntBits(f));
+      return f;
+    }
+    
+
+    public final String toString()
+    {
+      return "\nAdvance:\n  advance: " + advance + "\n advances: \n" + size2advanceI;
+    }
+  }
+  
+
+  public static final class Metrics
+  {
+    private final AABBox bbox;
+    
+    private final TypecastGlyph.Advance advance;
+    
+    public Metrics(Font paramFont, AABBox paramAABBox, float paramFloat)
+    {
+      bbox = paramAABBox;
+      advance = new TypecastGlyph.Advance(paramFont, paramFloat);
+    }
+    
+    public final void reset() {
+      advance.reset();
+    }
+    
+    public final Font getFont() { return advance.getFont(); }
+    
+    public final float getScale(float paramFloat)
+    {
+      return advance.getScale(paramFloat);
+    }
+    
+    public final AABBox getBBox()
+    {
+      return bbox;
+    }
+    
+    public final void addAdvance(float paramFloat1, float paramFloat2)
+    {
+      advance.add(paramFloat1, paramFloat2);
+    }
+    
+    public final float getAdvance(float paramFloat, boolean paramBoolean)
+    {
+      return advance.get(paramFloat, paramBoolean);
+    }
+    
+
+    public final String toString()
+    {
+      return "\nMetrics:\n  bbox: " + bbox + advance;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+  protected TypecastGlyph(Font paramFont, char paramChar, short paramShort, AABBox paramAABBox, int paramInt, OutlineShape paramOutlineShape)
+  {
+    symbol = paramChar;
+    shape = paramOutlineShape;
+    id = paramShort;
+    metrics = new Metrics(paramFont, paramAABBox, paramInt);
+  }
+  
+  public final Font getFont()
+  {
+    return metrics.getFont();
+  }
+  
+  public final char getSymbol()
+  {
+    return symbol;
+  }
+  
+  final AABBox getBBoxUnsized() {
+    return metrics.getBBox();
+  }
+  
+  public final AABBox getBBox()
+  {
+    return metrics.getBBox();
+  }
+  
+  public final Metrics getMetrics() {
+    return metrics;
+  }
+  
+  public final short getID()
+  {
+    return id;
+  }
+  
+  public final float getScale(float paramFloat)
+  {
+    return metrics.getScale(paramFloat);
+  }
+  
+  public final AABBox getBBox(AABBox paramAABBox, float paramFloat, float[] paramArrayOfFloat)
+  {
+    return paramAABBox.copy(getBBox()).scale(getScale(paramFloat), paramArrayOfFloat);
+  }
+  
+  protected final void addAdvance(float paramFloat1, float paramFloat2) {
+    metrics.addAdvance(paramFloat1, paramFloat2);
+  }
+  
+  public final float getAdvance(float paramFloat, boolean paramBoolean)
+  {
+    return metrics.getAdvance(paramFloat, paramBoolean);
+  }
+  
+  public final OutlineShape getShape()
+  {
+    return shape;
+  }
+  
+
+  public final int hashCode()
+  {
+    int i = 31 + getFont().getName(3).hashCode();
+    return (i << 5) - i + id;
+  }
+}

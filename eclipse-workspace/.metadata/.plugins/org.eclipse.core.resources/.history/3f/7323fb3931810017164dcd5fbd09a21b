@@ -1,0 +1,187 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class CmapFormat2
+  extends CmapFormat
+{
+  private final int[] _subHeaderKeys = new int['Ā'];
+  private final SubHeader[] _subHeaders;
+  private final int[] _glyphIndexArray;
+  
+  protected CmapFormat2(DataInput paramDataInput) throws IOException {
+    super(paramDataInput);
+    _format = 2;
+    
+    int i = 6;
+    
+
+
+    int j = 0;
+    for (int k = 0; k < 256; k++) {
+      _subHeaderKeys[k] = paramDataInput.readUnsignedShort();
+      j = Math.max(j, _subHeaderKeys[k]);
+      i += 2;
+    }
+    k = j / 8 + 1;
+    _subHeaders = new SubHeader[k];
+    
+
+
+    int m = 8 * k + 518;
+    j = 0;
+    for (int n = 0; n < _subHeaders.length; n++) {
+      SubHeader localSubHeader = new SubHeader();
+      _firstCode = paramDataInput.readUnsignedShort();
+      _entryCount = paramDataInput.readUnsignedShort();
+      _idDelta = paramDataInput.readShort();
+      _idRangeOffset = paramDataInput.readUnsignedShort();
+      
+
+      i += 8;
+      _arrayIndex = ((i - 2 + _idRangeOffset - m) / 2);
+      
+
+
+      j = Math.max(j, _arrayIndex + _entryCount);
+      
+      _subHeaders[n] = localSubHeader;
+    }
+    
+
+    _glyphIndexArray = new int[j];
+    for (n = 0; n < _glyphIndexArray.length; n++) {
+      _glyphIndexArray[n] = paramDataInput.readUnsignedShort();
+    }
+  }
+  
+  public int getRangeCount()
+  {
+    return _subHeaders.length;
+  }
+  
+  public CmapFormat.Range getRange(int paramInt) throws ArrayIndexOutOfBoundsException
+  {
+    if ((paramInt < 0) || (paramInt >= _subHeaders.length)) {
+      throw new ArrayIndexOutOfBoundsException();
+    }
+    
+
+    int i = 0;
+    if (paramInt != 0) {
+      for (int j = 0; j < 256; j++) {
+        if (_subHeaderKeys[j] / 8 == paramInt) {
+          i = j << 8;
+          break;
+        }
+      }
+    }
+    
+    return new CmapFormat.Range(i | _subHeaders[paramInt]._firstCode, i | _subHeaders[paramInt]._firstCode + _subHeaders[paramInt]._entryCount - 1);
+  }
+  
+
+
+
+
+
+  public int mapCharCode(int paramInt)
+  {
+    int i = 0;
+    int j = paramInt >> 8;
+    if (j != 0) {
+      i = _subHeaderKeys[j] / 8;
+    }
+    SubHeader localSubHeader = _subHeaders[i];
+    
+
+    int k = paramInt & 0xFF;
+    if ((k < _firstCode) || (k >= _firstCode + _entryCount))
+    {
+      return 0;
+    }
+    
+
+    int m = _glyphIndexArray[(_arrayIndex + (k - _firstCode))];
+    
+    if (m != 0) {
+      m += _idDelta;
+      m %= 65536;
+    }
+    return m;
+  }
+  
+  static class SubHeader
+  {
+    int _firstCode;
+    int _entryCount;
+    short _idDelta;
+    int _idRangeOffset;
+    int _arrayIndex;
+    
+    SubHeader() {}
+  }
+}

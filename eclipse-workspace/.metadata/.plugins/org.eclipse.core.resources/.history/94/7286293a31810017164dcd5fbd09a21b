@@ -1,0 +1,118 @@
+package jogamp.opengl.macosx.cgl.awt;
+
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.CapabilitiesChooser;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.DefaultGraphicsScreen;
+import com.jogamp.nativewindow.GraphicsConfigurationFactory;
+import com.jogamp.nativewindow.awt.AWTGraphicsConfiguration;
+import com.jogamp.nativewindow.awt.AWTGraphicsDevice;
+import com.jogamp.nativewindow.awt.AWTGraphicsScreen;
+import com.jogamp.nativewindow.macosx.MacOSXGraphicsDevice;
+import com.jogamp.opengl.GLCapabilitiesChooser;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLException;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.io.PrintStream;
+import jogamp.opengl.GLGraphicsConfigurationFactory;
+import jogamp.opengl.macosx.cgl.MacOSXCGLGraphicsConfiguration;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class MacOSXAWTCGLGraphicsConfigurationFactory
+  extends GLGraphicsConfigurationFactory
+{
+  public static void registerFactory()
+  {
+    GraphicsConfigurationFactory.registerFactory(AWTGraphicsDevice.class, GLCapabilitiesImmutable.class, new MacOSXAWTCGLGraphicsConfigurationFactory());
+  }
+  
+
+  private MacOSXAWTCGLGraphicsConfigurationFactory() {}
+  
+
+  protected AbstractGraphicsConfiguration chooseGraphicsConfigurationImpl(CapabilitiesImmutable paramCapabilitiesImmutable1, CapabilitiesImmutable paramCapabilitiesImmutable2, CapabilitiesChooser paramCapabilitiesChooser, AbstractGraphicsScreen paramAbstractGraphicsScreen, int paramInt)
+  {
+    GraphicsDevice localGraphicsDevice = null;
+    if ((paramAbstractGraphicsScreen != null) && (!(paramAbstractGraphicsScreen instanceof AWTGraphicsScreen)))
+    {
+      throw new IllegalArgumentException("This GraphicsConfigurationFactory accepts only AWTGraphicsScreen objects");
+    }
+    
+    if (null == paramAbstractGraphicsScreen) {
+      paramAbstractGraphicsScreen = AWTGraphicsScreen.createDefault();
+    }
+    AWTGraphicsScreen localAWTGraphicsScreen = (AWTGraphicsScreen)paramAbstractGraphicsScreen;
+    localGraphicsDevice = ((AWTGraphicsDevice)localAWTGraphicsScreen.getDevice()).getGraphicsDevice();
+    
+    if (!(paramCapabilitiesImmutable1 instanceof GLCapabilitiesImmutable)) {
+      throw new IllegalArgumentException("This GraphicsConfigurationFactory accepts only GLCapabilities objects - chosen");
+    }
+    
+    if (!(paramCapabilitiesImmutable2 instanceof GLCapabilitiesImmutable)) {
+      throw new IllegalArgumentException("This GraphicsConfigurationFactory accepts only GLCapabilities objects - requested");
+    }
+    
+    if ((paramCapabilitiesChooser != null) && (!(paramCapabilitiesChooser instanceof GLCapabilitiesChooser)))
+    {
+      throw new IllegalArgumentException("This GraphicsConfigurationFactory accepts only GLCapabilitiesChooser objects");
+    }
+    
+    if (DEBUG) {
+      System.err.println("MacOSXAWTCGLGraphicsConfigurationFactory: got " + paramAbstractGraphicsScreen);
+    }
+    
+    MacOSXGraphicsDevice localMacOSXGraphicsDevice = new MacOSXGraphicsDevice(0);
+    DefaultGraphicsScreen localDefaultGraphicsScreen = new DefaultGraphicsScreen(localMacOSXGraphicsDevice, localAWTGraphicsScreen.getIndex());
+    if (DEBUG) {
+      System.err.println("MacOSXAWTCGLGraphicsConfigurationFactory: made " + localDefaultGraphicsScreen);
+    }
+    
+    GraphicsConfiguration localGraphicsConfiguration = localGraphicsDevice.getDefaultConfiguration();
+    
+    MacOSXCGLGraphicsConfiguration localMacOSXCGLGraphicsConfiguration = (MacOSXCGLGraphicsConfiguration)GraphicsConfigurationFactory.getFactory(localMacOSXGraphicsDevice, paramCapabilitiesImmutable1).chooseGraphicsConfiguration(paramCapabilitiesImmutable1, paramCapabilitiesImmutable2, paramCapabilitiesChooser, localDefaultGraphicsScreen, paramInt);
+    
+
+
+    if (localMacOSXCGLGraphicsConfiguration == null) {
+      throw new GLException("Unable to choose a GraphicsConfiguration: " + paramCapabilitiesImmutable1 + ",\n\t" + paramCapabilitiesChooser + "\n\t" + localDefaultGraphicsScreen);
+    }
+    
+
+    return new AWTGraphicsConfiguration(localAWTGraphicsScreen, localMacOSXCGLGraphicsConfiguration.getChosenCapabilities(), localMacOSXCGLGraphicsConfiguration.getRequestedCapabilities(), localGraphicsConfiguration, localMacOSXCGLGraphicsConfiguration);
+  }
+}

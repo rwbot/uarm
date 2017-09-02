@@ -1,0 +1,2525 @@
+package com.jogamp.common.net;
+
+import com.jogamp.common.util.IOUtil;
+import com.jogamp.common.util.PropertyAccess;
+import java.io.File;
+import java.io.PrintStream;
+import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.util.StringTokenizer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import jogamp.common.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Uri
+{
+  private static final boolean DEBUG = (IOUtil.DEBUG) || (Debug.debug("Uri"));
+  private static final boolean DEBUG_SHOWFIX = PropertyAccess.isPropertyDefined("jogamp.debug.Uri.ShowFix", true);
+  
+
+
+
+  private static final int PARSE_HINT_FIX_PATH = 1;
+  
+
+
+  private static final String DIGITS = "0123456789ABCDEF";
+  
+
+
+  private static final String ENCODING = "UTF8";
+  
+
+
+  private static final String MSG_ENCODING_NA = "Charset UTF8 not available";
+  
+
+
+  private static final Pattern patternSingleFS = Pattern.compile("/{1}");
+  
+
+
+
+
+  public static final String UNRESERVED = "_-.~";
+  
+
+
+
+
+  private static final String punct = ",;:$&+=";
+  
+
+
+
+
+  public static final String RESERVED = ",;:$&+=!*'()@/?#[]";
+  
+
+
+
+
+  public static final String RESERVED_2 = ",;:$&+=!*'()@/?[]";
+  
+
+
+
+
+  public static final String USERINFO_LEGAL = "_-.~,;:$&+=";
+  
+
+
+
+
+  public static final String AUTHORITY_LEGAL = "@[]_-.~,;:$&+=";
+  
+
+
+
+  public static final String PATH_LEGAL = "/!_-.~";
+  
+
+
+
+  public static final String QUERY_LEGAL = "_-.~,;:$&+=!*'()@/?[]\\\"";
+  
+
+
+
+  public static final String SSP_LEGAL = "_-.~,;:$&+=!*'()@/?[]\\\"";
+  
+
+
+
+  public static final String FRAG_LEGAL = "_-.~,;:$&+=!*'()@/?#[]";
+  
+
+
+
+  public static final char SCHEME_SEPARATOR = ':';
+  
+
+
+
+  public static final char QUERY_SEPARATOR = '?';
+  
+
+
+
+  public static final char FRAGMENT_SEPARATOR = '#';
+  
+
+
+
+  public static final String FILE_SCHEME = "file";
+  
+
+
+
+  public static final String HTTP_SCHEME = "http";
+  
+
+
+
+  public static final String HTTPS_SCHEME = "https";
+  
+
+
+
+  public static final String JAR_SCHEME = "jar";
+  
+
+
+
+  public static final char JAR_SCHEME_SEPARATOR = '!';
+  
+
+
+
+  public final Encoded input;
+  
+
+
+
+
+  public static class Encoded
+    implements Comparable<Encoded>, CharSequence
+  {
+    private final String s;
+    
+
+
+
+
+    public static Encoded cast(String paramString)
+    {
+      return new Encoded(paramString);
+    }
+    
+    Encoded(String paramString) {
+      s = paramString;
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public Encoded(String paramString1, String paramString2)
+    {
+      s = Uri.encode(paramString1, paramString2);
+    }
+    
+    public boolean isASCII() { return false; }
+    
+    public final String get() {
+      return s;
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    public final String decode()
+    {
+      return Uri.decode(s);
+    }
+    
+
+
+
+
+
+
+
+
+    public final String toString()
+    {
+      return s;
+    }
+    
+    public final int hashCode() { return s.hashCode(); }
+    
+
+
+
+
+
+
+
+
+
+
+
+    public final boolean equals(Object paramObject)
+    {
+      if (this == paramObject) {
+        return true;
+      }
+      if ((paramObject instanceof Encoded)) {
+        return s.equals(s);
+      }
+      return s.equals(paramObject);
+    }
+    
+
+
+
+    public final int length()
+    {
+      return s.length();
+    }
+    
+    public final char charAt(int paramInt) { return s.charAt(paramInt); }
+    
+    public final CharSequence subSequence(int paramInt1, int paramInt2) {
+      return s.subSequence(paramInt1, paramInt2);
+    }
+    
+    public final int compareTo(Encoded paramEncoded) { return s.compareTo(s); }
+    
+
+
+    public Encoded concat(Encoded paramEncoded)
+    {
+      return new Encoded(s.concat(s));
+    }
+    
+    public final Encoded substring(int paramInt) { return new Encoded(s.substring(paramInt)); }
+    
+    public final Encoded substring(int paramInt1, int paramInt2) { return new Encoded(s.substring(paramInt1, paramInt2)); }
+    
+
+    public final int indexOf(int paramInt) { return s.indexOf(paramInt); }
+    
+    public final int indexOf(int paramInt1, int paramInt2) { return s.indexOf(paramInt1, paramInt2); }
+    
+    public final int indexOf(String paramString) { return s.indexOf(paramString); }
+    
+    public final int indexOf(String paramString, int paramInt) { return s.indexOf(paramString, paramInt); }
+    
+
+    public final int lastIndexOf(int paramInt) { return s.lastIndexOf(paramInt); }
+    
+    public int lastIndexOf(int paramInt1, int paramInt2) { return s.lastIndexOf(paramInt1, paramInt2); }
+    
+    public int lastIndexOf(String paramString) { return s.lastIndexOf(paramString); }
+    
+    public int lastIndexOf(String paramString, int paramInt) { return s.lastIndexOf(paramString, paramInt); }
+    
+
+    public boolean startsWith(String paramString) { return s.startsWith(paramString); }
+    
+    public boolean startsWith(String paramString, int paramInt) { return s.startsWith(paramString, paramInt); }
+    
+    public boolean endsWith(String paramString) { return s.endsWith(paramString); }
+    
+    public final boolean equalsIgnoreCase(Encoded paramEncoded) {
+      return s.equalsIgnoreCase(s);
+    }
+  }
+  
+
+
+  public static class ASCIIEncoded
+    extends Uri.Encoded
+  {
+    public static ASCIIEncoded cast(String paramString)
+    {
+      return new ASCIIEncoded(paramString, null);
+    }
+    
+    private ASCIIEncoded(String paramString, Object paramObject) { super(); }
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public ASCIIEncoded(String paramString) { super(); }
+    
+    public boolean isASCII() { return true; }
+  }
+  
+  private static void encodeChar2UTF8(StringBuilder paramStringBuilder, char paramChar) {
+    byte[] arrayOfByte;
+    try {
+      arrayOfByte = new String(new char[] { paramChar }).getBytes("UTF8");
+    } catch (UnsupportedEncodingException localUnsupportedEncodingException) {
+      throw new RuntimeException("Charset UTF8 not available", localUnsupportedEncodingException);
+    }
+    
+    for (int i = 0; i < arrayOfByte.length; i++) {
+      int j = arrayOfByte[i];
+      paramStringBuilder.append('%');
+      paramStringBuilder.append("0123456789ABCDEF".charAt((j & 0xF0) >> 4));
+      paramStringBuilder.append("0123456789ABCDEF".charAt(j & 0xF));
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static String encode(String paramString1, String paramString2)
+  {
+    if (null == paramString1) {
+      return null;
+    }
+    StringBuilder localStringBuilder = new StringBuilder();
+    for (int i = 0; i < paramString1.length(); i++) {
+      char c = paramString1.charAt(i);
+      if (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z')) || ((c >= '0') && (c <= '9')) || 
+      
+
+        (paramString2.indexOf(c) > -1) || ((c > '') && 
+        (!Character.isSpaceChar(c)) && (!Character.isISOControl(c))))
+      {
+        localStringBuilder.append(c);
+      } else {
+        encodeChar2UTF8(localStringBuilder, c);
+      }
+    }
+    return localStringBuilder.toString();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static String encodeToASCIIString(String paramString)
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    for (int i = 0; i < paramString.length(); i++) {
+      char c = paramString.charAt(i);
+      if (c <= '') {
+        localStringBuilder.append(c);
+      } else {
+        encodeChar2UTF8(localStringBuilder, c);
+      }
+    }
+    return localStringBuilder.toString();
+  }
+  
+
+
+
+
+  public static String decode(Encoded paramEncoded)
+  {
+    return null != paramEncoded ? paramEncoded.decode() : null;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static String decode(String paramString)
+  {
+    if (null == paramString) {
+      return null;
+    }
+    StringBuilder localStringBuilder = new StringBuilder();
+    byte[] arrayOfByte = new byte[32];
+    int i = 0;
+    for (int j = 0; j < paramString.length();) {
+      char c = paramString.charAt(j);
+      if (c == '%') {
+        i = 0;
+        do {
+          if (j + 2 >= paramString.length()) {
+            throw new IllegalArgumentException("missing '%' hex-digits at index " + j);
+          }
+          int k = Character.digit(paramString.charAt(j + 1), 16);
+          int m = Character.digit(paramString.charAt(j + 2), 16);
+          if ((k == -1) || (m == -1)) {
+            throw new IllegalArgumentException("invalid hex-digits at index " + j + ": " + paramString.substring(j, j + 3));
+          }
+          arrayOfByte[(i++)] = ((byte)((k << 4) + m));
+          if (32 == i) {
+            appendUTF8(localStringBuilder, arrayOfByte, i);
+            i = 0;
+          }
+          j += 3;
+        } while ((j < paramString.length()) && (paramString.charAt(j) == '%'));
+        if (0 < i) {
+          appendUTF8(localStringBuilder, arrayOfByte, i);
+        }
+      } else {
+        localStringBuilder.append(c);
+        j++;
+      }
+    }
+    return localStringBuilder.toString();
+  }
+  
+  private static void appendUTF8(StringBuilder paramStringBuilder, byte[] paramArrayOfByte, int paramInt) {
+    try { paramStringBuilder.append(new String(paramArrayOfByte, 0, paramInt, "UTF8"));
+    } catch (UnsupportedEncodingException localUnsupportedEncodingException) {
+      throw new RuntimeException("Charset UTF8 not available", localUnsupportedEncodingException);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Uri create(String paramString1, String paramString2, String paramString3)
+    throws URISyntaxException
+  {
+    if ((emptyString(paramString1)) && (emptyString(paramString2)) && (emptyString(paramString3))) {
+      throw new URISyntaxException("", "all empty parts");
+    }
+    StringBuilder localStringBuilder = new StringBuilder();
+    if (!emptyString(paramString1)) {
+      localStringBuilder.append(paramString1);
+      localStringBuilder.append(':');
+    }
+    if (!emptyString(paramString2))
+    {
+      localStringBuilder.append(encode(paramString2, "_-.~,;:$&+=!*'()@/?[]\\\""));
+    }
+    if (!emptyString(paramString3)) {
+      localStringBuilder.append('#');
+      
+      localStringBuilder.append(encode(paramString3, "_-.~,;:$&+=!*'()@/?#[]"));
+    }
+    return new Uri(new Encoded(localStringBuilder.toString()), false, 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Uri create(Encoded paramEncoded1, Encoded paramEncoded2, Encoded paramEncoded3)
+    throws URISyntaxException
+  {
+    if ((emptyString(paramEncoded1)) && (emptyString(paramEncoded2)) && (emptyString(paramEncoded3))) {
+      throw new URISyntaxException("", "all empty parts");
+    }
+    StringBuilder localStringBuilder = new StringBuilder();
+    if (!emptyString(paramEncoded1)) {
+      localStringBuilder.append(paramEncoded1);
+      localStringBuilder.append(':');
+    }
+    if (!emptyString(paramEncoded2)) {
+      localStringBuilder.append(paramEncoded2.get());
+    }
+    if (!emptyString(paramEncoded3)) {
+      localStringBuilder.append('#');
+      localStringBuilder.append(paramEncoded3.get());
+    }
+    return new Uri(new Encoded(localStringBuilder.toString()), false, 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Uri create(String paramString1, String paramString2, String paramString3, int paramInt, String paramString4, String paramString5, String paramString6)
+    throws URISyntaxException
+  {
+    if ((emptyString(paramString1)) && (emptyString(paramString2)) && (emptyString(paramString3)) && (emptyString(paramString4)) && 
+      (emptyString(paramString5)) && (emptyString(paramString6))) {
+      throw new URISyntaxException("", "all empty parts");
+    }
+    
+    if ((!emptyString(paramString1)) && (!emptyString(paramString4)) && (paramString4.length() > 0) && (paramString4.charAt(0) != '/')) {
+      throw new URISyntaxException(paramString4, "path doesn't start with '/'");
+    }
+    
+    StringBuilder localStringBuilder = new StringBuilder();
+    if (!emptyString(paramString1)) {
+      localStringBuilder.append(paramString1);
+      localStringBuilder.append(':');
+    }
+    
+    if ((!emptyString(paramString2)) || (!emptyString(paramString3)) || (paramInt != -1)) {
+      localStringBuilder.append("//");
+    }
+    
+    if (!emptyString(paramString2))
+    {
+      localStringBuilder.append(encode(paramString2, "_-.~,;:$&+="));
+      localStringBuilder.append('@');
+    }
+    
+    if (!emptyString(paramString3))
+    {
+
+      if ((paramString3.indexOf(':') != -1) && (paramString3.indexOf(']') == -1) && 
+        (paramString3.indexOf('[') == -1)) {
+        paramString3 = "[" + paramString3 + "]";
+      }
+      localStringBuilder.append(paramString3);
+    }
+    
+    if (paramInt != -1) {
+      localStringBuilder.append(':');
+      localStringBuilder.append(paramInt);
+    }
+    
+    if (!emptyString(paramString4))
+    {
+      localStringBuilder.append(encode(paramString4, "/!_-.~"));
+    }
+    
+    if (!emptyString(paramString5)) {
+      localStringBuilder.append('?');
+      
+      localStringBuilder.append(encode(paramString5, "_-.~,;:$&+=!*'()@/?[]\\\""));
+    }
+    
+    if (!emptyString(paramString6))
+    {
+      localStringBuilder.append('#');
+      localStringBuilder.append(encode(paramString6, "_-.~,;:$&+=!*'()@/?#[]"));
+    }
+    return new Uri(new Encoded(localStringBuilder.toString()), true, 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Uri create(Encoded paramEncoded1, Encoded paramEncoded2, Encoded paramEncoded3, int paramInt, Encoded paramEncoded4, Encoded paramEncoded5, Encoded paramEncoded6)
+    throws URISyntaxException
+  {
+    if ((emptyString(paramEncoded1)) && (emptyString(paramEncoded2)) && (emptyString(paramEncoded3)) && (emptyString(paramEncoded4)) && 
+      (emptyString(paramEncoded5)) && (emptyString(paramEncoded6))) {
+      throw new URISyntaxException("", "all empty parts");
+    }
+    
+    if ((!emptyString(paramEncoded1)) && (!emptyString(paramEncoded4)) && (paramEncoded4.length() > 0) && (paramEncoded4.charAt(0) != '/')) {
+      throw new URISyntaxException(paramEncoded4.get(), "path doesn't start with '/'");
+    }
+    
+    StringBuilder localStringBuilder = new StringBuilder();
+    if (!emptyString(paramEncoded1)) {
+      localStringBuilder.append(paramEncoded1);
+      localStringBuilder.append(':');
+    }
+    
+    if ((!emptyString(paramEncoded2)) || (!emptyString(paramEncoded3)) || (paramInt != -1)) {
+      localStringBuilder.append("//");
+    }
+    
+    if (!emptyString(paramEncoded2)) {
+      localStringBuilder.append(paramEncoded2.get());
+      localStringBuilder.append('@');
+    }
+    
+    if (!emptyString(paramEncoded3)) {
+      localStringBuilder.append(paramEncoded3.get());
+    }
+    
+    if (paramInt != -1) {
+      localStringBuilder.append(':');
+      localStringBuilder.append(paramInt);
+    }
+    
+    if (!emptyString(paramEncoded4)) {
+      localStringBuilder.append(paramEncoded4.get());
+    }
+    
+    if (!emptyString(paramEncoded5)) {
+      localStringBuilder.append('?');
+      localStringBuilder.append(paramEncoded5.get());
+    }
+    
+    if (!emptyString(paramEncoded6)) {
+      localStringBuilder.append('#');
+      localStringBuilder.append(paramEncoded6.get());
+    }
+    return new Uri(new Encoded(localStringBuilder.toString()), true, 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Uri create(String paramString1, String paramString2, String paramString3, String paramString4)
+    throws URISyntaxException
+  {
+    return create(paramString1, null, paramString2, -1, paramString3, null, paramString4);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Uri create(Encoded paramEncoded1, Encoded paramEncoded2, Encoded paramEncoded3, Encoded paramEncoded4)
+    throws URISyntaxException
+  {
+    return create(paramEncoded1, null, paramEncoded2, -1, paramEncoded3, null, paramEncoded4);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Uri create(String paramString1, String paramString2, String paramString3, String paramString4, String paramString5)
+    throws URISyntaxException
+  {
+    if ((emptyString(paramString1)) && (emptyString(paramString2)) && (emptyString(paramString3)) && 
+      (emptyString(paramString4)) && (emptyString(paramString5))) {
+      throw new URISyntaxException("", "all empty parts");
+    }
+    if ((!emptyString(paramString1)) && (!emptyString(paramString3)) && (paramString3.length() > 0) && (paramString3.charAt(0) != '/')) {
+      throw new URISyntaxException(paramString3, "path doesn't start with '/'");
+    }
+    
+    StringBuilder localStringBuilder = new StringBuilder();
+    if (!emptyString(paramString1)) {
+      localStringBuilder.append(paramString1);
+      localStringBuilder.append(':');
+    }
+    if (!emptyString(paramString2)) {
+      localStringBuilder.append("//");
+      
+      localStringBuilder.append(encode(paramString2, "@[]_-.~,;:$&+="));
+    }
+    
+    if (!emptyString(paramString3))
+    {
+      localStringBuilder.append(encode(paramString3, "/!_-.~"));
+    }
+    if (!emptyString(paramString4))
+    {
+      localStringBuilder.append('?');
+      localStringBuilder.append(encode(paramString4, "_-.~,;:$&+=!*'()@/?[]\\\""));
+    }
+    if (!emptyString(paramString5))
+    {
+      localStringBuilder.append('#');
+      localStringBuilder.append(encode(paramString5, "_-.~,;:$&+=!*'()@/?#[]"));
+    }
+    return new Uri(new Encoded(localStringBuilder.toString()), false, 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Uri create(Encoded paramEncoded1, Encoded paramEncoded2, Encoded paramEncoded3, Encoded paramEncoded4, Encoded paramEncoded5)
+    throws URISyntaxException
+  {
+    if ((emptyString(paramEncoded1)) && (emptyString(paramEncoded2)) && (emptyString(paramEncoded3)) && 
+      (emptyString(paramEncoded4)) && (emptyString(paramEncoded5))) {
+      throw new URISyntaxException("", "all empty parts");
+    }
+    if ((!emptyString(paramEncoded1)) && (!emptyString(paramEncoded3)) && (paramEncoded3.length() > 0) && (paramEncoded3.charAt(0) != '/')) {
+      throw new URISyntaxException(paramEncoded3.get(), "path doesn't start with '/'");
+    }
+    
+    StringBuilder localStringBuilder = new StringBuilder();
+    if (!emptyString(paramEncoded1)) {
+      localStringBuilder.append(paramEncoded1);
+      localStringBuilder.append(':');
+    }
+    if (!emptyString(paramEncoded2)) {
+      localStringBuilder.append("//");
+      localStringBuilder.append(paramEncoded2.get());
+    }
+    
+    if (!emptyString(paramEncoded3)) {
+      localStringBuilder.append(paramEncoded3.get());
+    }
+    if (!emptyString(paramEncoded4)) {
+      localStringBuilder.append('?');
+      localStringBuilder.append(paramEncoded4.get());
+    }
+    if (!emptyString(paramEncoded5)) {
+      localStringBuilder.append('#');
+      localStringBuilder.append(paramEncoded5.get());
+    }
+    return new Uri(new Encoded(localStringBuilder.toString()), false, 0);
+  }
+  
+
+
+
+
+
+
+  public static Uri cast(String paramString)
+    throws URISyntaxException
+  {
+    return new Uri(Encoded.cast(paramString));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Uri valueOfFilepath(String paramString)
+    throws URISyntaxException
+  {
+    if (emptyString(paramString)) {
+      throw new URISyntaxException("", "empty path");
+    }
+    if (paramString.charAt(0) != '/') {
+      throw new URISyntaxException(paramString, "path doesn't start with '/'");
+    }
+    
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("file");
+    localStringBuilder.append(':');
+    
+
+    localStringBuilder.append(encode(paramString, "/!_-.~"));
+    
+    return new Uri(new Encoded(localStringBuilder.toString()), false, 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Uri valueOf(File paramFile)
+    throws URISyntaxException
+  {
+    return valueOfFilepath(IOUtil.slashify(paramFile.getAbsolutePath(), true, paramFile.isDirectory()));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Uri valueOf(URI paramURI)
+    throws URISyntaxException
+  {
+    if (paramURI.isOpaque())
+    {
+
+      return new Uri(new Encoded(paramURI.toString()), false, 0);
+    }
+    
+    return create(paramURI.getScheme(), paramURI.getUserInfo(), paramURI.getHost(), paramURI.getPort(), paramURI
+      .getPath(), paramURI.getQuery(), paramURI.getFragment());
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Uri valueOf(URL paramURL)
+    throws URISyntaxException
+  {
+    return valueOf(paramURL.toURI());
+  }
+  
+
+
+
+
+
+
+
+  private final Object lazyLock = new Object();
+  
+
+
+  private ASCIIEncoded inputASCII;
+  
+
+
+  private int hash;
+  
+
+
+  public final Encoded scheme;
+  
+
+
+  public final Encoded schemeSpecificPart;
+  
+
+  public final Encoded path;
+  
+
+  public final boolean hasAuthority;
+  
+
+  public final Encoded authority;
+  
+
+  public final Encoded userInfo;
+  
+
+  public final Encoded host;
+  
+
+  public final int port;
+  
+
+  public final Encoded query;
+  
+
+  public final Encoded fragment;
+  
+
+  public final boolean absolute;
+  
+
+  public final boolean opaque;
+  
+
+
+  public Uri(Encoded paramEncoded)
+    throws URISyntaxException
+  {
+    this(paramEncoded, false, 0);
+  }
+  
+  public final boolean isFileScheme()
+  {
+    return (null != scheme) && ("file".equals(scheme.get()));
+  }
+  
+
+
+
+  public final boolean isJarScheme()
+  {
+    return (null != scheme) && ("jar".equals(scheme.get()));
+  }
+  
+
+
+  public final Encoded getEncoded()
+  {
+    return input;
+  }
+  
+
+
+
+  public final String toString()
+  {
+    return input.get();
+  }
+  
+
+
+  public ASCIIEncoded toASCIIString()
+  {
+    synchronized (lazyLock) {
+      if (null == inputASCII) {
+        inputASCII = new ASCIIEncoded(input.get());
+      }
+      return inputASCII;
+    }
+  }
+  
+
+
+
+
+  public final URI toURI()
+  {
+    try
+    {
+      return new URI(input.get());
+    } catch (URISyntaxException localURISyntaxException) {
+      throw new Error(localURISyntaxException);
+    }
+  }
+  
+
+
+
+
+
+
+  public final URI toURIReencoded()
+    throws URISyntaxException
+  {
+    URI localURI;
+    
+
+
+
+
+    if (opaque)
+    {
+      localURI = new URI(decode(scheme), decode(schemeSpecificPart), decode(fragment));
+    } else if (null != host)
+    {
+
+      localURI = new URI(decode(scheme), decode(userInfo), decode(host), port, decode(path), decode(query), decode(fragment));
+    }
+    else
+    {
+      localURI = new URI(decode(scheme), decode(authority), decode(path), decode(query), decode(fragment));
+    }
+    return localURI;
+  }
+  
+
+
+
+
+
+
+  public final URL toURL()
+    throws MalformedURLException
+  {
+    if (!absolute) {
+      throw new IllegalArgumentException("Cannot convert relative Uri: " + input);
+    }
+    return new URL(input.get());
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final File toFile()
+  {
+    if ((isFileScheme()) && (!emptyString(path))) {
+      String str1;
+      if (null == authority) {
+        str1 = "";
+      } else {
+        str1 = "//" + authority.decode();
+      }
+      String str2 = str1 + path.decode();
+      if (File.separator.equals("\\")) {
+        String str3 = patternSingleFS.matcher(str2).replaceAll("\\\\");
+        if ((str3.startsWith("\\")) && (!str3.startsWith("\\\\"))) {
+          return new File(str3.substring(1));
+        }
+        return new File(str3);
+      }
+      
+      return new File(str2);
+    }
+    return null;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final Uri getContainedUri()
+    throws URISyntaxException
+  {
+    if (!emptyString(schemeSpecificPart)) {
+      StringBuilder localStringBuilder = new StringBuilder();
+      int i;
+      if (isJarScheme()) {
+        i = schemeSpecificPart.lastIndexOf(33);
+        if (0 > i) {
+          throw new URISyntaxException(input.get(), "missing jar separator");
+        }
+        localStringBuilder.append(schemeSpecificPart.get().substring(0, i));
+      } else {
+        localStringBuilder.append(schemeSpecificPart.get());
+      }
+      if (!emptyString(fragment)) {
+        localStringBuilder.append('#');
+        localStringBuilder.append(fragment);
+      }
+      try {
+        i = opaque ? 1 : 0;
+        Uri localUri = new Uri(new Encoded(localStringBuilder.toString()), false, i);
+        if (null != scheme) {
+          return localUri;
+        }
+      }
+      catch (URISyntaxException localURISyntaxException) {
+        if (DEBUG) {
+          System.err.println("Caught " + localURISyntaxException.getClass().getSimpleName() + ": " + localURISyntaxException.getMessage());
+          localURISyntaxException.printStackTrace();
+        }
+      }
+    }
+    return null;
+  }
+  
+
+
+
+  private static final boolean cutoffLastPathSegementImpl(StringBuilder paramStringBuilder, boolean paramBoolean1, boolean paramBoolean2, Encoded paramEncoded)
+    throws URISyntaxException
+  {
+    String str = paramStringBuilder.toString();
+    if ((0 > str.indexOf("/")) && (emptyString(paramEncoded))) {
+      return false;
+    }
+    paramStringBuilder.setLength(0);
+    paramStringBuilder.append(IOUtil.cleanPathString(str));
+    int i = paramStringBuilder.length() != str.length() ? 1 : 0;
+    
+
+
+    str = paramStringBuilder.toString();
+    int j = str.lastIndexOf('!');
+    int k = str.lastIndexOf("/");
+    if ((0 > j) || (k - 1 > j)) {
+      if ((paramBoolean1) && (k < str.length() - 1))
+      {
+        paramStringBuilder.setLength(0);
+        paramStringBuilder.append(str.substring(0, k + 1));
+      } else if (paramBoolean2)
+      {
+        m = str.lastIndexOf("/", k - 1);
+        if (m >= 0) {
+          paramStringBuilder.setLength(0);
+          paramStringBuilder.append(str.substring(0, m + 1));
+        }
+      }
+    }
+    int m = paramStringBuilder.length() != str.length() ? 1 : 0;
+    if ((m == 0) && ((paramBoolean2) || (i == 0)) && (emptyString(paramEncoded))) {
+      return false;
+    }
+    
+    if (!emptyString(paramEncoded)) {
+      paramStringBuilder.append(paramEncoded.get());
+      
+      str = paramStringBuilder.toString();
+      paramStringBuilder.setLength(0);
+      paramStringBuilder.append(IOUtil.cleanPathString(str));
+    }
+    return true;
+  }
+  
+  private final Uri cutoffLastPathSegementImpl(boolean paramBoolean1, boolean paramBoolean2, Encoded paramEncoded) throws URISyntaxException { if (opaque) {
+      if (emptyString(schemeSpecificPart))
+      {
+        if (!emptyString(paramEncoded)) {
+          return create(scheme, paramEncoded, fragment);
+        }
+        return null;
+      }
+      
+      localStringBuilder = new StringBuilder();
+      
+
+
+      int i = schemeSpecificPart.lastIndexOf(63);
+      Encoded localEncoded; if (i >= 0) {
+        localEncoded = schemeSpecificPart.substring(i + 1);
+        localStringBuilder.append(schemeSpecificPart.substring(0, i).get());
+      } else {
+        localEncoded = null;
+        localStringBuilder.append(schemeSpecificPart.get());
+      }
+      
+      if (!cutoffLastPathSegementImpl(localStringBuilder, paramBoolean1, paramBoolean2, paramEncoded)) {
+        return null;
+      }
+      
+      if (!emptyString(localEncoded)) {
+        localStringBuilder.append('?');
+        localStringBuilder.append(localEncoded.get());
+      }
+      
+
+      return create(scheme, new Encoded(localStringBuilder.toString()), fragment);
+    }
+    if (emptyString(path)) {
+      return null;
+    }
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append(path.get());
+    
+    if (!cutoffLastPathSegementImpl(localStringBuilder, paramBoolean1, paramBoolean2, paramEncoded)) {
+      return null;
+    }
+    
+
+    return create(scheme, userInfo, host, port, new Encoded(localStringBuilder.toString()), query, fragment);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final Uri getNormalized()
+  {
+    try
+    {
+      Uri localUri = cutoffLastPathSegementImpl(false, false, null);
+      return null != localUri ? localUri : this;
+    } catch (URISyntaxException localURISyntaxException) {
+      if (DEBUG) {
+        System.err.println("Caught " + localURISyntaxException.getClass().getSimpleName() + ": " + localURISyntaxException.getMessage());
+        localURISyntaxException.printStackTrace();
+      } }
+    return this;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public Uri getDirectory()
+  {
+    try
+    {
+      Uri localUri = cutoffLastPathSegementImpl(true, false, null);
+      return null != localUri ? localUri : this;
+    } catch (URISyntaxException localURISyntaxException) {
+      if (DEBUG) {
+        System.err.println("Caught " + localURISyntaxException.getClass().getSimpleName() + ": " + localURISyntaxException.getMessage());
+        localURISyntaxException.printStackTrace();
+      } }
+    return this;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final Uri getParent()
+  {
+    try
+    {
+      return cutoffLastPathSegementImpl(true, true, null);
+    } catch (URISyntaxException localURISyntaxException) {
+      if (DEBUG) {
+        System.err.println("Caught " + localURISyntaxException.getClass().getSimpleName() + ": " + localURISyntaxException.getMessage());
+        localURISyntaxException.printStackTrace();
+      } }
+    return null;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public Uri getRelativeOf(Encoded paramEncoded)
+    throws URISyntaxException
+  {
+    if (emptyString(paramEncoded)) {
+      return getNormalized();
+    }
+    return cutoffLastPathSegementImpl(true, false, paramEncoded);
+  }
+  
+
+
+
+
+
+
+
+  public final Uri concat(Encoded paramEncoded)
+    throws URISyntaxException
+  {
+    if (null == paramEncoded) {
+      return this;
+    }
+    return new Uri(input.concat(paramEncoded));
+  }
+  
+
+
+
+
+
+
+  public final Uri getNewQuery(Encoded paramEncoded)
+    throws URISyntaxException
+  {
+    if (opaque) {
+      throw new URISyntaxException(input.decode(), "Opaque Uri cannot permute by query");
+    }
+    
+    return create(scheme, userInfo, host, port, path, paramEncoded, fragment);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean equals(Object paramObject)
+  {
+    if (!(paramObject instanceof Uri)) {
+      return false;
+    }
+    Uri localUri = (Uri)paramObject;
+    
+    if (((fragment == null) && (fragment != null)) || ((fragment != null) && (fragment == null)))
+      return false;
+    if ((fragment != null) && (fragment != null) && 
+      (!equalsHexCaseInsensitive(fragment, fragment))) {
+      return false;
+    }
+    
+
+    if (((scheme == null) && (scheme != null)) || ((scheme != null) && (scheme == null)))
+      return false;
+    if ((scheme != null) && (scheme != null) && 
+      (!scheme.equalsIgnoreCase(scheme))) {
+      return false;
+    }
+    
+
+    if ((opaque) && (opaque))
+      return equalsHexCaseInsensitive(schemeSpecificPart, schemeSpecificPart);
+    if ((!opaque) && (!opaque)) {
+      if (!equalsHexCaseInsensitive(path, path)) {
+        return false;
+      }
+      
+      if (((query != null) && (query == null)) || ((query == null) && (query != null)))
+        return false;
+      if ((query != null) && (query != null) && 
+        (!equalsHexCaseInsensitive(query, query))) {
+        return false;
+      }
+      
+
+      if (((authority != null) && (authority == null)) || ((authority == null) && (authority != null)))
+        return false;
+      if ((authority != null) && (authority != null)) {
+        if (((host != null) && (host == null)) || ((host == null) && (host != null)))
+          return false;
+        if ((host == null) && (host == null))
+        {
+          return equalsHexCaseInsensitive(authority, authority);
+        }
+        if (!host.equalsIgnoreCase(host)) {
+          return false;
+        }
+        
+        if (port != port) {
+          return false;
+        }
+        
+        if (((userInfo != null) && (userInfo == null)) || ((userInfo == null) && (userInfo != null)))
+        {
+
+          return false; }
+        if ((userInfo != null) && (userInfo != null)) {
+          return equalsHexCaseInsensitive(userInfo, userInfo);
+        }
+        return true;
+      }
+      
+
+
+      return true;
+    }
+    
+
+
+    return false;
+  }
+  
+
+
+
+
+
+
+
+  public final int hashCode()
+  {
+    synchronized (lazyLock) {
+      if (hash == -1) {
+        hash = getHashString().hashCode();
+      }
+      return hash;
+    }
+  }
+  
+
+
+
+  private String convertHexToLowerCase(String paramString)
+  {
+    if (paramString.indexOf('%') == -1) {
+      return paramString;
+    }
+    StringBuilder localStringBuilder = new StringBuilder("");
+    int i = 0;int j = 0;
+    while ((i = paramString.indexOf('%', j)) != -1) {
+      localStringBuilder.append(paramString.substring(j, i + 1));
+      localStringBuilder.append(paramString.substring(i + 1, i + 3).toLowerCase());
+      i += 3;
+      j = i;
+    }
+    return localStringBuilder.toString();
+  }
+  
+
+
+
+
+  private boolean equalsHexCaseInsensitive(Encoded paramEncoded1, Encoded paramEncoded2)
+  {
+    if (paramEncoded1.indexOf(37) != paramEncoded2.indexOf(37)) {
+      return paramEncoded1.equals(paramEncoded2);
+    }
+    
+    int i = 0;int j = 0;
+    while (((i = paramEncoded1.indexOf(37, j)) != -1) && 
+      (paramEncoded2.indexOf(37, j) == i))
+    {
+      if (!paramEncoded1.get().substring(j, i).equals(paramEncoded2.get().substring(j, i))) {
+        return false;
+      }
+      if (!paramEncoded1.get().substring(i + 1, i + 3).equalsIgnoreCase(paramEncoded2.get().substring(i + 1, i + 3))) {
+        return false;
+      }
+      i += 3;
+      j = i;
+    }
+    return paramEncoded1.get().substring(j).equals(paramEncoded2.get().substring(j));
+  }
+  
+
+
+
+
+  private String getHashString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    if (scheme != null) {
+      localStringBuilder.append(scheme.get().toLowerCase());
+      localStringBuilder.append(':');
+    }
+    if (opaque) {
+      localStringBuilder.append(schemeSpecificPart.get());
+    } else {
+      if (authority != null) {
+        localStringBuilder.append("//");
+        if (host == null) {
+          localStringBuilder.append(authority.get());
+        } else {
+          if (userInfo != null) {
+            localStringBuilder.append(userInfo.get() + "@");
+          }
+          localStringBuilder.append(host.get().toLowerCase());
+          if (port != -1) {
+            localStringBuilder.append(58 + port);
+          }
+        }
+      }
+      
+      if (path != null) {
+        localStringBuilder.append(path.get());
+      }
+      
+      if (query != null) {
+        localStringBuilder.append('?');
+        localStringBuilder.append(query.get());
+      }
+    }
+    
+    if (fragment != null) {
+      localStringBuilder.append('#');
+      localStringBuilder.append(fragment.get());
+    }
+    return convertHexToLowerCase(localStringBuilder.toString());
+  }
+  
+
+
+
+
+
+  private Uri(Encoded paramEncoded, boolean paramBoolean, int paramInt)
+    throws URISyntaxException
+  {
+    if (emptyString(paramEncoded)) {
+      throw new URISyntaxException(paramEncoded.get(), "empty input");
+    }
+    Object localObject1 = paramEncoded.get();
+    
+
+
+
+
+    int i = ((String)localObject1).indexOf('#');
+    if (i != -1)
+    {
+      fragment = new Encoded(((String)localObject1).substring(i + 1));
+      validateFragment(paramEncoded, fragment, i + 1);
+      localObject1 = ((String)localObject1).substring(0, i);
+    } else {
+      fragment = null;
+    }
+    
+    String str1 = paramEncoded.get();
+    
+
+    int j = ((String)localObject1).indexOf(':');
+    i = j;
+    int k = ((String)localObject1).indexOf('/');
+    int m = ((String)localObject1).indexOf('?');
+    
+
+    Object localObject2;
+    
+
+    if ((j != -1) && ((k >= j) || (k == -1)) && ((m >= j) || (m == -1)))
+    {
+
+
+
+      absolute = true;
+      scheme = new Encoded(((String)localObject1).substring(0, j));
+      if (scheme.length() == 0) {
+        failExpecting(paramEncoded, "scheme", j);
+      }
+      validateScheme(paramEncoded, scheme, 0);
+      localObject2 = ((String)localObject1).substring(j + 1);
+      if (((String)localObject2).length() == 0) {
+        failExpecting(paramEncoded, "scheme-specific-part", j);
+      }
+    } else {
+      absolute = false;
+      scheme = null;
+      localObject2 = localObject1; }
+    int i2;
+    int i3;
+    if ((scheme == null) || ((((String)localObject2).length() > 0) && (((String)localObject2).charAt(0) == '/')))
+    {
+      opaque = false;
+      
+
+      localObject1 = localObject2;
+      i = ((String)localObject1).indexOf('?');
+      if (i != -1) {
+        query = new Encoded(((String)localObject1).substring(i + 1));
+        localObject1 = ((String)localObject1).substring(0, i);
+        validateQuery(paramEncoded, query, k + 1 + i);
+      } else {
+        query = null;
+      }
+      
+
+      int n;
+      
+
+      if (((String)localObject1).startsWith("//")) {
+        i = ((String)localObject1).indexOf('/', 2);
+        String str2;
+        if (i != -1) {
+          str2 = ((String)localObject1).substring(2, i);
+          localObject3 = ((String)localObject1).substring(i);
+          n = i;
+        } else {
+          str2 = ((String)localObject1).substring(2);
+          if ((str2.length() == 0) && (query == null) && (fragment == null)) {
+            failExpecting(paramEncoded, "authority, path [, query, fragment]", i);
+          }
+          localObject3 = "";
+          n = -1;
+        }
+        
+
+        if (emptyString(str2)) {
+          authority = null;
+        } else {
+          authority = new Encoded(str2);
+          validateAuthority(paramEncoded, authority, j + 3);
+        }
+      } else {
+        localObject3 = localObject1;
+        n = 0;
+        authority = null;
+      }
+      
+      i1 = 0;
+      if (k > -1) {
+        i1 += k;
+      }
+      if (n > -1) {
+        i1 += n;
+      }
+      
+      i2 = validateEncoded((String)localObject3, "/!_-.~");
+      if (0 <= i2)
+      {
+        if (0 != (paramInt & 0x1)) {
+          if (DEBUG_SHOWFIX) {
+            System.err.println("Uri FIX_FILEPATH: input at index " + (i1 + i2) + ": " + str1);
+            System.err.println("Uri FIX_FILEPATH: ssp at index   " + (n + i2) + ": " + (String)localObject2);
+            System.err.println("Uri FIX_FILEPATH: path  at index " + i2 + ": " + (String)localObject3);
+          }
+          i3 = ((String)localObject3).length();
+          localObject3 = encode(decode((String)localObject3), "/!_-.~");
+          validatePath(paramEncoded, (String)localObject3, i1);
+          
+
+          StringBuilder localStringBuilder = new StringBuilder();
+          if (n > 0) {
+            localStringBuilder.append(((String)localObject2).substring(0, n));
+          }
+          localStringBuilder.append((String)localObject3).append(((String)localObject2).substring(n + i3));
+          localObject2 = localStringBuilder.toString();
+          
+          localStringBuilder.setLength(0);
+          if (i1 > 0) {
+            localStringBuilder.append(str1.substring(0, i1));
+          }
+          localStringBuilder.append((String)localObject3).append(str1.substring(i1 + i3));
+          str1 = localStringBuilder.toString();
+          
+          if (DEBUG_SHOWFIX) {
+            System.err.println("Uri FIX_FILEPATH: result          : " + (String)localObject3);
+            System.err.println("Uri FIX_FILEPATH: ssp after       : " + (String)localObject2);
+            System.err.println("Uri FIX_FILEPATH: input after     : " + str1);
+          }
+        } else {
+          fail(paramEncoded, "invalid path", i1 + i2);
+        }
+      }
+      path = new Encoded((String)localObject3);
+    }
+    else {
+      opaque = true;
+      query = null;
+      path = null;
+      authority = null;
+      validateSsp(paramEncoded, (String)localObject2, j + 1);
+    }
+    schemeSpecificPart = new Encoded((String)localObject2);
+    input = (str1 == paramEncoded.get() ? paramEncoded : new Encoded(str1));
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    Object localObject3 = null;Encoded localEncoded = null;
+    int i1 = -1;
+    
+
+    if (null != authority) {
+      i2 = 1;
+      i3 = 0;
+      
+      localObject1 = authority.get();
+      i = ((String)localObject1).indexOf('@');
+      if (i != -1)
+      {
+        localObject3 = new Encoded(((String)localObject1).substring(0, i));
+        validateUserinfo(authority, (Encoded)localObject3, 0);
+        localObject1 = ((String)localObject1).substring(i + 1);
+        i3 = i + 1;
+      }
+      
+      i = ((String)localObject1).lastIndexOf(':');
+      int i4 = ((String)localObject1).indexOf(']');
+      
+      if ((i != -1) && (i4 < i))
+      {
+        localEncoded = new Encoded(((String)localObject1).substring(0, i));
+        
+        if (i < ((String)localObject1).length() - 1) {
+          try {
+            i1 = Integer.parseInt(((String)localObject1).substring(i + 1));
+            if (i1 < 0) {
+              if (paramBoolean) {
+                fail(authority, "invalid port <" + authority + ">", i3 + i + 1);
+              }
+              i2 = 0;
+            }
+          } catch (NumberFormatException localNumberFormatException) {
+            if (paramBoolean) {
+              fail(authority, "invalid port <" + authority + ">, " + localNumberFormatException.getMessage(), i3 + i + 1);
+            }
+            i2 = 0;
+          }
+        }
+      } else {
+        localEncoded = new Encoded((String)localObject1);
+      }
+      
+      if (i2 != 0) {
+        if (emptyString(localEncoded)) {
+          if (paramBoolean) {
+            fail(authority, "empty host <" + authority + ">", i3);
+          }
+          i2 = 0;
+        } else if (!isValidHost(paramBoolean, localEncoded)) {
+          if (paramBoolean) {
+            fail(authority, "invalid host <" + localEncoded + ">", i3);
+          }
+          i2 = 0;
+        }
+      }
+    } else {
+      i2 = 0;
+    }
+    
+    if (i2 != 0)
+    {
+
+      userInfo = ((Encoded)localObject3);
+      host = localEncoded;
+      port = i1;
+      hasAuthority = true;
+    } else {
+      userInfo = null;
+      host = null;
+      port = -1;
+      hasAuthority = false;
+    }
+  }
+  
+  private static void validateScheme(Encoded paramEncoded1, Encoded paramEncoded2, int paramInt) throws URISyntaxException
+  {
+    int i = paramEncoded2.charAt(0);
+    if (((i < 97) || (i > 122)) && ((i < 65) || (i > 90))) {
+      fail(paramEncoded1, "invalid scheme", paramInt);
+    }
+    int j = validateAlphaNum(paramEncoded2.get(), "+-.");
+    if (0 <= j) {
+      fail(paramEncoded1, "invalid scheme", paramInt + j);
+    }
+  }
+  
+  private static void validateSsp(Encoded paramEncoded, String paramString, int paramInt) throws URISyntaxException {
+    int i = validateEncoded(paramString, "_-.~,;:$&+=!*'()@/?[]\\\"");
+    if (0 <= i) {
+      fail(paramEncoded, "invalid scheme-specific-part", paramInt + i);
+    }
+  }
+  
+  private static void validateAuthority(Encoded paramEncoded1, Encoded paramEncoded2, int paramInt) throws URISyntaxException {
+    int i = validateEncoded(paramEncoded2.get(), "@[]_-.~,;:$&+=");
+    if (0 <= i) {
+      fail(paramEncoded1, "invalid authority", paramInt + i);
+    }
+  }
+  
+  private static void validatePath(Encoded paramEncoded, String paramString, int paramInt) throws URISyntaxException {
+    int i = validateEncoded(paramString, "/!_-.~");
+    if (0 <= i) {
+      fail(paramEncoded, "invalid path", paramInt + i);
+    }
+  }
+  
+  private static void validateQuery(Encoded paramEncoded1, Encoded paramEncoded2, int paramInt) throws URISyntaxException {
+    int i = validateEncoded(paramEncoded2.get(), "_-.~,;:$&+=!*'()@/?[]\\\"");
+    if (0 <= i) {
+      fail(paramEncoded1, "invalid query", paramInt + i);
+    }
+  }
+  
+  private static void validateFragment(Encoded paramEncoded1, Encoded paramEncoded2, int paramInt) throws URISyntaxException {
+    int i = validateEncoded(paramEncoded2.get(), "_-.~,;:$&+=!*'()@/?#[]");
+    if (0 <= i) {
+      fail(paramEncoded1, "invalid fragment", paramInt + i);
+    }
+  }
+  
+  private static void validateUserinfo(Encoded paramEncoded1, Encoded paramEncoded2, int paramInt) throws URISyntaxException {
+    for (int i = 0; i < paramEncoded2.length(); i++) {
+      int j = paramEncoded2.charAt(i);
+      if ((j == 93) || (j == 91)) {
+        fail(paramEncoded1, "invalid userinfo", paramInt + i);
+      }
+    }
+  }
+  
+
+
+  private boolean isValidHost(boolean paramBoolean, Encoded paramEncoded)
+    throws URISyntaxException
+  {
+    if (paramEncoded.charAt(0) == '[')
+    {
+      if (paramEncoded.charAt(paramEncoded.length() - 1) != ']') {
+        fail(input, "invalid host, missing closing ipv6: " + paramEncoded, 0);
+      }
+      if (!isValidIP6Address(paramEncoded.get())) {
+        fail(input, "invalid ipv6: " + paramEncoded, 0);
+      }
+      return true;
+    }
+    
+
+
+    if ((paramEncoded.indexOf(91) != -1) || (paramEncoded.indexOf(93) != -1)) {
+      fail(input, "invalid host: " + paramEncoded, 0);
+    }
+    
+    int i = paramEncoded.lastIndexOf(46);
+    if ((i < 0) || (i == paramEncoded.length() - 1) || 
+      (!Character.isDigit(paramEncoded.charAt(i + 1))))
+    {
+
+      if (isValidDomainName(paramEncoded)) {
+        return true;
+      }
+      if (paramBoolean) {
+        fail(input, "invalid host, invalid domain-name or ipv4: " + paramEncoded, 0);
+      }
+      return false;
+    }
+    
+
+    if (isValidIPv4Address(paramEncoded.get())) {
+      return true;
+    }
+    if (paramBoolean) {
+      fail(input, "invalid host, invalid ipv4: " + paramEncoded, 0);
+    }
+    return false;
+  }
+  
+  private static boolean isValidDomainName(Encoded paramEncoded) {
+    String str1 = paramEncoded.get();
+    if (0 <= validateAlphaNum(str1, "-.")) {
+      return false;
+    }
+    String str2 = null;
+    StringTokenizer localStringTokenizer = new StringTokenizer(str1, ".");
+    while (localStringTokenizer.hasMoreTokens()) {
+      str2 = localStringTokenizer.nextToken();
+      if ((str2.startsWith("-")) || (str2.endsWith("-"))) {
+        return false;
+      }
+    }
+    
+    if (!str2.equals(str1)) {
+      int i = str2.charAt(0);
+      if ((i >= 48) && (i <= 57)) {
+        return false;
+      }
+    }
+    return true;
+  }
+  
+
+  private static boolean isValidIPv4Address(String paramString)
+  {
+    try
+    {
+      int i = paramString.indexOf('.');
+      int k = Integer.parseInt(paramString.substring(0, i));
+      if ((k < 0) || (k > 255)) {
+        return false;
+      }
+      int j = paramString.indexOf('.', i + 1);
+      k = Integer.parseInt(paramString.substring(i + 1, j));
+      if ((k < 0) || (k > 255)) {
+        return false;
+      }
+      i = paramString.indexOf('.', j + 1);
+      k = Integer.parseInt(paramString.substring(j + 1, i));
+      if ((k < 0) || (k > 255)) {
+        return false;
+      }
+      k = Integer.parseInt(paramString.substring(i + 1));
+      if ((k < 0) || (k > 255)) {
+        return false;
+      }
+    } catch (Exception localException) {
+      return false;
+    }
+    return true;
+  }
+  
+  private static boolean isValidIP6Address(String paramString) {
+    int i = paramString.length();
+    int j = 0;
+    int k = 0;
+    int m = 0;
+    String str = "";
+    char c = '\000';
+    int n = 0;
+    int i1 = 0;
+    
+    if (i < 2) {
+      return false;
+    }
+    
+    for (int i2 = 0; i2 < i; i2++) {
+      n = c;
+      c = paramString.charAt(i2);
+      switch (c)
+      {
+
+      case '[': 
+        if (i2 != 0) {
+          return false;
+        }
+        if (paramString.charAt(i - 1) != ']') {
+          return false;
+        }
+        if ((paramString.charAt(1) == ':') && 
+          (paramString.charAt(2) != ':')) {
+          return false;
+        }
+        i1 = 1;
+        if (i < 4) {
+          return false;
+        }
+        
+
+        break;
+      case ']': 
+        if (i2 != i - 1) {
+          return false;
+        }
+        if (paramString.charAt(0) != '[') {
+          return false;
+        }
+        
+
+
+        break;
+      case '.': 
+        m++;
+        if (m > 3) {
+          return false;
+        }
+        if (!isValidIP4Word(str)) {
+          return false;
+        }
+        if ((k != 6) && (j == 0)) {
+          return false;
+        }
+        
+
+
+        if ((k == 7) && 
+          (paramString.charAt(0 + i1) != ':') && 
+          (paramString.charAt(1 + i1) != ':')) {
+          return false;
+        }
+        str = "";
+        break;
+      
+      case ':': 
+        k++;
+        if (k > 7) {
+          return false;
+        }
+        if (m > 0) {
+          return false;
+        }
+        if (n == 58) {
+          if (j != 0) {
+            return false;
+          }
+          j = 1;
+        }
+        str = "";
+        break;
+      
+      default: 
+        if (str.length() > 3) {
+          return false;
+        }
+        if (!isValidHexChar(c)) {
+          return false;
+        }
+        str = str + c;
+      }
+      
+    }
+    
+    if (m > 0) {
+      if ((m != 3) || (!isValidIP4Word(str))) {
+        return false;
+      }
+    }
+    else
+    {
+      if ((k != 7) && (j == 0)) {
+        return false;
+      }
+      
+
+
+
+      if ((str == "") && (paramString.charAt(i - 1 - i1) != ':') && 
+        (paramString.charAt(i - 2 - i1) != ':')) {
+        return false;
+      }
+    }
+    
+    return true;
+  }
+  
+  private static boolean isValidIP4Word(String paramString)
+  {
+    if ((paramString.length() < 1) || (paramString.length() > 3)) {
+      return false;
+    }
+    for (int j = 0; j < paramString.length(); j++) {
+      int i = paramString.charAt(j);
+      if ((i < 48) || (i > 57)) {
+        return false;
+      }
+    }
+    if (Integer.parseInt(paramString) > 255) {
+      return false;
+    }
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private static int validateEncoded(String paramString1, String paramString2)
+  {
+    for (int i = 0; i < paramString1.length();) {
+      char c = paramString1.charAt(i);
+      if (c == '%') {
+        do {
+          if (i + 2 >= paramString1.length()) {
+            throw new IllegalArgumentException("missing '%' hex-digits at index " + i);
+          }
+          int j = Character.digit(paramString1.charAt(i + 1), 16);
+          int k = Character.digit(paramString1.charAt(i + 2), 16);
+          if ((j == -1) || (k == -1)) {
+            throw new IllegalArgumentException("invalid hex-digits at index " + i + ": " + paramString1.substring(i, i + 3));
+          }
+          i += 3;
+          if (i >= paramString1.length()) break; } while (paramString1.charAt(i) == '%');
+      }
+      else {
+        if (((c < 'a') || (c > 'z')) && ((c < 'A') || (c > 'Z')) && ((c < '0') || (c > '9')) && 
+          (paramString2.indexOf(c) <= -1) && ((c <= '') || 
+          (Character.isSpaceChar(c)) || (Character.isISOControl(c))))
+        {
+
+          return i;
+        }
+        i++;
+      } }
+    return -1;
+  }
+  
+  private static int validateAlphaNum(String paramString1, String paramString2) { for (int i = 0; i < paramString1.length();) {
+      int j = paramString1.charAt(i);
+      if (((j < 97) || (j > 122)) && ((j < 65) || (j > 90)) && ((j < 48) || (j > 57)) && 
+        (paramString2.indexOf(j) <= -1))
+      {
+
+        return i;
+      }
+      i++;
+    }
+    return -1;
+  }
+  
+  private static boolean isValidHexChar(char paramChar) {
+    return ((paramChar >= '0') && (paramChar <= '9')) || ((paramChar >= 'A') && (paramChar <= 'F')) || ((paramChar >= 'a') && (paramChar <= 'f'));
+  }
+  
+  private static boolean emptyString(Encoded paramEncoded) { return (null == paramEncoded) || (0 == paramEncoded.length()); }
+  
+  private static boolean emptyString(String paramString) {
+    return (null == paramString) || (0 == paramString.length());
+  }
+  
+  private static void fail(Encoded paramEncoded, String paramString, int paramInt) throws URISyntaxException {
+    throw new URISyntaxException(paramEncoded.get(), paramString, paramInt);
+  }
+  
+  private static void failExpecting(Encoded paramEncoded, String paramString, int paramInt) throws URISyntaxException { fail(paramEncoded, "Expecting " + paramString, paramInt); }
+  
+  static {}
+}

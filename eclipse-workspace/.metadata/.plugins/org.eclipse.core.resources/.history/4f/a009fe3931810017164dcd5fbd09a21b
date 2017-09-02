@@ -1,0 +1,108 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInputStream;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Lookup
+{
+  public static final int IGNORE_BASE_GLYPHS = 2;
+  public static final int IGNORE_BASE_LIGATURES = 4;
+  public static final int IGNORE_BASE_MARKS = 8;
+  public static final int MARK_ATTACHMENT_TYPE = 65280;
+  private final int _type;
+  private final int _flag;
+  private final int _subTableCount;
+  private final int[] _subTableOffsets;
+  private final LookupSubtable[] _subTables;
+  
+  public Lookup(LookupSubtableFactory paramLookupSubtableFactory, DataInputStream paramDataInputStream, int paramInt)
+    throws IOException
+  {
+    paramDataInputStream.reset();
+    paramDataInputStream.skipBytes(paramInt);
+    
+
+    _type = paramDataInputStream.readUnsignedShort();
+    _flag = paramDataInputStream.readUnsignedShort();
+    _subTableCount = paramDataInputStream.readUnsignedShort();
+    _subTableOffsets = new int[_subTableCount];
+    _subTables = new LookupSubtable[_subTableCount];
+    for (int i = 0; i < _subTableCount; i++) {
+      _subTableOffsets[i] = paramDataInputStream.readUnsignedShort();
+    }
+    for (i = 0; i < _subTableCount; i++) {
+      _subTables[i] = paramLookupSubtableFactory.read(_type, paramDataInputStream, paramInt + _subTableOffsets[i]);
+    }
+  }
+  
+  public int getType() {
+    return _type;
+  }
+  
+  public int getSubtableCount() {
+    return _subTableCount;
+  }
+  
+  public LookupSubtable getSubtable(int paramInt) {
+    return _subTables[paramInt];
+  }
+}

@@ -1,0 +1,70 @@
+package com.jogamp.nativewindow.x11;
+
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.DefaultGraphicsScreen;
+import com.jogamp.nativewindow.NativeWindowException;
+import jogamp.nativewindow.x11.X11Lib;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class X11GraphicsScreen
+  extends DefaultGraphicsScreen
+  implements Cloneable
+{
+  public X11GraphicsScreen(X11GraphicsDevice paramX11GraphicsDevice, int paramInt)
+  {
+    super(paramX11GraphicsDevice, paramX11GraphicsDevice.isXineramaEnabled() ? 0 : paramInt);
+  }
+  
+  public static AbstractGraphicsScreen createScreenDevice(long paramLong, int paramInt, boolean paramBoolean) {
+    if (0L == paramLong) throw new NativeWindowException("display is null");
+    return new X11GraphicsScreen(new X11GraphicsDevice(paramLong, 0, paramBoolean), paramInt);
+  }
+  
+  public int getVisualID()
+  {
+    return X11Lib.DefaultVisualID(getDevice().getHandle(), getIndex());
+  }
+  
+  public Object clone()
+  {
+    return super.clone();
+  }
+}

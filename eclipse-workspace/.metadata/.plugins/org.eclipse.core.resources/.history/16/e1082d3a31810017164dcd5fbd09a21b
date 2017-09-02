@@ -1,0 +1,283 @@
+package jogamp.opengl.util.pngj;
+
+import java.util.Random;
+
+class PngDeinterlacer { private final ImageInfo imi;
+  private int pass;
+  private int rows;
+  private int cols;
+  private int dY;
+  private int dX;
+  private int oY; private int oX; private int oXsamples; private int dXsamples; private int currRowSubimg = -1;
+  
+  private int currRowReal = -1;
+  
+  private final int packedValsPerPixel;
+  private final int packedMask;
+  private final int packedShift;
+  private int[][] imageInt;
+  private short[][] imageShort;
+  private byte[][] imageByte;
+  
+  PngDeinterlacer(ImageInfo paramImageInfo)
+  {
+    imi = paramImageInfo;
+    pass = 0;
+    if (imi.packed) {
+      packedValsPerPixel = (8 / imi.bitDepth);
+      packedShift = imi.bitDepth;
+      if (imi.bitDepth == 1) {
+        packedMask = 128;
+      } else if (imi.bitDepth == 2) {
+        packedMask = 192;
+      } else
+        packedMask = 240;
+    } else {
+      packedMask = (this.packedShift = this.packedValsPerPixel = 1);
+    }
+    setPass(1);
+    setRow(0);
+  }
+  
+  void setRow(int paramInt)
+  {
+    currRowSubimg = paramInt;
+    currRowReal = (paramInt * dY + oY);
+    if ((currRowReal < 0) || (currRowReal >= imi.rows))
+      throw new PngjExceptionInternal("bad row - this should not happen");
+  }
+  
+  void setPass(int paramInt) {
+    if (pass == paramInt)
+      return;
+    pass = paramInt;
+    switch (pass) {
+    case 1: 
+      dY = (this.dX = 8);
+      oX = (this.oY = 0);
+      break;
+    case 2: 
+      dY = (this.dX = 8);
+      oX = 4;
+      oY = 0;
+      break;
+    case 3: 
+      dX = 4;
+      dY = 8;
+      oX = 0;
+      oY = 4;
+      break;
+    case 4: 
+      dX = (this.dY = 4);
+      oX = 2;
+      oY = 0;
+      break;
+    case 5: 
+      dX = 2;
+      dY = 4;
+      oX = 0;
+      oY = 2;
+      break;
+    case 6: 
+      dX = (this.dY = 2);
+      oX = 1;
+      oY = 0;
+      break;
+    case 7: 
+      dX = 1;
+      dY = 2;
+      oX = 0;
+      oY = 1;
+      break;
+    default: 
+      throw new PngjExceptionInternal("bad interlace pass" + pass);
+    }
+    rows = ((imi.rows - oY) / dY + 1);
+    if ((rows - 1) * dY + oY >= imi.rows)
+      rows -= 1;
+    cols = ((imi.cols - oX) / dX + 1);
+    if ((cols - 1) * dX + oX >= imi.cols)
+      cols -= 1;
+    if (cols == 0)
+      rows = 0;
+    dXsamples = (dX * imi.channels);
+    oXsamples = (oX * imi.channels);
+  }
+  
+  void deinterlaceInt(int[] paramArrayOfInt1, int[] paramArrayOfInt2, boolean paramBoolean)
+  {
+    if ((!imi.packed) || (!paramBoolean)) {
+      int i = 0; for (int j = oXsamples; i < cols * imi.channels; j += dXsamples) {
+        for (int k = 0; k < imi.channels; k++) {
+          paramArrayOfInt2[(j + k)] = paramArrayOfInt1[(i + k)];
+        }
+        i += imi.channels;
+      }
+    }
+    else {
+      deinterlaceIntPacked(paramArrayOfInt1, paramArrayOfInt2);
+    }
+  }
+  
+
+  private void deinterlaceIntPacked(int[] paramArrayOfInt1, int[] paramArrayOfInt2)
+  {
+    int i = 0;
+    int k = packedMask;
+    int j = -1;
+    
+    int i3 = 0; for (int i4 = oX; i3 < cols; i4 += dX) {
+      i = i3 / packedValsPerPixel;
+      j++;
+      if (j >= packedValsPerPixel)
+        j = 0;
+      k >>= packedShift;
+      if (j == 0)
+        k = packedMask;
+      int m = i4 / packedValsPerPixel;
+      int n = i4 % packedValsPerPixel;
+      int i1 = paramArrayOfInt1[i] & k;
+      int i2 = n - j;
+      if (i2 > 0) {
+        i1 >>= i2 * packedShift;
+      } else if (i2 < 0)
+        i1 <<= -i2 * packedShift;
+      paramArrayOfInt2[m] |= i1;i3++;
+    }
+  }
+  
+  void deinterlaceByte(byte[] paramArrayOfByte1, byte[] paramArrayOfByte2, boolean paramBoolean)
+  {
+    if ((!imi.packed) || (!paramBoolean)) {
+      int i = 0; for (int j = oXsamples; i < cols * imi.channels; j += dXsamples) {
+        for (int k = 0; k < imi.channels; k++) {
+          paramArrayOfByte2[(j + k)] = paramArrayOfByte1[(i + k)];
+        }
+        i += imi.channels;
+      }
+    }
+    else {
+      deinterlacePackedByte(paramArrayOfByte1, paramArrayOfByte2);
+    }
+  }
+  
+
+  private void deinterlacePackedByte(byte[] paramArrayOfByte1, byte[] paramArrayOfByte2)
+  {
+    int i = 0;
+    int k = packedMask;
+    int j = -1;
+    
+    int i3 = 0; for (int i4 = oX; i3 < cols; i4 += dX) {
+      i = i3 / packedValsPerPixel;
+      j++;
+      if (j >= packedValsPerPixel)
+        j = 0;
+      k >>= packedShift;
+      if (j == 0)
+        k = packedMask;
+      int m = i4 / packedValsPerPixel;
+      int n = i4 % packedValsPerPixel;
+      int i1 = paramArrayOfByte1[i] & k;
+      int i2 = n - j;
+      if (i2 > 0) {
+        i1 >>= i2 * packedShift;
+      } else if (i2 < 0)
+        i1 <<= -i2 * packedShift;
+      int tmp146_144 = m; byte[] tmp146_143 = paramArrayOfByte2;tmp146_143[tmp146_144] = ((byte)(tmp146_143[tmp146_144] | i1));i3++;
+    }
+  }
+  
+
+
+  boolean isAtLastRow()
+  {
+    return (pass == 7) && (currRowSubimg == rows - 1);
+  }
+  
+
+
+  int getCurrRowSubimg()
+  {
+    return currRowSubimg;
+  }
+  
+
+
+  int getCurrRowReal()
+  {
+    return currRowReal;
+  }
+  
+
+
+  int getPass()
+  {
+    return pass;
+  }
+  
+
+
+  int getRows()
+  {
+    return rows;
+  }
+  
+
+
+  int getCols()
+  {
+    return cols;
+  }
+  
+  public int getPixelsToRead() {
+    return getCols();
+  }
+  
+  int[][] getImageInt() {
+    return imageInt;
+  }
+  
+  void setImageInt(int[][] paramArrayOfInt) {
+    imageInt = paramArrayOfInt;
+  }
+  
+  short[][] getImageShort() {
+    return imageShort;
+  }
+  
+  void setImageShort(short[][] paramArrayOfShort) {
+    imageShort = paramArrayOfShort;
+  }
+  
+  byte[][] getImageByte() {
+    return imageByte;
+  }
+  
+  void setImageByte(byte[][] paramArrayOfByte) {
+    imageByte = paramArrayOfByte;
+  }
+  
+  static void test() {
+    Random localRandom = new Random();
+    PngDeinterlacer localPngDeinterlacer = new PngDeinterlacer(new ImageInfo(localRandom.nextInt(35) + 1, localRandom.nextInt(52) + 1, 8, true));
+    int i = imi.cols * imi.rows;
+    System.out.println(imi);
+    for (int j = 1; j <= 7; j++) {
+      localPngDeinterlacer.setPass(j);
+      for (int k = 0; k < localPngDeinterlacer.getRows(); k++) {
+        localPngDeinterlacer.setRow(k);
+        int m = localPngDeinterlacer.getCols();
+        i -= m;
+        System.out.printf("Read %d pixels. Pass:%d Realline:%d cols=%d dX=%d oX=%d last:%b\n", new Object[] { Integer.valueOf(m), Integer.valueOf(pass), 
+          Integer.valueOf(currRowReal), Integer.valueOf(cols), Integer.valueOf(dX), Integer.valueOf(oX), Boolean.valueOf(localPngDeinterlacer.isAtLastRow()) });
+      }
+    }
+    
+    if (i != 0) {
+      throw new PngjExceptionInternal("wtf??" + imi);
+    }
+  }
+  
+  public static void main(String[] paramArrayOfString) {}
+}

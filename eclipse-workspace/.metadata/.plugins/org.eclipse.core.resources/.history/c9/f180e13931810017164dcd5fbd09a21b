@@ -1,0 +1,88 @@
+package com.jogamp.nativewindow;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GenericUpstreamSurfacelessHook
+  extends UpstreamSurfaceHookMutableSize
+{
+  public GenericUpstreamSurfacelessHook(int paramInt1, int paramInt2)
+  {
+    super(paramInt1, paramInt2);
+  }
+  
+  public final void create(ProxySurface paramProxySurface)
+  {
+    AbstractGraphicsDevice localAbstractGraphicsDevice = paramProxySurface.getGraphicsConfiguration().getScreen().getDevice();
+    localAbstractGraphicsDevice.lock();
+    try {
+      if (0L == localAbstractGraphicsDevice.getHandle()) {
+        localAbstractGraphicsDevice.open();
+        paramProxySurface.addUpstreamOptionBits(128);
+      }
+      if (0L != paramProxySurface.getSurfaceHandle()) {
+        throw new InternalError("Upstream surface not null: " + paramProxySurface);
+      }
+      paramProxySurface.addUpstreamOptionBits(832);
+      
+
+
+      localAbstractGraphicsDevice.unlock(); } finally { localAbstractGraphicsDevice.unlock();
+    }
+  }
+  
+  public final void destroy(ProxySurface paramProxySurface)
+  {
+    if (paramProxySurface.containsUpstreamOptionBits(64)) {
+      AbstractGraphicsDevice localAbstractGraphicsDevice = paramProxySurface.getGraphicsConfiguration().getScreen().getDevice();
+      if (!paramProxySurface.containsUpstreamOptionBits(512)) {
+        throw new InternalError("Owns upstream surface, but not a valid zero surface: " + paramProxySurface);
+      }
+      if (0L != paramProxySurface.getSurfaceHandle()) {
+        throw new InternalError("Owns upstream valid zero surface, but non zero surface: " + paramProxySurface);
+      }
+      localAbstractGraphicsDevice.lock();
+      try {
+        paramProxySurface.clearUpstreamOptionBits(576);
+        
+        localAbstractGraphicsDevice.unlock(); } finally { localAbstractGraphicsDevice.unlock();
+      }
+    }
+  }
+}

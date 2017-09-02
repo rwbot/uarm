@@ -1,0 +1,136 @@
+package jogamp.newt.driver.awt;
+
+import com.jogamp.nativewindow.awt.AWTGraphicsDevice;
+import com.jogamp.nativewindow.awt.AWTGraphicsScreen;
+import com.jogamp.newt.Display;
+import com.jogamp.newt.MonitorDevice;
+import com.jogamp.newt.MonitorMode;
+import java.awt.DisplayMode;
+import java.awt.GraphicsDevice;
+import jogamp.newt.DisplayImpl;
+import jogamp.newt.MonitorModeProps;
+import jogamp.newt.MonitorModeProps.Cache;
+import jogamp.newt.ScreenImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ScreenDriver
+  extends ScreenImpl
+{
+  public ScreenDriver() {}
+  
+  protected void createNativeImpl()
+  {
+    aScreen = new AWTGraphicsScreen((AWTGraphicsDevice)display.getGraphicsDevice());
+  }
+  
+  protected void setAWTGraphicsScreen(AWTGraphicsScreen paramAWTGraphicsScreen) {
+    aScreen = paramAWTGraphicsScreen;
+  }
+  
+
+
+
+  protected void updateVirtualScreenOriginAndSize()
+  {
+    super.updateVirtualScreenOriginAndSize();
+  }
+  
+
+  protected void closeNativeImpl() {}
+  
+  protected int validateScreenIndex(int paramInt)
+  {
+    return paramInt;
+  }
+  
+  private static MonitorMode getModeProps(MonitorModeProps.Cache paramCache, DisplayMode paramDisplayMode) {
+    int i = paramDisplayMode.getRefreshRate();
+    if (0 == i) {
+      i = 60;
+    }
+    int j = paramDisplayMode.getBitDepth();
+    if (-1 == j) {
+      j = 32;
+    }
+    int[] arrayOfInt = new int[8];
+    int k = 0;
+    arrayOfInt[(k++)] = 8;
+    arrayOfInt[(k++)] = paramDisplayMode.getWidth();
+    arrayOfInt[(k++)] = paramDisplayMode.getHeight();
+    arrayOfInt[(k++)] = j;
+    arrayOfInt[(k++)] = (i * 100);
+    arrayOfInt[(k++)] = 0;
+    arrayOfInt[(k++)] = 0;
+    arrayOfInt[(k++)] = 0;
+    return MonitorModeProps.streamInMonitorMode(null, paramCache, arrayOfInt, 0);
+  }
+  
+  protected void collectNativeMonitorModesAndDevicesImpl(MonitorModeProps.Cache paramCache)
+  {
+    GraphicsDevice localGraphicsDevice = ((AWTGraphicsDevice)getDisplay().getGraphicsDevice()).getGraphicsDevice();
+    DisplayMode[] arrayOfDisplayMode = localGraphicsDevice.getDisplayModes();
+    for (int i = 0; i < arrayOfDisplayMode.length; i++) {
+      getModeProps(paramCache, arrayOfDisplayMode[i]);
+    }
+    MonitorMode localMonitorMode = getModeProps(paramCache, localGraphicsDevice.getDisplayMode());
+    
+    int[] arrayOfInt = new int[14];
+    int j = 0;
+    arrayOfInt[(j++)] = arrayOfInt.length;
+    arrayOfInt[(j++)] = 0;
+    arrayOfInt[(j++)] = 0;
+    arrayOfInt[(j++)] = 1;
+    arrayOfInt[(j++)] = 519;
+    arrayOfInt[(j++)] = 324;
+    arrayOfInt[(j++)] = 0;
+    arrayOfInt[(j++)] = 0;
+    arrayOfInt[(j++)] = localMonitorMode.getRotatedWidth();
+    arrayOfInt[(j++)] = localMonitorMode.getRotatedHeight();
+    arrayOfInt[(j++)] = 0;
+    arrayOfInt[(j++)] = 0;
+    arrayOfInt[(j++)] = localMonitorMode.getRotatedWidth();
+    arrayOfInt[(j++)] = localMonitorMode.getRotatedHeight();
+    MonitorModeProps.streamInMonitorDevice(paramCache, this, localMonitorMode, null, monitorModes, arrayOfInt, 0, null);
+  }
+  
+  protected MonitorMode queryCurrentMonitorModeImpl(MonitorDevice paramMonitorDevice)
+  {
+    return null;
+  }
+  
+  protected boolean setCurrentMonitorModeImpl(MonitorDevice paramMonitorDevice, MonitorMode paramMonitorMode)
+  {
+    return false;
+  }
+}

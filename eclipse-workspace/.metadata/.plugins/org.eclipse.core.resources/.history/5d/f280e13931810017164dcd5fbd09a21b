@@ -1,0 +1,434 @@
+package com.jogamp.nativewindow;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.util.ReflectionUtil;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import jogamp.nativewindow.Debug;
+import jogamp.nativewindow.DefaultGraphicsConfigurationFactoryImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class GraphicsConfigurationFactory
+{
+  private static class DeviceCapsType
+  {
+    public final Class<?> deviceType;
+    public final Class<?> capsType;
+    private final int hash32;
+    
+    public DeviceCapsType(Class<?> paramClass1, Class<?> paramClass2)
+    {
+      deviceType = paramClass1;
+      capsType = paramClass2;
+      
+
+      int i = 31 + paramClass1.hashCode();
+      i = (i << 5) - i + paramClass2.hashCode();
+      hash32 = i;
+    }
+    
+    public final int hashCode()
+    {
+      return hash32;
+    }
+    
+    public final boolean equals(Object paramObject)
+    {
+      if (this == paramObject) return true;
+      if ((paramObject instanceof DeviceCapsType)) {
+        DeviceCapsType localDeviceCapsType = (DeviceCapsType)paramObject;
+        return (deviceType == deviceType) && (capsType == capsType);
+      }
+      return false;
+    }
+    
+    public final String toString()
+    {
+      return "DeviceCapsType[" + deviceType.getName() + ", " + capsType.getName() + "]";
+    }
+  }
+  
+
+
+
+  static boolean initialized = false;
+  
+  static {
+    DEBUG = Debug.debug("GraphicsConfiguration");
+    if (DEBUG)
+      System.err.println(Thread.currentThread().getName() + " - Info: GraphicsConfigurationFactory.<init>");
+  }
+  
+  private static final Map<DeviceCapsType, GraphicsConfigurationFactory> registeredFactories = Collections.synchronizedMap(new HashMap());
+  private static final DeviceCapsType defaultDeviceCapsType = new DeviceCapsType(AbstractGraphicsDevice.class, CapabilitiesImmutable.class);
+  protected static final boolean DEBUG;
+  
+  public static synchronized void initSingleton() {
+    if (!initialized) {
+      initialized = true;
+      
+      if (DEBUG) {
+        System.err.println(Thread.currentThread().getName() + " - GraphicsConfigurationFactory.initSingleton()");
+      }
+      
+
+
+
+
+
+      registerFactory(defaultDeviceCapsTypedeviceType, defaultDeviceCapsTypecapsType, new DefaultGraphicsConfigurationFactoryImpl());
+      
+      if (NativeWindowFactory.TYPE_X11 == NativeWindowFactory.getNativeWindowType(true)) {
+        try {
+          ReflectionUtil.callStaticMethod("jogamp.nativewindow.x11.X11GraphicsConfigurationFactory", "registerFactory", null, null, GraphicsConfigurationFactory.class
+            .getClassLoader());
+        } catch (Exception localException1) {
+          throw new RuntimeException(localException1);
+        }
+        if (NativeWindowFactory.isAWTAvailable()) {
+          try {
+            ReflectionUtil.callStaticMethod("jogamp.nativewindow.x11.awt.X11AWTGraphicsConfigurationFactory", "registerFactory", null, null, GraphicsConfigurationFactory.class
+              .getClassLoader());
+          } catch (Exception localException2) {}
+        }
+      }
+    }
+  }
+  
+  public static synchronized void shutdown() {
+    if (initialized) {
+      initialized = false;
+      if (DEBUG) {
+        System.err.println(Thread.currentThread().getName() + " - GraphicsConfigurationFactory.shutdown()");
+      }
+      registeredFactories.clear();
+    }
+  }
+  
+  protected static String getThreadName() {
+    return Thread.currentThread().getName();
+  }
+  
+  protected static String toHexString(int paramInt) {
+    return "0x" + Integer.toHexString(paramInt);
+  }
+  
+  protected static String toHexString(long paramLong) {
+    return "0x" + Long.toHexString(paramLong);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static GraphicsConfigurationFactory getFactory(AbstractGraphicsDevice paramAbstractGraphicsDevice, CapabilitiesImmutable paramCapabilitiesImmutable)
+  {
+    if (paramAbstractGraphicsDevice == null) {
+      throw new IllegalArgumentException("null device");
+    }
+    if (paramCapabilitiesImmutable == null) {
+      throw new IllegalArgumentException("null caps");
+    }
+    return getFactory(paramAbstractGraphicsDevice.getClass(), paramCapabilitiesImmutable.getClass());
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static GraphicsConfigurationFactory getFactory(Class<?> paramClass1, Class<?> paramClass2)
+    throws IllegalArgumentException, NativeWindowException
+  {
+    if (!defaultDeviceCapsTypedeviceType.isAssignableFrom(paramClass1)) {
+      throw new IllegalArgumentException("Given class must implement AbstractGraphicsDevice");
+    }
+    if (!defaultDeviceCapsTypecapsType.isAssignableFrom(paramClass2)) {
+      throw new IllegalArgumentException("Given capabilities class must implement CapabilitiesImmutable");
+    }
+    if (DEBUG) {
+      ExceptionUtils.dumpStack(System.err);
+      System.err.println("GraphicsConfigurationFactory.getFactory: " + paramClass1.getName() + ", " + paramClass2.getName());
+      dumpFactories();
+    }
+    
+    ArrayList localArrayList1 = getAllAssignableClassesFrom(defaultDeviceCapsTypedeviceType, paramClass1, false);
+    if (DEBUG) {
+      System.err.println("GraphicsConfigurationFactory.getFactory() deviceTypes: " + localArrayList1);
+    }
+    ArrayList localArrayList2 = getAllAssignableClassesFrom(defaultDeviceCapsTypecapsType, paramClass2, true);
+    if (DEBUG) {
+      System.err.println("GraphicsConfigurationFactory.getFactory() capabilitiesTypes: " + localArrayList2);
+    }
+    for (int i = 0; i < localArrayList1.size(); i++) {
+      Class localClass1 = (Class)localArrayList1.get(i);
+      for (int j = 0; j < localArrayList2.size(); j++) {
+        Class localClass2 = (Class)localArrayList2.get(j);
+        DeviceCapsType localDeviceCapsType = new DeviceCapsType(localClass1, localClass2);
+        GraphicsConfigurationFactory localGraphicsConfigurationFactory2 = (GraphicsConfigurationFactory)registeredFactories.get(localDeviceCapsType);
+        if (localGraphicsConfigurationFactory2 != null) {
+          if (DEBUG) {
+            System.err.println("GraphicsConfigurationFactory.getFactory() found " + localDeviceCapsType + " -> " + localGraphicsConfigurationFactory2);
+          }
+          return localGraphicsConfigurationFactory2;
+        }
+      }
+    }
+    
+    GraphicsConfigurationFactory localGraphicsConfigurationFactory1 = (GraphicsConfigurationFactory)registeredFactories.get(defaultDeviceCapsType);
+    if (DEBUG) {
+      System.err.println("GraphicsConfigurationFactory.getFactory() DEFAULT " + defaultDeviceCapsType + " -> " + localGraphicsConfigurationFactory1);
+    }
+    return localGraphicsConfigurationFactory1;
+  }
+  
+  private static ArrayList<Class<?>> getAllAssignableClassesFrom(Class<?> paramClass1, Class<?> paramClass2, boolean paramBoolean) {
+    ArrayList localArrayList1 = new ArrayList();
+    ArrayList localArrayList2 = new ArrayList();
+    localArrayList1.add(paramClass2);
+    for (int i = 0; i < localArrayList1.size(); i++) {
+      Class localClass = (Class)localArrayList1.get(i);
+      getAllAssignableClassesFrom(paramClass1, localClass, paramBoolean, localArrayList2, localArrayList1);
+    }
+    return localArrayList2;
+  }
+  
+  private static void getAllAssignableClassesFrom(Class<?> paramClass1, Class<?> paramClass2, boolean paramBoolean, List<Class<?>> paramList1, List<Class<?>> paramList2) { ArrayList localArrayList = new ArrayList();
+    if ((paramClass1.isAssignableFrom(paramClass2)) && (!paramList1.contains(paramClass2)) && (
+      (!paramBoolean) || (paramClass2.isInterface()))) {
+      localArrayList.add(paramClass2);
+    }
+    
+    localArrayList.addAll(Arrays.asList(paramClass2.getInterfaces()));
+    
+    for (int i = 0; i < localArrayList.size(); i++) {
+      Class localClass2 = (Class)localArrayList.get(i);
+      if ((paramClass1.isAssignableFrom(localClass2)) && (!paramList1.contains(localClass2))) {
+        paramList1.add(localClass2);
+        if ((!paramClass1.equals(localClass2)) && (!paramList2.contains(localClass2))) {
+          paramList2.add(localClass2);
+        }
+      }
+    }
+    Class localClass1 = paramClass2.getSuperclass();
+    if ((null != localClass1) && (paramClass1.isAssignableFrom(localClass1)) && (!paramList2.contains(localClass1)))
+      paramList2.add(localClass1);
+  }
+  
+  private static void dumpFactories() {
+    Set localSet = registeredFactories.keySet();
+    int i = 0;
+    for (Iterator localIterator = localSet.iterator(); localIterator.hasNext();) {
+      DeviceCapsType localDeviceCapsType = (DeviceCapsType)localIterator.next();
+      System.err.println("Factory #" + i + ": " + localDeviceCapsType + " -> " + registeredFactories.get(localDeviceCapsType));
+      i++;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected static GraphicsConfigurationFactory registerFactory(Class<?> paramClass1, Class<?> paramClass2, GraphicsConfigurationFactory paramGraphicsConfigurationFactory)
+    throws IllegalArgumentException
+  {
+    if (!defaultDeviceCapsTypedeviceType.isAssignableFrom(paramClass1)) {
+      throw new IllegalArgumentException("Given device class must implement AbstractGraphicsDevice");
+    }
+    if (!defaultDeviceCapsTypecapsType.isAssignableFrom(paramClass2)) {
+      throw new IllegalArgumentException("Given capabilities class must implement CapabilitiesImmutable");
+    }
+    DeviceCapsType localDeviceCapsType = new DeviceCapsType(paramClass1, paramClass2);
+    GraphicsConfigurationFactory localGraphicsConfigurationFactory;
+    if (null == paramGraphicsConfigurationFactory) {
+      localGraphicsConfigurationFactory = (GraphicsConfigurationFactory)registeredFactories.remove(localDeviceCapsType);
+      if (DEBUG) {
+        System.err.println("GraphicsConfigurationFactory.registerFactory() remove " + localDeviceCapsType + ", deleting: " + localGraphicsConfigurationFactory);
+      }
+    }
+    else {
+      localGraphicsConfigurationFactory = (GraphicsConfigurationFactory)registeredFactories.put(localDeviceCapsType, paramGraphicsConfigurationFactory);
+      if (DEBUG) {
+        System.err.println("GraphicsConfigurationFactory.registerFactory() put " + localDeviceCapsType + " -> " + paramGraphicsConfigurationFactory + ", overridding: " + localGraphicsConfigurationFactory);
+      }
+    }
+    
+    return localGraphicsConfigurationFactory;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final AbstractGraphicsConfiguration chooseGraphicsConfiguration(CapabilitiesImmutable paramCapabilitiesImmutable1, CapabilitiesImmutable paramCapabilitiesImmutable2, CapabilitiesChooser paramCapabilitiesChooser, AbstractGraphicsScreen paramAbstractGraphicsScreen, int paramInt)
+    throws IllegalArgumentException, NativeWindowException
+  {
+    if (null == paramCapabilitiesImmutable1) {
+      throw new NativeWindowException("Chosen Capabilities are null");
+    }
+    if (null == paramCapabilitiesImmutable2) {
+      throw new NativeWindowException("Requested Capabilities are null");
+    }
+    if (null == paramAbstractGraphicsScreen) {
+      throw new NativeWindowException("Screen is null");
+    }
+    AbstractGraphicsDevice localAbstractGraphicsDevice = paramAbstractGraphicsScreen.getDevice();
+    if (null == localAbstractGraphicsDevice) {
+      throw new NativeWindowException("Screen's Device is null");
+    }
+    localAbstractGraphicsDevice.lock();
+    try {
+      return chooseGraphicsConfigurationImpl(paramCapabilitiesImmutable1, paramCapabilitiesImmutable2, paramCapabilitiesChooser, paramAbstractGraphicsScreen, paramInt);
+    } finally {
+      localAbstractGraphicsDevice.unlock();
+    }
+  }
+  
+  protected GraphicsConfigurationFactory() {}
+  
+  protected abstract AbstractGraphicsConfiguration chooseGraphicsConfigurationImpl(CapabilitiesImmutable paramCapabilitiesImmutable1, CapabilitiesImmutable paramCapabilitiesImmutable2, CapabilitiesChooser paramCapabilitiesChooser, AbstractGraphicsScreen paramAbstractGraphicsScreen, int paramInt)
+    throws IllegalArgumentException, NativeWindowException;
+}

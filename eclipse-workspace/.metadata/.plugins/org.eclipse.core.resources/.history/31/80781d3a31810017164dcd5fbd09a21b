@@ -1,0 +1,542 @@
+package jogamp.newt.driver.x11;
+
+import com.jogamp.common.util.IntLongHashMap;
+import com.jogamp.common.util.IntLongHashMap.Entry;
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.nativewindow.util.RectangleImmutable;
+import com.jogamp.newt.MonitorDevice;
+import com.jogamp.newt.MonitorMode;
+import java.util.Iterator;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class RandR13
+  implements RandR
+{
+  private static final boolean DEBUG = ScreenDriver.DEBUG;
+  private final VersionNumber version;
+  
+  RandR13(VersionNumber paramVersionNumber) {
+    version = paramVersionNumber;
+  }
+  
+  public final VersionNumber getVersion() {
+    return version;
+  }
+  
+  public String toString() { return "RandR13[version " + version + "]"; }
+  
+
+  public void dumpInfo(long paramLong, int paramInt)
+  {
+    long l = getScreenResources0(paramLong, paramInt);
+    if (0L == l) {
+      return;
+    }
+    try {
+      dumpInfo0(paramLong, paramInt, l);
+    } finally {
+      freeScreenResources0(l);
+    }
+  }
+  
+  long sessionScreenResources = 0L;
+  IntLongHashMap crtInfoHandleMap = null;
+  
+  public boolean beginInitialQuery(long paramLong, ScreenDriver paramScreenDriver)
+  {
+    int i = paramScreenDriver.getIndex();
+    sessionScreenResources = getScreenResources0(paramLong, i);
+    if (0L != sessionScreenResources) {
+      crtInfoHandleMap = new IntLongHashMap();
+      crtInfoHandleMap.setKeyNotFoundValue(0L);
+      return true;
+    }
+    return false;
+  }
+  
+
+  public void endInitialQuery(long paramLong, ScreenDriver paramScreenDriver)
+  {
+    if (null != crtInfoHandleMap) {
+      for (Iterator localIterator = crtInfoHandleMap.iterator(); localIterator.hasNext();) {
+        IntLongHashMap.Entry localEntry = (IntLongHashMap.Entry)localIterator.next();
+        freeMonitorInfoHandle0(value);
+      }
+      crtInfoHandleMap.clear();
+      crtInfoHandleMap = null;
+    }
+    if (0L != sessionScreenResources) {
+      freeScreenResources0(sessionScreenResources);
+      sessionScreenResources = 0L;
+    }
+  }
+  
+  private final long getScreenResourceHandle(long paramLong, int paramInt) {
+    if (0L != sessionScreenResources) {
+      return sessionScreenResources;
+    }
+    return getScreenResources0(paramLong, paramInt);
+  }
+  
+  private final void releaseScreenResourceHandle(long paramLong) { if (0L == sessionScreenResources) {
+      freeScreenResources0(paramLong);
+    }
+  }
+  
+  private final long getMonitorInfoHandle(long paramLong1, int paramInt1, long paramLong2, int paramInt2) {
+    if (null != crtInfoHandleMap) {
+      long l = crtInfoHandleMap.get(paramInt2);
+      if (0L == l) {
+        l = getMonitorInfoHandle0(paramLong1, paramInt1, paramLong2, paramInt2);
+        crtInfoHandleMap.put(paramInt2, l);
+      }
+      return l;
+    }
+    return getMonitorInfoHandle0(paramLong1, paramInt1, paramLong2, paramInt2);
+  }
+  
+  private final void releaseMonitorInfoHandle(long paramLong) {
+    if (null == crtInfoHandleMap) {
+      freeMonitorInfoHandle0(paramLong);
+    }
+  }
+  
+  public int[] getMonitorDeviceIds(long paramLong, ScreenDriver paramScreenDriver)
+  {
+    int i = paramScreenDriver.getIndex();
+    long l = getScreenResourceHandle(paramLong, i);
+    try {
+      return getMonitorDeviceIds0(l);
+    } finally {
+      releaseScreenResourceHandle(l);
+    }
+  }
+  
+  /* Error */
+  public int[] getAvailableRotations(long paramLong, ScreenDriver paramScreenDriver, int paramInt)
+  {
+    // Byte code:
+    //   0: aload_3
+    //   1: invokevirtual 15	jogamp/newt/driver/x11/ScreenDriver:getIndex	()I
+    //   4: istore 5
+    //   6: aload_0
+    //   7: lload_1
+    //   8: iload 5
+    //   10: invokespecial 29	jogamp/newt/driver/x11/RandR13:getScreenResourceHandle	(JI)J
+    //   13: lstore 6
+    //   15: aload_0
+    //   16: lload_1
+    //   17: iload 5
+    //   19: lload 6
+    //   21: iload 4
+    //   23: invokespecial 32	jogamp/newt/driver/x11/RandR13:getMonitorInfoHandle	(JIJI)J
+    //   26: lstore 8
+    //   28: lload 8
+    //   30: invokestatic 33	jogamp/newt/driver/x11/RandR13:getAvailableRotations0	(J)[I
+    //   33: astore 10
+    //   35: aconst_null
+    //   36: aload 10
+    //   38: if_acmpeq +10 -> 48
+    //   41: iconst_0
+    //   42: aload 10
+    //   44: arraylength
+    //   45: if_icmpne +21 -> 66
+    //   48: aconst_null
+    //   49: astore 11
+    //   51: aload_0
+    //   52: lload 8
+    //   54: invokespecial 34	jogamp/newt/driver/x11/RandR13:releaseMonitorInfoHandle	(J)V
+    //   57: aload_0
+    //   58: lload 6
+    //   60: invokespecial 31	jogamp/newt/driver/x11/RandR13:releaseScreenResourceHandle	(J)V
+    //   63: aload 11
+    //   65: areturn
+    //   66: aload 10
+    //   68: astore 11
+    //   70: aload_0
+    //   71: lload 8
+    //   73: invokespecial 34	jogamp/newt/driver/x11/RandR13:releaseMonitorInfoHandle	(J)V
+    //   76: aload_0
+    //   77: lload 6
+    //   79: invokespecial 31	jogamp/newt/driver/x11/RandR13:releaseScreenResourceHandle	(J)V
+    //   82: aload 11
+    //   84: areturn
+    //   85: astore 12
+    //   87: aload_0
+    //   88: lload 8
+    //   90: invokespecial 34	jogamp/newt/driver/x11/RandR13:releaseMonitorInfoHandle	(J)V
+    //   93: aload 12
+    //   95: athrow
+    //   96: astore 13
+    //   98: aload_0
+    //   99: lload 6
+    //   101: invokespecial 31	jogamp/newt/driver/x11/RandR13:releaseScreenResourceHandle	(J)V
+    //   104: aload 13
+    //   106: athrow
+    // Line number table:
+    //   Java source line #151	-> byte code offset #0
+    //   Java source line #152	-> byte code offset #6
+    //   Java source line #154	-> byte code offset #15
+    //   Java source line #156	-> byte code offset #28
+    //   Java source line #157	-> byte code offset #35
+    //   Java source line #158	-> byte code offset #48
+    //   Java source line #162	-> byte code offset #51
+    //   Java source line #165	-> byte code offset #57
+    //   Java source line #160	-> byte code offset #66
+    //   Java source line #162	-> byte code offset #70
+    //   Java source line #165	-> byte code offset #76
+    //   Java source line #162	-> byte code offset #85
+    //   Java source line #165	-> byte code offset #96
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	107	0	this	RandR13
+    //   0	107	1	paramLong	long
+    //   0	107	3	paramScreenDriver	ScreenDriver
+    //   0	107	4	paramInt	int
+    //   4	14	5	i	int
+    //   13	87	6	l1	long
+    //   26	63	8	l2	long
+    //   33	34	10	arrayOfInt1	int[]
+    //   49	34	11	arrayOfInt2	int[]
+    //   85	9	12	localObject1	Object
+    //   96	9	13	localObject2	Object
+    // Exception table:
+    //   from	to	target	type
+    //   28	51	85	finally
+    //   66	70	85	finally
+    //   85	87	85	finally
+    //   15	57	96	finally
+    //   66	76	96	finally
+    //   85	98	96	finally
+  }
+  
+  public int[] getMonitorModeProps(long paramLong, ScreenDriver paramScreenDriver, int paramInt)
+  {
+    int i = paramScreenDriver.getIndex();
+    long l = getScreenResourceHandle(paramLong, i);
+    try {
+      return getMonitorMode0(l, paramInt);
+    } finally {
+      releaseScreenResourceHandle(l);
+    }
+  }
+  
+  /* Error */
+  public int[] getMonitorDeviceProps(long paramLong, ScreenDriver paramScreenDriver, jogamp.newt.MonitorModeProps.Cache paramCache, int paramInt)
+  {
+    // Byte code:
+    //   0: aload_3
+    //   1: invokevirtual 15	jogamp/newt/driver/x11/ScreenDriver:getIndex	()I
+    //   4: istore 6
+    //   6: aload_0
+    //   7: lload_1
+    //   8: iload 6
+    //   10: invokespecial 29	jogamp/newt/driver/x11/RandR13:getScreenResourceHandle	(JI)J
+    //   13: lstore 7
+    //   15: aload_0
+    //   16: lload_1
+    //   17: iload 6
+    //   19: lload 7
+    //   21: iload 5
+    //   23: invokespecial 32	jogamp/newt/driver/x11/RandR13:getMonitorInfoHandle	(JIJI)J
+    //   26: lstore 9
+    //   28: lload_1
+    //   29: lload 7
+    //   31: lload 9
+    //   33: iload 5
+    //   35: invokestatic 36	jogamp/newt/driver/x11/RandR13:getMonitorDevice0	(JJJI)[I
+    //   38: astore 11
+    //   40: aload_0
+    //   41: lload 9
+    //   43: invokespecial 34	jogamp/newt/driver/x11/RandR13:releaseMonitorInfoHandle	(J)V
+    //   46: aload_0
+    //   47: lload 7
+    //   49: invokespecial 31	jogamp/newt/driver/x11/RandR13:releaseScreenResourceHandle	(J)V
+    //   52: aload 11
+    //   54: areturn
+    //   55: astore 12
+    //   57: aload_0
+    //   58: lload 9
+    //   60: invokespecial 34	jogamp/newt/driver/x11/RandR13:releaseMonitorInfoHandle	(J)V
+    //   63: aload 12
+    //   65: athrow
+    //   66: astore 13
+    //   68: aload_0
+    //   69: lload 7
+    //   71: invokespecial 31	jogamp/newt/driver/x11/RandR13:releaseScreenResourceHandle	(J)V
+    //   74: aload 13
+    //   76: athrow
+    // Line number table:
+    //   Java source line #182	-> byte code offset #0
+    //   Java source line #183	-> byte code offset #6
+    //   Java source line #185	-> byte code offset #15
+    //   Java source line #187	-> byte code offset #28
+    //   Java source line #189	-> byte code offset #40
+    //   Java source line #192	-> byte code offset #46
+    //   Java source line #189	-> byte code offset #55
+    //   Java source line #192	-> byte code offset #66
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	77	0	this	RandR13
+    //   0	77	1	paramLong	long
+    //   0	77	3	paramScreenDriver	ScreenDriver
+    //   0	77	4	paramCache	jogamp.newt.MonitorModeProps.Cache
+    //   0	77	5	paramInt	int
+    //   4	14	6	i	int
+    //   13	57	7	l1	long
+    //   26	33	9	l2	long
+    //   38	15	11	arrayOfInt	int[]
+    //   55	9	12	localObject1	Object
+    //   66	9	13	localObject2	Object
+    // Exception table:
+    //   from	to	target	type
+    //   28	40	55	finally
+    //   55	57	55	finally
+    //   15	46	66	finally
+    //   55	68	66	finally
+  }
+  
+  /* Error */
+  public int[] getMonitorDeviceViewport(long paramLong, ScreenDriver paramScreenDriver, int paramInt)
+  {
+    // Byte code:
+    //   0: aload_3
+    //   1: invokevirtual 15	jogamp/newt/driver/x11/ScreenDriver:getIndex	()I
+    //   4: istore 5
+    //   6: aload_0
+    //   7: lload_1
+    //   8: iload 5
+    //   10: invokespecial 29	jogamp/newt/driver/x11/RandR13:getScreenResourceHandle	(JI)J
+    //   13: lstore 6
+    //   15: aload_0
+    //   16: lload_1
+    //   17: iload 5
+    //   19: lload 6
+    //   21: iload 4
+    //   23: invokespecial 32	jogamp/newt/driver/x11/RandR13:getMonitorInfoHandle	(JIJI)J
+    //   26: lstore 8
+    //   28: lload 8
+    //   30: invokestatic 37	jogamp/newt/driver/x11/RandR13:getMonitorViewport0	(J)[I
+    //   33: astore 10
+    //   35: aload_0
+    //   36: lload 8
+    //   38: invokespecial 34	jogamp/newt/driver/x11/RandR13:releaseMonitorInfoHandle	(J)V
+    //   41: aload_0
+    //   42: lload 6
+    //   44: invokespecial 31	jogamp/newt/driver/x11/RandR13:releaseScreenResourceHandle	(J)V
+    //   47: aload 10
+    //   49: areturn
+    //   50: astore 11
+    //   52: aload_0
+    //   53: lload 8
+    //   55: invokespecial 34	jogamp/newt/driver/x11/RandR13:releaseMonitorInfoHandle	(J)V
+    //   58: aload 11
+    //   60: athrow
+    //   61: astore 12
+    //   63: aload_0
+    //   64: lload 6
+    //   66: invokespecial 31	jogamp/newt/driver/x11/RandR13:releaseScreenResourceHandle	(J)V
+    //   69: aload 12
+    //   71: athrow
+    // Line number table:
+    //   Java source line #198	-> byte code offset #0
+    //   Java source line #199	-> byte code offset #6
+    //   Java source line #201	-> byte code offset #15
+    //   Java source line #203	-> byte code offset #28
+    //   Java source line #205	-> byte code offset #35
+    //   Java source line #208	-> byte code offset #41
+    //   Java source line #205	-> byte code offset #50
+    //   Java source line #208	-> byte code offset #61
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	72	0	this	RandR13
+    //   0	72	1	paramLong	long
+    //   0	72	3	paramScreenDriver	ScreenDriver
+    //   0	72	4	paramInt	int
+    //   4	14	5	i	int
+    //   13	52	6	l1	long
+    //   26	28	8	l2	long
+    //   33	15	10	arrayOfInt	int[]
+    //   50	9	11	localObject1	Object
+    //   61	9	12	localObject2	Object
+    // Exception table:
+    //   from	to	target	type
+    //   28	35	50	finally
+    //   50	52	50	finally
+    //   15	41	61	finally
+    //   50	63	61	finally
+  }
+  
+  /* Error */
+  public int[] getCurrentMonitorModeProps(long paramLong, ScreenDriver paramScreenDriver, int paramInt)
+  {
+    // Byte code:
+    //   0: aload_3
+    //   1: invokevirtual 15	jogamp/newt/driver/x11/ScreenDriver:getIndex	()I
+    //   4: istore 5
+    //   6: aload_0
+    //   7: lload_1
+    //   8: iload 5
+    //   10: invokespecial 29	jogamp/newt/driver/x11/RandR13:getScreenResourceHandle	(JI)J
+    //   13: lstore 6
+    //   15: aload_0
+    //   16: lload_1
+    //   17: iload 5
+    //   19: lload 6
+    //   21: iload 4
+    //   23: invokespecial 32	jogamp/newt/driver/x11/RandR13:getMonitorInfoHandle	(JIJI)J
+    //   26: lstore 8
+    //   28: lload 6
+    //   30: lload 8
+    //   32: invokestatic 38	jogamp/newt/driver/x11/RandR13:getMonitorCurrentMode0	(JJ)[I
+    //   35: astore 10
+    //   37: aload_0
+    //   38: lload 8
+    //   40: invokespecial 34	jogamp/newt/driver/x11/RandR13:releaseMonitorInfoHandle	(J)V
+    //   43: aload_0
+    //   44: lload 6
+    //   46: invokespecial 31	jogamp/newt/driver/x11/RandR13:releaseScreenResourceHandle	(J)V
+    //   49: aload 10
+    //   51: areturn
+    //   52: astore 11
+    //   54: aload_0
+    //   55: lload 8
+    //   57: invokespecial 34	jogamp/newt/driver/x11/RandR13:releaseMonitorInfoHandle	(J)V
+    //   60: aload 11
+    //   62: athrow
+    //   63: astore 12
+    //   65: aload_0
+    //   66: lload 6
+    //   68: invokespecial 31	jogamp/newt/driver/x11/RandR13:releaseScreenResourceHandle	(J)V
+    //   71: aload 12
+    //   73: athrow
+    // Line number table:
+    //   Java source line #214	-> byte code offset #0
+    //   Java source line #215	-> byte code offset #6
+    //   Java source line #217	-> byte code offset #15
+    //   Java source line #219	-> byte code offset #28
+    //   Java source line #221	-> byte code offset #37
+    //   Java source line #224	-> byte code offset #43
+    //   Java source line #221	-> byte code offset #52
+    //   Java source line #224	-> byte code offset #63
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	74	0	this	RandR13
+    //   0	74	1	paramLong	long
+    //   0	74	3	paramScreenDriver	ScreenDriver
+    //   0	74	4	paramInt	int
+    //   4	14	5	i	int
+    //   13	54	6	l1	long
+    //   26	30	8	l2	long
+    //   35	15	10	arrayOfInt	int[]
+    //   52	9	11	localObject1	Object
+    //   63	9	12	localObject2	Object
+    // Exception table:
+    //   from	to	target	type
+    //   28	37	52	finally
+    //   52	54	52	finally
+    //   15	43	63	finally
+    //   52	65	63	finally
+  }
+  
+  public boolean setCurrentMonitorModeStart(long paramLong, ScreenDriver paramScreenDriver, MonitorDevice paramMonitorDevice, MonitorMode paramMonitorMode)
+  {
+    int i = paramScreenDriver.getIndex();
+    long l1 = getScreenResourceHandle(paramLong, i);
+    boolean bool;
+    try {
+      long l2 = getMonitorInfoHandle(paramLong, i, l1, paramMonitorDevice.getId());
+      try {
+        bool = setMonitorMode0(paramLong, i, l1, l2, paramMonitorDevice.getId(), paramMonitorMode
+          .getId(), paramMonitorMode.getRotation(), -1, -1);
+      }
+      finally {}
+    }
+    finally {
+      releaseScreenResourceHandle(l1);
+    }
+    return bool;
+  }
+  
+  public void sendRRScreenChangeNotify(long paramLong1, long paramLong2) {
+    sendRRScreenChangeNotify0(paramLong1, paramLong2);
+  }
+  
+  public boolean setCurrentMonitorModeWait(ScreenDriver paramScreenDriver)
+  {
+    return true;
+  }
+  
+  public final void updateScreenViewport(long paramLong, ScreenDriver paramScreenDriver, RectangleImmutable paramRectangleImmutable)
+  {
+    int i = paramScreenDriver.getIndex();
+    long l = getScreenResourceHandle(paramLong, i);
+    try {
+      setScreenViewport0(paramLong, i, l, paramRectangleImmutable.getX(), paramRectangleImmutable.getY(), paramRectangleImmutable.getWidth(), paramRectangleImmutable.getHeight());
+    } finally {
+      releaseScreenResourceHandle(l);
+    }
+  }
+  
+  private static native long getScreenResources0(long paramLong, int paramInt);
+  
+  private static native void freeScreenResources0(long paramLong);
+  
+  private static native void dumpInfo0(long paramLong1, int paramInt, long paramLong2);
+  
+  private static native int[] getMonitorDeviceIds0(long paramLong);
+  
+  private static native long getMonitorInfoHandle0(long paramLong1, int paramInt1, long paramLong2, int paramInt2);
+  
+  private static native void freeMonitorInfoHandle0(long paramLong);
+  
+  private static native int[] getAvailableRotations0(long paramLong);
+  
+  private static native int[] getMonitorViewport0(long paramLong);
+  
+  private static native int[] getMonitorMode0(long paramLong, int paramInt);
+  
+  private static native int[] getMonitorCurrentMode0(long paramLong1, long paramLong2);
+  
+  private static native int[] getMonitorDevice0(long paramLong1, long paramLong2, long paramLong3, int paramInt);
+  
+  private static native boolean setMonitorMode0(long paramLong1, int paramInt1, long paramLong2, long paramLong3, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6);
+  
+  private static native boolean setScreenViewport0(long paramLong1, int paramInt1, long paramLong2, int paramInt2, int paramInt3, int paramInt4, int paramInt5);
+  
+  private static native void sendRRScreenChangeNotify0(long paramLong1, long paramLong2);
+}

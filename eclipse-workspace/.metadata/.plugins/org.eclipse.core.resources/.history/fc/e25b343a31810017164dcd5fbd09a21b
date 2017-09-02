@@ -1,0 +1,233 @@
+package jogamp.opengl.x11.glx;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.nativewindow.x11.X11GraphicsDevice;
+import com.jogamp.opengl.GLException;
+import java.nio.IntBuffer;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLXUtil
+{
+  public static final boolean DEBUG = Debug.debug("GLXUtil");
+  
+  public GLXUtil() {}
+  
+  /* Error */
+  public static synchronized boolean isGLXAvailableOnServer(X11GraphicsDevice paramX11GraphicsDevice)
+  {
+    // Byte code:
+    //   0: aconst_null
+    //   1: aload_0
+    //   2: if_acmpne +13 -> 15
+    //   5: new 2	java/lang/IllegalArgumentException
+    //   8: dup
+    //   9: ldc 3
+    //   11: invokespecial 4	java/lang/IllegalArgumentException:<init>	(Ljava/lang/String;)V
+    //   14: athrow
+    //   15: lconst_0
+    //   16: aload_0
+    //   17: invokevirtual 5	com/jogamp/nativewindow/x11/X11GraphicsDevice:getHandle	()J
+    //   20: lcmp
+    //   21: ifne +13 -> 34
+    //   24: new 2	java/lang/IllegalArgumentException
+    //   27: dup
+    //   28: ldc 6
+    //   30: invokespecial 4	java/lang/IllegalArgumentException:<init>	(Ljava/lang/String;)V
+    //   33: athrow
+    //   34: iconst_0
+    //   35: istore_1
+    //   36: aload_0
+    //   37: invokevirtual 7	com/jogamp/nativewindow/x11/X11GraphicsDevice:lock	()V
+    //   40: aload_0
+    //   41: invokevirtual 5	com/jogamp/nativewindow/x11/X11GraphicsDevice:getHandle	()J
+    //   44: aconst_null
+    //   45: aconst_null
+    //   46: invokestatic 8	jogamp/opengl/x11/glx/GLX:glXQueryExtension	(JLjava/nio/IntBuffer;Ljava/nio/IntBuffer;)Z
+    //   49: istore_1
+    //   50: aload_0
+    //   51: invokevirtual 9	com/jogamp/nativewindow/x11/X11GraphicsDevice:unlock	()V
+    //   54: goto +18 -> 72
+    //   57: astore_2
+    //   58: aload_0
+    //   59: invokevirtual 9	com/jogamp/nativewindow/x11/X11GraphicsDevice:unlock	()V
+    //   62: goto +10 -> 72
+    //   65: astore_3
+    //   66: aload_0
+    //   67: invokevirtual 9	com/jogamp/nativewindow/x11/X11GraphicsDevice:unlock	()V
+    //   70: aload_3
+    //   71: athrow
+    //   72: iload_1
+    //   73: ireturn
+    // Line number table:
+    //   Java source line #50	-> byte code offset #0
+    //   Java source line #51	-> byte code offset #5
+    //   Java source line #53	-> byte code offset #15
+    //   Java source line #54	-> byte code offset #24
+    //   Java source line #56	-> byte code offset #34
+    //   Java source line #57	-> byte code offset #36
+    //   Java source line #59	-> byte code offset #40
+    //   Java source line #62	-> byte code offset #50
+    //   Java source line #63	-> byte code offset #54
+    //   Java source line #60	-> byte code offset #57
+    //   Java source line #62	-> byte code offset #58
+    //   Java source line #63	-> byte code offset #62
+    //   Java source line #62	-> byte code offset #65
+    //   Java source line #64	-> byte code offset #72
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	74	0	paramX11GraphicsDevice	X11GraphicsDevice
+    //   35	38	1	bool	boolean
+    //   57	1	2	localThrowable	Throwable
+    //   65	6	3	localObject	Object
+    // Exception table:
+    //   from	to	target	type
+    //   40	50	57	java/lang/Throwable
+    //   40	50	65	finally
+  }
+  
+  public static String getGLXClientString(X11GraphicsDevice paramX11GraphicsDevice, int paramInt)
+  {
+    paramX11GraphicsDevice.lock();
+    try {
+      return GLX.glXGetClientString(paramX11GraphicsDevice.getHandle(), paramInt);
+    } finally {
+      paramX11GraphicsDevice.unlock();
+    }
+  }
+  
+  public static String queryGLXServerString(X11GraphicsDevice paramX11GraphicsDevice, int paramInt1, int paramInt2) { paramX11GraphicsDevice.lock();
+    try {
+      return GLX.glXQueryServerString(paramX11GraphicsDevice.getHandle(), paramInt1, paramInt2);
+    } finally {
+      paramX11GraphicsDevice.unlock();
+    }
+  }
+  
+  public static String queryGLXExtensionsString(X11GraphicsDevice paramX11GraphicsDevice, int paramInt) { paramX11GraphicsDevice.lock();
+    try {
+      return GLX.glXQueryExtensionsString(paramX11GraphicsDevice.getHandle(), paramInt);
+    } finally {
+      paramX11GraphicsDevice.unlock();
+    }
+  }
+  
+  public static VersionNumber getGLXServerVersionNumber(X11GraphicsDevice paramX11GraphicsDevice) {
+    IntBuffer localIntBuffer1 = Buffers.newDirectIntBuffer(1);
+    IntBuffer localIntBuffer2 = Buffers.newDirectIntBuffer(1);
+    
+    paramX11GraphicsDevice.lock();
+    try {
+      if (!GLX.glXQueryVersion(paramX11GraphicsDevice.getHandle(), localIntBuffer1, localIntBuffer2)) {
+        throw new GLException("glXQueryVersion failed");
+      }
+      
+
+
+      if ((localIntBuffer1.get(0) == 1) && (localIntBuffer2.get(0) == 2)) {
+        String str = GLX.glXGetClientString(paramX11GraphicsDevice.getHandle(), 2);
+        try
+        {
+          localIntBuffer1.put(0, Integer.parseInt(str.substring(0, 1)));
+          localIntBuffer2.put(0, Integer.parseInt(str.substring(2, 3)));
+        } catch (Exception localException) {
+          localIntBuffer1.put(0, 1);
+          localIntBuffer2.put(0, 2);
+        }
+      }
+    } finally {
+      paramX11GraphicsDevice.unlock();
+    }
+    return new VersionNumber(localIntBuffer1.get(0), localIntBuffer2.get(0), 0);
+  }
+  
+  public static boolean isMultisampleAvailable(String paramString) {
+    if (paramString != null) {
+      return paramString.indexOf("GLX_ARB_multisample") >= 0;
+    }
+    return false;
+  }
+  
+  public static boolean isVendorNVIDIA(String paramString) {
+    return (paramString != null) && (paramString.startsWith("NVIDIA"));
+  }
+  
+  public static boolean isVendorATI(String paramString) {
+    return (paramString != null) && (paramString.startsWith("ATI"));
+  }
+  
+  public static boolean isClientMultisampleAvailable() {
+    return clientMultisampleAvailable;
+  }
+  
+  public static String getClientVendorName() { return clientVendorName; }
+  
+  public static VersionNumber getClientVersionNumber() {
+    return clientVersionNumber;
+  }
+  
+  public static synchronized void initGLXClientDataSingleton(X11GraphicsDevice paramX11GraphicsDevice) {
+    if (null != clientVendorName) {
+      return;
+    }
+    if (null == paramX11GraphicsDevice) {
+      throw new IllegalArgumentException("null X11GraphicsDevice");
+    }
+    if (0L == paramX11GraphicsDevice.getHandle()) {
+      throw new IllegalArgumentException("null X11GraphicsDevice display handle");
+    }
+    clientMultisampleAvailable = isMultisampleAvailable(GLX.glXGetClientString(paramX11GraphicsDevice.getHandle(), 3));
+    clientVendorName = GLX.glXGetClientString(paramX11GraphicsDevice.getHandle(), 1);
+    
+    int[] arrayOfInt1 = new int[1];
+    int[] arrayOfInt2 = new int[1];
+    String str = GLX.glXGetClientString(paramX11GraphicsDevice.getHandle(), 2);
+    try
+    {
+      arrayOfInt1[0] = Integer.parseInt(str.substring(0, 1));
+      arrayOfInt2[0] = Integer.parseInt(str.substring(2, 3));
+    } catch (Exception localException) {
+      arrayOfInt1[0] = 1;
+      arrayOfInt2[0] = 2;
+    }
+    clientVersionNumber = new VersionNumber(arrayOfInt1[0], arrayOfInt2[0], 0); }
+  
+  private static boolean clientMultisampleAvailable = false;
+  private static String clientVendorName = null;
+  private static VersionNumber clientVersionNumber = null;
+}

@@ -1,0 +1,136 @@
+package com.jogamp.nativewindow;
+
+import java.util.Comparator;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract interface VisualIDHolder
+{
+  public static final int VID_UNDEFINED = 0;
+  
+  public abstract int getVisualID(VIDType paramVIDType)
+    throws NativeWindowException;
+  
+  public static enum VIDType
+  {
+    INTRINSIC(0),  NATIVE(1), 
+    
+    EGL_CONFIG(10), 
+    
+    X11_XVISUAL(20),  X11_FBCONFIG(21), 
+    
+    WIN32_PFD(30);
+    
+    public final int id;
+    
+    private VIDType(int paramInt) {
+      id = paramInt;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static class VIDComparator
+    implements Comparator<VisualIDHolder>
+  {
+    private final VisualIDHolder.VIDType type;
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public VIDComparator(VisualIDHolder.VIDType paramVIDType)
+    {
+      type = paramVIDType;
+    }
+    
+    public int compare(VisualIDHolder paramVisualIDHolder1, VisualIDHolder paramVisualIDHolder2)
+    {
+      int i = paramVisualIDHolder1.getVisualID(type);
+      int j = paramVisualIDHolder2.getVisualID(type);
+      
+      if (i > j)
+        return 1;
+      if (i < j) {
+        return -1;
+      }
+      return 0;
+    }
+  }
+}

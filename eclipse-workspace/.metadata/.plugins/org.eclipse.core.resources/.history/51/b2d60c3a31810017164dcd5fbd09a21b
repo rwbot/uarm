@@ -1,0 +1,419 @@
+package jogamp.nativewindow.macosx;
+
+import com.jogamp.common.util.Function;
+import com.jogamp.common.util.FunctionTask;
+import com.jogamp.common.util.InterruptedRuntimeException;
+import com.jogamp.common.util.RunnableTask;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.util.Insets;
+import com.jogamp.nativewindow.util.Point;
+import java.io.PrintStream;
+import jogamp.nativewindow.Debug;
+import jogamp.nativewindow.NWJNILibLoader;
+import jogamp.nativewindow.ToolkitProperties;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class OSXUtil
+  implements ToolkitProperties
+{
+  private static boolean isInit = false;
+  private static final boolean DEBUG = Debug.debug("OSXUtil");
+  
+  public static final int MAX_PIXELSCALE = 2;
+  
+
+  public OSXUtil() {}
+  
+
+  public static synchronized void initSingleton()
+  {
+    if (!isInit) {
+      if (DEBUG) {
+        System.out.println("OSXUtil.initSingleton()");
+      }
+      if (!NWJNILibLoader.loadNativeWindow("macosx")) {
+        throw new NativeWindowException("NativeWindow MacOSX native library load error.");
+      }
+      
+      if (!initIDs0()) {
+        throw new NativeWindowException("MacOSX: Could not initialized native stub");
+      }
+      isInit = true;
+    }
+  }
+  
+
+
+
+  public static void shutdown() {}
+  
+
+
+
+  public static boolean requiresToolkitLock()
+  {
+    return false;
+  }
+  
+
+  public static final boolean hasThreadingIssues()
+  {
+    return false;
+  }
+  
+  public static boolean isNSView(long paramLong) { return 0L != paramLong ? isNSView0(paramLong) : false; }
+  
+  public static boolean isNSWindow(long paramLong)
+  {
+    return 0L != paramLong ? isNSWindow0(paramLong) : false;
+  }
+  
+
+
+
+
+
+  public static Point GetLocationOnScreen(long paramLong, int paramInt1, int paramInt2)
+  {
+    return (Point)GetLocationOnScreen0(paramLong, paramInt1, paramInt2);
+  }
+  
+  public static Insets GetInsets(long paramLong) {
+    return (Insets)GetInsets0(paramLong);
+  }
+  
+  public static double GetPixelScaleByDisplayID(int paramInt) {
+    if (0 != paramInt) {
+      return GetPixelScale1(paramInt);
+    }
+    return 1.0D;
+  }
+  
+  public static double GetPixelScale(long paramLong) {
+    if (0L != paramLong) {
+      return GetPixelScale2(paramLong);
+    }
+    return 1.0D;
+  }
+  
+  public static long CreateNSWindow(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    return CreateNSWindow0(paramInt1, paramInt2, paramInt3, paramInt4);
+  }
+  
+  public static void DestroyNSWindow(long paramLong) { DestroyNSWindow0(paramLong); }
+  
+  public static long GetNSView(long paramLong) {
+    return GetNSView0(paramLong);
+  }
+  
+  public static long GetNSWindow(long paramLong) { return GetNSWindow0(paramLong); }
+  
+
+
+
+
+
+
+
+
+
+  public static long CreateCALayer(int paramInt1, int paramInt2, float paramFloat)
+  {
+    long l = CreateCALayer0(paramInt1, paramInt2, paramFloat);
+    if (DEBUG) {
+      System.err.println("OSXUtil.CreateCALayer: 0x" + Long.toHexString(l) + " - " + Thread.currentThread().getName());
+    }
+    return l;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static void AddCASublayer(long paramLong1, long paramLong2, int paramInt1, int paramInt2, int paramInt3, int paramInt4, float paramFloat, int paramInt5)
+  {
+    if ((0L == paramLong1) || (0L == paramLong2)) {
+      throw new IllegalArgumentException("rootCALayer 0x" + Long.toHexString(paramLong1) + ", subCALayer 0x" + Long.toHexString(paramLong2));
+    }
+    if (DEBUG) {
+      System.err.println("OSXUtil.AttachCALayer: caLayerQuirks " + paramInt5 + ", 0x" + Long.toHexString(paramLong2) + " - " + Thread.currentThread().getName());
+    }
+    AddCASublayer0(paramLong1, paramLong2, paramInt1, paramInt2, paramInt3, paramInt4, paramFloat, paramInt5);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static void FixCALayerLayout(long paramLong1, long paramLong2, boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5)
+  {
+    if ((0L == paramLong1) && (0L == paramLong2)) {
+      return;
+    }
+    FixCALayerLayout0(paramLong1, paramLong2, paramBoolean, paramInt1, paramInt2, paramInt3, paramInt4, paramInt5);
+  }
+  
+
+
+
+
+
+
+  public static void SetCALayerPixelScale(long paramLong1, long paramLong2, float paramFloat)
+  {
+    if ((0L == paramLong1) && (0L == paramLong2)) {
+      return;
+    }
+    SetCALayerPixelScale0(paramLong1, paramLong2, paramFloat);
+  }
+  
+
+
+  public static void RemoveCASublayer(long paramLong1, long paramLong2)
+  {
+    if ((0L == paramLong1) || (0L == paramLong2)) {
+      throw new IllegalArgumentException("rootCALayer 0x" + Long.toHexString(paramLong1) + ", subCALayer 0x" + Long.toHexString(paramLong2));
+    }
+    if (DEBUG) {
+      System.err.println("OSXUtil.DetachCALayer: 0x" + Long.toHexString(paramLong2) + " - " + Thread.currentThread().getName());
+    }
+    RemoveCASublayer0(paramLong1, paramLong2);
+  }
+  
+
+
+
+  public static void DestroyCALayer(long paramLong)
+  {
+    if (0L == paramLong) {
+      throw new IllegalArgumentException("caLayer 0x" + Long.toHexString(paramLong));
+    }
+    if (DEBUG) {
+      System.err.println("OSXUtil.DestroyCALayer: 0x" + Long.toHexString(paramLong) + " - " + Thread.currentThread().getName());
+    }
+    DestroyCALayer0(paramLong);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public static void RunOnMainThread(boolean paramBoolean1, boolean paramBoolean2, Runnable paramRunnable)
+  {
+    if (IsMainThread0()) {
+      paramRunnable.run();
+    }
+    else
+    {
+      Object localObject1 = new Object();
+      RunnableTask localRunnableTask = new RunnableTask(paramRunnable, paramBoolean1 ? localObject1 : null, true, paramBoolean1 ? null : System.err);
+      synchronized (localObject1) {
+        RunOnMainThread0(paramBoolean2, localRunnableTask);
+        if (paramBoolean1) {
+          while (localRunnableTask.isInQueue()) {
+            try {
+              localObject1.wait();
+            } catch (InterruptedException localInterruptedException) {
+              throw new InterruptedRuntimeException(localInterruptedException);
+            }
+            Throwable localThrowable = localRunnableTask.getThrowable();
+            if (null != localThrowable) {
+              throw new RuntimeException(localThrowable);
+            }
+          }
+        }
+      }
+    }
+  }
+  
+
+
+
+
+
+  public static void RunLater(boolean paramBoolean, Runnable paramRunnable, int paramInt)
+  {
+    RunLater0(paramBoolean, false, new RunnableTask(paramRunnable, null, true, System.err), paramInt);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private static Runnable _nop = new Runnable() { public void run() {} };
+  
+  public static void KickNSApp() {}
+  
+  public static void WaitUntilFinish() { RunOnMainThread(true, true, _nop); }
+  
+
+
+
+
+
+
+
+
+
+
+  public static <R, A> R RunOnMainThread(boolean paramBoolean1, boolean paramBoolean2, Function<R, A> paramFunction, A... paramVarArgs)
+  {
+    if (IsMainThread0()) {
+      return paramFunction.eval(paramVarArgs);
+    }
+    
+
+    Object localObject1 = new Object();
+    FunctionTask localFunctionTask = new FunctionTask(paramFunction, paramBoolean1 ? localObject1 : null, true, paramBoolean1 ? null : System.err);
+    synchronized (localObject1) {
+      localFunctionTask.setArgs(paramVarArgs);
+      RunOnMainThread0(paramBoolean2, localFunctionTask);
+      if (paramBoolean1) {
+        while (localFunctionTask.isInQueue()) {
+          try {
+            localObject1.wait();
+          } catch (InterruptedException localInterruptedException) {
+            throw new InterruptedRuntimeException(localInterruptedException);
+          }
+          Throwable localThrowable = localFunctionTask.getThrowable();
+          if (null != localThrowable) {
+            throw new RuntimeException(localThrowable);
+          }
+        }
+      }
+    }
+    return localFunctionTask.getResult();
+  }
+  
+  public static boolean IsMainThread()
+  {
+    return IsMainThread0();
+  }
+  
+  public static int GetScreenRefreshRate(int paramInt)
+  {
+    return GetScreenRefreshRate0(paramInt);
+  }
+  
+  private static native boolean initIDs0();
+  
+  private static native boolean isNSView0(long paramLong);
+  
+  private static native boolean isNSWindow0(long paramLong);
+  
+  private static native Object GetLocationOnScreen0(long paramLong, int paramInt1, int paramInt2);
+  
+  private static native Object GetInsets0(long paramLong);
+  
+  private static native double GetPixelScale1(int paramInt);
+  
+  private static native double GetPixelScale2(long paramLong);
+  
+  private static native long CreateNSWindow0(int paramInt1, int paramInt2, int paramInt3, int paramInt4);
+  
+  private static native void DestroyNSWindow0(long paramLong);
+  
+  private static native long GetNSView0(long paramLong);
+  
+  private static native long GetNSWindow0(long paramLong);
+  
+  private static native long CreateCALayer0(int paramInt1, int paramInt2, float paramFloat);
+  
+  private static native void AddCASublayer0(long paramLong1, long paramLong2, int paramInt1, int paramInt2, int paramInt3, int paramInt4, float paramFloat, int paramInt5);
+  
+  private static native void FixCALayerLayout0(long paramLong1, long paramLong2, boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5);
+  
+  private static native void SetCALayerPixelScale0(long paramLong1, long paramLong2, float paramFloat);
+  
+  private static native void RemoveCASublayer0(long paramLong1, long paramLong2);
+  
+  private static native void DestroyCALayer0(long paramLong);
+  
+  private static native void RunOnMainThread0(boolean paramBoolean, Runnable paramRunnable);
+  
+  private static native void RunLater0(boolean paramBoolean1, boolean paramBoolean2, Runnable paramRunnable, int paramInt);
+  
+  private static native void KickNSApp0();
+  
+  private static native boolean IsMainThread0();
+  
+  private static native int GetScreenRefreshRate0(int paramInt);
+}

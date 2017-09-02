@@ -1,0 +1,136 @@
+package jogamp.common.util.locks;
+
+import com.jogamp.common.util.InterruptSource.Thread;
+import com.jogamp.common.util.locks.SingletonInstance;
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.io.RandomAccessFile;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class SingletonInstanceFileLock
+  extends SingletonInstance
+{
+  static final String temp_file_path;
+  private final File file;
+  
+  static
+  {
+    String str1 = null;
+    try {
+      File localFile = File.createTempFile("TEST", "tst");
+      String str2 = localFile.getCanonicalPath();
+      localFile.delete();
+      str1 = str2.substring(0, str2.lastIndexOf(File.separator));
+    } catch (IOException localIOException) {
+      localIOException.printStackTrace();
+    }
+    temp_file_path = str1;
+  }
+  
+  public static String getCanonicalTempPath() {
+    return temp_file_path;
+  }
+  
+  public static String getCanonicalTempLockFilePath(String paramString) {
+    return getCanonicalTempPath() + File.separator + paramString;
+  }
+  
+  public SingletonInstanceFileLock(long paramLong, String paramString) {
+    super(paramLong);
+    file = new File(getCanonicalTempLockFilePath(paramString));
+    setupFileCleanup();
+  }
+  
+  public SingletonInstanceFileLock(long paramLong, File paramFile) {
+    super(paramLong);
+    file = paramFile;
+    setupFileCleanup();
+  }
+  
+
+  public final String getName() { return file.getPath(); }
+  
+  private void setupFileCleanup() {
+    file.deleteOnExit();
+    Runtime.getRuntime().addShutdownHook(new InterruptSource.Thread()
+    {
+      public void run() {
+        if (isLocked()) {
+          System.err.println(infoPrefix() + " XXX " + getName() + " - Unlock @ JVM Shutdown");
+        }
+        unlock();
+      }
+    });
+  }
+  
+  protected boolean tryLockImpl()
+  {
+    try {
+      randomAccessFile = new RandomAccessFile(file, "rw");
+      fileLock = randomAccessFile.getChannel().tryLock();
+      
+      if (fileLock != null) {
+        return true;
+      }
+    } catch (Exception localException) {
+      System.err.println(infoPrefix() + " III " + getName() + " - Unable to create and/or lock file");
+      localException.printStackTrace();
+    }
+    return false;
+  }
+  
+  protected boolean unlockImpl()
+  {
+    try {
+      if (null != fileLock) {
+        fileLock.release();
+        fileLock = null;
+      }
+      if (null != randomAccessFile) {
+        randomAccessFile.close();
+        randomAccessFile = null;
+      }
+      if (null != file) {
+        file.delete();
+      }
+      return true;
+    } catch (Exception localException) {
+      System.err.println(infoPrefix() + " EEE " + getName() + " - Unable to remove lock file");
+      localException.printStackTrace();
+    } finally {
+      fileLock = null;
+      randomAccessFile = null;
+    }
+    return false;
+  }
+  
+
+  private RandomAccessFile randomAccessFile = null;
+  private FileLock fileLock = null;
+}

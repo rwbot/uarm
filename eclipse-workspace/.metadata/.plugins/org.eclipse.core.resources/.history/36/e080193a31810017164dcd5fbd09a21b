@@ -1,0 +1,192 @@
+package jogamp.nativewindow.x11.awt;
+
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.CapabilitiesChooser;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.GraphicsConfigurationFactory;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.ToolkitLock;
+import com.jogamp.nativewindow.VisualIDHolder.VIDType;
+import com.jogamp.nativewindow.awt.AWTGraphicsConfiguration;
+import com.jogamp.nativewindow.awt.AWTGraphicsDevice;
+import com.jogamp.nativewindow.awt.AWTGraphicsScreen;
+import com.jogamp.nativewindow.x11.X11GraphicsDevice;
+import com.jogamp.nativewindow.x11.X11GraphicsScreen;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.io.PrintStream;
+import jogamp.nativewindow.jawt.x11.X11SunJDKReflection;
+import jogamp.nativewindow.x11.X11Lib;
+import jogamp.nativewindow.x11.X11Util;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class X11AWTGraphicsConfigurationFactory
+  extends GraphicsConfigurationFactory
+{
+  public static void registerFactory()
+  {
+    GraphicsConfigurationFactory.registerFactory(AWTGraphicsDevice.class, CapabilitiesImmutable.class, new X11AWTGraphicsConfigurationFactory());
+  }
+  
+
+  private X11AWTGraphicsConfigurationFactory() {}
+  
+
+  protected AbstractGraphicsConfiguration chooseGraphicsConfigurationImpl(CapabilitiesImmutable paramCapabilitiesImmutable1, CapabilitiesImmutable paramCapabilitiesImmutable2, CapabilitiesChooser paramCapabilitiesChooser, AbstractGraphicsScreen paramAbstractGraphicsScreen, int paramInt)
+  {
+    if ((paramAbstractGraphicsScreen != null) && (!(paramAbstractGraphicsScreen instanceof AWTGraphicsScreen)))
+    {
+      throw new IllegalArgumentException("This GraphicsConfigurationFactory accepts only AWTGraphicsScreen objects");
+    }
+    if (null == paramAbstractGraphicsScreen) {
+      paramAbstractGraphicsScreen = AWTGraphicsScreen.createDefault();
+    }
+    
+    return chooseGraphicsConfigurationStatic(paramCapabilitiesImmutable1, paramCapabilitiesImmutable2, paramCapabilitiesChooser, (AWTGraphicsScreen)paramAbstractGraphicsScreen, paramInt);
+  }
+  
+
+  public static AWTGraphicsConfiguration chooseGraphicsConfigurationStatic(CapabilitiesImmutable paramCapabilitiesImmutable1, CapabilitiesImmutable paramCapabilitiesImmutable2, CapabilitiesChooser paramCapabilitiesChooser, AWTGraphicsScreen paramAWTGraphicsScreen, int paramInt)
+  {
+    if (DEBUG) {
+      System.err.println("X11AWTGraphicsConfigurationFactory: got " + paramAWTGraphicsScreen);
+    }
+    
+    GraphicsDevice localGraphicsDevice = ((AWTGraphicsDevice)paramAWTGraphicsScreen.getDevice()).getGraphicsDevice();
+    
+    long l1 = X11SunJDKReflection.graphicsDeviceGetDisplay(localGraphicsDevice);
+    long l2;
+    boolean bool;
+    if (0L == l1) {
+      l2 = X11Util.openDisplay(null);
+      bool = true;
+      if (DEBUG) {
+        System.err.println(getThreadName() + " - X11AWTGraphicsConfigurationFactory: Null AWT dpy, create local X11 display: " + toHexString(l2));
+
+      }
+      
+
+    }
+    else
+    {
+
+      localObject = X11Lib.XDisplayString(l1);
+      l2 = X11Util.openDisplay((String)localObject);
+      bool = true;
+      if (DEBUG) {
+        System.err.println(getThreadName() + " - X11AWTGraphicsConfigurationFactory: AWT dpy " + (String)localObject + " / " + toHexString(l1) + ", create X11 display " + toHexString(l2));
+      }
+    }
+    
+    Object localObject = NativeWindowFactory.getDefaultToolkitLock(NativeWindowFactory.TYPE_AWT);
+    X11GraphicsDevice localX11GraphicsDevice = new X11GraphicsDevice(l2, 0, (ToolkitLock)localObject, bool);
+    X11GraphicsScreen localX11GraphicsScreen = new X11GraphicsScreen(localX11GraphicsDevice, paramAWTGraphicsScreen.getIndex());
+    if (DEBUG) {
+      System.err.println("X11AWTGraphicsConfigurationFactory: made " + localX11GraphicsScreen);
+    }
+    
+    GraphicsConfigurationFactory localGraphicsConfigurationFactory = GraphicsConfigurationFactory.getFactory(localX11GraphicsDevice, paramCapabilitiesImmutable1);
+    AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = localGraphicsConfigurationFactory.chooseGraphicsConfiguration(paramCapabilitiesImmutable1, paramCapabilitiesImmutable2, paramCapabilitiesChooser, localX11GraphicsScreen, paramInt);
+    if (localAbstractGraphicsConfiguration == null) {
+      throw new NativeWindowException("Unable to choose a GraphicsConfiguration (1): " + paramCapabilitiesImmutable1 + ",\n\t" + paramCapabilitiesChooser + "\n\t" + localX11GraphicsScreen);
+    }
+    if (DEBUG) {
+      System.err.println("X11AWTGraphicsConfigurationFactory: chosen config: " + localAbstractGraphicsConfiguration);
+    }
+    
+
+
+
+
+
+
+
+
+
+    GraphicsConfiguration[] arrayOfGraphicsConfiguration = localGraphicsDevice.getConfigurations();
+    int i = localAbstractGraphicsConfiguration.getVisualID(VisualIDHolder.VIDType.NATIVE);
+    if (0 != i) {
+      for (int j = 0; j < arrayOfGraphicsConfiguration.length; j++) {
+        GraphicsConfiguration localGraphicsConfiguration2 = arrayOfGraphicsConfiguration[j];
+        if ((localGraphicsConfiguration2 != null) && 
+          (X11SunJDKReflection.graphicsConfigurationGetVisualID(localGraphicsConfiguration2) == i)) {
+          if (DEBUG) {
+            System.err.println("Found matching AWT visual: 0x" + Integer.toHexString(i) + " -> " + localAbstractGraphicsConfiguration);
+          }
+          
+          return new AWTGraphicsConfiguration(paramAWTGraphicsScreen, localAbstractGraphicsConfiguration.getChosenCapabilities(), localAbstractGraphicsConfiguration.getRequestedCapabilities(), localGraphicsConfiguration2, localAbstractGraphicsConfiguration);
+        }
+      }
+    }
+    
+
+
+
+    GraphicsConfiguration localGraphicsConfiguration1 = localGraphicsDevice.getDefaultConfiguration();
+    paramCapabilitiesImmutable1 = AWTGraphicsConfiguration.setupCapabilitiesRGBABits(paramCapabilitiesImmutable1, localGraphicsConfiguration1);
+    localAbstractGraphicsConfiguration = localGraphicsConfigurationFactory.chooseGraphicsConfiguration(paramCapabilitiesImmutable1, paramCapabilitiesImmutable2, paramCapabilitiesChooser, localX11GraphicsScreen, paramInt);
+    if (localAbstractGraphicsConfiguration == null) {
+      throw new NativeWindowException("Unable to choose a GraphicsConfiguration (2): " + paramCapabilitiesImmutable1 + ",\n\t" + paramCapabilitiesChooser + "\n\t" + localX11GraphicsScreen);
+    }
+    i = localAbstractGraphicsConfiguration.getVisualID(VisualIDHolder.VIDType.NATIVE);
+    if (0 != i) {
+      for (int k = 0; k < arrayOfGraphicsConfiguration.length; k++) {
+        localGraphicsConfiguration1 = arrayOfGraphicsConfiguration[k];
+        if (X11SunJDKReflection.graphicsConfigurationGetVisualID(localGraphicsConfiguration1) == i) {
+          if (DEBUG) {
+            System.err.println("Found matching default AWT visual: 0x" + Integer.toHexString(i) + " -> " + localAbstractGraphicsConfiguration);
+          }
+          
+          return new AWTGraphicsConfiguration(paramAWTGraphicsScreen, localAbstractGraphicsConfiguration.getChosenCapabilities(), localAbstractGraphicsConfiguration.getRequestedCapabilities(), localGraphicsConfiguration1, localAbstractGraphicsConfiguration);
+        }
+      }
+    }
+    
+
+
+
+
+    if (DEBUG) {
+      System.err.println("Using default configuration");
+    }
+    
+    localGraphicsConfiguration1 = localGraphicsDevice.getDefaultConfiguration();
+    return new AWTGraphicsConfiguration(paramAWTGraphicsScreen, localAbstractGraphicsConfiguration.getChosenCapabilities(), localAbstractGraphicsConfiguration.getRequestedCapabilities(), localGraphicsConfiguration1, localAbstractGraphicsConfiguration);
+  }
+}

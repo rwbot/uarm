@@ -1,0 +1,97 @@
+package com.jogamp.newt.event;
+
+import jogamp.newt.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract interface GestureHandler
+{
+  public static final boolean DEBUG = Debug.debug("Window.MouseEvent");
+  
+  public abstract void clear(boolean paramBoolean);
+  
+  public abstract boolean hasGesture();
+  
+  public abstract InputEvent getGestureEvent();
+  
+  public abstract boolean isWithinGesture();
+  
+  public abstract boolean process(InputEvent paramInputEvent);
+  
+  public static abstract interface GestureListener extends NEWTEventListener {
+    public abstract void gestureDetected(GestureHandler.GestureEvent paramGestureEvent);
+  }
+  
+  public static class GestureEvent extends InputEvent {
+    public static final short EVENT_GESTURE_DETECTED = 400;
+    private final GestureHandler handler;
+    private final InputEvent ie;
+    
+    public GestureEvent(Object paramObject, long paramLong, int paramInt, GestureHandler paramGestureHandler, InputEvent paramInputEvent) { super(paramObject, paramLong, paramInt);
+      handler = paramGestureHandler;
+      ie = paramInputEvent;
+    }
+    
+
+
+
+
+
+
+
+
+    public GestureEvent(short paramShort, Object paramObject, long paramLong, int paramInt, GestureHandler paramGestureHandler, InputEvent paramInputEvent)
+    {
+      super(paramObject, paramLong, paramInt);
+      handler = paramGestureHandler;
+      ie = paramInputEvent;
+    }
+    
+    public final GestureHandler getHandler() {
+      return handler;
+    }
+    
+    public final InputEvent getTrigger() { return ie; }
+    
+    public String toString() {
+      return "GestureEvent[handler " + handler + "]";
+    }
+  }
+}

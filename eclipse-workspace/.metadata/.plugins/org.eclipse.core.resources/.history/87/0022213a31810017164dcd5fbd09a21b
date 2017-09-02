@@ -1,0 +1,196 @@
+package jogamp.opengl;
+
+import com.jogamp.common.util.IntIntHashMap;
+import com.jogamp.opengl.GLException;
+import java.nio.IntBuffer;
+import java.util.ArrayList;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLStateTracker
+{
+  public static final int MIN_CLIENT_ATTRIB_STACK_DEPTH = 16;
+  private static final int PIXEL_STATE_MAP_CAPACITY = 32;
+  private volatile boolean enabled = true;
+  
+  private IntIntHashMap pixelStateMap;
+  
+  private final ArrayList<SavedState> stack;
+  
+
+  static class SavedState
+  {
+    private IntIntHashMap pixelStateMap;
+    
+
+    SavedState() {}
+    
+    final void setPixelStateMap(IntIntHashMap paramIntIntHashMap)
+    {
+      pixelStateMap = ((IntIntHashMap)paramIntIntHashMap.clone());
+    }
+    
+
+    final IntIntHashMap getPixelStateMap()
+    {
+      return pixelStateMap;
+    }
+  }
+  
+  public GLStateTracker() {
+    pixelStateMap = new IntIntHashMap(32, 0.75F);
+    pixelStateMap.setKeyNotFoundValue(-1);
+    resetStates();
+    
+    stack = new ArrayList(16);
+  }
+  
+  public final void clearStates() {
+    pixelStateMap.clear();
+  }
+  
+  public final void setEnabled(boolean paramBoolean) {
+    enabled = paramBoolean;
+  }
+  
+  public final boolean isEnabled() {
+    return enabled;
+  }
+  
+
+  public final boolean getInt(int paramInt1, int[] paramArrayOfInt, int paramInt2)
+  {
+    if (enabled) {
+      int i = pixelStateMap.get(paramInt1);
+      if (-1 != i) {
+        paramArrayOfInt[paramInt2] = i;
+        return true;
+      }
+    }
+    return false;
+  }
+  
+
+  public final boolean getInt(int paramInt1, IntBuffer paramIntBuffer, int paramInt2)
+  {
+    if (enabled) {
+      int i = pixelStateMap.get(paramInt1);
+      if (-1 != i) {
+        paramIntBuffer.put(paramIntBuffer.position(), i);
+        return true;
+      }
+    }
+    return false;
+  }
+  
+  public final void setInt(int paramInt1, int paramInt2) {
+    if (enabled) {
+      pixelStateMap.put(paramInt1, paramInt2);
+    }
+  }
+  
+  public final void pushAttrib(int paramInt) {
+    if (enabled) {
+      SavedState localSavedState = new SavedState();
+      if (0 != (paramInt & 0x1))
+      {
+        localSavedState.setPixelStateMap(pixelStateMap);
+      }
+      stack.add(stack.size(), localSavedState);
+    }
+  }
+  
+  public final void popAttrib() {
+    if (enabled) {
+      if (stack.isEmpty()) {
+        throw new GLException("stack contains no elements");
+      }
+      SavedState localSavedState = (SavedState)stack.remove(stack.size() - 1);
+      
+      if (null == localSavedState) {
+        throw new GLException("null stack element (remaining stack size " + stack.size() + ")");
+      }
+      IntIntHashMap localIntIntHashMap = localSavedState.getPixelStateMap();
+      
+      if (null != localIntIntHashMap)
+      {
+        pixelStateMap = localIntIntHashMap;
+      }
+    }
+  }
+  
+  private final void resetStates() {
+    pixelStateMap.clear();
+    
+
+    pixelStateMap.put(3333, 4);
+    pixelStateMap.put(3328, 0);
+    pixelStateMap.put(3329, 0);
+    pixelStateMap.put(3330, 0);
+    pixelStateMap.put(3331, 0);
+    pixelStateMap.put(3332, 0);
+    pixelStateMap.put(32876, 0);
+    pixelStateMap.put(32875, 0);
+    
+    pixelStateMap.put(3317, 4);
+    pixelStateMap.put(3312, 0);
+    pixelStateMap.put(3313, 0);
+    pixelStateMap.put(3314, 0);
+    pixelStateMap.put(3315, 0);
+    pixelStateMap.put(3316, 0);
+    pixelStateMap.put(32878, 0);
+    pixelStateMap.put(32877, 0);
+  }
+}

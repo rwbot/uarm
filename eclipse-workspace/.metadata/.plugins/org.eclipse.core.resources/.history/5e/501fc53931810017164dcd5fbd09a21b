@@ -1,0 +1,69 @@
+package g4p_controls;
+
+import processing.core.PApplet;
+import processing.core.PImage;
+
+public class GIcon
+{
+  protected PApplet app = null;
+  protected GAbstractControl owner = null;
+  private static final String WARNING = "warn3.png";
+  protected PImage[] img = null;
+  protected int width = 0;
+  protected int height = 0;
+  protected int nbrFrames = 0;
+  protected int currFrame = 0;
+  
+  protected GIcon() {}
+  
+  public GIcon(PApplet paramPApplet, String paramString, int paramInt1, int paramInt2)
+  {
+    this(paramPApplet, ImageManager.loadImage(paramPApplet, paramString), paramInt1, paramInt2);
+  }
+  
+  public GIcon(PApplet paramPApplet, PImage paramPImage, int paramInt1, int paramInt2)
+  {
+    app = paramPApplet;
+    if ((paramInt1 >= 1) && (paramInt2 >= 1) && (paramPImage != null)) {
+      img = ImageManager.makeTiles1D(app, paramPImage, paramInt1, paramInt2);
+    } else {
+      img = new PImage[] { ImageManager.loadImage(app, "warn3.png") };
+    }
+    nbrFrames = img.length;
+    width = img[0].width;
+    height = img[0].height;
+  }
+  
+  public GIcon copy()
+  {
+    GIcon localGIcon = new GIcon();
+    app = app;
+    img = img;
+    width = width;
+    height = height;
+    nbrFrames = nbrFrames;
+    return localGIcon;
+  }
+  
+  GAnimIcon me()
+  {
+    return null;
+  }
+  
+  GIcon setFrame(int paramInt)
+  {
+    currFrame = PApplet.constrain(paramInt, 0, nbrFrames - 1);
+    return this;
+  }
+  
+  public PImage getFrame(int paramInt)
+  {
+    paramInt = PApplet.constrain(Math.abs(paramInt), 0, nbrFrames - 1);
+    return img[paramInt];
+  }
+  
+  public PImage getFrame()
+  {
+    return img[currFrame];
+  }
+}

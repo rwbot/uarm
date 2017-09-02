@@ -1,0 +1,960 @@
+package com.jogamp.opengl.util.texture.spi;
+
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
+
+public class DDSImage
+{
+  private FileInputStream fis;
+  private FileChannel chan;
+  private ByteBuffer buf;
+  private Header header;
+  public static final int DDSD_CAPS = 1;
+  public static final int DDSD_HEIGHT = 2;
+  public static final int DDSD_WIDTH = 4;
+  public static final int DDSD_PITCH = 8;
+  public static final int DDSD_BACKBUFFERCOUNT = 32;
+  public static final int DDSD_ZBUFFERBITDEPTH = 64;
+  public static final int DDSD_ALPHABITDEPTH = 128;
+  public static final int DDSD_LPSURFACE = 2048;
+  public static final int DDSD_PIXELFORMAT = 4096;
+  public static final int DDSD_MIPMAPCOUNT = 131072;
+  public static final int DDSD_LINEARSIZE = 524288;
+  public static final int DDSD_DEPTH = 8388608;
+  public static final int DDPF_ALPHAPIXELS = 1;
+  public static final int DDPF_ALPHA = 2;
+  public static final int DDPF_FOURCC = 4;
+  public static final int DDPF_PALETTEINDEXED4 = 8;
+  public static final int DDPF_PALETTEINDEXEDTO8 = 16;
+  public static final int DDPF_PALETTEINDEXED8 = 32;
+  public static final int DDPF_RGB = 64;
+  public static final int DDPF_COMPRESSED = 128;
+  public static final int DDPF_RGBTOYUV = 256;
+  public static final int DDPF_YUV = 512;
+  public static final int DDPF_ZBUFFER = 1024;
+  public static final int DDPF_PALETTEINDEXED1 = 2048;
+  public static final int DDPF_PALETTEINDEXED2 = 4096;
+  public static final int DDPF_ZPIXELS = 8192;
+  public static final int DDSCAPS_TEXTURE = 4096;
+  public static final int DDSCAPS_MIPMAP = 4194304;
+  public static final int DDSCAPS_COMPLEX = 8;
+  public static final int DDSCAPS2_CUBEMAP = 512;
+  public static final int DDSCAPS2_CUBEMAP_POSITIVEX = 1024;
+  public static final int DDSCAPS2_CUBEMAP_NEGATIVEX = 2048;
+  public static final int DDSCAPS2_CUBEMAP_POSITIVEY = 4096;
+  public static final int DDSCAPS2_CUBEMAP_NEGATIVEY = 8192;
+  public static final int DDSCAPS2_CUBEMAP_POSITIVEZ = 16384;
+  public static final int DDSCAPS2_CUBEMAP_NEGATIVEZ = 32768;
+  public static final int D3DFMT_UNKNOWN = 0;
+  public static final int D3DFMT_R8G8B8 = 20;
+  public static final int D3DFMT_A8R8G8B8 = 21;
+  public static final int D3DFMT_X8R8G8B8 = 22;
+  public static final int D3DFMT_DXT1 = 827611204;
+  public static final int D3DFMT_DXT2 = 844388420;
+  public static final int D3DFMT_DXT3 = 861165636;
+  public static final int D3DFMT_DXT4 = 877942852;
+  public static final int D3DFMT_DXT5 = 894720068;
+  private static final int MAGIC = 542327876;
+  
+  public static class ImageInfo
+  {
+    private final ByteBuffer data;
+    private final int width;
+    private final int height;
+    private final boolean isCompressed;
+    private final int compressionFormat;
+    
+    public ImageInfo(ByteBuffer paramByteBuffer, int paramInt1, int paramInt2, boolean paramBoolean, int paramInt3)
+    {
+      data = paramByteBuffer;width = paramInt1;height = paramInt2;
+      isCompressed = paramBoolean;compressionFormat = paramInt3; }
+    
+    public int getWidth() { return width; }
+    public int getHeight() { return height; }
+    public ByteBuffer getData() { return data; }
+    public boolean isCompressed() { return isCompressed; }
+    
+    public int getCompressionFormat() { if (!isCompressed())
+        throw new RuntimeException("Should not call unless compressed");
+      return compressionFormat;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static DDSImage read(String paramString)
+    throws IOException
+  {
+    return read(new File(paramString));
+  }
+  
+
+
+
+
+
+  public static DDSImage read(File paramFile)
+    throws IOException
+  {
+    DDSImage localDDSImage = new DDSImage();
+    localDDSImage.readFromFile(paramFile);
+    return localDDSImage;
+  }
+  
+
+
+
+
+
+  public static DDSImage read(ByteBuffer paramByteBuffer)
+    throws IOException
+  {
+    DDSImage localDDSImage = new DDSImage();
+    localDDSImage.readFromBuffer(paramByteBuffer);
+    return localDDSImage;
+  }
+  
+
+  public void close()
+  {
+    try
+    {
+      if (chan != null) {
+        chan.close();
+        chan = null;
+      }
+      if (fis != null) {
+        fis.close();
+        fis = null;
+      }
+      buf = null;
+    } catch (IOException localIOException) {
+      localIOException.printStackTrace();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static DDSImage createFromData(int paramInt1, int paramInt2, int paramInt3, ByteBuffer[] paramArrayOfByteBuffer)
+    throws IllegalArgumentException
+  {
+    DDSImage localDDSImage = new DDSImage();
+    localDDSImage.initFromData(paramInt1, paramInt2, paramInt3, paramArrayOfByteBuffer);
+    return localDDSImage;
+  }
+  
+
+
+
+
+
+
+
+
+  @Deprecated
+  public static boolean isDDSImage(InputStream paramInputStream)
+    throws IOException
+  {
+    if (!(paramInputStream instanceof BufferedInputStream)) {
+      paramInputStream = new BufferedInputStream(paramInputStream);
+    }
+    if (!paramInputStream.markSupported()) {
+      throw new IOException("Can not test non-destructively whether given InputStream is a DDS image");
+    }
+    paramInputStream.mark(4);
+    int i = 0;
+    for (int j = 0; j < 4; j++) {
+      int k = paramInputStream.read();
+      if (k < 0) {
+        paramInputStream.reset();
+        return false;
+      }
+      i = i >>> 8 | k << 24;
+    }
+    paramInputStream.reset();
+    return i == 542327876;
+  }
+  
+
+
+
+  public void write(String paramString)
+    throws IOException
+  {
+    write(new File(paramString));
+  }
+  
+
+
+
+  public void write(File paramFile)
+    throws IOException
+  {
+    FileOutputStream localFileOutputStream = com.jogamp.common.util.IOUtil.getFileOutputStream(paramFile, true);
+    FileChannel localFileChannel = localFileOutputStream.getChannel();
+    
+
+    ByteBuffer localByteBuffer = ByteBuffer.allocate(Header.access$000());
+    localByteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+    header.write(localByteBuffer);
+    localByteBuffer.rewind();
+    localFileChannel.write(localByteBuffer);
+    buf.position(Header.access$000());
+    localFileChannel.write(buf);
+    localFileChannel.force(true);
+    localFileChannel.close();
+    localFileOutputStream.close();
+  }
+  
+
+
+
+  public boolean isSurfaceDescFlagSet(int paramInt)
+  {
+    return (header.flags & paramInt) != 0;
+  }
+  
+  public boolean isPixelFormatFlagSet(int paramInt)
+  {
+    return (header.pfFlags & paramInt) != 0;
+  }
+  
+
+
+  public int getPixelFormat()
+  {
+    if (isCompressed())
+      return getCompressionFormat();
+    if (isPixelFormatFlagSet(64)) {
+      if (isPixelFormatFlagSet(1)) {
+        if ((getDepth() == 32) && (header.pfRBitMask == 16711680) && (header.pfGBitMask == 65280) && (header.pfBBitMask == 255) && (header.pfABitMask == -16777216))
+        {
+
+
+
+          return 21;
+        }
+      } else {
+        if ((getDepth() == 24) && (header.pfRBitMask == 16711680) && (header.pfGBitMask == 65280) && (header.pfBBitMask == 255))
+        {
+
+
+          return 20; }
+        if ((getDepth() == 32) && (header.pfRBitMask == 16711680) && (header.pfGBitMask == 65280) && (header.pfBBitMask == 255))
+        {
+
+
+          return 22;
+        }
+      }
+    }
+    
+    return 0;
+  }
+  
+
+
+
+  public boolean isCubemap()
+  {
+    return ((header.ddsCaps1 & 0x8) != 0) && ((header.ddsCaps2 & 0x200) != 0);
+  }
+  
+
+
+
+
+  public boolean isCubemapSidePresent(int paramInt)
+  {
+    return (isCubemap()) && ((header.ddsCaps2 & paramInt) != 0);
+  }
+  
+  public boolean isCompressed()
+  {
+    return isPixelFormatFlagSet(4);
+  }
+  
+
+  public int getCompressionFormat()
+  {
+    return header.pfFourCC;
+  }
+  
+
+  public int getWidth()
+  {
+    return header.width;
+  }
+  
+
+  public int getHeight()
+  {
+    return header.height;
+  }
+  
+
+  public int getDepth()
+  {
+    return header.pfRGBBitCount;
+  }
+  
+  public int getNumMipMaps()
+  {
+    if (!isSurfaceDescFlagSet(131072)) {
+      return 0;
+    }
+    return header.mipMapCountOrAux;
+  }
+  
+
+
+
+  public ImageInfo getMipMap(int paramInt)
+  {
+    return getMipMap(0, paramInt);
+  }
+  
+
+
+
+
+
+  public ImageInfo getMipMap(int paramInt1, int paramInt2)
+  {
+    if ((!isCubemap()) && (paramInt1 != 0)) {
+      throw new RuntimeException("Illegal side for 2D texture: " + paramInt1);
+    }
+    if ((isCubemap()) && (!isCubemapSidePresent(paramInt1))) {
+      throw new RuntimeException("Illegal side, side not present: " + paramInt1);
+    }
+    if ((getNumMipMaps() > 0) && ((paramInt2 < 0) || 
+      (paramInt2 >= getNumMipMaps()))) {
+      throw new RuntimeException("Illegal mipmap number " + paramInt2 + " (0.." + (getNumMipMaps() - 1) + ")");
+    }
+    
+
+    int i = Header.access$000();
+    if (isCubemap()) {
+      i += sideShiftInBytes(paramInt1);
+    }
+    for (int j = 0; j < paramInt2; j++) {
+      i += mipMapSizeInBytes(j);
+    }
+    buf.limit(i + mipMapSizeInBytes(paramInt2));
+    buf.position(i);
+    ByteBuffer localByteBuffer = buf.slice();
+    buf.position(0);
+    buf.limit(buf.capacity());
+    return new ImageInfo(localByteBuffer, mipMapWidth(paramInt2), mipMapHeight(paramInt2), isCompressed(), getCompressionFormat());
+  }
+  
+
+
+
+  public ImageInfo[] getAllMipMaps()
+  {
+    return getAllMipMaps(0);
+  }
+  
+
+
+
+
+
+  public ImageInfo[] getAllMipMaps(int paramInt)
+  {
+    int i = getNumMipMaps();
+    if (i == 0) {
+      i = 1;
+    }
+    ImageInfo[] arrayOfImageInfo = new ImageInfo[i];
+    for (int j = 0; j < i; j++) {
+      arrayOfImageInfo[j] = getMipMap(paramInt, j);
+    }
+    return arrayOfImageInfo;
+  }
+  
+
+
+
+
+  public static String getCompressionFormatName(int paramInt)
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    for (int i = 0; i < 4; i++) {
+      char c = (char)(paramInt & 0xFF);
+      localStringBuilder.append(c);
+      paramInt >>= 8;
+    }
+    return localStringBuilder.toString();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static ByteBuffer allocateBlankBuffer(int paramInt1, int paramInt2, int paramInt3)
+  {
+    int i = paramInt1 * paramInt2;
+    switch (paramInt3) {
+    case 33776: 
+    case 33777: 
+      i /= 2;
+      break;
+    
+    case 33778: 
+    case 33779: 
+      break;
+    
+    default: 
+      throw new IllegalArgumentException("Illegal OpenGL texture internal format " + paramInt3);
+    }
+    
+    if (i == 0)
+      i = 1;
+    return com.jogamp.common.nio.Buffers.newDirectByteBuffer(i);
+  }
+  
+  public void debugPrint() {
+    PrintStream localPrintStream = System.err;
+    localPrintStream.println("Compressed texture: " + isCompressed());
+    if (isCompressed()) {
+      i = getCompressionFormat();
+      String str = getCompressionFormatName(i);
+      localPrintStream.println("Compression format: 0x" + Integer.toHexString(i) + " (" + str + ")");
+    }
+    localPrintStream.println("Width: " + header.width + " Height: " + header.height);
+    localPrintStream.println("header.pitchOrLinearSize: " + header.pitchOrLinearSize);
+    localPrintStream.println("header.pfRBitMask: 0x" + Integer.toHexString(header.pfRBitMask));
+    localPrintStream.println("header.pfGBitMask: 0x" + Integer.toHexString(header.pfGBitMask));
+    localPrintStream.println("header.pfBBitMask: 0x" + Integer.toHexString(header.pfBBitMask));
+    localPrintStream.println("SurfaceDesc flags:");
+    int i = 0;
+    i |= printIfRecognized(localPrintStream, header.flags, 1, "DDSD_CAPS");
+    bool |= printIfRecognized(localPrintStream, header.flags, 2, "DDSD_HEIGHT");
+    bool |= printIfRecognized(localPrintStream, header.flags, 4, "DDSD_WIDTH");
+    bool |= printIfRecognized(localPrintStream, header.flags, 8, "DDSD_PITCH");
+    bool |= printIfRecognized(localPrintStream, header.flags, 32, "DDSD_BACKBUFFERCOUNT");
+    bool |= printIfRecognized(localPrintStream, header.flags, 64, "DDSD_ZBUFFERBITDEPTH");
+    bool |= printIfRecognized(localPrintStream, header.flags, 128, "DDSD_ALPHABITDEPTH");
+    bool |= printIfRecognized(localPrintStream, header.flags, 2048, "DDSD_LPSURFACE");
+    bool |= printIfRecognized(localPrintStream, header.flags, 4096, "DDSD_PIXELFORMAT");
+    bool |= printIfRecognized(localPrintStream, header.flags, 131072, "DDSD_MIPMAPCOUNT");
+    bool |= printIfRecognized(localPrintStream, header.flags, 524288, "DDSD_LINEARSIZE");
+    bool |= printIfRecognized(localPrintStream, header.flags, 8388608, "DDSD_DEPTH");
+    if (!bool) {
+      localPrintStream.println("(none)");
+    }
+    localPrintStream.println("Raw SurfaceDesc flags: 0x" + Integer.toHexString(header.flags));
+    localPrintStream.println("Pixel format flags:");
+    boolean bool = false;
+    bool |= printIfRecognized(localPrintStream, header.pfFlags, 1, "DDPF_ALPHAPIXELS");
+    bool |= printIfRecognized(localPrintStream, header.pfFlags, 2, "DDPF_ALPHA");
+    bool |= printIfRecognized(localPrintStream, header.pfFlags, 4, "DDPF_FOURCC");
+    bool |= printIfRecognized(localPrintStream, header.pfFlags, 8, "DDPF_PALETTEINDEXED4");
+    bool |= printIfRecognized(localPrintStream, header.pfFlags, 16, "DDPF_PALETTEINDEXEDTO8");
+    bool |= printIfRecognized(localPrintStream, header.pfFlags, 32, "DDPF_PALETTEINDEXED8");
+    bool |= printIfRecognized(localPrintStream, header.pfFlags, 64, "DDPF_RGB");
+    bool |= printIfRecognized(localPrintStream, header.pfFlags, 128, "DDPF_COMPRESSED");
+    bool |= printIfRecognized(localPrintStream, header.pfFlags, 256, "DDPF_RGBTOYUV");
+    bool |= printIfRecognized(localPrintStream, header.pfFlags, 512, "DDPF_YUV");
+    bool |= printIfRecognized(localPrintStream, header.pfFlags, 1024, "DDPF_ZBUFFER");
+    bool |= printIfRecognized(localPrintStream, header.pfFlags, 2048, "DDPF_PALETTEINDEXED1");
+    bool |= printIfRecognized(localPrintStream, header.pfFlags, 4096, "DDPF_PALETTEINDEXED2");
+    bool |= printIfRecognized(localPrintStream, header.pfFlags, 8192, "DDPF_ZPIXELS");
+    if (!bool) {
+      localPrintStream.println("(none)");
+    }
+    localPrintStream.println("Raw pixel format flags: 0x" + Integer.toHexString(header.pfFlags));
+    localPrintStream.println("Depth: " + getDepth());
+    localPrintStream.println("Number of mip maps: " + getNumMipMaps());
+    int j = getPixelFormat();
+    localPrintStream.print("Pixel format: ");
+    switch (j) {
+    case 20:  localPrintStream.println("D3DFMT_R8G8B8"); break;
+    case 21:  localPrintStream.println("D3DFMT_A8R8G8B8"); break;
+    case 22:  localPrintStream.println("D3DFMT_X8R8G8B8"); break;
+    case 827611204:  localPrintStream.println("D3DFMT_DXT1"); break;
+    case 844388420:  localPrintStream.println("D3DFMT_DXT2"); break;
+    case 861165636:  localPrintStream.println("D3DFMT_DXT3"); break;
+    case 877942852:  localPrintStream.println("D3DFMT_DXT4"); break;
+    case 894720068:  localPrintStream.println("D3DFMT_DXT5"); break;
+    case 0:  localPrintStream.println("D3DFMT_UNKNOWN"); break;
+    default:  localPrintStream.println("(unknown pixel format " + j + ")");
+    }
+    
+  }
+  
+
+  private DDSImage() {}
+  
+
+  static class Header
+  {
+    int size;
+    
+    int flags;
+    
+    int height;
+    
+    int width;
+    int pitchOrLinearSize;
+    int backBufferCountOrDepth;
+    int mipMapCountOrAux;
+    int alphaBitDepth;
+    int reserved1;
+    int surface;
+    int colorSpaceLowValue;
+    int colorSpaceHighValue;
+    int destBltColorSpaceLowValue;
+    int destBltColorSpaceHighValue;
+    int srcOverlayColorSpaceLowValue;
+    int srcOverlayColorSpaceHighValue;
+    int srcBltColorSpaceLowValue;
+    int srcBltColorSpaceHighValue;
+    int pfSize;
+    int pfFlags;
+    int pfFourCC;
+    int pfRGBBitCount;
+    int pfRBitMask;
+    int pfGBitMask;
+    int pfBBitMask;
+    int pfABitMask;
+    int ddsCaps1;
+    int ddsCaps2;
+    int ddsCapsReserved1;
+    int ddsCapsReserved2;
+    int textureStage;
+    
+    Header() {}
+    
+    void read(ByteBuffer paramByteBuffer)
+      throws IOException
+    {
+      int i = paramByteBuffer.getInt();
+      if (i != 542327876)
+      {
+        throw new IOException("Incorrect magic number 0x" + Integer.toHexString(i) + " (expected " + 542327876 + ")");
+      }
+      
+
+      size = paramByteBuffer.getInt();
+      flags = paramByteBuffer.getInt();
+      height = paramByteBuffer.getInt();
+      width = paramByteBuffer.getInt();
+      pitchOrLinearSize = paramByteBuffer.getInt();
+      backBufferCountOrDepth = paramByteBuffer.getInt();
+      mipMapCountOrAux = paramByteBuffer.getInt();
+      alphaBitDepth = paramByteBuffer.getInt();
+      reserved1 = paramByteBuffer.getInt();
+      surface = paramByteBuffer.getInt();
+      colorSpaceLowValue = paramByteBuffer.getInt();
+      colorSpaceHighValue = paramByteBuffer.getInt();
+      destBltColorSpaceLowValue = paramByteBuffer.getInt();
+      destBltColorSpaceHighValue = paramByteBuffer.getInt();
+      srcOverlayColorSpaceLowValue = paramByteBuffer.getInt();
+      srcOverlayColorSpaceHighValue = paramByteBuffer.getInt();
+      srcBltColorSpaceLowValue = paramByteBuffer.getInt();
+      srcBltColorSpaceHighValue = paramByteBuffer.getInt();
+      pfSize = paramByteBuffer.getInt();
+      pfFlags = paramByteBuffer.getInt();
+      pfFourCC = paramByteBuffer.getInt();
+      pfRGBBitCount = paramByteBuffer.getInt();
+      pfRBitMask = paramByteBuffer.getInt();
+      pfGBitMask = paramByteBuffer.getInt();
+      pfBBitMask = paramByteBuffer.getInt();
+      pfABitMask = paramByteBuffer.getInt();
+      ddsCaps1 = paramByteBuffer.getInt();
+      ddsCaps2 = paramByteBuffer.getInt();
+      ddsCapsReserved1 = paramByteBuffer.getInt();
+      ddsCapsReserved2 = paramByteBuffer.getInt();
+      textureStage = paramByteBuffer.getInt();
+    }
+    
+    void write(ByteBuffer paramByteBuffer)
+    {
+      paramByteBuffer.putInt(542327876);
+      paramByteBuffer.putInt(size);
+      paramByteBuffer.putInt(flags);
+      paramByteBuffer.putInt(height);
+      paramByteBuffer.putInt(width);
+      paramByteBuffer.putInt(pitchOrLinearSize);
+      paramByteBuffer.putInt(backBufferCountOrDepth);
+      paramByteBuffer.putInt(mipMapCountOrAux);
+      paramByteBuffer.putInt(alphaBitDepth);
+      paramByteBuffer.putInt(reserved1);
+      paramByteBuffer.putInt(surface);
+      paramByteBuffer.putInt(colorSpaceLowValue);
+      paramByteBuffer.putInt(colorSpaceHighValue);
+      paramByteBuffer.putInt(destBltColorSpaceLowValue);
+      paramByteBuffer.putInt(destBltColorSpaceHighValue);
+      paramByteBuffer.putInt(srcOverlayColorSpaceLowValue);
+      paramByteBuffer.putInt(srcOverlayColorSpaceHighValue);
+      paramByteBuffer.putInt(srcBltColorSpaceLowValue);
+      paramByteBuffer.putInt(srcBltColorSpaceHighValue);
+      paramByteBuffer.putInt(pfSize);
+      paramByteBuffer.putInt(pfFlags);
+      paramByteBuffer.putInt(pfFourCC);
+      paramByteBuffer.putInt(pfRGBBitCount);
+      paramByteBuffer.putInt(pfRBitMask);
+      paramByteBuffer.putInt(pfGBitMask);
+      paramByteBuffer.putInt(pfBBitMask);
+      paramByteBuffer.putInt(pfABitMask);
+      paramByteBuffer.putInt(ddsCaps1);
+      paramByteBuffer.putInt(ddsCaps2);
+      paramByteBuffer.putInt(ddsCapsReserved1);
+      paramByteBuffer.putInt(ddsCapsReserved2);
+      paramByteBuffer.putInt(textureStage);
+    }
+    
+    private static int size() {
+      return 124;
+    }
+    
+    private static int pfSize() {
+      return 32;
+    }
+    
+    private static int writtenSize() {
+      return 128;
+    }
+  }
+  
+
+  private void readFromFile(File paramFile)
+    throws IOException
+  {
+    fis = new FileInputStream(paramFile);
+    chan = fis.getChannel();
+    java.nio.MappedByteBuffer localMappedByteBuffer = chan.map(java.nio.channels.FileChannel.MapMode.READ_ONLY, 0L, 
+      (int)paramFile.length());
+    readFromBuffer(localMappedByteBuffer);
+  }
+  
+  private void readFromBuffer(ByteBuffer paramByteBuffer) throws IOException {
+    buf = paramByteBuffer;
+    paramByteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+    header = new Header();
+    header.read(paramByteBuffer);
+    fixupHeader();
+  }
+  
+
+
+
+  private void initFromData(int paramInt1, int paramInt2, int paramInt3, ByteBuffer[] paramArrayOfByteBuffer)
+    throws IllegalArgumentException
+  {
+    int i = paramInt2 * paramInt3;
+    int j = paramInt2;
+    int k = 0;
+    switch (paramInt1) {
+    case 20:  i *= 3;j *= 3; break;
+    case 21:  i *= 4;j *= 4; break;
+    case 22:  i *= 4;j *= 4; break;
+    case 827611204: 
+    case 844388420: 
+    case 861165636: 
+    case 877942852: 
+    case 894720068: 
+      i = computeCompressedBlockSize(paramInt2, paramInt3, 1, paramInt1);
+      j = i;
+      k = 1;
+      break;
+    default: 
+      throw new IllegalArgumentException("d3dFormat must be one of the known formats");
+    }
+    
+    
+    int m = i;
+    int n = paramInt2;
+    int i1 = paramInt3;
+    int i2 = 0;
+    for (int i3 = 0; i3 < paramArrayOfByteBuffer.length; i3++) {
+      if (paramArrayOfByteBuffer[i3].remaining() != m)
+      {
+
+        throw new IllegalArgumentException("Mipmap level " + i3 + " didn't match expected data size (expected " + m + ", got " + paramArrayOfByteBuffer[i3].remaining() + ")");
+      }
+      
+      if (n > 1) n /= 2;
+      if (i1 > 1) i1 /= 2;
+      m = computeBlockSize(n, i1, 1, paramInt1);
+      i2 += paramArrayOfByteBuffer[i3].remaining();
+    }
+    
+
+    i2 += Header.access$000();
+    ByteBuffer localByteBuffer = ByteBuffer.allocate(i2);
+    localByteBuffer.position(Header.access$000());
+    for (int i4 = 0; i4 < paramArrayOfByteBuffer.length; i4++) {
+      localByteBuffer.put(paramArrayOfByteBuffer[i4]);
+    }
+    buf = localByteBuffer;
+    
+
+    header = new Header();
+    header.size = Header.access$100();
+    header.flags = 4103;
+    if (paramArrayOfByteBuffer.length > 1) {
+      header.flags |= 0x20000;
+      header.mipMapCountOrAux = paramArrayOfByteBuffer.length;
+    }
+    header.width = paramInt2;
+    header.height = paramInt3;
+    if (k != 0) {
+      header.flags |= 0x80000;
+      header.pfFlags |= 0x4;
+      header.pfFourCC = paramInt1;
+    } else {
+      header.flags |= 0x8;
+      
+      header.pfFlags |= 0x40;
+      switch (paramInt1) {
+      case 20:  header.pfRGBBitCount = 24; break;
+      case 21:  header.pfRGBBitCount = 32;header.pfFlags |= 0x1; break;
+      case 22:  header.pfRGBBitCount = 32;
+      }
+      header.pfRBitMask = 16711680;
+      header.pfGBitMask = 65280;
+      header.pfBBitMask = 255;
+      if (paramInt1 == 21) {
+        header.pfABitMask = -16777216;
+      }
+    }
+    header.pitchOrLinearSize = j;
+    header.pfSize = Header.access$200();
+  }
+  
+
+
+
+
+
+
+  private void fixupHeader()
+  {
+    if ((isCompressed()) && (!isSurfaceDescFlagSet(524288)))
+    {
+      int i = header.backBufferCountOrDepth;
+      if (i == 0) {
+        i = 1;
+      }
+      
+      header.pitchOrLinearSize = computeCompressedBlockSize(getWidth(), getHeight(), i, getCompressionFormat());
+      header.flags |= 0x80000;
+    }
+  }
+  
+
+
+  private static int computeCompressedBlockSize(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    int i = (paramInt1 + 3) / 4 * ((paramInt2 + 3) / 4) * ((paramInt3 + 3) / 4);
+    switch (paramInt4) {
+    case 827611204:  i *= 8; break;
+    default:  i *= 16;
+    }
+    return i;
+  }
+  
+
+  private static int computeBlockSize(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    int i;
+    
+    switch (paramInt4) {
+    case 20: 
+      i = paramInt1 * paramInt2 * 3;
+      break;
+    case 21: 
+    case 22: 
+      i = paramInt1 * paramInt2 * 4;
+      break;
+    case 827611204: 
+    case 844388420: 
+    case 861165636: 
+    case 877942852: 
+    case 894720068: 
+      i = computeCompressedBlockSize(paramInt1, paramInt2, 1, paramInt4);
+      break;
+    default: 
+      throw new IllegalArgumentException("d3dFormat must be one of the known formats");
+    }
+    return i;
+  }
+  
+  private int mipMapWidth(int paramInt) {
+    int i = getWidth();
+    for (int j = 0; j < paramInt; j++) {
+      i >>= 1;
+    }
+    return Math.max(i, 1);
+  }
+  
+  private int mipMapHeight(int paramInt) {
+    int i = getHeight();
+    for (int j = 0; j < paramInt; j++) {
+      i >>= 1;
+    }
+    return Math.max(i, 1);
+  }
+  
+  private int mipMapSizeInBytes(int paramInt) {
+    int i = mipMapWidth(paramInt);
+    int j = mipMapHeight(paramInt);
+    if (isCompressed()) {
+      int k = getCompressionFormat() == 827611204 ? 8 : 16;
+      return (i + 3) / 4 * ((j + 3) / 4) * k;
+    }
+    return i * j * (getDepth() / 8);
+  }
+  
+  private int sideSizeInBytes()
+  {
+    int i = getNumMipMaps();
+    if (i == 0) {
+      i = 1;
+    }
+    
+    int j = 0;
+    for (int k = 0; k < i; k++) {
+      j += mipMapSizeInBytes(k);
+    }
+    
+    return j;
+  }
+  
+  private int sideShiftInBytes(int paramInt) {
+    int[] arrayOfInt = { 1024, 2048, 4096, 8192, 16384, 32768 };
+    
+
+
+
+
+
+
+
+    int i = 0;
+    int j = sideSizeInBytes();
+    for (int k = 0; k < arrayOfInt.length; k++) {
+      int m = arrayOfInt[k];
+      if ((m & paramInt) != 0) {
+        return i;
+      }
+      
+      i += j;
+    }
+    
+    throw new RuntimeException("Illegal side: " + paramInt);
+  }
+  
+  private boolean printIfRecognized(PrintStream paramPrintStream, int paramInt1, int paramInt2, String paramString) {
+    if ((paramInt1 & paramInt2) != 0) {
+      paramPrintStream.println(paramString);
+      return true;
+    }
+    return false;
+  }
+}

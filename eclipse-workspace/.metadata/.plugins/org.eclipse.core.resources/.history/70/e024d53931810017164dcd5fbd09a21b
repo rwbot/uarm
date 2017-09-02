@@ -1,0 +1,62 @@
+package jogamp.common.os;
+
+
+
+
+
+
+
+public final class BionicDynamicLinker64BitImpl
+  extends UnixDynamicLinkerImpl
+{
+  private static final int RTLD_LAZY = 1;
+  
+
+
+
+
+
+  private static final int RTLD_LOCAL = 0;
+  
+
+
+
+
+
+  private static final int RTLD_GLOBAL = 256;
+  
+
+
+
+
+
+  private static final long RTLD_DEFAULT = 0L;
+  
+
+
+
+
+
+  public BionicDynamicLinker64BitImpl() {}
+  
+
+
+
+
+
+  protected final long openLibraryLocalImpl(String paramString)
+    throws SecurityException
+  {
+    return dlopen(paramString, 1);
+  }
+  
+  protected final long openLibraryGlobalImpl(String paramString) throws SecurityException
+  {
+    return dlopen(paramString, 257);
+  }
+  
+  protected final long lookupSymbolGlobalImpl(String paramString) throws SecurityException
+  {
+    return dlsym(0L, paramString);
+  }
+}

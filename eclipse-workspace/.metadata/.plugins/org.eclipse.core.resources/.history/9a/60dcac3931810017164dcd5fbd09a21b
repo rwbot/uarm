@@ -1,0 +1,52 @@
+package de.voidplus.leapmotion;
+
+import com.leapmotion.leap.Pointable;
+import com.leapmotion.leap.Vector;
+import processing.core.PApplet;
+import processing.core.PVector;
+
+public class ScreenTapGesture
+  extends Gesture
+  implements RawAccess<com.leapmotion.leap.ScreenTapGesture>
+{
+  private com.leapmotion.leap.ScreenTapGesture _screenTap;
+  
+  public ScreenTapGesture(PApplet paramPApplet, LeapMotion paramLeapMotion, com.leapmotion.leap.Gesture paramGesture)
+  {
+    super(paramPApplet, paramLeapMotion, paramGesture);
+    _screenTap = new com.leapmotion.leap.ScreenTapGesture(paramGesture);
+  }
+  
+  public com.leapmotion.leap.ScreenTapGesture getRaw()
+  {
+    return _screenTap;
+  }
+  
+  public PVector getPosition()
+  {
+    return leap.map(_screenTap.position());
+  }
+  
+  public PVector getRawPosition()
+  {
+    return leap.convert(_screenTap.position());
+  }
+  
+  public PVector getDirection()
+  {
+    return new PVector(PApplet.degrees(_screenTap.direction().roll()), PApplet.degrees(_screenTap.direction().pitch()), PApplet.degrees(_screenTap.direction().yaw()));
+  }
+  
+  public PVector getRawDirection()
+  {
+    return leap.convert(_screenTap.direction());
+  }
+  
+  public Finger getFinger()
+  {
+    if (_screenTap.pointable().isFinger()) {
+      return new Finger(parent, leap, new com.leapmotion.leap.Finger(_screenTap.pointable()));
+    }
+    return null;
+  }
+}

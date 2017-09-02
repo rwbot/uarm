@@ -1,0 +1,200 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class VdmxTable
+  implements Table
+{
+  private final DirectoryEntry _de;
+  private final int _version;
+  private final int _numRecs;
+  private final int _numRatios;
+  private final Ratio[] _ratRange;
+  private final int[] _offset;
+  private final Group[] _groups;
+  
+  static class Ratio
+  {
+    private final byte _bCharSet;
+    private final byte _xRatio;
+    private final byte _yStartRatio;
+    private final byte _yEndRatio;
+    
+    protected Ratio(DataInput paramDataInput)
+      throws IOException
+    {
+      _bCharSet = paramDataInput.readByte();
+      _xRatio = paramDataInput.readByte();
+      _yStartRatio = paramDataInput.readByte();
+      _yEndRatio = paramDataInput.readByte();
+    }
+    
+    public byte getBCharSet() {
+      return _bCharSet;
+    }
+    
+    public byte getXRatio() {
+      return _xRatio;
+    }
+    
+    public byte getYStartRatio() {
+      return _yStartRatio;
+    }
+    
+    public byte getYEndRatio() {
+      return _yEndRatio;
+    }
+  }
+  
+  static class VTableRecord
+  {
+    private final int _yPelHeight;
+    private final short _yMax;
+    private final short _yMin;
+    
+    protected VTableRecord(DataInput paramDataInput) throws IOException {
+      _yPelHeight = paramDataInput.readUnsignedShort();
+      _yMax = paramDataInput.readShort();
+      _yMin = paramDataInput.readShort();
+    }
+    
+    public int getYPelHeight() {
+      return _yPelHeight;
+    }
+    
+    public short getYMax() {
+      return _yMax;
+    }
+    
+    public short getYMin() {
+      return _yMin;
+    }
+  }
+  
+  static class Group
+  {
+    private final int _recs;
+    private final int _startsz;
+    private final int _endsz;
+    private final VdmxTable.VTableRecord[] _entry;
+    
+    protected Group(DataInput paramDataInput) throws IOException {
+      _recs = paramDataInput.readUnsignedShort();
+      _startsz = paramDataInput.readUnsignedByte();
+      _endsz = paramDataInput.readUnsignedByte();
+      _entry = new VdmxTable.VTableRecord[_recs];
+      for (int i = 0; i < _recs; i++) {
+        _entry[i] = new VdmxTable.VTableRecord(paramDataInput);
+      }
+    }
+    
+    public int getRecs() {
+      return _recs;
+    }
+    
+    public int getStartSZ() {
+      return _startsz;
+    }
+    
+    public int getEndSZ() {
+      return _endsz;
+    }
+    
+    public VdmxTable.VTableRecord[] getEntry() {
+      return _entry;
+    }
+  }
+  
+
+
+
+
+
+
+
+  protected VdmxTable(DirectoryEntry paramDirectoryEntry, DataInput paramDataInput)
+    throws IOException
+  {
+    _de = ((DirectoryEntry)paramDirectoryEntry.clone());
+    _version = paramDataInput.readUnsignedShort();
+    _numRecs = paramDataInput.readUnsignedShort();
+    _numRatios = paramDataInput.readUnsignedShort();
+    _ratRange = new Ratio[_numRatios];
+    for (int i = 0; i < _numRatios; i++) {
+      _ratRange[i] = new Ratio(paramDataInput);
+    }
+    _offset = new int[_numRatios];
+    for (i = 0; i < _numRatios; i++) {
+      _offset[i] = paramDataInput.readUnsignedShort();
+    }
+    _groups = new Group[_numRecs];
+    for (i = 0; i < _numRecs; i++) {
+      _groups[i] = new Group(paramDataInput);
+    }
+  }
+  
+  public int getType()
+  {
+    return 1447316824;
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("'VDMX' Table - Precomputed Vertical Device Metrics\n")
+      .append("--------------------------------------------------\n")
+      .append("  Version:                 ").append(_version).append("\n")
+      .append("  Number of Hgt Records:   ").append(_numRecs).append("\n")
+      .append("  Number of Ratio Records: ").append(_numRatios).append("\n");
+    for (int i = 0; i < _numRatios; i++)
+    {
+
+
+
+
+      localStringBuilder.append("\n    Ratio Record #").append(i + 1).append("\n").append("\tCharSetId     ").append(_ratRange[i].getBCharSet()).append("\n").append("\txRatio        ").append(_ratRange[i].getXRatio()).append("\n").append("\tyStartRatio   ").append(_ratRange[i].getYStartRatio()).append("\n").append("\tyEndRatio     ").append(_ratRange[i].getYEndRatio()).append("\n").append("\tRecord Offset ").append(_offset[i]).append("\n");
+    }
+    
+    localStringBuilder.append("\n   VDMX Height Record Groups\n").append("   -------------------------\n");
+    for (i = 0; i < _numRecs; i++) {
+      Group localGroup = _groups[i];
+      localStringBuilder.append("   ").append(i + 1)
+        .append(".   Number of Hgt Records  ").append(localGroup.getRecs()).append("\n")
+        .append("        Starting Y Pel Height  ").append(localGroup.getStartSZ()).append("\n")
+        .append("        Ending Y Pel Height    ").append(localGroup.getEndSZ()).append("\n");
+      for (int j = 0; j < localGroup.getRecs(); j++)
+      {
+
+
+        localStringBuilder.append("\n            ").append(j + 1).append(". Pel Height= ").append(localGroup.getEntry()[j].getYPelHeight()).append("\n").append("               yMax=       ").append(localGroup.getEntry()[j].getYMax()).append("\n").append("               yMin=       ").append(localGroup.getEntry()[j].getYMin()).append("\n");
+      }
+    }
+    return localStringBuilder.toString();
+  }
+  
+
+
+
+
+
+
+  public DirectoryEntry getDirectoryEntry()
+  {
+    return _de;
+  }
+}

@@ -1,0 +1,516 @@
+package com.jogamp.common.util;
+
+import com.jogamp.common.JogampRuntimeException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class LongIntHashMap
+  implements Cloneable, Iterable<Entry>
+{
+  private final float loadFactor;
+  private Entry[] table;
+  private int size;
+  private int mask;
+  private int capacity;
+  private int threshold;
+  private int keyNotFoundValue = -1;
+  private static final boolean isPrimitive;
+  private static final Constructor<Entry> entryConstructor;
+  private static final Method equalsMethod;
+  
+  static class EntryCM { EntryCM() {}
+    Method m1 = null; Constructor<LongIntHashMap.Entry> c = null;
+    
+     }
+  static { final Class localClass1 = Integer.TYPE;
+    Class localClass2 = Long.TYPE;
+    
+    isPrimitive = localClass1.isPrimitive();
+    
+    if (!isPrimitive) {
+      EntryCM localEntryCM = (EntryCM)AccessController.doPrivileged(new PrivilegedAction()
+      {
+        public LongIntHashMap.EntryCM run()
+        {
+          LongIntHashMap.EntryCM localEntryCM = new LongIntHashMap.EntryCM();
+          
+          c = ReflectionUtil.getConstructor(LongIntHashMap.Entry.class, new Class[] { val$keyClazz, localClass1, LongIntHashMap.Entry.class });
+          try
+          {
+            m1 = localClass1.getDeclaredMethod("equals", new Class[] { Object.class });
+          } catch (NoSuchMethodException localNoSuchMethodException) {
+            throw new JogampRuntimeException("Class " + localClass1 + " doesn't support equals(Object)");
+          }
+          return localEntryCM;
+        } });
+      entryConstructor = c;
+      equalsMethod = m1;
+    } else {
+      entryConstructor = null;
+      equalsMethod = null;
+    }
+  }
+  
+  public LongIntHashMap() {
+    this(16, 0.75F);
+  }
+  
+  public LongIntHashMap(int paramInt) {
+    this(paramInt, 0.75F);
+  }
+  
+  public LongIntHashMap(int paramInt, float paramFloat) {
+    if (paramInt > 1073741824) {
+      throw new IllegalArgumentException("initialCapacity is too large.");
+    }
+    if (paramInt < 0) {
+      throw new IllegalArgumentException("initialCapacity must be greater than zero.");
+    }
+    if (paramFloat <= 0.0F) {
+      throw new IllegalArgumentException("loadFactor must be greater than zero.");
+    }
+    capacity = 1;
+    while (capacity < paramInt) {
+      capacity <<= 1;
+    }
+    loadFactor = paramFloat;
+    threshold = ((int)(capacity * paramFloat));
+    table = new Entry[capacity];
+    mask = (capacity - 1);
+  }
+  
+
+  private LongIntHashMap(float paramFloat, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6)
+  {
+    loadFactor = paramFloat;
+    table = new Entry[paramInt1];
+    size = paramInt2;
+    
+    mask = paramInt3;
+    capacity = paramInt4;
+    threshold = paramInt5;
+    
+    keyNotFoundValue = paramInt6;
+  }
+  
+
+
+
+
+
+
+  public Object clone()
+  {
+    LongIntHashMap localLongIntHashMap = new LongIntHashMap(loadFactor, table.length, size, mask, capacity, threshold, keyNotFoundValue);
+    
+
+
+
+    ArrayList localArrayList = new ArrayList();
+    for (int i = table.length - 1; i >= 0; i--)
+    {
+      Entry localEntry1 = table[i];
+      while (null != localEntry1) {
+        localArrayList.add(localEntry1);
+        localEntry1 = next;
+      }
+      
+      int j = localArrayList.size();
+      Entry localEntry2 = null;
+      for (int k = j - 1; k >= 0; k--) {
+        localEntry1 = (Entry)localArrayList.remove(k);
+        if (isPrimitive) {
+          localEntry2 = new Entry(key, value, localEntry2);
+        } else {
+          Object localObject = ReflectionUtil.callMethod(Integer.valueOf(value), getCloneMethod(Integer.valueOf(value)), new Object[0]);
+          localEntry2 = (Entry)ReflectionUtil.createInstance(entryConstructor, new Object[] { Long.valueOf(key), localObject, localEntry2 });
+        }
+      }
+      
+      table[i] = localEntry2;
+    }
+    return localLongIntHashMap;
+  }
+  
+  public boolean containsValue(int paramInt) {
+    Entry[] arrayOfEntry = table;
+    for (int i = arrayOfEntry.length; i-- > 0;) {
+      for (Entry localEntry = arrayOfEntry[i]; localEntry != null; localEntry = next) {
+        if (isPrimitive) {
+          if (value == paramInt) {
+            return true;
+          }
+        } else {
+          Boolean localBoolean = (Boolean)ReflectionUtil.callMethod(Integer.valueOf(paramInt), equalsMethod, new Object[] { Integer.valueOf(value) });
+          if (localBoolean.booleanValue()) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+  
+  public boolean containsKey(long paramLong)
+  {
+    Entry[] arrayOfEntry = table;
+    int i = HashUtil.getAddrHash32_EqualDist(paramLong) & mask;
+    for (Entry localEntry = arrayOfEntry[i]; localEntry != null; localEntry = next) {
+      if (key == paramLong) {
+        return true;
+      }
+    }
+    return false;
+  }
+  
+
+
+
+
+  public int get(long paramLong)
+  {
+    Entry[] arrayOfEntry = table;
+    int i = HashUtil.getAddrHash32_EqualDist(paramLong) & mask;
+    for (Entry localEntry = arrayOfEntry[i]; localEntry != null; localEntry = next) {
+      if (key == paramLong) {
+        return value;
+      }
+    }
+    return keyNotFoundValue;
+  }
+  
+
+
+
+
+  public int put(long paramLong, int paramInt)
+  {
+    Entry[] arrayOfEntry1 = table;
+    int i = HashUtil.getAddrHash32_EqualDist(paramLong) & mask;
+    
+    for (Entry localEntry1 = arrayOfEntry1[i]; localEntry1 != null; localEntry1 = next)
+      if (key == paramLong)
+      {
+
+        int k = value;
+        value = paramInt;
+        return k;
+      }
+    arrayOfEntry1[i] = new Entry(paramLong, paramInt, arrayOfEntry1[i]);
+    
+    if (size++ >= threshold)
+    {
+      int j = 2 * capacity;
+      Entry[] arrayOfEntry2 = new Entry[j];
+      int m = j - 1;
+      for (int n = 0; n < arrayOfEntry1.length; n++) {
+        Object localObject = arrayOfEntry1[n];
+        if (localObject != null) {
+          arrayOfEntry1[n] = null;
+          do {
+            Entry localEntry2 = next;
+            int i1 = HashUtil.getAddrHash32_EqualDist(key) & m;
+            next = arrayOfEntry2[i1];
+            arrayOfEntry2[i1] = localObject;
+            localObject = localEntry2;
+          } while (localObject != null);
+        }
+      }
+      table = arrayOfEntry2;
+      capacity = j;
+      threshold = ((int)(j * loadFactor));
+      mask = m;
+    }
+    return keyNotFoundValue;
+  }
+  
+
+
+  public void putAll(LongIntHashMap paramLongIntHashMap)
+  {
+    Iterator localIterator = paramLongIntHashMap.iterator();
+    while (localIterator.hasNext()) {
+      Entry localEntry = (Entry)localIterator.next();
+      put(key, value);
+    }
+  }
+  
+
+
+
+
+  public int remove(long paramLong)
+  {
+    Entry[] arrayOfEntry = table;
+    int i = HashUtil.getAddrHash32_EqualDist(paramLong) & mask;
+    Object localObject1 = arrayOfEntry[i];
+    Object localObject2 = localObject1;
+    
+    while (localObject2 != null) {
+      Entry localEntry = next;
+      if (key == paramLong) {
+        size -= 1;
+        if (localObject1 == localObject2) {
+          arrayOfEntry[i] = localEntry;
+        } else {
+          next = localEntry;
+        }
+        return value;
+      }
+      localObject1 = localObject2;
+      localObject2 = localEntry;
+    }
+    return keyNotFoundValue;
+  }
+  
+
+
+  public int size()
+  {
+    return size;
+  }
+  
+
+
+  public int capacity()
+  {
+    return capacity;
+  }
+  
+
+
+  public void clear()
+  {
+    Arrays.fill(table, null);
+    size = 0;
+  }
+  
+
+
+
+
+  public Iterator<Entry> iterator()
+  {
+    return new EntryIterator(table, null);
+  }
+  
+
+
+
+
+
+
+
+
+  public int setKeyNotFoundValue(int paramInt)
+  {
+    int i = keyNotFoundValue;
+    keyNotFoundValue = paramInt;
+    return i;
+  }
+  
+
+
+
+
+  public int getKeyNotFoundValue()
+  {
+    return keyNotFoundValue;
+  }
+  
+
+
+
+  public StringBuilder toString(StringBuilder paramStringBuilder)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    paramStringBuilder.append("{");
+    Iterator localIterator = iterator();
+    while (localIterator.hasNext()) {
+      ((Entry)localIterator.next()).toString(paramStringBuilder);
+      if (localIterator.hasNext()) {
+        paramStringBuilder.append(", ");
+      }
+    }
+    paramStringBuilder.append("}");
+    return paramStringBuilder;
+  }
+  
+  public String toString()
+  {
+    return toString(null).toString();
+  }
+  
+  private static final class EntryIterator implements Iterator<LongIntHashMap.Entry>
+  {
+    private final LongIntHashMap.Entry[] entries;
+    private int index;
+    private LongIntHashMap.Entry next;
+    
+    private EntryIterator(LongIntHashMap.Entry[] paramArrayOfEntry)
+    {
+      entries = paramArrayOfEntry;
+      
+      next();
+    }
+    
+    public boolean hasNext()
+    {
+      return next != null;
+    }
+    
+    public LongIntHashMap.Entry next()
+    {
+      LongIntHashMap.Entry localEntry1 = next;
+      
+      if ((localEntry1 != null) && (next != null)) {
+        next = next;
+      } else {
+        while (index < entries.length) {
+          LongIntHashMap.Entry localEntry2 = entries[(index++)];
+          if (localEntry2 != null) {
+            next = localEntry2;
+            return localEntry1;
+          }
+        }
+        next = null;
+      }
+      
+      return localEntry1;
+    }
+    
+    public void remove()
+    {
+      throw new UnsupportedOperationException("Not supported yet.");
+    }
+  }
+  
+
+  public static final class Entry
+  {
+    public final long key;
+    
+    public int value;
+    
+    Entry next;
+    
+
+    Entry(long paramLong, int paramInt, Entry paramEntry)
+    {
+      key = paramLong;
+      value = paramInt;
+      next = paramEntry;
+    }
+    
+
+
+    public long getKey()
+    {
+      return key;
+    }
+    
+
+
+    public int getValue()
+    {
+      return value;
+    }
+    
+
+
+    public void setValue(int paramInt)
+    {
+      value = paramInt;
+    }
+    
+
+
+
+    public StringBuilder toString(StringBuilder paramStringBuilder)
+    {
+      if (null == paramStringBuilder) {
+        paramStringBuilder = new StringBuilder();
+      }
+      paramStringBuilder.append("[").append(key).append(":").append(value).append("]");
+      return paramStringBuilder;
+    }
+    
+    public String toString()
+    {
+      return toString(null).toString();
+    }
+  }
+  
+  private static Method getCloneMethod(Object paramObject)
+  {
+    Class localClass = paramObject.getClass();
+    (Method)AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public Method run() {
+        try {
+          return val$clazz.getDeclaredMethod("clone", new Class[0]);
+        } catch (NoSuchMethodException localNoSuchMethodException) {
+          throw new JogampRuntimeException("Class " + val$clazz + " doesn't support clone()", localNoSuchMethodException);
+        }
+      }
+    });
+  }
+}

@@ -1,0 +1,120 @@
+package com.jogamp.opengl.util.texture.spi.awt;
+
+import com.jogamp.common.util.IOUtil;
+import com.jogamp.opengl.util.awt.ImageUtil;
+import com.jogamp.opengl.util.texture.TextureData;
+import com.jogamp.opengl.util.texture.spi.TextureWriter;
+import java.awt.Graphics;
+import java.awt.Image;
+import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferByte;
+import java.awt.image.RenderedImage;
+import java.awt.image.WritableRaster;
+import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import javax.imageio.ImageIO;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class IIOTextureWriter
+  implements TextureWriter
+{
+  public IIOTextureWriter() {}
+  
+  public boolean write(File paramFile, TextureData paramTextureData)
+    throws IOException
+  {
+    int i = paramTextureData.getPixelFormat();
+    int j = paramTextureData.getPixelType();
+    if (((i == 6407) || (i == 6408)) && ((j == 5120) || (j == 5121)))
+    {
+
+
+
+
+      Object localObject = new BufferedImage(paramTextureData.getWidth(), paramTextureData.getHeight(), i == 6407 ? 5 : 6);
+      
+
+
+      byte[] arrayOfByte = ((DataBufferByte)((BufferedImage)localObject).getRaster().getDataBuffer()).getData();
+      ByteBuffer localByteBuffer = (ByteBuffer)paramTextureData.getBuffer();
+      if (localByteBuffer == null) {
+        localByteBuffer = (ByteBuffer)paramTextureData.getMipmapData()[0];
+      }
+      localByteBuffer.rewind();
+      localByteBuffer.get(arrayOfByte);
+      localByteBuffer.rewind();
+      int k;
+      int m;
+      int n; if (i == 6407) {
+        for (k = 0; k < arrayOfByte.length; k += 3) {
+          m = arrayOfByte[(k + 0)];
+          n = arrayOfByte[(k + 2)];
+          arrayOfByte[(k + 0)] = n;
+          arrayOfByte[(k + 2)] = m;
+        }
+      } else {
+        for (k = 0; k < arrayOfByte.length; k += 4) {
+          m = arrayOfByte[(k + 0)];
+          n = arrayOfByte[(k + 1)];
+          int i1 = arrayOfByte[(k + 2)];
+          int i2 = arrayOfByte[(k + 3)];
+          arrayOfByte[(k + 0)] = i2;
+          arrayOfByte[(k + 1)] = i1;
+          arrayOfByte[(k + 2)] = n;
+          arrayOfByte[(k + 3)] = m;
+        }
+      }
+      
+
+      ImageUtil.flipImageVertically((BufferedImage)localObject);
+      
+
+      if (("jpg".equals(IOUtil.getFileSuffix(paramFile))) && 
+        (((BufferedImage)localObject).getType() == 6)) {
+        BufferedImage localBufferedImage = new BufferedImage(((BufferedImage)localObject).getWidth(), ((BufferedImage)localObject).getHeight(), 5);
+        
+        Graphics localGraphics = localBufferedImage.getGraphics();
+        localGraphics.drawImage((Image)localObject, 0, 0, null);
+        localGraphics.dispose();
+        localObject = localBufferedImage;
+      }
+      
+      return ImageIO.write((RenderedImage)localObject, IOUtil.getFileSuffix(paramFile), paramFile);
+    }
+    
+    throw new IOException("ImageIO writer doesn't support this pixel format / type (only GL_RGB/A + bytes)");
+  }
+}

@@ -1,0 +1,344 @@
+package jogamp.opengl;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.ProxySurface;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawable;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class GLDrawableImpl
+  implements GLDrawable
+{
+  protected static final boolean DEBUG = GLDrawableFactoryImpl.DEBUG;
+  protected final GLDrawableFactory factory;
+  
+  protected GLDrawableImpl(GLDrawableFactory paramGLDrawableFactory, NativeSurface paramNativeSurface, boolean paramBoolean) { this(paramGLDrawableFactory, paramNativeSurface, (GLCapabilitiesImmutable)paramNativeSurface.getGraphicsConfiguration().getRequestedCapabilities(), paramBoolean); }
+  
+  protected GLDrawableImpl(GLDrawableFactory paramGLDrawableFactory, NativeSurface paramNativeSurface, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, boolean paramBoolean)
+  {
+    factory = paramGLDrawableFactory;
+    surface = paramNativeSurface;
+    realized = paramBoolean;
+    requestedCapabilities = paramGLCapabilitiesImmutable;
+  }
+  
+  public final GLDrawableFactoryImpl getFactoryImpl() {
+    return (GLDrawableFactoryImpl)getFactory();
+  }
+  
+  public final void swapBuffers() throws GLException
+  {
+    if (!realized) {
+      return;
+    }
+    int i = lockSurface();
+    if (1 == i) {
+      return;
+    }
+    try {
+      if (realized) {
+        GLCapabilitiesImmutable localGLCapabilitiesImmutable = (GLCapabilitiesImmutable)surface.getGraphicsConfiguration().getChosenCapabilities();
+        if (localGLCapabilitiesImmutable.getDoubleBuffered()) {
+          if (!surface.surfaceSwap()) {
+            swapBuffersImpl(true);
+          }
+        } else {
+          GLContext localGLContext = GLContext.getCurrent();
+          if ((null != localGLContext) && (localGLContext.getGLDrawable() == this)) {
+            localGLContext.getGL().glFlush();
+          }
+          swapBuffersImpl(false);
+        }
+      }
+    } finally {
+      unlockSurface();
+    }
+    surface.surfaceUpdated(this, surface, System.currentTimeMillis());
+  }
+  
+
+
+
+
+
+
+
+  protected abstract void swapBuffersImpl(boolean paramBoolean);
+  
+
+
+
+
+
+
+  public static final String toHexString(long paramLong)
+  {
+    return "0x" + Long.toHexString(paramLong);
+  }
+  
+  public final GLProfile getGLProfile()
+  {
+    return requestedCapabilities.getGLProfile();
+  }
+  
+  public final GLCapabilitiesImmutable getChosenGLCapabilities()
+  {
+    return (GLCapabilitiesImmutable)surface.getGraphicsConfiguration().getChosenCapabilities();
+  }
+  
+  public final GLCapabilitiesImmutable getRequestedGLCapabilities()
+  {
+    return requestedCapabilities;
+  }
+  
+  public NativeSurface getNativeSurface()
+  {
+    return surface;
+  }
+  
+
+
+
+
+  protected void destroyHandle() {}
+  
+
+
+
+
+  protected void createHandle() {}
+  
+
+
+
+
+  public long getHandle()
+  {
+    return surface.getSurfaceHandle();
+  }
+  
+  public final GLDrawableFactory getFactory()
+  {
+    return factory;
+  }
+  
+  public final void setRealized(boolean paramBoolean)
+  {
+    if (realized != paramBoolean) {
+      boolean bool = surface instanceof ProxySurface;
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": setRealized: drawable " + getClass().getSimpleName() + ", surface " + surface.getClass().getSimpleName() + ", isProxySurface " + bool + ": " + realized + " -> " + paramBoolean);
+        ExceptionUtils.dumpStack(System.err);
+      }
+      AbstractGraphicsDevice localAbstractGraphicsDevice = surface.getGraphicsConfiguration().getScreen().getDevice();
+      if (paramBoolean) {
+        if (bool) {
+          ((ProxySurface)surface).createNotify();
+        }
+        if (1 >= surface.lockSurface()) {
+          throw new GLException("GLDrawableImpl.setRealized(true): Surface not ready (lockSurface)");
+        }
+      } else {
+        localAbstractGraphicsDevice.lock();
+      }
+      try {
+        if (realized != paramBoolean) {
+          realized = paramBoolean;
+          if (paramBoolean) {
+            setRealizedImpl();
+            createHandle();
+          } else {
+            destroyHandle();
+            setRealizedImpl();
+          }
+        }
+      } finally {
+        if (paramBoolean) {
+          surface.unlockSurface();
+        } else {
+          localAbstractGraphicsDevice.unlock();
+          if (bool) {
+            ((ProxySurface)surface).destroyNotify();
+          }
+        }
+      }
+    } else if (DEBUG) {
+      System.err.println(getThreadName() + ": setRealized: " + getClass().getName() + " " + realized + " == " + paramBoolean);
+    }
+  }
+  
+
+
+
+
+
+  protected final NativeSurface surface;
+  
+
+
+
+
+  protected final GLCapabilitiesImmutable requestedCapabilities;
+  
+
+
+
+
+  protected volatile boolean realized;
+  
+
+
+
+  protected abstract void setRealizedImpl();
+  
+
+
+
+
+  protected void associateContext(GLContext paramGLContext, boolean paramBoolean) {}
+  
+
+
+
+
+  protected void contextMadeCurrent(GLContext paramGLContext, boolean paramBoolean) {}
+  
+
+
+
+
+  protected int getDefaultDrawFramebuffer()
+  {
+    return 0; }
+  
+  protected int getDefaultReadFramebuffer() { return 0; }
+  
+  protected int getDefaultReadBuffer(GL paramGL, boolean paramBoolean) {
+    if ((paramGL.isGLES()) || (paramBoolean) || (getChosenGLCapabilities().getDoubleBuffered()))
+    {
+
+      return 1029;
+    }
+    return 1028;
+  }
+  
+  public final boolean isRealized()
+  {
+    return realized;
+  }
+  
+  public int getSurfaceWidth()
+  {
+    return surface.getSurfaceWidth();
+  }
+  
+  public int getSurfaceHeight()
+  {
+    return surface.getSurfaceHeight();
+  }
+  
+  public boolean isGLOriented()
+  {
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final int lockSurface()
+    throws GLException
+  {
+    int i = surface.lockSurface();
+    if ((2 == i) && (realized))
+    {
+      long l1 = getHandle();
+      destroyHandle();
+      createHandle();
+      long l2 = getHandle();
+      if ((DEBUG) && 
+        (l1 != l2)) {
+        System.err.println(getThreadName() + ": Drawable handle changed: " + toHexString(l1) + " -> " + toHexString(l2));
+      }
+    }
+    
+    return i;
+  }
+  
+
+
+
+
+
+
+
+  public final void unlockSurface()
+  {
+    surface.unlockSurface();
+  }
+  
+
+
+
+  public String toString()
+  {
+    return getClass().getSimpleName() + "[Realized " + isRealized() + ",\n\tFactory   " + getFactory() + ",\n\tHandle    " + toHexString(getHandle()) + ",\n\tSurface   " + getNativeSurface() + "]";
+  }
+  
+  protected static String getThreadName() { return Thread.currentThread().getName(); }
+}

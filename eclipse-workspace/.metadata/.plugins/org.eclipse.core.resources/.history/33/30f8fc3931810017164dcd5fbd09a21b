@@ -1,0 +1,133 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class HdmxTable
+  implements Table
+{
+  private final DirectoryEntry _de;
+  private final int _version;
+  private final short _numRecords;
+  private final int _sizeDeviceRecords;
+  private final DeviceRecord[] _records;
+  
+  public static class DeviceRecord
+  {
+    private final short _pixelSize;
+    private final short _maxWidth;
+    private final short[] _widths;
+    
+    protected DeviceRecord(int paramInt, DataInput paramDataInput)
+      throws IOException
+    {
+      _pixelSize = ((short)paramDataInput.readByte());
+      _maxWidth = ((short)paramDataInput.readByte());
+      _widths = new short[paramInt];
+      for (int i = 0; i < paramInt; i++) {
+        _widths[i] = ((short)paramDataInput.readByte());
+      }
+    }
+    
+    public short getPixelSize() {
+      return _pixelSize;
+    }
+    
+    public short getMaxWidth() {
+      return _maxWidth;
+    }
+    
+    public short[] getWidths() {
+      return _widths;
+    }
+    
+    public short getWidth(int paramInt) {
+      return _widths[paramInt];
+    }
+  }
+  
+
+
+
+
+
+
+
+  protected HdmxTable(DirectoryEntry paramDirectoryEntry, DataInput paramDataInput, MaxpTable paramMaxpTable)
+    throws IOException
+  {
+    _de = ((DirectoryEntry)paramDirectoryEntry.clone());
+    _version = paramDataInput.readUnsignedShort();
+    _numRecords = paramDataInput.readShort();
+    _sizeDeviceRecords = paramDataInput.readInt();
+    _records = new DeviceRecord[_numRecords];
+    
+
+    for (int i = 0; i < _numRecords; i++) {
+      _records[i] = new DeviceRecord(paramMaxpTable.getNumGlyphs(), paramDataInput);
+    }
+  }
+  
+  public int getNumberOfRecords() {
+    return _numRecords;
+  }
+  
+  public DeviceRecord getRecord(int paramInt) {
+    return _records[paramInt];
+  }
+  
+  public int getType()
+  {
+    return 1751412088;
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("'hdmx' Table - Horizontal Device Metrics\n----------------------------------------\n");
+    localStringBuilder.append("Size = ").append(_de.getLength()).append(" bytes\n")
+      .append("\t'hdmx' version:         ").append(_version).append("\n")
+      .append("\t# device records:       ").append(_numRecords).append("\n")
+      .append("\tRecord length:          ").append(_sizeDeviceRecords).append("\n");
+    for (int i = 0; i < _numRecords; i++)
+    {
+
+
+      localStringBuilder.append("\tDevRec ").append(i).append(": ppem = ").append(_records[i].getPixelSize()).append(", maxWid = ").append(_records[i].getMaxWidth()).append("\n");
+      for (int j = 0; j < _records[i].getWidths().length; j++)
+      {
+        localStringBuilder.append("    ").append(j).append(".   ").append(_records[i].getWidths()[j]).append("\n");
+      }
+      localStringBuilder.append("\n\n");
+    }
+    return localStringBuilder.toString();
+  }
+  
+
+
+
+
+
+
+  public DirectoryEntry getDirectoryEntry()
+  {
+    return _de;
+  }
+}

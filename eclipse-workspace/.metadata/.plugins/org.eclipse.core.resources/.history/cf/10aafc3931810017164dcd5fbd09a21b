@@ -1,0 +1,134 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.ByteArrayInputStream;
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GlyfTable
+  implements Table
+{
+  private final DirectoryEntry _de;
+  private final GlyfDescript[] _descript;
+  
+  protected GlyfTable(DirectoryEntry paramDirectoryEntry, DataInput paramDataInput, MaxpTable paramMaxpTable, LocaTable paramLocaTable)
+    throws IOException
+  {
+    _de = ((DirectoryEntry)paramDirectoryEntry.clone());
+    _descript = new GlyfDescript[paramMaxpTable.getNumGlyphs()];
+    
+
+    byte[] arrayOfByte = new byte[paramDirectoryEntry.getLength()];
+    paramDataInput.readFully(arrayOfByte);
+    ByteArrayInputStream localByteArrayInputStream = new ByteArrayInputStream(arrayOfByte);
+    int j;
+    DataInputStream localDataInputStream;
+    short s; for (int i = 0; i < paramMaxpTable.getNumGlyphs(); i++) {
+      j = paramLocaTable.getOffset(i + 1) - paramLocaTable.getOffset(i);
+      if (j > 0) {
+        localByteArrayInputStream.reset();
+        localByteArrayInputStream.skip(paramLocaTable.getOffset(i));
+        localDataInputStream = new DataInputStream(localByteArrayInputStream);
+        s = localDataInputStream.readShort();
+        if (s >= 0) {
+          _descript[i] = new GlyfSimpleDescript(this, i, s, localDataInputStream);
+        }
+      } else {
+        _descript[i] = null;
+      }
+    }
+    
+
+    for (i = 0; i < paramMaxpTable.getNumGlyphs(); i++) {
+      j = paramLocaTable.getOffset(i + 1) - paramLocaTable.getOffset(i);
+      if (j > 0) {
+        localByteArrayInputStream.reset();
+        localByteArrayInputStream.skip(paramLocaTable.getOffset(i));
+        localDataInputStream = new DataInputStream(localByteArrayInputStream);
+        s = localDataInputStream.readShort();
+        if (s < 0) {
+          _descript[i] = new GlyfCompositeDescript(this, i, localDataInputStream);
+        }
+      }
+    }
+  }
+  
+  public GlyfDescript getDescription(int paramInt) {
+    if (paramInt < _descript.length) {
+      return _descript[paramInt];
+    }
+    return null;
+  }
+  
+
+  public int getType()
+  {
+    return 1735162214;
+  }
+  
+
+
+
+
+
+
+  public DirectoryEntry getDirectoryEntry()
+  {
+    return _de;
+  }
+}

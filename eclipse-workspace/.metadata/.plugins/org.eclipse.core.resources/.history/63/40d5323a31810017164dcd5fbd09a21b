@@ -1,0 +1,230 @@
+package jogamp.opengl.windows.wgl;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.MutableSurface;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import java.io.PrintStream;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import jogamp.nativewindow.windows.GDI;
+import jogamp.opengl.GLDrawableImpl;
+import jogamp.opengl.GLGraphicsConfigurationUtil;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class WindowsPbufferWGLDrawable
+  extends WindowsWGLDrawable
+{
+  private WGLExt cachedWGLExt;
+  private long buffer;
+  
+  protected WindowsPbufferWGLDrawable(GLDrawableFactory paramGLDrawableFactory, NativeSurface paramNativeSurface)
+  {
+    super(paramGLDrawableFactory, paramNativeSurface, false);
+  }
+  
+  protected void setRealizedImpl()
+  {
+    if (realized) {
+      createPbuffer();
+    } else {
+      destroyPbuffer();
+    }
+  }
+  
+  public GLContext createContext(GLContext paramGLContext)
+  {
+    return new WindowsWGLContext(this, paramGLContext);
+  }
+  
+  protected void destroyPbuffer() {
+    NativeSurface localNativeSurface = getNativeSurface();
+    if (0L != buffer) {
+      WGLExt localWGLExt = cachedWGLExt;
+      if (localNativeSurface.getSurfaceHandle() != 0L)
+      {
+
+
+
+        if (localWGLExt.wglReleasePbufferDCARB(buffer, localNativeSurface.getSurfaceHandle()) == 0) {
+          throw new GLException("Error releasing pbuffer device context: error code " + GDI.GetLastError());
+        }
+        ((MutableSurface)localNativeSurface).setSurfaceHandle(0L);
+      }
+      if (!localWGLExt.wglDestroyPbufferARB(buffer)) {
+        throw new GLException("Error destroying pbuffer: error code " + GDI.GetLastError());
+      }
+      buffer = 0L;
+    }
+  }
+  
+
+
+  public long getPbufferHandle()
+  {
+    return buffer;
+  }
+  
+  private void createPbuffer() {
+    WindowsWGLGraphicsConfiguration localWindowsWGLGraphicsConfiguration = (WindowsWGLGraphicsConfiguration)getNativeSurface().getGraphicsConfiguration();
+    WindowsWGLDrawableFactory.SharedResource localSharedResource = ((WindowsWGLDrawableFactory)factory).getOrCreateSharedResourceImpl(localWindowsWGLGraphicsConfiguration.getScreen().getDevice());
+    NativeSurface localNativeSurface1 = localSharedResource.getDrawable().getNativeSurface();
+    if (1 >= localNativeSurface1.lockSurface()) {
+      throw new NativeWindowException("Could not lock (sharedSurface): " + this);
+    }
+    try {
+      long l1 = localNativeSurface1.getSurfaceHandle();
+      WGLExt localWGLExt = ((WindowsWGLContext)localSharedResource.getContext()).getWGLExt();
+      
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": Pbuffer config: " + localWindowsWGLGraphicsConfiguration);
+      }
+      
+      int i = GLGraphicsConfigurationUtil.getExclusiveWinAttributeBits(false, false, true, false);
+      
+      IntBuffer localIntBuffer1 = Buffers.newDirectIntBuffer(512);
+      FloatBuffer localFloatBuffer = Buffers.newDirectFloatBuffer(1);
+      int[] arrayOfInt = new int[1];
+      int j = 0;
+      
+      GLCapabilitiesImmutable localGLCapabilitiesImmutable = (GLCapabilitiesImmutable)localWindowsWGLGraphicsConfiguration.getChosenCapabilities();
+      GLProfile localGLProfile = localGLCapabilitiesImmutable.getGLProfile();
+      AbstractGraphicsDevice localAbstractGraphicsDevice = localWindowsWGLGraphicsConfiguration.getScreen().getDevice();
+      
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": Pbuffer parentHdc = " + toHexString(l1));
+        System.err.println(getThreadName() + ": Pbuffer chosenCaps: " + localGLCapabilitiesImmutable);
+      }
+      
+      if (!WindowsWGLGraphicsConfiguration.GLCapabilities2AttribList(localSharedResource, localGLCapabilitiesImmutable, localIntBuffer1, -1, arrayOfInt))
+      {
+        throw new GLException("Pbuffer-related extensions not supported");
+      }
+      
+      IntBuffer localIntBuffer2 = Buffers.newDirectIntBuffer(256);
+      IntBuffer localIntBuffer3 = Buffers.newDirectIntBuffer(1);
+      if (!localWGLExt.wglChoosePixelFormatARB(l1, localIntBuffer1, localFloatBuffer, 256, localIntBuffer2, localIntBuffer3))
+      {
+
+        throw new GLException("pbuffer creation error: wglChoosePixelFormat() failed");
+      }
+      int k = Math.min(localIntBuffer3.get(0), 256);
+      if (k <= 0) {
+        throw new GLException("pbuffer creation error: Couldn't find a suitable pixel format");
+      }
+      
+      if (DEBUG) {
+        System.err.println("" + k + " suitable pixel formats found");
+        for (m = 0; m < k; m++) {
+          WGLGLCapabilities localWGLGLCapabilities1 = WindowsWGLGraphicsConfiguration.wglARBPFID2GLCapabilitiesNoCheck(localSharedResource, localAbstractGraphicsDevice, localGLProfile, l1, localIntBuffer2
+            .get(m), i);
+          System.err.println("pixel format " + localIntBuffer2.get(m) + " (index " + m + "): " + localWGLGLCapabilities1);
+        }
+      }
+      
+      int m = 0;
+      long l2 = 0L;
+      
+
+
+      for (int n = 0; n < k; n++) {
+        int i1 = localIntBuffer2.get(n);
+        
+
+        j = 0;
+        
+        localIntBuffer1.put(j++, 0);
+        
+        l2 = localWGLExt.wglCreatePbufferARB(l1, i1, getSurfaceWidth(), getSurfaceHeight(), localIntBuffer1);
+        if (l2 != 0L) {
+          break;
+        }
+      }
+      
+
+      if (0L == l2)
+      {
+        throw new GLException("pbuffer creation error: wglCreatePbuffer() failed: tried " + k + " pixel formats, last error was: " + wglGetLastError());
+      }
+      m = localIntBuffer2.get(n);
+      
+
+
+      long l3 = localWGLExt.wglGetPbufferDCARB(l2);
+      if (l3 == 0L) {
+        throw new GLException("pbuffer creation error: wglGetPbufferDC() failed");
+      }
+      
+      NativeSurface localNativeSurface2 = getNativeSurface();
+      
+      buffer = l2;
+      ((MutableSurface)localNativeSurface2).setSurfaceHandle(l3);
+      cachedWGLExt = localWGLExt;
+      
+
+
+      WGLGLCapabilities localWGLGLCapabilities2 = WindowsWGLGraphicsConfiguration.wglARBPFID2GLCapabilities(localSharedResource, localAbstractGraphicsDevice, localGLProfile, l1, m, i);
+      
+      if (null == localWGLGLCapabilities2) {
+        throw new GLException("pbuffer creation error: unable to re-query chosen PFD ID: " + m + ", hdc " + GLDrawableImpl.toHexString(l3));
+      }
+      if ((localWGLGLCapabilities2.isOnscreen()) || (!localWGLGLCapabilities2.isPBuffer())) {
+        throw new GLException("Error: Selected Onscreen Caps for PBuffer: " + localWGLGLCapabilities2);
+      }
+      localWindowsWGLGraphicsConfiguration.setCapsPFD(localWGLGLCapabilities2);
+    }
+    finally {
+      localNativeSurface1.unlockSurface();
+    }
+  }
+  
+  private static String wglGetLastError() {
+    return WindowsWGLDrawableFactory.wglGetLastError();
+  }
+}

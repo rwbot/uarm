@@ -1,0 +1,317 @@
+package jogamp.newt.driver.x11;
+
+import com.jogamp.common.util.ArrayHashSet;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.util.Rectangle;
+import com.jogamp.nativewindow.util.RectangleImmutable;
+import com.jogamp.nativewindow.x11.X11GraphicsDevice;
+import com.jogamp.nativewindow.x11.X11GraphicsScreen;
+import com.jogamp.newt.Display;
+import com.jogamp.newt.MonitorDevice;
+import com.jogamp.newt.MonitorMode;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.List;
+import jogamp.nativewindow.x11.X11Util;
+import jogamp.newt.Debug;
+import jogamp.newt.DisplayImpl;
+import jogamp.newt.DisplayImpl.DisplayRunnable;
+import jogamp.newt.MonitorModeProps;
+import jogamp.newt.MonitorModeProps.Cache;
+import jogamp.newt.ScreenImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ScreenDriver
+  extends ScreenImpl
+{
+  protected static final boolean DEBUG_TEST_RANDR13_DISABLED;
+  private VersionNumber randrVersion;
+  private RandR rAndR;
+  
+  static
+  {
+    Debug.initSingleton();
+    DEBUG_TEST_RANDR13_DISABLED = PropertyAccess.isPropertyDefined("newt.test.Screen.disableRandR13", true);
+    
+    DisplayDriver.initSingleton();
+  }
+  
+
+
+
+
+
+
+
+  protected void createNativeImpl()
+  {
+    Long localLong = (Long)runWithLockedDisplayDevice(new DisplayImpl.DisplayRunnable()
+    {
+
+      public Long run(long paramAnonymousLong) { return Long.valueOf(ScreenDriver.GetScreen0(paramAnonymousLong, screen_idx)); }
+    });
+    if (localLong.longValue() == 0L) {
+      throw new RuntimeException("Error creating screen: " + screen_idx);
+    }
+    X11GraphicsDevice localX11GraphicsDevice = (X11GraphicsDevice)getDisplay().getGraphicsDevice();
+    long l = localX11GraphicsDevice.getHandle();
+    aScreen = new X11GraphicsScreen(localX11GraphicsDevice, screen_idx);
+    
+    int[] arrayOfInt = getRandRVersion0(l);
+    randrVersion = new VersionNumber(arrayOfInt[0], arrayOfInt[1], 0);
+    
+
+    if ((!DEBUG_TEST_RANDR13_DISABLED) && (randrVersion.compareTo(RandR.version130) >= 0)) {
+      rAndR = new RandR13(randrVersion);
+    } else if (randrVersion.compareTo(RandR.version110) >= 0) {
+      rAndR = new RandR11(randrVersion);
+    } else {
+      rAndR = null;
+    }
+    
+    ((DisplayDriver)display).registerRandR(rAndR);
+    if (DEBUG) {
+      System.err.println("Using " + rAndR);
+      rAndR.dumpInfo(l, screen_idx);
+    }
+  }
+  
+
+
+
+
+
+
+
+  protected final void collectNativeMonitorModesAndDevicesImpl(MonitorModeProps.Cache paramCache)
+  {
+    if (null == rAndR) return;
+    AbstractGraphicsDevice localAbstractGraphicsDevice = getDisplay().getGraphicsDevice();
+    localAbstractGraphicsDevice.lock();
+    try {
+      if (rAndR.beginInitialQuery(localAbstractGraphicsDevice.getHandle(), this)) {
+        try {
+          int[] arrayOfInt1 = rAndR.getMonitorDeviceIds(localAbstractGraphicsDevice.getHandle(), this);
+          int i = null != arrayOfInt1 ? arrayOfInt1.length : 0;
+          
+
+          ArrayHashSet localArrayHashSet = new ArrayHashSet(false, 16, 0.75F);
+          int[] arrayOfInt2; for (int j = 0; j < i; j++) {
+            arrayOfInt2 = rAndR.getAvailableRotations(localAbstractGraphicsDevice.getHandle(), this, arrayOfInt1[j]);
+            if (null != arrayOfInt2) {
+              ArrayList localArrayList = new ArrayList(arrayOfInt2.length);
+              for (int m = 0; m < arrayOfInt2.length; m++) localArrayList.add(Integer.valueOf(arrayOfInt2[m]));
+              localArrayHashSet.addAll(localArrayList);
+            }
+          }
+          
+
+
+          j = 0;
+          do
+          {
+            arrayOfInt2 = rAndR.getMonitorModeProps(localAbstractGraphicsDevice.getHandle(), this, j++);
+            if (null != arrayOfInt2) {
+              for (int k = 0; k < localArrayHashSet.size(); k++) {
+                arrayOfInt2[7] = ((Integer)localArrayHashSet.get(k)).intValue();
+                MonitorModeProps.streamInMonitorMode(null, paramCache, arrayOfInt2, 0);
+              }
+            }
+          } while (null != arrayOfInt2);
+          
+          if (monitorModes.size() > 0) {
+            for (j = 0; j < i; j++) {
+              arrayOfInt2 = rAndR.getMonitorDeviceProps(localAbstractGraphicsDevice.getHandle(), this, paramCache, arrayOfInt1[j]);
+              if ((null != arrayOfInt2) && (17 <= arrayOfInt2[0]) && (17 <= arrayOfInt2.length))
+              {
+
+                MonitorModeProps.streamInMonitorDevice(paramCache, this, null, arrayOfInt2, 0, null);
+              }
+            }
+          }
+        } finally {
+          rAndR.endInitialQuery(localAbstractGraphicsDevice.getHandle(), this);
+        }
+      }
+    } finally {
+      localAbstractGraphicsDevice.unlock();
+    }
+  }
+  
+  protected boolean updateNativeMonitorDeviceViewportImpl(MonitorDevice paramMonitorDevice, float[] paramArrayOfFloat, Rectangle paramRectangle1, Rectangle paramRectangle2)
+  {
+    AbstractGraphicsDevice localAbstractGraphicsDevice = getDisplay().getGraphicsDevice();
+    localAbstractGraphicsDevice.lock();
+    try {
+      int[] arrayOfInt = rAndR.getMonitorDeviceViewport(localAbstractGraphicsDevice.getHandle(), this, paramMonitorDevice.getId());
+      boolean bool; if (null != arrayOfInt) {
+        paramRectangle1.set(arrayOfInt[0], arrayOfInt[1], arrayOfInt[2], arrayOfInt[3]);
+        paramRectangle2.set(arrayOfInt[0], arrayOfInt[1], arrayOfInt[2], arrayOfInt[3]);
+        return true;
+      }
+      return false;
+    }
+    finally {
+      localAbstractGraphicsDevice.unlock();
+    }
+  }
+  
+  protected MonitorMode queryCurrentMonitorModeImpl(final MonitorDevice paramMonitorDevice)
+  {
+    if (null == rAndR) { return null;
+    }
+    (MonitorMode)runWithLockedDisplayDevice(new DisplayImpl.DisplayRunnable()
+    {
+      public MonitorMode run(long paramAnonymousLong) {
+        int[] arrayOfInt = rAndR.getCurrentMonitorModeProps(paramAnonymousLong, ScreenDriver.this, paramMonitorDevice.getId());
+        if (null != arrayOfInt) {
+          return MonitorModeProps.streamInMonitorMode(null, null, arrayOfInt, 0);
+        }
+        return null;
+      }
+    });
+  }
+  
+  protected boolean setCurrentMonitorModeImpl(final MonitorDevice paramMonitorDevice, final MonitorMode paramMonitorMode)
+  {
+    if (null == rAndR) { return false;
+    }
+    long l = System.currentTimeMillis();
+    
+
+
+
+
+    boolean bool1 = ((Boolean)runWithLockedDisplayDevice(new DisplayImpl.DisplayRunnable()
+    {
+      public Boolean run(long paramAnonymousLong) {
+        return Boolean.valueOf(rAndR.setCurrentMonitorModeStart(paramAnonymousLong, ScreenDriver.this, paramMonitorDevice, paramMonitorMode));
+      }
+    }))
+    
+
+
+
+      .booleanValue();
+    boolean bool2;
+    if (bool1) {
+      bool2 = rAndR.setCurrentMonitorModeWait(this);
+    } else {
+      bool2 = false;
+    }
+    if ((DEBUG) || (!bool2)) {
+      System.err.println("X11Screen.setCurrentMonitorModeImpl: " + (bool2 ? " OK" : "NOK") + " (started " + bool1 + "): t/TO " + (
+        System.currentTimeMillis() - l) + "/" + 10000 + "ms; " + paramMonitorDevice.getCurrentMode() + " -> " + paramMonitorMode);
+    }
+    return bool2;
+  }
+  
+  private final DisplayImpl.DisplayRunnable<Boolean> xineramaEnabledQueryWithTemp = new DisplayImpl.DisplayRunnable()
+  {
+    public Boolean run(long paramAnonymousLong) {
+      return Boolean.valueOf(X11Util.XineramaIsEnabled(paramAnonymousLong));
+    }
+  };
+  
+  protected int validateScreenIndex(int paramInt) {
+    DisplayDriver localDisplayDriver = (DisplayDriver)getDisplay();
+    Boolean localBoolean = localDisplayDriver.isXineramaEnabled();
+    if (null != localBoolean) {
+      return localBoolean.booleanValue() ? 0 : paramInt;
+    }
+    return ((Boolean)runWithTempDisplayHandle(xineramaEnabledQueryWithTemp)).booleanValue() ? 0 : paramInt;
+  }
+  
+
+  protected void calcVirtualScreenOriginAndSize(final Rectangle paramRectangle1, final Rectangle paramRectangle2)
+  {
+    Object localObject = DEBUG ? (RectangleImmutable)getViewport().cloneMutable() : null;
+    
+
+
+
+
+
+
+
+
+
+
+
+    runWithLockedDisplayDevice(new DisplayImpl.DisplayRunnable()
+    {
+      public Object run(long paramAnonymousLong) {
+        paramRectangle1.set(0, 0, ScreenDriver.getWidth0(paramAnonymousLong, screen_idx), ScreenDriver.getHeight0(paramAnonymousLong, screen_idx));
+        paramRectangle2.set(paramRectangle1);
+        return null;
+      } });
+    if (DEBUG) {
+      System.err.println("X11Screen.calcVirtualScreenOriginAndSize: Querying X11: " + localObject + " -> " + paramRectangle1);
+    }
+  }
+  
+
+
+
+  private final <T> T runWithLockedDisplayDevice(DisplayImpl.DisplayRunnable<T> paramDisplayRunnable)
+  {
+    return display.runWithLockedDisplayDevice(paramDisplayRunnable);
+  }
+  
+  private final <T> T runWithTempDisplayHandle(DisplayImpl.DisplayRunnable<T> paramDisplayRunnable) {
+    long l = X11Util.openDisplay(display.getName());
+    if (0L == l) {
+      throw new RuntimeException("null device");
+    }
+    Object localObject1;
+    try {
+      localObject1 = paramDisplayRunnable.run(l);
+    } finally {
+      X11Util.closeDisplay(l);
+    }
+    return localObject1;
+  }
+  
+  static void initSingleton() {}
+  
+  public ScreenDriver() {}
+  
+  protected void closeNativeImpl() {}
+  
+  private static native long GetScreen0(long paramLong, int paramInt);
+  
+  private static native int getWidth0(long paramLong, int paramInt);
+  
+  private static native int getHeight0(long paramLong, int paramInt);
+  
+  private static native int[] getRandRVersion0(long paramLong);
+}

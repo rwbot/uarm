@@ -1,0 +1,318 @@
+package com.jogamp.opengl.util;
+
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2;
+import com.jogamp.opengl.GL2ES3;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLPixelStorageModes
+{
+  private final int[] cachePack = new int[8];
+  private final int[] cacheUnpack = new int[8];
+  private boolean savedPack = false;
+  private boolean savedUnpack = false;
+  
+  public GLPixelStorageModes() {}
+  
+  public GLPixelStorageModes(GL paramGL)
+  {
+    saveAll(paramGL);
+  }
+  
+
+
+
+
+  public final void setPackAlignment(GL paramGL, int paramInt)
+  {
+    savePack(paramGL);
+    paramGL.glPixelStorei(3333, paramInt);
+  }
+  
+
+
+
+
+
+  public final void setUnpackAlignment(GL paramGL, int paramInt)
+  {
+    saveUnpack(paramGL);
+    paramGL.glPixelStorei(3317, paramInt);
+  }
+  
+
+
+
+
+
+  public final void setAlignment(GL paramGL, int paramInt1, int paramInt2)
+  {
+    setPackAlignment(paramGL, paramInt1);
+    setUnpackAlignment(paramGL, paramInt2);
+  }
+  
+
+
+
+
+
+  public final void setPackRowLength(GL2ES3 paramGL2ES3, int paramInt)
+  {
+    savePack(paramGL2ES3);
+    paramGL2ES3.glPixelStorei(3330, paramInt);
+  }
+  
+
+
+
+
+
+  public final void setUnpackRowLength(GL2ES3 paramGL2ES3, int paramInt)
+  {
+    saveUnpack(paramGL2ES3);
+    paramGL2ES3.glPixelStorei(3314, paramInt);
+  }
+  
+
+
+
+
+
+  public final void setRowLength(GL2ES3 paramGL2ES3, int paramInt1, int paramInt2)
+  {
+    setPackRowLength(paramGL2ES3, paramInt1);
+    setUnpackRowLength(paramGL2ES3, paramInt2);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final void saveAll(GL paramGL)
+  {
+    savePack(paramGL);
+    saveUnpack(paramGL);
+  }
+  
+
+
+
+  public final void resetAll(GL paramGL)
+  {
+    resetPack(paramGL);
+    resetUnpack(paramGL);
+  }
+  
+
+
+
+  public final void restore(GL paramGL)
+    throws GLException
+  {
+    if ((!savedPack) && (!savedUnpack)) {
+      throw new GLException("Neither PACK nor UNPACK pixel storage modes were saved");
+    }
+    if (savedPack) {
+      restorePack(paramGL);
+      savedPack = false;
+    }
+    if (savedUnpack) {
+      restoreUnpack(paramGL);
+      savedUnpack = false;
+    }
+  }
+  
+
+
+
+  public final void resetPack(GL paramGL)
+  {
+    paramGL.glPixelStorei(3333, 4);
+    if (paramGL.isGL2ES3()) {
+      paramGL.glPixelStorei(3330, 0);
+      paramGL.glPixelStorei(3331, 0);
+      paramGL.glPixelStorei(3332, 0);
+      if (paramGL.isGL2GL3()) {
+        paramGL.glPixelStorei(3328, 0);
+        paramGL.glPixelStorei(3329, 0);
+        if (paramGL.getContext().getGLVersionNumber().compareTo(GLContext.Version1_2) >= 0) {
+          paramGL.glPixelStorei(32876, 0);
+          paramGL.glPixelStorei(32875, 0);
+        }
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+  public final void savePack(GL paramGL)
+  {
+    if (savedPack) {
+      return;
+    }
+    if (paramGL.isGL2())
+    {
+      paramGL.getGL2().glPushClientAttrib(1);
+    }
+    else {
+      paramGL.glGetIntegerv(3333, cachePack, 0);
+      if (paramGL.isGL2ES3()) {
+        paramGL.glGetIntegerv(3330, cachePack, 1);
+        paramGL.glGetIntegerv(3331, cachePack, 2);
+        paramGL.glGetIntegerv(3332, cachePack, 3);
+        if (paramGL.isGL2GL3()) {
+          paramGL.glGetIntegerv(3328, cachePack, 4);
+          paramGL.glGetIntegerv(3329, cachePack, 5);
+          paramGL.glGetIntegerv(32876, cachePack, 6);
+          paramGL.glGetIntegerv(32875, cachePack, 7);
+        }
+      }
+    }
+    savedPack = true;
+    resetPack(paramGL);
+  }
+  
+  private final void restorePack(GL paramGL) { if (paramGL.isGL2()) {
+      paramGL.getGL2().glPopClientAttrib();
+    } else {
+      paramGL.glPixelStorei(3333, cachePack[0]);
+      if (paramGL.isGL2ES3()) {
+        paramGL.glPixelStorei(3330, cachePack[1]);
+        paramGL.glPixelStorei(3331, cachePack[2]);
+        paramGL.glPixelStorei(3332, cachePack[3]);
+        if (paramGL.isGL2GL3()) {
+          paramGL.glPixelStorei(3328, cachePack[4]);
+          paramGL.glPixelStorei(3329, cachePack[5]);
+          paramGL.glPixelStorei(32876, cachePack[6]);
+          paramGL.glPixelStorei(32875, cachePack[7]);
+        }
+      }
+    }
+  }
+  
+
+
+
+  public final void resetUnpack(GL paramGL)
+  {
+    paramGL.glPixelStorei(3317, 4);
+    if (paramGL.isGL2ES3()) {
+      paramGL.glPixelStorei(3314, 0);
+      paramGL.glPixelStorei(3315, 0);
+      paramGL.glPixelStorei(3316, 0);
+      if (paramGL.isGL2GL3()) {
+        if (paramGL.getContext().getGLVersionNumber().compareTo(GLContext.Version1_2) >= 0) {
+          paramGL.glPixelStorei(32878, 0);
+          paramGL.glPixelStorei(32877, 0);
+        }
+        paramGL.glPixelStorei(3312, 0);
+        paramGL.glPixelStorei(3313, 0);
+      } else {
+        paramGL.glPixelStorei(32878, 0);
+        paramGL.glPixelStorei(32877, 0);
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+  public final void saveUnpack(GL paramGL)
+  {
+    if (savedUnpack) {
+      return;
+    }
+    if (paramGL.isGL2())
+    {
+      paramGL.getGL2().glPushClientAttrib(1);
+    }
+    else {
+      paramGL.glGetIntegerv(3317, cacheUnpack, 0);
+      if (paramGL.isGL2ES3()) {
+        paramGL.glGetIntegerv(3314, cacheUnpack, 1);
+        paramGL.glGetIntegerv(3315, cacheUnpack, 2);
+        paramGL.glGetIntegerv(3316, cacheUnpack, 3);
+        paramGL.glGetIntegerv(32878, cacheUnpack, 4);
+        paramGL.glGetIntegerv(32877, cacheUnpack, 5);
+        if (paramGL.isGL2GL3()) {
+          paramGL.glGetIntegerv(3312, cacheUnpack, 6);
+          paramGL.glGetIntegerv(3313, cacheUnpack, 7);
+        }
+      }
+    }
+    savedUnpack = true;
+    resetUnpack(paramGL);
+  }
+  
+  private final void restoreUnpack(GL paramGL) { if (paramGL.isGL2()) {
+      paramGL.getGL2().glPopClientAttrib();
+    } else {
+      paramGL.glPixelStorei(3317, cacheUnpack[0]);
+      if (paramGL.isGL2ES3()) {
+        paramGL.glPixelStorei(3314, cacheUnpack[1]);
+        paramGL.glPixelStorei(3315, cacheUnpack[2]);
+        paramGL.glPixelStorei(3316, cacheUnpack[3]);
+        paramGL.glPixelStorei(32878, cacheUnpack[4]);
+        paramGL.glPixelStorei(32877, cacheUnpack[5]);
+        if (paramGL.isGL2GL3()) {
+          paramGL.glPixelStorei(3312, cacheUnpack[6]);
+          paramGL.glPixelStorei(3313, cacheUnpack[7]);
+        }
+      }
+    }
+  }
+}

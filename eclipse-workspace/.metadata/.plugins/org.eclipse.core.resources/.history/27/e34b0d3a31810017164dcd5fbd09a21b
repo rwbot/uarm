@@ -1,0 +1,99 @@
+package jogamp.nativewindow.windows;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.StructAccessor;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import java.nio.ByteBuffer;
+import jogamp.common.os.MachineDataInfoRuntime;
+
+
+
+
+
+
+
+
+
+
+public class MARGINS
+{
+  StructAccessor accessor;
+  private static final int mdIdx = MachineDataInfoRuntime.getStatic().ordinal();
+  
+  private final MachineDataInfo md;
+  private static final int[] MARGINS_size = { 16, 16, 16, 16, 16, 16, 16, 16 };
+  private static final int[] cxLeftWidth_offset = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  
+  private static final int[] cxRightWidth_offset = { 4, 4, 4, 4, 4, 4, 4, 4 };
+  
+  private static final int[] cyTopHeight_offset = { 8, 8, 8, 8, 8, 8, 8, 8 };
+  
+  private static final int[] cyBottomHeight_offset = { 12, 12, 12, 12, 12, 12, 12, 12 };
+  
+  public static int size()
+  {
+    return MARGINS_size[mdIdx];
+  }
+  
+  public static MARGINS create() {
+    return create(Buffers.newDirectByteBuffer(size()));
+  }
+  
+  public static MARGINS create(ByteBuffer paramByteBuffer) {
+    return new MARGINS(paramByteBuffer);
+  }
+  
+  MARGINS(ByteBuffer paramByteBuffer) {
+    md = valuesmdIdxmd;
+    accessor = new StructAccessor(paramByteBuffer);
+  }
+  
+  public ByteBuffer getBuffer() {
+    return accessor.getBuffer();
+  }
+  
+  public MARGINS setCxLeftWidth(int paramInt)
+  {
+    accessor.setIntAt(cxLeftWidth_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getCxLeftWidth()
+  {
+    return accessor.getIntAt(cxLeftWidth_offset[mdIdx]);
+  }
+  
+  public MARGINS setCxRightWidth(int paramInt)
+  {
+    accessor.setIntAt(cxRightWidth_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getCxRightWidth()
+  {
+    return accessor.getIntAt(cxRightWidth_offset[mdIdx]);
+  }
+  
+  public MARGINS setCyTopHeight(int paramInt)
+  {
+    accessor.setIntAt(cyTopHeight_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getCyTopHeight()
+  {
+    return accessor.getIntAt(cyTopHeight_offset[mdIdx]);
+  }
+  
+  public MARGINS setCyBottomHeight(int paramInt)
+  {
+    accessor.setIntAt(cyBottomHeight_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getCyBottomHeight()
+  {
+    return accessor.getIntAt(cyBottomHeight_offset[mdIdx]);
+  }
+}

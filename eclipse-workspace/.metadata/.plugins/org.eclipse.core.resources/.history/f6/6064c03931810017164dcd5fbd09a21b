@@ -1,0 +1,246 @@
+package g4p_controls;
+
+import java.awt.Color;
+import processing.awt.PGraphicsJava2D;
+import processing.core.PApplet;
+import processing.event.MouseEvent;
+
+class GScrollbar
+  extends GAbstractControl
+{
+  private static float CORNER_RADIUS = 6.0F;
+  private static final int TRACK = 5;
+  protected float value = 0.2F;
+  protected float filler = 0.5F;
+  protected boolean autoHide = true;
+  protected boolean currOverThumb = false;
+  protected boolean isValueChanging = false;
+  protected float last_ox;
+  protected float last_oy;
+  
+  public GScrollbar(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    super(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+    hotspots = new HotSpot[] { new HotSpot.HSrect(1, 0.0F, 0.0F, 16.0F, height), new HotSpot.HSrect(2, width - 16.0F, 0.0F, 16.0F, height), new HotSpot.HSrect(9, 17.0F, 0.0F, width - 17.0F, height) };
+    opaque = false;
+    z = 24;
+    registeredMethods = 3;
+    cursorOver = 12;
+    G4P.registerControl(this);
+  }
+  
+  public void setAutoHide(boolean paramBoolean)
+  {
+    if (autoHide != paramBoolean)
+    {
+      autoHide = paramBoolean;
+      if ((autoHide) && (filler > 0.99999F)) {
+        visible = false;
+      }
+      bufferInvalid = true;
+    }
+  }
+  
+  public void setValue(float paramFloat)
+  {
+    if (paramFloat + filler > 1.0F) {
+      filler = (1.0F - paramFloat);
+    }
+    value = paramFloat;
+    if ((autoHide) && (filler > 0.99999F)) {
+      visible = false;
+    } else {
+      visible = true;
+    }
+    bufferInvalid = true;
+  }
+  
+  public void setValue(float paramFloat1, float paramFloat2)
+  {
+    if (paramFloat1 + paramFloat2 > 1.0F) {
+      paramFloat1 = 1.0F - paramFloat2;
+    }
+    value = paramFloat1;
+    filler = paramFloat2;
+    if ((autoHide) && (filler > 0.99999F)) {
+      visible = false;
+    } else {
+      visible = true;
+    }
+    bufferInvalid = true;
+  }
+  
+  public float getValue()
+  {
+    return value;
+  }
+  
+  public void mouseEvent(MouseEvent paramMouseEvent)
+  {
+    if ((!visible) || (!enabled) || (!available)) {
+      return;
+    }
+    calcTransformedOrigin(winApp.mouseX, winApp.mouseY);
+    int i = whichHotSpot(ox, oy);
+    if ((i >= 9) && (isOverThumb(ox, oy))) {
+      i = 10;
+    }
+    if (i != currSpot)
+    {
+      currSpot = i;
+      bufferInvalid = true;
+    }
+    if ((currSpot >= 0) || (focusIsWith == this)) {
+      cursorIsOver = this;
+    } else if (cursorIsOver == this) {
+      cursorIsOver = null;
+    }
+    float f1;
+    switch (paramMouseEvent.getAction())
+    {
+    case 1: 
+      if ((focusIsWith != this) && (currSpot >= 0) && (z > focusObjectZ()))
+      {
+        dragging = false;
+        last_ox = ox;
+        last_oy = oy;
+        takeFocus();
+      }
+      break;
+    case 3: 
+      if (focusIsWith == this)
+      {
+        switch (currSpot)
+        {
+        case 1: 
+          value -= 0.1F;
+          if (value < 0.0F) {
+            value = 0.0F;
+          }
+          bufferInvalid = true;
+          fireEvent(new Object[] { this, GEvent.CHANGED });
+          break;
+        case 2: 
+          value += 0.1F;
+          if (value + filler > 1.0D) {
+            value = (1.0F - filler);
+          }
+          bufferInvalid = true;
+          fireEvent(new Object[] { this, GEvent.CHANGED });
+        }
+        dragging = false;
+        loseFocus(parent);
+      }
+      break;
+    case 8: 
+      if ((currSpot > -1) && (z >= focusObjectZ()))
+      {
+        f1 = value + paramMouseEvent.getCount() * 0.01F * G4P.wheelForScrollbar;
+        f1 = f1 > 1.0F ? 1.0F : f1 < 0.0F ? 0.0F : f1;
+        setValue(f1, filler);
+        isValueChanging = true;
+        bufferInvalid = true;
+        dragging = true;
+        fireEvent(new Object[] { this, GEvent.CHANGED });
+      }
+      break;
+    case 2: 
+      if ((focusIsWith == this) && (dragging))
+      {
+        loseFocus(parent);
+        dragging = false;
+        isValueChanging = false;
+        bufferInvalid = true;
+      }
+      break;
+    case 4: 
+      if ((focusIsWith == this) && (i == 10))
+      {
+        f1 = ox - last_ox;
+        last_ox = ox;
+        float f2 = f1 / (width - 32.0F);
+        value += f2;
+        value = PApplet.constrain(value, 0.0F, 1.0F - filler);
+        isValueChanging = true;
+        bufferInvalid = true;
+        dragging = true;
+        fireEvent(new Object[] { this, GEvent.CHANGED });
+      }
+      break;
+    }
+  }
+  
+  protected boolean isOverThumb(float paramFloat1, float paramFloat2)
+  {
+    float f = (paramFloat1 - 16.0F) / (width - 32.0F);
+    boolean bool = (f >= value) && (f < value + filler);
+    return bool;
+  }
+  
+  protected void updateBuffer()
+  {
+    if (bufferInvalid)
+    {
+      bufferInvalid = false;
+      buffer.beginDraw();
+      if (opaque)
+      {
+        buffer.background(buffer.color(255, 0));
+        buffer.fill(palette[6].getRGB());
+        buffer.noStroke();
+        buffer.rect(8.0F, 0.0F, width - 16.0F, height);
+      }
+      else
+      {
+        buffer.background(buffer.color(255, 0));
+      }
+      buffer.fill(palette[5].getRGB());
+      buffer.noStroke();
+      buffer.rect(8.0F, 3.0F, width - 8.0F, height - 5.0F);
+      buffer.strokeWeight(1.0F);
+      buffer.stroke(3);
+      if (currSpot == 1) {
+        buffer.fill(palette[6].getRGB());
+      } else {
+        buffer.fill(palette[4].getRGB());
+      }
+      buffer.rect(1.0F, 1.0F, 15.0F, height - 2.0F, CORNER_RADIUS, CORNER_RADIUS, CORNER_RADIUS, CORNER_RADIUS);
+      if (currSpot == 2) {
+        buffer.fill(palette[6].getRGB());
+      } else {
+        buffer.fill(palette[4].getRGB());
+      }
+      buffer.rect(width - 15.0F, 1.0F, 14.5F, height - 2.0F, CORNER_RADIUS, CORNER_RADIUS, CORNER_RADIUS, CORNER_RADIUS);
+      float f = (width - 32.0F) * filler;
+      buffer.translate((width - 32.0F) * value + 16.0F, 0.0F);
+      if (currSpot == 10) {
+        buffer.fill(palette[6].getRGB());
+      } else {
+        buffer.fill(palette[4].getRGB());
+      }
+      buffer.rect(1.0F, 1.0F, f - 1.0F, height - 2.0F, CORNER_RADIUS, CORNER_RADIUS, CORNER_RADIUS, CORNER_RADIUS);
+      buffer.endDraw();
+    }
+  }
+  
+  public void draw()
+  {
+    if (!visible) {
+      return;
+    }
+    if (bufferInvalid) {
+      updateBuffer();
+    }
+    winApp.pushStyle();
+    winApp.pushMatrix();
+    winApp.translate(cx, cy);
+    winApp.rotate(rotAngle);
+    winApp.imageMode(3);
+    if (alphaLevel < 255) {
+      winApp.tint(255, alphaLevel);
+    }
+    winApp.image(buffer, 0.0F, 0.0F);
+    winApp.popMatrix();
+    winApp.popStyle();
+  }
+}

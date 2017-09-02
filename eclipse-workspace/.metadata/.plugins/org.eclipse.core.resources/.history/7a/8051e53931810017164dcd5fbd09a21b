@@ -1,0 +1,500 @@
+package com.jogamp.newt;
+
+import com.jogamp.common.util.IOUtil.ClassResources;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.util.PixelFormat;
+import com.jogamp.nativewindow.util.PixelRectangle;
+import com.jogamp.nativewindow.util.PointImmutable;
+import com.jogamp.newt.util.EDTUtil;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
+import jogamp.newt.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class Display
+{
+  public static final boolean DEBUG = Debug.debug("Display");
+  protected static final boolean DEBUG_POINTER_ICON = Debug.debug("Display.PointerIcon");
+  
+
+  public Display() {}
+  
+  public abstract int hashCode();
+  
+  public boolean equals(Object paramObject)
+  {
+    if (this == paramObject) return true;
+    if ((paramObject instanceof Display)) {
+      Display localDisplay = (Display)paramObject;
+      return localDisplay.getFQName().equals(getFQName());
+    }
+    return false;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public abstract PixelFormat getNativePointerIconPixelFormat();
+  
+
+
+
+
+
+
+
+
+
+
+
+  public abstract boolean getNativePointerIconForceDirectNIO();
+  
+
+
+
+
+
+
+
+
+
+
+
+  public abstract PointerIcon createPointerIcon(IOUtil.ClassResources paramClassResources, int paramInt1, int paramInt2)
+    throws IllegalArgumentException, IllegalStateException, IOException;
+  
+
+
+
+
+
+
+
+
+
+
+
+  public abstract PointerIcon createPointerIcon(PixelRectangle paramPixelRectangle, int paramInt1, int paramInt2)
+    throws IllegalArgumentException, IllegalStateException;
+  
+
+
+
+
+
+
+
+
+
+
+
+  public abstract void createNative()
+    throws NativeWindowException;
+  
+
+
+
+
+
+
+
+
+
+
+
+  public abstract void destroy();
+  
+
+
+
+
+
+
+
+
+
+
+
+  public abstract boolean validateEDTStopped();
+  
+
+
+
+
+
+
+
+
+
+
+
+  public abstract boolean isNativeValid();
+  
+
+
+
+
+
+
+
+
+
+
+
+  public abstract int getReferenceCount();
+  
+
+
+
+
+
+
+
+
+
+
+
+  public abstract int addReference()
+    throws NativeWindowException;
+  
+
+
+
+
+
+
+
+
+
+
+
+  public abstract int removeReference();
+  
+
+
+
+
+
+
+
+
+
+
+
+  public abstract AbstractGraphicsDevice getGraphicsDevice();
+  
+
+
+
+
+
+
+
+
+
+
+
+  public abstract long getHandle();
+  
+
+
+
+
+
+
+
+
+
+
+
+  public abstract String getFQName();
+  
+
+
+
+
+
+
+
+
+
+
+
+  public abstract int getId();
+  
+
+
+
+
+
+
+
+
+
+
+
+  public abstract String getName();
+  
+
+
+
+
+
+
+
+
+
+
+  public abstract String getType();
+  
+
+
+
+
+
+
+
+
+
+
+  public abstract boolean isExclusive();
+  
+
+
+
+
+
+
+
+
+
+
+  public abstract EDTUtil setEDTUtil(EDTUtil paramEDTUtil);
+  
+
+
+
+
+
+
+
+
+
+
+  public abstract EDTUtil getEDTUtil();
+  
+
+
+
+
+
+
+
+
+
+
+  public abstract boolean isEDTRunning();
+  
+
+
+
+
+
+
+
+
+
+
+  public abstract void dispatchMessages();
+  
+
+
+
+
+
+
+
+
+
+
+  protected static final ArrayList<WeakReference<Display>> displayList = new ArrayList();
+  protected static int displaysActive = 0;
+  
+  public static void dumpDisplayList(String paramString) {
+    synchronized (displayList) {
+      System.err.println(paramString + " DisplayList[] entries: " + displayList.size() + " - " + getThreadName());
+      Iterator localIterator = displayList.iterator();
+      for (int i = 0; localIterator.hasNext(); i++) {
+        Display localDisplay = (Display)((WeakReference)localIterator.next()).get();
+        System.err.println("  [" + i + "] : " + localDisplay + ", GC'ed " + (null == localDisplay));
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+  public static Display getFirstDisplayOf(String paramString1, String paramString2, int paramInt, boolean paramBoolean)
+  {
+    return getDisplayOfImpl(paramString1, paramString2, paramInt, 1, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+  public static Display getLastDisplayOf(String paramString1, String paramString2, int paramInt, boolean paramBoolean)
+  {
+    return getDisplayOfImpl(paramString1, paramString2, paramInt, -1, paramBoolean);
+  }
+  
+  private static Display getDisplayOfImpl(String paramString1, String paramString2, int paramInt1, int paramInt2, boolean paramBoolean) {
+    synchronized (displayList) {
+      int i = paramInt1 >= 0 ? paramInt1 : displayList.size() - 1;
+      while (paramInt2 > 0 ? i < displayList.size() : i >= 0) {
+        Display localDisplay = (Display)((WeakReference)displayList.get(i)).get();
+        if (null == localDisplay)
+        {
+          displayList.remove(i);
+          if (paramInt2 < 0)
+          {
+            i += paramInt2;
+          }
+        } else {
+          if ((localDisplay.getType().equals(paramString1)) && 
+            (localDisplay.getName().equals(paramString2)) && ((!paramBoolean) || ((paramBoolean) && 
+            (!localDisplay.isExclusive()))))
+          {
+            return localDisplay;
+          }
+          i += paramInt2;
+        }
+      }
+    }
+    return null;
+  }
+  
+  protected static void addDisplay2List(Display paramDisplay) {
+    synchronized (displayList)
+    {
+      int i = 0;
+      while (i < displayList.size()) {
+        if (null == ((WeakReference)displayList.get(i)).get()) {
+          displayList.remove(i);
+        } else {
+          i++;
+        }
+      }
+      displayList.add(new WeakReference(paramDisplay));
+    }
+  }
+  
+  public static Collection<Display> getAllDisplays()
+  {
+    ArrayList localArrayList;
+    synchronized (displayList) {
+      localArrayList = new ArrayList();
+      int i = 0;
+      while (i < displayList.size()) {
+        Display localDisplay = (Display)((WeakReference)displayList.get(i)).get();
+        if (null == localDisplay) {
+          displayList.remove(i);
+        } else {
+          localArrayList.add(((WeakReference)displayList.get(i)).get());
+          i++;
+        }
+      }
+    }
+    return localArrayList;
+  }
+  
+  public static int getActiveDisplayNumber() {
+    synchronized (displayList) {
+      return displaysActive;
+    }
+  }
+  
+  public static String getThreadName() {
+    return Thread.currentThread().getName();
+  }
+  
+  public static String toHexString(int paramInt) {
+    return "0x" + Integer.toHexString(paramInt);
+  }
+  
+  public static String toHexString(long paramLong) {
+    return "0x" + Long.toHexString(paramLong);
+  }
+  
+  public static int hashCodeNullSafe(Object paramObject) {
+    return null != paramObject ? paramObject.hashCode() : 0;
+  }
+  
+  public static abstract interface PointerIcon
+    extends PixelRectangle
+  {
+    public abstract int getStride();
+    
+    public abstract boolean isGLOriented();
+    
+    public abstract int hashCode();
+    
+    public abstract Display getDisplay();
+    
+    public abstract PointImmutable getHotspot();
+    
+    public abstract boolean isValid();
+    
+    public abstract boolean validate();
+    
+    public abstract void destroy();
+  }
+}

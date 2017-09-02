@@ -1,0 +1,59 @@
+package jogamp.opengl;
+
+import com.jogamp.common.os.NativeLibrary;
+import java.util.ArrayList;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class DesktopGLDynamicLookupHelper
+  extends GLDynamicLookupHelper
+{
+  public DesktopGLDynamicLookupHelper(DesktopGLDynamicLibraryBundleInfo paramDesktopGLDynamicLibraryBundleInfo)
+  {
+    super(paramDesktopGLDynamicLibraryBundleInfo);
+  }
+  
+  public final DesktopGLDynamicLibraryBundleInfo getDesktopGLBundleInfo() { return (DesktopGLDynamicLibraryBundleInfo)getBundleInfo(); }
+  
+
+  public final synchronized boolean loadGLULibrary()
+  {
+    if (null == gluLib) {
+      ArrayList localArrayList = new ArrayList();
+      localArrayList.add("/System/Library/Frameworks/OpenGL.framework/Libraries/libGLU.dylib");
+      localArrayList.add("libGLU.so");
+      localArrayList.add("GLU32");
+      localArrayList.add("GLU");
+      gluLib = loadFirstAvailable(localArrayList, null, true);
+      if (null != gluLib) {
+        nativeLibraries.add(gluLib);
+      }
+    }
+    return null != gluLib; }
+  
+  NativeLibrary gluLib = null;
+}

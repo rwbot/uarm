@@ -1,0 +1,166 @@
+package com.jogamp.common.util;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.ExceptionUtils.CustomStackTrace;
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class SourcedInterruptedException
+  extends InterruptedException
+  implements ExceptionUtils.CustomStackTrace
+{
+  final Throwable interruptSource;
+  
+  public static InterruptedException wrap(InterruptedException paramInterruptedException)
+  {
+    return wrap(paramInterruptedException, InterruptSource.Util.currentThread());
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static InterruptedException wrap(InterruptedException paramInterruptedException, InterruptSource paramInterruptSource)
+  {
+    if ((!(paramInterruptedException instanceof SourcedInterruptedException)) && (null != paramInterruptSource)) {
+      return new SourcedInterruptedException(paramInterruptedException, paramInterruptSource.getInterruptSource(true));
+    }
+    return paramInterruptedException;
+  }
+  
+
+
+
+
+
+  public SourcedInterruptedException(String paramString, InterruptedException paramInterruptedException, Throwable paramThrowable)
+  {
+    super(paramString);
+    if (null != paramInterruptedException) {
+      initCause(paramInterruptedException);
+    }
+    interruptSource = paramThrowable;
+  }
+  
+
+
+
+  public SourcedInterruptedException(InterruptedException paramInterruptedException, Throwable paramThrowable)
+  {
+    super(paramInterruptedException.getMessage());
+    initCause(paramInterruptedException);
+    interruptSource = paramThrowable;
+  }
+  
+
+
+
+  public final Throwable getInterruptSource()
+  {
+    return interruptSource;
+  }
+  
+
+
+
+
+
+
+
+  public InterruptedException getCause()
+  {
+    return (InterruptedException)super.getCause();
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder(256);
+    localStringBuilder.append(getClass().getSimpleName()).append(": ");
+    if (null != interruptSource) {
+      localStringBuilder.append("[sourced]");
+    } else {
+      localStringBuilder.append("[unknown]");
+    }
+    String str = getLocalizedMessage();
+    if (null != str) {
+      localStringBuilder.append(" ").append(str);
+    }
+    return localStringBuilder.toString();
+  }
+  
+  public final void printCauseStack(PrintStream paramPrintStream, String paramString, int paramInt1, int paramInt2)
+  {
+    String str = paramString + "[" + paramInt1 + "]";
+    paramPrintStream.println(str + " by " + getClass().getSimpleName() + ": " + getMessage() + " on thread " + Thread.currentThread().getName());
+    ExceptionUtils.dumpStack(paramPrintStream, getStackTrace(), 0, paramInt2);
+    if (null != interruptSource) {
+      ExceptionUtils.printCause(paramPrintStream, str, interruptSource, 0, 1, paramInt2);
+    }
+  }
+  
+  public final void printStackTrace(PrintStream paramPrintStream, int paramInt1, int paramInt2)
+  {
+    paramPrintStream.println(getClass().getSimpleName() + ": " + getMessage() + " on thread " + Thread.currentThread().getName());
+    ExceptionUtils.dumpStack(paramPrintStream, getStackTrace(), 0, paramInt2);
+    ExceptionUtils.printCause(paramPrintStream, "Caused", getCause(), 0, paramInt1, paramInt2);
+    if (null != interruptSource) {
+      ExceptionUtils.printCause(paramPrintStream, "InterruptSource", interruptSource, 0, paramInt1, paramInt2);
+    }
+  }
+}

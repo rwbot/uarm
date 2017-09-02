@@ -1,0 +1,411 @@
+package com.jogamp.graph.curve;
+
+import com.jogamp.graph.geom.Triangle;
+import com.jogamp.graph.geom.Vertex;
+import com.jogamp.opengl.math.geom.AABBox;
+import com.jogamp.opengl.math.geom.Frustum;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.List;
+import jogamp.graph.geom.plane.AffineTransform;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class Region
+{
+  public static final boolean DEBUG = Debug.debug("graph.curve");
+  public static final boolean DEBUG_INSTANCE = Debug.debug("graph.curve.Instance");
+  
+
+
+
+
+  public static final int MSAA_RENDERING_BIT = 1;
+  
+
+
+
+  public static final int VBAA_RENDERING_BIT = 2;
+  
+
+
+
+  public static final int VARWEIGHT_RENDERING_BIT = 256;
+  
+
+
+
+  public static final int COLORCHANNEL_RENDERING_BIT = 512;
+  
+
+
+
+  public static final int COLORTEXTURE_RENDERING_BIT = 1024;
+  
+
+
+
+  public static final int MAX_QUALITY = 1;
+  
+
+
+
+  public static final int DEFAULT_TWO_PASS_TEXTURE_UNIT = 0;
+  
+
+
+
+  protected static final int DIRTY_SHAPE = 1;
+  
+
+
+
+  protected static final int DIRTY_STATE = 2;
+  
+
+
+
+  private final int renderModes;
+  
+
+
+
+  private int quality;
+  
+
+
+
+  private int dirty = 3;
+  private int numVertices = 0;
+  protected final AABBox box = new AABBox();
+  protected Frustum frustum = null;
+  
+  public static boolean isVBAA(int paramInt) {
+    return 0 != (paramInt & 0x2);
+  }
+  
+  public static boolean isMSAA(int paramInt) {
+    return 0 != (paramInt & 0x1);
+  }
+  
+  public static boolean isTwoPass(int paramInt) {
+    return 0 != (paramInt & 0x3);
+  }
+  
+
+
+
+
+  public static boolean hasVariableWeight(int paramInt)
+  {
+    return 0 != (paramInt & 0x100);
+  }
+  
+
+
+
+
+  public static boolean hasColorChannel(int paramInt)
+  {
+    return 0 != (paramInt & 0x200);
+  }
+  
+
+
+
+
+  public static boolean hasColorTexture(int paramInt)
+  {
+    return 0 != (paramInt & 0x400);
+  }
+  
+  public static String getRenderModeString(int paramInt) {
+    String str1 = hasVariableWeight(paramInt) ? "-curve" : "";
+    String str2 = hasColorChannel(paramInt) ? "-cols" : "";
+    String str3 = hasColorTexture(paramInt) ? "-ctex" : "";
+    if (isVBAA(paramInt))
+      return "vbaa" + str1 + str2 + str3;
+    if (isMSAA(paramInt)) {
+      return "msaa" + str1 + str2 + str3;
+    }
+    return "norm" + str1 + str2 + str3;
+  }
+  
+  protected Region(int paramInt)
+  {
+    renderModes = paramInt;
+    quality = 1;
+  }
+  
+
+  protected abstract void pushVertex(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2, float[] paramArrayOfFloat3);
+  
+
+  protected abstract void pushIndex(int paramInt);
+  
+
+  public final int getRenderModes()
+  {
+    return renderModes;
+  }
+  
+  public final int getQuality() { return quality; }
+  
+
+  public final void setQuality(int paramInt) { quality = paramInt; }
+  
+  protected void clearImpl() {
+    dirty = 3;
+    numVertices = 0;
+    box.reset();
+  }
+  
+
+
+  public final boolean isVBAA()
+  {
+    return isVBAA(renderModes);
+  }
+  
+
+
+  public final boolean isMSAA()
+  {
+    return isMSAA(renderModes);
+  }
+  
+
+
+  public final boolean hasVariableWeight()
+  {
+    return hasVariableWeight(renderModes);
+  }
+  
+
+
+
+
+  public boolean hasColorChannel()
+  {
+    return hasColorChannel(renderModes);
+  }
+  
+
+
+
+
+  public boolean hasColorTexture()
+  {
+    return hasColorTexture(renderModes);
+  }
+  
+  public final Frustum getFrustum()
+  {
+    return frustum;
+  }
+  
+
+  public final void setFrustum(Frustum paramFrustum)
+  {
+    frustum = paramFrustum;
+  }
+  
+  final float[] coordsEx = new float[3];
+  
+  private void pushNewVertexImpl(Vertex paramVertex, AffineTransform paramAffineTransform, float[] paramArrayOfFloat) {
+    if (null != paramAffineTransform) {
+      float[] arrayOfFloat = paramVertex.getCoord();
+      paramAffineTransform.transform(arrayOfFloat, coordsEx);
+      coordsEx[2] = arrayOfFloat[2];
+      box.resize(coordsEx[0], coordsEx[1], coordsEx[2]);
+      pushVertex(coordsEx, paramVertex.getTexCoord(), paramArrayOfFloat);
+    } else {
+      box.resize(paramVertex.getX(), paramVertex.getY(), paramVertex.getZ());
+      pushVertex(paramVertex.getCoord(), paramVertex.getTexCoord(), paramArrayOfFloat);
+    }
+    numVertices += 1;
+  }
+  
+  private void pushNewVertexIdxImpl(Vertex paramVertex, AffineTransform paramAffineTransform, float[] paramArrayOfFloat) {
+    pushIndex(numVertices);
+    pushNewVertexImpl(paramVertex, paramAffineTransform, paramArrayOfFloat);
+  }
+  
+  private final AABBox tmpBox = new AABBox();
+  
+
+
+
+
+
+
+
+
+  public final void addOutlineShape(OutlineShape paramOutlineShape, AffineTransform paramAffineTransform, float[] paramArrayOfFloat)
+  {
+    if (null != frustum) {
+      localObject1 = paramOutlineShape.getBounds();
+      
+      if (null != paramAffineTransform) {
+        paramAffineTransform.transform((AABBox)localObject1, tmpBox);
+        localObject2 = tmpBox;
+      } else {
+        localObject2 = localObject1;
+      }
+      if (frustum.isAABBoxOutside((AABBox)localObject2)) {
+        if (DEBUG_INSTANCE) {
+          System.err.println("Region.addOutlineShape(): Dropping outside shapeBoxT: " + localObject2);
+        }
+        return;
+      }
+    }
+    Object localObject1 = paramOutlineShape.getTriangles(OutlineShape.VerticesState.QUADRATIC_NURBS);
+    Object localObject2 = paramOutlineShape.getVertices();
+    if (DEBUG_INSTANCE) {
+      i = paramOutlineShape.getAddedVerticeCount();
+      j = ((ArrayList)localObject2).size() + i;
+      k = ((List)localObject1).size() * 3;
+      System.err.println("Region.addOutlineShape().0: tris: " + ((List)localObject1).size() + ", verts " + ((ArrayList)localObject2).size() + ", transform " + paramAffineTransform);
+      System.err.println("Region.addOutlineShape().0: VerticeCount " + ((ArrayList)localObject2).size() + " + " + i + " = " + j);
+      System.err.println("Region.addOutlineShape().0: IndexCount " + k);
+    }
+    
+
+    int i = numVertices;
+    int j = 0;int k = 0;int m = 0;int n = 0;
+    
+    if (((ArrayList)localObject2).size() >= 3) {
+      if (DEBUG_INSTANCE) {
+        System.err.println("Region.addOutlineShape(): Processing Vertices");
+      }
+      for (int i1 = 0; i1 < ((ArrayList)localObject2).size(); i1++) {
+        pushNewVertexImpl((Vertex)((ArrayList)localObject2).get(i1), paramAffineTransform, paramArrayOfFloat);
+        j++;
+      }
+      if (DEBUG_INSTANCE) {
+        System.err.println("Region.addOutlineShape(): Processing Triangles");
+      }
+      for (i1 = 0; i1 < ((List)localObject1).size(); i1++) {
+        Triangle localTriangle = (Triangle)((List)localObject1).get(i1);
+        if (DEBUG_INSTANCE) {
+          System.err.println("T[" + i1 + "]: " + localTriangle);
+        }
+        
+
+        Vertex[] arrayOfVertex = localTriangle.getVertices();
+        int i2 = arrayOfVertex[0].getId();
+        if (Integer.MAX_VALUE - i > i2)
+        {
+          if (DEBUG_INSTANCE) {
+            System.err.println("T[" + i1 + "]: Moved " + i2 + " + " + i + " -> " + (i2 + i));
+          }
+          pushIndex(i2 + i);
+          pushIndex(arrayOfVertex[1].getId() + i);
+          pushIndex(arrayOfVertex[2].getId() + i);
+          k += 3;
+        }
+        else {
+          if (DEBUG_INSTANCE) {
+            System.err.println("T[" + i1 + "]: New Idx " + numVertices);
+          }
+          pushNewVertexIdxImpl(arrayOfVertex[0], paramAffineTransform, paramArrayOfFloat);
+          pushNewVertexIdxImpl(arrayOfVertex[1], paramAffineTransform, paramArrayOfFloat);
+          pushNewVertexIdxImpl(arrayOfVertex[2], paramAffineTransform, paramArrayOfFloat);
+          m += 3;
+        }
+        n++;
+      }
+    }
+    if (DEBUG_INSTANCE) {
+      System.err.println("Region.addOutlineShape().X: idxOffset " + i + ", tris: " + n + ", verts [idx " + m + ", add " + m + " = " + (j + m) + "]");
+      System.err.println("Region.addOutlineShape().X: verts: idx[v-new " + j + ", t-new " + m + " = " + (j + m) + "]");
+      System.err.println("Region.addOutlineShape().X: verts: idx t-moved " + k + ", numVertices " + numVertices);
+      System.err.println("Region.addOutlineShape().X: verts: v-dups 0, t-dups 0, t-known 0");
+      
+      System.err.println("Region.addOutlineShape().X: box " + box);
+    }
+    markShapeDirty();
+  }
+  
+  public final void addOutlineShapes(List<OutlineShape> paramList, AffineTransform paramAffineTransform, float[] paramArrayOfFloat) {
+    for (int i = 0; i < paramList.size(); i++) {
+      addOutlineShape((OutlineShape)paramList.get(i), paramAffineTransform, paramArrayOfFloat);
+    }
+  }
+  
+  public final AABBox getBounds()
+  {
+    return box;
+  }
+  
+
+
+
+  public final void markShapeDirty()
+  {
+    dirty |= 0x1;
+  }
+  
+  public final boolean isShapeDirty() {
+    return 0 != (dirty & 0x1);
+  }
+  
+
+
+  public final void markStateDirty()
+  {
+    dirty |= 0x2;
+  }
+  
+  public final boolean isStateDirty() {
+    return 0 != (dirty & 0x2);
+  }
+  
+
+
+
+
+  protected final void clearDirtyBits(int paramInt) { dirty &= (paramInt ^ 0xFFFFFFFF); }
+  
+  protected final int getDirtyBits() { return dirty; }
+  
+  public String toString() {
+    return "Region[" + getRenderModeString(renderModes) + ", q " + quality + ", dirty " + dirty + ", vertices " + numVertices + ", box " + box + "]";
+  }
+}

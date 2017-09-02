@@ -1,0 +1,206 @@
+package com.jogamp.opengl;
+
+import com.jogamp.common.util.ReflectionUtil;
+import java.io.PrintStream;
+import java.lang.reflect.Constructor;
+import java.util.StringTokenizer;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLPipelineFactory
+{
+  public static final boolean DEBUG = Debug.debug("GLPipelineFactory");
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public GLPipelineFactory() {}
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final GL create(String paramString, Class<?> paramClass, GL paramGL, Object[] paramArrayOfObject)
+  {
+    Class localClass1 = paramGL.getClass();
+    Class localClass2 = null;
+    Object localObject1 = null;
+    
+    if (DEBUG) {
+      System.out.println("GLPipelineFactory: Start " + localClass1.getName() + ", req. Interface: " + paramClass + " -> " + paramString);
+    }
+    
+
+
+    do
+    {
+      arrayOfClass = localClass1.getInterfaces();
+      for (i = arrayOfClass.length - 1; (null == localClass2) && (i >= 0); i--) {
+        if (DEBUG) {
+          System.out.println("GLPipelineFactory: Try " + localClass1.getName() + " Interface[" + i + "]: " + arrayOfClass[i].getName());
+        }
+        if ((paramClass != null) && (!paramClass.getName().equals(arrayOfClass[i].getName()))) {
+          if (DEBUG) {
+            System.out.println("GLPipelineFactory: requested Interface " + paramClass + " is _not_ " + arrayOfClass[i].getName());
+          }
+          
+        }
+        else if (!arrayOfClass[i].isInstance(paramGL)) {
+          if (DEBUG) {
+            System.out.println("GLPipelineFactory: " + paramGL.getClass().getName() + " is _not_ instance of " + arrayOfClass[i].getName());
+          }
+        }
+        else {
+          if (DEBUG) {
+            System.out.println("GLPipelineFactory: " + paramGL.getClass().getName() + " _is_ instance of " + arrayOfClass[i].getName());
+          }
+          
+          localClass2 = getUpstreamClazz(arrayOfClass[i], paramString);
+          if (null != localClass2) {
+            localObject1 = arrayOfClass[i];
+          }
+        }
+      }
+      if (null == localClass2) {
+        localClass1 = localClass1.getSuperclass();
+      }
+    } while ((null != localClass1) && (null == localClass2));
+    
+
+    if (null == localClass2) {
+      throw new GLException("No pipeline (" + paramString + "*) available for :" + paramGL.getClass().getName());
+    }
+    
+    if (DEBUG) {
+      System.out.println("GLPipelineFactory: Got : " + localClass2.getName() + ", base interface: " + localObject1.getName());
+    }
+    
+    Class[] arrayOfClass = new Class[1 + (null == paramArrayOfObject ? 0 : paramArrayOfObject.length)];
+    
+    int i = 0;
+    arrayOfClass[(i++)] = localObject1;
+    for (int j = 0; (null != paramArrayOfObject) && (j < paramArrayOfObject.length); j++) {
+      arrayOfClass[(i++)] = paramArrayOfObject[j].getClass();
+    }
+    
+
+    Constructor localConstructor = ReflectionUtil.getConstructor(localClass2, arrayOfClass);
+    Object localObject2 = null;
+    try {
+      Object[] arrayOfObject = new Object[1 + (null == paramArrayOfObject ? 0 : paramArrayOfObject.length)];
+      
+      int k = 0;
+      arrayOfObject[(k++)] = paramGL;
+      for (int m = 0; (null != paramArrayOfObject) && (m < paramArrayOfObject.length); m++) {
+        arrayOfObject[(k++)] = paramArrayOfObject[m];
+      }
+      
+      localObject2 = localConstructor.newInstance(arrayOfObject);
+    } catch (Throwable localThrowable) { localThrowable.printStackTrace(); }
+    if (null == localObject2)
+    {
+      throw new GLException("Error: Couldn't create instance of pipeline: " + localClass2.getName() + " ( " + getArgsClassNameList(localClass1, paramArrayOfObject) + " )");
+    }
+    if (!(localObject2 instanceof GL)) {
+      throw new GLException("Error: " + localClass2.getName() + " not an instance of GL");
+    }
+    return (GL)localObject2;
+  }
+  
+  private static final String getArgsClassNameList(Class<?> paramClass, Object[] paramArrayOfObject) {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append(paramClass.getName());
+    if (paramArrayOfObject != null) {
+      for (int i = 0; i < paramArrayOfObject.length; i++) {
+        localStringBuilder.append(", ");
+        localStringBuilder.append(paramArrayOfObject[i].getClass().getName());
+      }
+    }
+    return localStringBuilder.toString();
+  }
+  
+  private static final Class<?> getUpstreamClazz(Class<?> paramClass, String paramString) {
+    String str1 = paramClass.getName();
+    
+    StringTokenizer localStringTokenizer = new StringTokenizer(str1, ".");
+    String str2 = str1;
+    while (localStringTokenizer.hasMoreTokens()) {
+      str2 = localStringTokenizer.nextToken();
+    }
+    String str3 = paramString + str2;
+    
+    Class localClass = null;
+    try {
+      localClass = Class.forName(str3, true, GLPipelineFactory.class.getClassLoader());
+    } catch (Throwable localThrowable) { localThrowable.printStackTrace();
+    }
+    return localClass;
+  }
+}

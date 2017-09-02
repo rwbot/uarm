@@ -1,0 +1,129 @@
+package com.jogamp.opengl.util.texture.awt;
+
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.util.texture.Texture;
+import com.jogamp.opengl.util.texture.TextureData;
+import com.jogamp.opengl.util.texture.TextureIO;
+import java.awt.image.BufferedImage;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AWTTextureIO
+  extends TextureIO
+{
+  public AWTTextureIO() {}
+  
+  public static TextureData newTextureData(GLProfile paramGLProfile, BufferedImage paramBufferedImage, boolean paramBoolean)
+  {
+    return newTextureDataImpl(paramGLProfile, paramBufferedImage, 0, 0, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static TextureData newTextureData(GLProfile paramGLProfile, BufferedImage paramBufferedImage, int paramInt1, int paramInt2, boolean paramBoolean)
+    throws IllegalArgumentException
+  {
+    if ((paramInt1 == 0) || (paramInt2 == 0)) {
+      throw new IllegalArgumentException("internalFormat and pixelFormat must be non-zero");
+    }
+    
+    return newTextureDataImpl(paramGLProfile, paramBufferedImage, paramInt1, paramInt2, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static Texture newTexture(GLProfile paramGLProfile, BufferedImage paramBufferedImage, boolean paramBoolean)
+    throws GLException
+  {
+    TextureData localTextureData = newTextureData(paramGLProfile, paramBufferedImage, paramBoolean);
+    Texture localTexture = newTexture(localTextureData);
+    localTextureData.flush();
+    return localTexture;
+  }
+  
+
+
+
+  private static TextureData newTextureDataImpl(GLProfile paramGLProfile, BufferedImage paramBufferedImage, int paramInt1, int paramInt2, boolean paramBoolean)
+  {
+    return new AWTTextureData(paramGLProfile, paramInt1, paramInt2, paramBoolean, paramBufferedImage);
+  }
+}

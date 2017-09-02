@@ -1,0 +1,186 @@
+package jogamp.nativewindow.x11;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.StructAccessor;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import com.jogamp.common.util.Bitfield.Util;
+import java.nio.ByteBuffer;
+import jogamp.common.os.MachineDataInfoRuntime;
+
+
+
+
+
+
+
+
+
+public class XVisualInfo
+{
+  StructAccessor accessor;
+  private static final int mdIdx = MachineDataInfoRuntime.getStatic().ordinal();
+  
+  private final MachineDataInfo md;
+  private static final int[] XVisualInfo_size = { 40, 40, 40, 40, 40, 40, 64, 48 };
+  private static final int[] visual_offset = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  
+  private static final int[] visualid_offset = { 4, 4, 4, 4, 4, 4, 8, 8 };
+  
+  private static final int[] screen_offset = { 8, 8, 8, 8, 8, 8, 16, 12 };
+  
+  private static final int[] depth_offset = { 12, 12, 12, 12, 12, 12, 20, 16 };
+  
+  private static final int[] c_class_offset = { 16, 16, 16, 16, 16, 16, 24, 20 };
+  
+  private static final int[] red_mask_offset = { 20, 20, 20, 20, 20, 20, 32, 24 };
+  
+  private static final int[] green_mask_offset = { 24, 24, 24, 24, 24, 24, 40, 28 };
+  
+  private static final int[] blue_mask_offset = { 28, 28, 28, 28, 28, 28, 48, 32 };
+  
+  private static final int[] colormap_size_offset = { 32, 32, 32, 32, 32, 32, 56, 36 };
+  
+  private static final int[] bits_per_rgb_offset = { 36, 36, 36, 36, 36, 36, 60, 40 };
+  
+  public static int size()
+  {
+    return XVisualInfo_size[mdIdx];
+  }
+  
+  public static XVisualInfo create() {
+    return create(Buffers.newDirectByteBuffer(size()));
+  }
+  
+  public static XVisualInfo create(ByteBuffer paramByteBuffer) {
+    return new XVisualInfo(paramByteBuffer);
+  }
+  
+  XVisualInfo(ByteBuffer paramByteBuffer) {
+    md = valuesmdIdxmd;
+    accessor = new StructAccessor(paramByteBuffer);
+  }
+  
+  public ByteBuffer getBuffer() {
+    return accessor.getBuffer();
+  }
+  
+  public XVisualInfo setVisual(long paramLong)
+  {
+    accessor.setLongAt(visual_offset[mdIdx], paramLong, md.pointerSizeInBytes());
+    return this;
+  }
+  
+  public long getVisual()
+  {
+    return accessor.getLongAt(visual_offset[mdIdx], md.pointerSizeInBytes());
+  }
+  
+
+  public XVisualInfo setVisualid(long paramLong)
+  {
+    accessor.setLongAt(visualid_offset[mdIdx], paramLong, md.longSizeInBytes());
+    return this;
+  }
+  
+  public long getVisualid()
+  {
+    return accessor.getLongAt(visualid_offset[mdIdx], md.longSizeInBytes());
+  }
+  
+  public XVisualInfo setScreen(int paramInt)
+  {
+    accessor.setIntAt(screen_offset[mdIdx], paramInt, md.intSizeInBytes());
+    return this;
+  }
+  
+  public int getScreen()
+  {
+    return accessor.getIntAt(screen_offset[mdIdx], md.intSizeInBytes());
+  }
+  
+  public XVisualInfo setDepth(int paramInt)
+  {
+    accessor.setIntAt(depth_offset[mdIdx], paramInt, md.intSizeInBytes());
+    return this;
+  }
+  
+  public int getDepth()
+  {
+    return accessor.getIntAt(depth_offset[mdIdx], md.intSizeInBytes());
+  }
+  
+  public XVisualInfo setC_class(int paramInt)
+  {
+    accessor.setIntAt(c_class_offset[mdIdx], paramInt, md.intSizeInBytes());
+    return this;
+  }
+  
+  public int getC_class()
+  {
+    return accessor.getIntAt(c_class_offset[mdIdx], md.intSizeInBytes());
+  }
+  
+  public XVisualInfo setRed_mask(long paramLong)
+  {
+    accessor.setLongAt(red_mask_offset[mdIdx], paramLong, md.longSizeInBytes());
+    return this;
+  }
+  
+  public long getRed_mask()
+  {
+    return accessor.getLongAt(red_mask_offset[mdIdx], md.longSizeInBytes());
+  }
+  
+  public XVisualInfo setGreen_mask(long paramLong)
+  {
+    accessor.setLongAt(green_mask_offset[mdIdx], paramLong, md.longSizeInBytes());
+    return this;
+  }
+  
+  public long getGreen_mask()
+  {
+    return accessor.getLongAt(green_mask_offset[mdIdx], md.longSizeInBytes());
+  }
+  
+  public XVisualInfo setBlue_mask(long paramLong)
+  {
+    accessor.setLongAt(blue_mask_offset[mdIdx], paramLong, md.longSizeInBytes());
+    return this;
+  }
+  
+  public long getBlue_mask()
+  {
+    return accessor.getLongAt(blue_mask_offset[mdIdx], md.longSizeInBytes());
+  }
+  
+  public XVisualInfo setColormap_size(int paramInt)
+  {
+    accessor.setIntAt(colormap_size_offset[mdIdx], paramInt, md.intSizeInBytes());
+    return this;
+  }
+  
+  public int getColormap_size()
+  {
+    return accessor.getIntAt(colormap_size_offset[mdIdx], md.intSizeInBytes());
+  }
+  
+  public XVisualInfo setBits_per_rgb(int paramInt)
+  {
+    accessor.setIntAt(bits_per_rgb_offset[mdIdx], paramInt, md.intSizeInBytes());
+    return this;
+  }
+  
+  public int getBits_per_rgb()
+  {
+    return accessor.getIntAt(bits_per_rgb_offset[mdIdx], md.intSizeInBytes());
+  }
+  
+  public static XVisualInfo create(XVisualInfo paramXVisualInfo) {
+    ByteBuffer localByteBuffer = Buffers.newDirectByteBuffer(paramXVisualInfo.getBuffer().capacity());XVisualInfo localXVisualInfo = create(localByteBuffer);localXVisualInfo.getBuffer().put(paramXVisualInfo.getBuffer());localXVisualInfo.getBuffer().rewind();paramXVisualInfo.getBuffer().rewind();return localXVisualInfo;
+  }
+  
+  public String toString() {
+    return "XVisualInfo[size " + size() + "/" + getBuffer().capacity() + ", visual 0x" + Long.toHexString(getVisual()) + ", visual-id  0x" + Long.toHexString(getVisualid()) + ", c-class " + getC_class() + ", cmap-size " + getColormap_size() + ", depth " + getDepth() + ", rgb[" + Bitfield.Util.bitCount((int)getRed_mask()) + ", " + Bitfield.Util.bitCount((int)getRed_mask()) + ", " + Bitfield.Util.bitCount((int)getRed_mask()) + " - " + getBits_per_rgb() + "]]";
+  }
+}

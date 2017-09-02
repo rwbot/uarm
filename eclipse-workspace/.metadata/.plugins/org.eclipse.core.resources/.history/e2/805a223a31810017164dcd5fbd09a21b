@@ -1,0 +1,402 @@
+package jogamp.opengl.awt;
+
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.PixelFormat.Composition;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLEventListener;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.util.GLPixelBuffer.GLPixelAttributes;
+import com.jogamp.opengl.util.TileRenderer;
+import com.jogamp.opengl.util.awt.AWTGLPixelBuffer;
+import com.jogamp.opengl.util.awt.AWTGLPixelBuffer.AWTGLPixelBufferProvider;
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.Rectangle;
+import java.awt.RenderingHints;
+import java.awt.Shape;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.NoninvertibleTransformException;
+import java.awt.geom.Rectangle2D;
+import java.awt.geom.Rectangle2D.Double;
+import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
+import java.awt.image.WritableRaster;
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.Map.Entry;
+import java.util.Set;
+import javax.imageio.ImageIO;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AWTTilePainter
+{
+  private static final boolean DEBUG_TILES = Debug.debug("TileRenderer.PNG");
+  
+  public final TileRenderer renderer;
+  public final int componentCount;
+  public final double scaleMatX;
+  public final double scaleMatY;
+  public final int customTileWidth;
+  public final int customTileHeight;
+  public final int customNumSamples;
+  public final boolean verbose;
+  public boolean flipVertical;
+  public boolean originBottomLeft;
+  private AWTGLPixelBuffer tBuffer = null;
+  private BufferedImage vFlipImage = null;
+  private Graphics2D g2d = null;
+  private AffineTransform saveAT = null;
+  private int scaledYOffset;
+  
+  public static void dumpHintsAndScale(Graphics2D paramGraphics2D) { RenderingHints localRenderingHints = paramGraphics2D.getRenderingHints();
+    Set localSet = localRenderingHints.entrySet();
+    int i = 0;
+    for (Object localObject = localSet.iterator(); ((Iterator)localObject).hasNext(); i++) {
+      Map.Entry localEntry = (Map.Entry)((Iterator)localObject).next();
+      System.err.println("Hint[" + i + "]: " + localEntry.getKey() + " -> " + localEntry.getValue());
+    }
+    localObject = paramGraphics2D.getTransform();
+    if (null != localObject) {
+      System.err.println(" type " + ((AffineTransform)localObject).getType());
+      System.err.println(" scale " + ((AffineTransform)localObject).getScaleX() + " x " + ((AffineTransform)localObject).getScaleY());
+      System.err.println(" move " + ((AffineTransform)localObject).getTranslateX() + " x " + ((AffineTransform)localObject).getTranslateY());
+      System.err.println(" mat  " + localObject);
+    } else {
+      System.err.println(" null transform");
+    }
+  }
+  
+
+
+  public int getNumSamples(GLCapabilitiesImmutable paramGLCapabilitiesImmutable)
+  {
+    if (0 > customNumSamples)
+      return 0;
+    if (0 < customNumSamples) {
+      if (!paramGLCapabilitiesImmutable.getGLProfile().isGL2ES3()) {
+        return 0;
+      }
+      return Math.max(paramGLCapabilitiesImmutable.getNumSamples(), customNumSamples);
+    }
+    return paramGLCapabilitiesImmutable.getNumSamples();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public AWTTilePainter(TileRenderer paramTileRenderer, int paramInt1, double paramDouble1, double paramDouble2, int paramInt2, int paramInt3, int paramInt4, boolean paramBoolean)
+  {
+    renderer = paramTileRenderer;
+    renderer.setGLEventListener(preTileGLEL, postTileGLEL);
+    componentCount = paramInt1;
+    scaleMatX = paramDouble1;
+    scaleMatY = paramDouble2;
+    customNumSamples = paramInt2;
+    customTileWidth = paramInt3;
+    customTileHeight = paramInt4;
+    verbose = paramBoolean;
+    flipVertical = true;
+  }
+  
+
+  public String toString()
+  {
+    return "AWTTilePainter[flipVertical " + flipVertical + ", startFromBottom " + originBottomLeft + ", " + renderer.toString() + "]";
+  }
+  
+
+
+
+  public void setGLOrientation(boolean paramBoolean1, boolean paramBoolean2)
+  {
+    flipVertical = paramBoolean1;
+    originBottomLeft = paramBoolean2;
+  }
+  
+  private static Rectangle2D getClipBounds2D(Graphics2D paramGraphics2D) {
+    Shape localShape = paramGraphics2D.getClip();
+    return null != localShape ? localShape.getBounds2D() : null;
+  }
+  
+  private static Rectangle2D clipNegative(Rectangle2D paramRectangle2D) { if (null == paramRectangle2D) return null;
+    double d1 = paramRectangle2D.getX();double d2 = paramRectangle2D.getY();double d3 = paramRectangle2D.getWidth();double d4 = paramRectangle2D.getHeight();
+    if (0.0D > d1) {
+      d3 += d1;
+      d1 = 0.0D;
+    }
+    if (0.0D > d2) {
+      d4 += d2;
+      d2 = 0.0D;
+    }
+    return new Rectangle2D.Double(d1, d2, d3, d4);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void setupGraphics2DAndClipBounds(Graphics2D paramGraphics2D, int paramInt1, int paramInt2)
+    throws NoninvertibleTransformException
+  {
+    g2d = paramGraphics2D;
+    saveAT = paramGraphics2D.getTransform();
+    if (null == saveAT) {
+      saveAT = new AffineTransform();
+    }
+    
+
+
+    Rectangle2D localRectangle2D1 = getClipBounds2D(paramGraphics2D);
+    Rectangle2D localRectangle2D2 = clipNegative(localRectangle2D1);
+    Rectangle2D.Double localDouble = new Rectangle2D.Double(0.0D, 0.0D, paramInt1, paramInt2);
+    
+
+
+
+
+
+
+    Object localObject2 = new AffineTransform(saveAT);
+    ((AffineTransform)localObject2).scale(scaleMatX, scaleMatY);
+    Object localObject1 = ((AffineTransform)localObject2).createInverse();
+    
+    localObject2 = saveAT.createTransformedShape(localDouble);
+    Rectangle2D localRectangle2D3 = ((AffineTransform)localObject1).createTransformedShape((Shape)localObject2).getBounds2D();
+    Rectangle2D localRectangle2D4; if (null == localRectangle2D2) {
+      localRectangle2D4 = (Rectangle2D)localRectangle2D3.clone();
+    } else {
+      localObject2 = saveAT.createTransformedShape(localRectangle2D2);
+      localRectangle2D4 = ((AffineTransform)localObject1).createTransformedShape((Shape)localObject2).getBounds2D();
+    }
+    
+    localObject1 = localRectangle2D4.getBounds();
+    localObject2 = localRectangle2D3.getBounds();
+    renderer.setImageSize(width, height);
+    renderer.clipImageSize(width, height);
+    int i = Math.min(height, height);
+    
+
+    scaledYOffset = y;
+    renderer.setTileOffset(x, height - (y + i));
+    
+
+    paramGraphics2D.scale(scaleMatX, scaleMatY);
+    
+    if (verbose) {
+      System.err.println("AWT print.0: image " + localDouble + " -> " + localRectangle2D3 + " -> " + localObject2);
+      System.err.println("AWT print.0: clip  " + localRectangle2D1 + " -> " + localRectangle2D2 + " -> " + localRectangle2D4 + " -> " + localObject1);
+      System.err.println("AWT print.0: " + renderer);
+    }
+  }
+  
+
+  public void resetGraphics2D()
+  {
+    g2d.setTransform(saveAT);
+  }
+  
+
+
+
+  public void dispose()
+  {
+    renderer.detachAutoDrawable();
+    g2d = null;
+    if (null != tBuffer) {
+      tBuffer.dispose();
+      tBuffer = null;
+    }
+    if (null != vFlipImage) {
+      vFlipImage.flush();
+      vFlipImage = null;
+    }
+  }
+  
+  final GLEventListener preTileGLEL = new GLEventListener()
+  {
+    public void init(GLAutoDrawable paramAnonymousGLAutoDrawable) {}
+    
+    public void dispose(GLAutoDrawable paramAnonymousGLAutoDrawable) {}
+    
+    public void display(GLAutoDrawable paramAnonymousGLAutoDrawable) {
+      GL localGL = paramAnonymousGLAutoDrawable.getGL();
+      if (null == tBuffer) {
+        int i = renderer.getParam(9);
+        int j = renderer.getParam(10);
+        AWTGLPixelBuffer.AWTGLPixelBufferProvider localAWTGLPixelBufferProvider = new AWTGLPixelBuffer.AWTGLPixelBufferProvider(true);
+        PixelFormat.Composition localComposition = localAWTGLPixelBufferProvider.getHostPixelComp(localGL.getGLProfile(), componentCount);
+        GLPixelBuffer.GLPixelAttributes localGLPixelAttributes = localAWTGLPixelBufferProvider.getAttributes(localGL, componentCount, true);
+        tBuffer = localAWTGLPixelBufferProvider.allocate(localGL, localComposition, localGLPixelAttributes, true, i, j, 1, 0);
+        renderer.setTileBuffer(tBuffer);
+        if (flipVertical) {
+          vFlipImage = new BufferedImage(tBuffer.width, tBuffer.height, tBuffer.image.getType());
+        } else {
+          vFlipImage = null;
+        }
+      }
+      if (verbose) {
+        System.err.println("XXX tile-pre " + renderer);
+      }
+    }
+    
+    public void reshape(GLAutoDrawable paramAnonymousGLAutoDrawable, int paramAnonymousInt1, int paramAnonymousInt2, int paramAnonymousInt3, int paramAnonymousInt4) {}
+  };
+  static int _counter = 0;
+  final GLEventListener postTileGLEL = new GLEventListener()
+  {
+    public void init(GLAutoDrawable paramAnonymousGLAutoDrawable) {}
+    
+    public void dispose(GLAutoDrawable paramAnonymousGLAutoDrawable) {}
+    
+    public void display(GLAutoDrawable paramAnonymousGLAutoDrawable)
+    {
+      DimensionImmutable localDimensionImmutable = renderer.getClippedImageSize();
+      int i = renderer.getParam(5);
+      int j = renderer.getParam(6);
+      int k = renderer.getParam(4);
+      int m = renderer.getParam(13);
+      int n = originBottomLeft ? 0 : renderer.getParam(10) - j;
+      int i1 = renderer.getParam(3);
+      int i2 = localDimensionImmutable.getHeight() - (k - m + j) + scaledYOffset;
+      
+
+
+      Object localObject2;
+      
+
+      if (AWTTilePainter.DEBUG_TILES)
+      {
+
+
+
+        localObject1 = String.format("file_%03d_0_tile_[%02d][%02d]_sz_%03dx%03d_pos0_%03d_%03d_yOff_%03d_pos1_%03d_%03d.png", new Object[] { Integer.valueOf(AWTTilePainter._counter), Integer.valueOf(renderer.getParam(18)), Integer.valueOf(renderer.getParam(17)), Integer.valueOf(i), Integer.valueOf(j), Integer.valueOf(i1), Integer.valueOf(k), Integer.valueOf(m), Integer.valueOf(i1), Integer.valueOf(i2) }).replace(' ', '_');
+        System.err.println("XXX file " + (String)localObject1);
+        localObject2 = new File((String)localObject1);
+        try {
+          ImageIO.write(tBuffer.image, "png", (File)localObject2);
+        } catch (IOException localIOException1) {
+          localIOException1.printStackTrace();
+        } }
+      BufferedImage localBufferedImage;
+      if (flipVertical) {
+        localObject1 = tBuffer.image;
+        localBufferedImage = vFlipImage;
+        localObject2 = ((DataBufferInt)((BufferedImage)localObject1).getRaster().getDataBuffer()).getData();
+        int[] arrayOfInt = ((DataBufferInt)localBufferedImage.getRaster().getDataBuffer()).getData();
+        if (AWTTilePainter.DEBUG_TILES) {
+          Arrays.fill(arrayOfInt, 85);
+        }
+        int i3 = tBuffer.width;
+        int i4 = 0;
+        int i5 = (j - 1) * tBuffer.width;
+        for (; i5 >= 0; i5 -= i3) {
+          System.arraycopy(localObject2, i4, arrayOfInt, i5, i3);i4 += i3;
+        }
+      } else {
+        localBufferedImage = tBuffer.image;
+      }
+      if (AWTTilePainter.DEBUG_TILES)
+      {
+
+
+
+        localObject1 = String.format("file_%03d_1_tile_[%02d][%02d]_sz_%03dx%03d_pos0_%03d_%03d_yOff_%03d_pos1_%03d_%03d.png", new Object[] { Integer.valueOf(AWTTilePainter._counter), Integer.valueOf(renderer.getParam(18)), Integer.valueOf(renderer.getParam(17)), Integer.valueOf(i), Integer.valueOf(j), Integer.valueOf(i1), Integer.valueOf(k), Integer.valueOf(m), Integer.valueOf(i1), Integer.valueOf(i2) }).replace(' ', '_');
+        System.err.println("XXX file " + (String)localObject1);
+        localObject2 = new File((String)localObject1);
+        try {
+          ImageIO.write(localBufferedImage, "png", (File)localObject2);
+        } catch (IOException localIOException2) {
+          localIOException2.printStackTrace();
+        }
+        AWTTilePainter._counter += 1;
+      }
+      
+      Object localObject1 = localBufferedImage.getSubimage(0, n, i, j);
+      boolean bool = g2d.drawImage((Image)localObject1, i1, i2, null);
+      if (verbose) {
+        Shape localShape = g2d.getClip();
+        System.err.println("XXX tile-post.X tile 0 / " + n + " " + i + "x" + j + ", clippedImgSize " + localDimensionImmutable);
+        System.err.println("XXX tile-post.X pYf " + localDimensionImmutable.getHeight() + " - ( " + k + " - " + m + " + " + j + " ) " + scaledYOffset + " = " + i2);
+        System.err.println("XXX tile-post.X clip " + localShape + " + " + i1 + " / [pY " + k + ", pYOff " + m + ", pYf " + i2 + "] -> " + g2d.getClip());
+        g2d.setColor(Color.BLACK);
+        g2d.drawRect(i1, i2, i, j);
+        if (null != localShape) {
+          Rectangle localRectangle = localShape.getBounds();
+          g2d.setColor(Color.YELLOW);
+          g2d.drawRect(x, y, width, height);
+        }
+        System.err.println("XXX tile-post.X " + renderer);
+        System.err.println("XXX tile-post.X dst-img " + localBufferedImage.getWidth() + "x" + localBufferedImage.getHeight());
+        System.err.println("XXX tile-post.X out-img " + ((BufferedImage)localObject1).getWidth() + "x" + ((BufferedImage)localObject1).getHeight());
+        System.err.println("XXX tile-post.X y-flip " + flipVertical + ", originBottomLeft " + originBottomLeft + " -> " + i1 + "/" + i2 + ", drawDone " + bool);
+      }
+    }
+    
+    public void reshape(GLAutoDrawable paramAnonymousGLAutoDrawable, int paramAnonymousInt1, int paramAnonymousInt2, int paramAnonymousInt3, int paramAnonymousInt4) {}
+  };
+}

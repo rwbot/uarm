@@ -1,0 +1,1152 @@
+package jogamp.opengl.egl;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.PointerBuffer;
+import com.jogamp.common.os.DynamicLookupHelper;
+import com.jogamp.common.os.Platform.OSType;
+import com.jogamp.common.util.ReflectionUtil;
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.DefaultGraphicsScreen;
+import com.jogamp.nativewindow.GenericUpstreamSurfacelessHook;
+import com.jogamp.nativewindow.MutableSurface;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.ProxySurface;
+import com.jogamp.nativewindow.UpstreamSurfaceHook;
+import com.jogamp.nativewindow.egl.EGLGraphicsDevice;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLCapabilitiesChooser;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawable;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.GLRendererQuirks;
+import com.jogamp.opengl.egl.EGL;
+import java.io.PrintStream;
+import java.nio.IntBuffer;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import jogamp.common.os.PlatformPropsImpl;
+import jogamp.nativewindow.x11.X11Util;
+import jogamp.opengl.Debug;
+import jogamp.opengl.GLContextImpl;
+import jogamp.opengl.GLContextImpl.MappedGLVersion;
+import jogamp.opengl.GLContextImpl.MappedGLVersionListener;
+import jogamp.opengl.GLDrawableFactoryImpl;
+import jogamp.opengl.GLDrawableImpl;
+import jogamp.opengl.GLDynamicLookupHelper;
+import jogamp.opengl.GLGraphicsConfigurationUtil;
+import jogamp.opengl.SharedResourceRunner;
+import jogamp.opengl.SharedResourceRunner.AImplementation;
+import jogamp.opengl.SharedResourceRunner.Resource;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class EGLDrawableFactory
+  extends GLDrawableFactoryImpl
+{
+  protected static final boolean DEBUG = GLDrawableFactoryImpl.DEBUG;
+  private static final boolean DEBUG_SHAREDCTX = (DEBUG) || (GLContext.DEBUG);
+  
+  static {
+    Debug.initSingleton();
+  }
+  
+  private static boolean eglDynamicLookupHelperInit = false;
+  private static GLDynamicLookupHelper eglES1DynamicLookupHelper = null;
+  private static GLDynamicLookupHelper eglES2DynamicLookupHelper = null;
+  private static GLDynamicLookupHelper eglGLnDynamicLookupHelper = null;
+  private static boolean isANGLE = false;
+  private static boolean hasX11 = false;
+  private static String defaultConnection = null;
+  private static EGLGraphicsDevice defaultDevice = null;
+  private static EGLFeatures defaultDeviceEGLFeatures = null;
+  private static SharedResource defaultSharedResource = null;
+  static final String eglInitializeFuncName = "eglInitialize";
+  
+  private static final boolean isANGLE(GLDynamicLookupHelper paramGLDynamicLookupHelper) { if (Platform.OSType.WINDOWS == PlatformPropsImpl.OS_TYPE)
+    {
+
+      return (paramGLDynamicLookupHelper.isFunctionAvailable("eglQuerySurfacePointerANGLE")) || (paramGLDynamicLookupHelper.isFunctionAvailable("glBlitFramebufferANGLE")) || (paramGLDynamicLookupHelper.isFunctionAvailable("glRenderbufferStorageMultisampleANGLE"));
+    }
+    return false;
+  }
+  
+
+
+  private static final boolean includesES1(GLDynamicLookupHelper paramGLDynamicLookupHelper)
+  {
+    return (paramGLDynamicLookupHelper.isFunctionAvailable("glLoadIdentity")) && (paramGLDynamicLookupHelper.isFunctionAvailable("glEnableClientState")) && (paramGLDynamicLookupHelper.isFunctionAvailable("glColorPointer"));
+  }
+  
+  private static class EGLFeatures {
+    public final String vendor;
+    public final VersionNumber version;
+    public final boolean hasGLAPI;
+    public final boolean hasKHRCreateContext;
+    public final boolean hasKHRSurfaceless;
+    
+    public EGLFeatures(EGLGraphicsDevice paramEGLGraphicsDevice) {
+      long l = paramEGLGraphicsDevice.getHandle();
+      vendor = EGL.eglQueryString(l, 12371);
+      if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+        System.err.println("EGLFeatures on device " + paramEGLGraphicsDevice + ", vendor " + vendor);
+      }
+      version = paramEGLGraphicsDevice.getEGLVersion();
+      boolean bool1 = version.compareTo(GLContext.Version1_4) >= 0;
+      int i = version.compareTo(GLContext.Version1_5) >= 0 ? 1 : 0;
+      
+      boolean bool2 = false;
+      String str2 = EGL.eglQueryString(l, 12429);
+      if (bool1) {
+        String[] arrayOfString = str2.split("\\s");
+        for (int j = arrayOfString.length - 1; (!bool2) && (j >= 0); j--) {
+          bool2 = arrayOfString[j].equals("OpenGL");
+        }
+      }
+      hasGLAPI = bool2;
+      if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+        System.err.println("  Client APIs: '" + str2 + "'; has EGL 1.4 " + bool1 + " -> has OpenGL " + hasGLAPI);
+      }
+      
+
+      String str1 = EGLContext.getPlatformExtensionsStringImpl(paramEGLGraphicsDevice).toString();
+      if (i != 0)
+      {
+        hasKHRCreateContext = true;
+        hasKHRSurfaceless = true;
+      } else {
+        if (bool1)
+        {
+          hasKHRCreateContext = str1.contains("EGL_KHR_create_context");
+        } else {
+          hasKHRCreateContext = false;
+        }
+        hasKHRSurfaceless = str1.contains("EGL_KHR_surfaceless_context");
+      }
+      if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+        System.err.println("  Extensions: " + str1);
+        System.err.println("  KHR_create_context: " + hasKHRCreateContext);
+        System.err.println("  KHR_surfaceless_context: " + hasKHRSurfaceless);
+      }
+    }
+    
+    public final String toString() {
+      return "EGLFeatures[vendor " + vendor + ", version " + version + ", has[GL-API " + hasGLAPI + ", KHR[CreateContext " + hasKHRCreateContext + ", Surfaceless " + hasKHRSurfaceless + "]]]";
+    }
+  }
+  
+  static class EGLAcc extends EGL {
+    EGLAcc() {}
+    
+    protected static boolean resetProcAddressTable(DynamicLookupHelper paramDynamicLookupHelper) { return EGL.resetProcAddressTable(paramDynamicLookupHelper); }
+  }
+  
+
+
+
+  public EGLDrawableFactory()
+  {
+    synchronized (EGLDrawableFactory.class) {
+      if (eglDynamicLookupHelperInit) {
+        return;
+      }
+      eglDynamicLookupHelperInit = true;
+      
+
+      String str = NativeWindowFactory.getNativeWindowType(true);
+      if (NativeWindowFactory.TYPE_X11 == str) {
+        hasX11 = true;
+        try {
+          ReflectionUtil.createInstance("jogamp.opengl.x11.glx.X11GLXGraphicsConfigurationFactory", EGLDrawableFactory.class.getClassLoader());
+        } catch (Exception localException) {}
+      } else {
+        hasX11 = false;
+      }
+      defaultConnection = NativeWindowFactory.getDefaultDisplayConnection(str);
+      
+
+
+
+
+
+
+
+
+
+
+
+      boolean bool1 = false;
+      long l1 = 0L;
+      
+
+      GLDynamicLookupHelper localGLDynamicLookupHelper = null;
+      try {
+        localGLDynamicLookupHelper = new GLDynamicLookupHelper(new EGLES2DynamicLibraryBundleInfo());
+      } catch (GLException localGLException1) {
+        if (DEBUG) {
+          localGLException1.printStackTrace();
+        }
+      }
+      if ((null != localGLDynamicLookupHelper) && (localGLDynamicLookupHelper.isLibComplete()) && (true == (bool1 = EGLAcc.resetProcAddressTable(localGLDynamicLookupHelper)))) {
+        l1 = localGLDynamicLookupHelper.dynamicLookupFunction("eglInitialize");
+        eglES2DynamicLookupHelper = localGLDynamicLookupHelper;
+        boolean bool2 = (null == eglES1DynamicLookupHelper) && (includesES1(eglES2DynamicLookupHelper));
+        if (bool2) {
+          eglES1DynamicLookupHelper = localGLDynamicLookupHelper;
+        }
+        boolean bool3 = isANGLE(eglES2DynamicLookupHelper);
+        isANGLE |= bool3;
+        if ((DEBUG) || (GLProfile.DEBUG)) {
+          System.err.println("Info: EGLDrawableFactory: EGL ES2 - OK (includesES1 " + bool2 + ", isANGLE: " + bool3 + ", eglInitialize 0x" + Long.toHexString(l1) + ")");
+          if (bool2) {
+            System.err.println("Info: EGLDrawableFactory: EGL ES1 - OK (ES2 lib)");
+          }
+        }
+      } else if ((DEBUG) || (GLProfile.DEBUG)) {
+        System.err.println("Info: EGLDrawableFactory: EGL ES2 - NOPE");
+      }
+      
+      long l2;
+      if (null == eglES1DynamicLookupHelper) {
+        localGLDynamicLookupHelper = null;
+        try {
+          localGLDynamicLookupHelper = new GLDynamicLookupHelper(new EGLES1DynamicLibraryBundleInfo());
+        } catch (GLException localGLException2) {
+          if (DEBUG) {
+            localGLException2.printStackTrace();
+          }
+        }
+        if ((null != localGLDynamicLookupHelper) && (localGLDynamicLookupHelper.isLibComplete()))
+        {
+          int i;
+          if (!bool1) {
+            if (true == (bool1 = EGLAcc.resetProcAddressTable(localGLDynamicLookupHelper))) {
+              l2 = localGLDynamicLookupHelper.dynamicLookupFunction("eglInitialize");
+              l1 = l2;
+              i = 1;
+            } else {
+              l2 = 0L;
+              i = 0;
+            }
+          } else {
+            l2 = localGLDynamicLookupHelper.dynamicLookupFunction("eglInitialize");
+            i = l2 == l1 ? 1 : 0;
+          }
+          if (i != 0) {
+            eglES1DynamicLookupHelper = localGLDynamicLookupHelper;
+            boolean bool4 = isANGLE(eglES1DynamicLookupHelper);
+            isANGLE |= bool4;
+            if ((DEBUG) || (GLProfile.DEBUG)) {
+              System.err.println("Info: EGLDrawableFactory: EGL ES1 - OK (isANGLE: " + bool4 + ", eglTableReset " + bool1 + ", eglInitialize 0x" + Long.toHexString(l2) + ")");
+            }
+          } else if ((DEBUG) || (GLProfile.DEBUG)) {
+            System.err.println("Info: EGLDrawableFactory: EGL ES1 - NOPE (ES1 proc, eglTableReset " + bool1 + ", eglInitialize 0x" + Long.toHexString(l2) + ")");
+          }
+        } else if ((DEBUG) || (GLProfile.DEBUG)) {
+          System.err.println("Info: EGLDrawableFactory: EGL ES1 - NOPE (ES1 lib)");
+        }
+      }
+      
+      if (null == eglGLnDynamicLookupHelper) {
+        if (!GLProfile.disableOpenGLDesktop) {
+          localGLDynamicLookupHelper = null;
+          try {
+            localGLDynamicLookupHelper = new GLDynamicLookupHelper(new EGLGLnDynamicLibraryBundleInfo());
+          } catch (GLException localGLException3) {
+            if (DEBUG) {
+              localGLException3.printStackTrace();
+            }
+          }
+          if ((null != localGLDynamicLookupHelper) && (localGLDynamicLookupHelper.isLibComplete()))
+          {
+            int j;
+            if (!bool1) {
+              if (true == (bool1 = EGLAcc.resetProcAddressTable(localGLDynamicLookupHelper))) {
+                l2 = localGLDynamicLookupHelper.dynamicLookupFunction("eglInitialize");
+                l1 = l2;
+                j = 1;
+              } else {
+                l2 = 0L;
+                j = 0;
+              }
+            } else {
+              l2 = localGLDynamicLookupHelper.dynamicLookupFunction("eglInitialize");
+              j = l2 == l1 ? 1 : 0;
+            }
+            if (j != 0) {
+              eglGLnDynamicLookupHelper = localGLDynamicLookupHelper;
+              if ((DEBUG) || (GLProfile.DEBUG)) {
+                System.err.println("Info: EGLDrawableFactory: EGL GLn - OK (eglTableReset " + bool1 + ", eglInitialize 0x" + Long.toHexString(l2) + ")");
+              }
+            } else if ((DEBUG) || (GLProfile.DEBUG)) {
+              System.err.println("Info: EGLDrawableFactory: EGL GLn - NOPE (GLn proc, eglTableReset " + bool1 + ", eglInitialize 0x" + Long.toHexString(l2) + ")");
+            }
+          } else if ((DEBUG) || (GLProfile.DEBUG)) {
+            System.err.println("Info: EGLDrawableFactory: EGL GLn - NOPE (GLn lib)");
+          }
+        } else if ((DEBUG) || (GLProfile.DEBUG)) {
+          System.err.println("Info: EGLDrawableFactory: EGL Gln - disabled!");
+        }
+      }
+      if ((null != eglES2DynamicLookupHelper) || (null != eglES1DynamicLookupHelper) || (null != eglGLnDynamicLookupHelper)) {
+        if ((isANGLE) && (!GLProfile.enableANGLE)) {
+          if ((DEBUG) || (GLProfile.DEBUG)) {
+            System.err.println("Info: EGLDrawableFactory.init - EGL/ES2 ANGLE disabled");
+          }
+        } else {
+          if ((isANGLE) && ((DEBUG) || (GLProfile.DEBUG))) {
+            System.err.println("Info: EGLDrawableFactory.init - EGL/ES2 ANGLE enabled");
+          }
+          
+
+          EGLGraphicsConfigurationFactory.registerFactory();
+          
+
+
+          defaultDevice = EGLDisplayUtil.eglCreateEGLGraphicsDevice(0L, defaultConnection, 0);
+          
+
+
+          sharedResourceImplementation = new SharedResourceImplementation();
+          sharedResourceRunner = new SharedResourceRunner(sharedResourceImplementation);
+          sharedResourceRunner.start();
+        }
+      }
+    }
+  }
+  
+  protected final boolean isComplete()
+  {
+    return null != sharedResourceImplementation;
+  }
+  
+
+  protected final void shutdownImpl()
+  {
+    if (DEBUG) {
+      System.err.println("EGLDrawableFactory.shutdown");
+    }
+    if (null != sharedResourceRunner) {
+      sharedResourceRunner.stop();
+      sharedResourceRunner = null;
+    }
+    if (null != sharedResourceImplementation) {
+      sharedResourceImplementation.clear();
+      sharedResourceImplementation = null;
+    }
+    
+    if (null != defaultDevice) {
+      defaultDevice.close();
+      defaultDevice = null;
+    }
+    
+
+
+    if (null != eglES1DynamicLookupHelper)
+    {
+      eglES1DynamicLookupHelper = null;
+    }
+    if (null != eglES2DynamicLookupHelper)
+    {
+      eglES2DynamicLookupHelper = null;
+    }
+    if (null != eglGLnDynamicLookupHelper)
+    {
+      eglGLnDynamicLookupHelper = null;
+    }
+    EGLGraphicsConfigurationFactory.unregisterFactory();
+    EGLDisplayUtil.shutdown(DEBUG);
+  }
+  
+  private void dumpMap() {
+    synchronized (sharedResourceImplementation) {
+      Map localMap = sharedResourceImplementation.getSharedMap();
+      System.err.println("EGLDrawableFactory.MapGLVersion.map " + localMap.size());
+      int i = 0;
+      Set localSet = localMap.keySet();
+      for (Iterator localIterator = localSet.iterator(); localIterator.hasNext(); i++) {
+        String str = (String)localIterator.next();
+        SharedResource localSharedResource = (SharedResource)localMap.get(str);
+        System.err.println("EGLDrawableFactory.MapGLVersion.map[" + i + "] " + str + " -> " + localSharedResource.getDevice() + ", avail " + isAvailable + ", " + "es1 [avail " + isAvailableES1 + ", quirks " + rendererQuirksES1 + ", ctp " + 
+          EGLContext.getGLVersion(1, 0, ctpES1, null) + "], " + "es2 [avail " + isAvailableES2 + ", quirks " + rendererQuirksES2 + ", ctp " + 
+          EGLContext.getGLVersion(2, 0, ctpES2, null) + "], " + "es3 [avail " + isAvailableES3 + ", quirks " + rendererQuirksES3 + ", ctp " + 
+          EGLContext.getGLVersion(2, 0, ctpES3, null) + "], " + "gln [avail " + isAvailableGLn + ", quirks " + rendererQuirksGLn + ", ctp " + 
+          EGLContext.getGLVersion(3, 0, ctpGLn, null) + "]");
+      }
+    }
+  }
+  
+
+  static class SharedResource
+    implements SharedResourceRunner.Resource
+  {
+    private EGLGraphicsDevice device;
+    
+    final boolean isAvailable;
+    
+    final boolean isAvailableES1;
+    
+    final boolean isAvailableES2;
+    
+    final boolean isAvailableES3;
+    final boolean isAvailableGLn;
+    final GLRendererQuirks rendererQuirksES1;
+    final GLRendererQuirks rendererQuirksES2;
+    final GLRendererQuirks rendererQuirksES3;
+    final GLRendererQuirks rendererQuirksGLn;
+    final int ctpES1;
+    final int ctpES2;
+    final int ctpES3;
+    final int ctpGLn;
+    
+    SharedResource(EGLGraphicsDevice paramEGLGraphicsDevice, boolean paramBoolean1, GLRendererQuirks paramGLRendererQuirks1, int paramInt1, boolean paramBoolean2, GLRendererQuirks paramGLRendererQuirks2, int paramInt2, boolean paramBoolean3, GLRendererQuirks paramGLRendererQuirks3, int paramInt3, boolean paramBoolean4, GLRendererQuirks paramGLRendererQuirks4, int paramInt4)
+    {
+      device = paramEGLGraphicsDevice;
+      isAvailable = ((paramBoolean1) || (paramBoolean2) || (paramBoolean3) || (paramBoolean4));
+      
+      isAvailableES1 = paramBoolean1;
+      rendererQuirksES1 = paramGLRendererQuirks1;
+      ctpES1 = paramInt1;
+      isAvailableES2 = paramBoolean2;
+      rendererQuirksES2 = paramGLRendererQuirks2;
+      ctpES2 = paramInt2;
+      isAvailableES3 = paramBoolean3;
+      rendererQuirksES3 = paramGLRendererQuirks3;
+      ctpES3 = paramInt3;
+      isAvailableGLn = paramBoolean4;
+      rendererQuirksGLn = paramGLRendererQuirks4;
+      ctpGLn = paramInt4;
+    }
+    
+    public final boolean isAvailable()
+    {
+      return isAvailable;
+    }
+    
+    public final EGLGraphicsDevice getDevice() { return device; }
+    
+    public AbstractGraphicsScreen getScreen()
+    {
+      return null;
+    }
+    
+    public GLDrawableImpl getDrawable() {
+      return null;
+    }
+    
+    public GLContextImpl getContext() {
+      return null;
+    }
+    
+    public GLRendererQuirks getRendererQuirks(GLProfile paramGLProfile) {
+      if (null == paramGLProfile) {
+        if (null != rendererQuirksES3)
+          return rendererQuirksES3;
+        if (null != rendererQuirksES2)
+          return rendererQuirksES2;
+        if (null != rendererQuirksES1) {
+          return rendererQuirksES1;
+        }
+        return rendererQuirksGLn;
+      }
+      if (!paramGLProfile.isGLES())
+        return rendererQuirksGLn;
+      if (paramGLProfile.isGLES1())
+        return rendererQuirksES1;
+      if (paramGLProfile.isGLES2()) {
+        return rendererQuirksES2;
+      }
+      return rendererQuirksES3;
+    }
+  }
+  
+  class SharedResourceImplementation extends SharedResourceRunner.AImplementation {
+    SharedResourceImplementation() {}
+    
+    public boolean isDeviceSupported(AbstractGraphicsDevice paramAbstractGraphicsDevice) {
+      return null != sharedResourceImplementation;
+    }
+    
+    public SharedResourceRunner.Resource createSharedResource(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+    {
+      paramAbstractGraphicsDevice.lock();
+      try {
+        return createEGLSharedResourceImpl(paramAbstractGraphicsDevice);
+      } catch (Throwable localThrowable) {
+        throw new GLException("EGLGLXDrawableFactory - Could not initialize shared resources for " + paramAbstractGraphicsDevice, localThrowable);
+      } finally {
+        paramAbstractGraphicsDevice.unlock();
+      }
+    }
+    
+    private EGLDrawableFactory.SharedResource createEGLSharedResourceImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice) {
+      if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+        System.err.println("EGLDrawableFactory.MapGLVersions: device " + paramAbstractGraphicsDevice);
+      }
+      
+      int i;
+      if (0L == EGLDrawableFactory.defaultDevice.getHandle()) {
+        i = 1;
+        EGLDrawableFactory.defaultDevice.open();
+        EGLDrawableFactory.access$302(new EGLDrawableFactory.EGLFeatures(EGLDrawableFactory.defaultDevice));
+        if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+          System.err.println("EGLDrawableFactory.MapGLVersions: defaultDevice " + EGLDrawableFactory.defaultDevice);
+          System.err.println("EGLDrawableFactory.MapGLVersions: defaultDevice EGLFeatures " + EGLDrawableFactory.defaultDeviceEGLFeatures);
+        }
+        int j;
+        int k;
+        if (defaultDeviceEGLFeaturesvendor.contains("NVIDIA")) {
+          j = 1;
+          k = 0;
+        } else {
+          j = 0;
+          long l = EGL.eglGetDisplay(0L);
+          k = 0L == l ? 1 : 0;
+        }
+        if ((j != 0) || (k != 0))
+        {
+          GLRendererQuirks.addStickyDeviceQuirk(paramAbstractGraphicsDevice, 16);
+          EGLDisplayUtil.setSingletonEGLDisplayOnly(true);
+          if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+            if (j != 0) {
+              System.err.println("Quirk: " + GLRendererQuirks.toString(16) + ": cause: Vendor: " + EGLDrawableFactory.defaultDeviceEGLFeatures);
+            } else if (k != 0) {
+              System.err.println("Quirk: " + GLRendererQuirks.toString(16) + ": cause: Second eglGetDisplay(EGL_DEFAULT_DISPLAY) failed");
+            }
+          }
+        }
+      } else {
+        i = 0;
+        if (null == EGLDrawableFactory.defaultSharedResource) {
+          throw new InternalError("XXX: defaultDevice " + EGLDrawableFactory.defaultDevice + ", adevice " + paramAbstractGraphicsDevice);
+        }
+      }
+      
+      boolean[] arrayOfBoolean1 = { false };
+      final GLRendererQuirks[] arrayOfGLRendererQuirks1 = { null };
+      final GLRendererQuirks[] arrayOfGLRendererQuirks2 = { null };
+      final GLRendererQuirks[] arrayOfGLRendererQuirks3 = { null };
+      final GLRendererQuirks[] arrayOfGLRendererQuirks4 = { null };
+      final int[] arrayOfInt1 = { 0 };
+      final int[] arrayOfInt2 = { 0 };
+      final int[] arrayOfInt3 = { 0 };
+      final int[] arrayOfInt4 = { 0 };
+      final boolean[] arrayOfBoolean2 = { false };
+      final boolean[] arrayOfBoolean3 = { false };
+      final boolean[] arrayOfBoolean4 = { false };
+      final boolean[] arrayOfBoolean5 = { false };
+      
+      GLContextImpl.MappedGLVersionListener local1 = new GLContextImpl.MappedGLVersionListener()
+      {
+        public void glVersionMapped(GLContextImpl.MappedGLVersion paramAnonymousMappedGLVersion) {
+          if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+            System.err.println("EGLDrawableFactory.MapGLVersions: Mapped: " + paramAnonymousMappedGLVersion);
+          }
+          if (EGLContext.isGLES2ES3(ctxVersion.getMajor(), ctxOptions)) {
+            if (ctxVersion.getMajor() == 3) {
+              arrayOfBoolean4[0] = true;
+              arrayOfGLRendererQuirks3[0] = quirks;
+              arrayOfInt3[0] = ctxOptions;
+            }
+            arrayOfBoolean3[0] = true;
+            arrayOfGLRendererQuirks2[0] = quirks;
+            arrayOfInt2[0] = ctxOptions;
+          } else if (EGLContext.isGLES1(ctxVersion.getMajor(), ctxOptions)) {
+            arrayOfBoolean2[0] = true;
+            arrayOfGLRendererQuirks1[0] = quirks;
+            arrayOfInt1[0] = ctxOptions;
+          } else if (EGLContext.isGLDesktop(ctxOptions)) {
+            arrayOfBoolean5[0] = true;
+            arrayOfGLRendererQuirks4[0] = quirks;
+            arrayOfInt4[0] = ctxOptions;
+          }
+          
+        }
+      };
+      EGLGraphicsDevice[] arrayOfEGLGraphicsDevice = { null };
+      
+      EGLContext.setMappedGLVersionListener(local1);
+      boolean bool;
+      try {
+        bool = mapAvailableEGLESConfig(paramAbstractGraphicsDevice, arrayOfBoolean1, arrayOfEGLGraphicsDevice);
+      } finally {
+        EGLContext.setMappedGLVersionListener(null);
+      }
+      EGLDrawableFactory.SharedResource localSharedResource;
+      if (arrayOfBoolean1[0] != 0) {
+        EGLContext.remapAvailableGLVersions(EGLDrawableFactory.defaultDevice, paramAbstractGraphicsDevice);
+        localSharedResource = EGLDrawableFactory.defaultSharedResource;
+      } else {
+        if (EGLDrawableFactory.hasX11) {
+          handleDontCloseX11DisplayQuirk(arrayOfGLRendererQuirks1[0]);
+          handleDontCloseX11DisplayQuirk(arrayOfGLRendererQuirks4[0]);
+          handleDontCloseX11DisplayQuirk(arrayOfGLRendererQuirks3[0]);
+          handleDontCloseX11DisplayQuirk(arrayOfGLRendererQuirks2[0]);
+        }
+        localSharedResource = new EGLDrawableFactory.SharedResource(arrayOfEGLGraphicsDevice[0], arrayOfBoolean2[0], arrayOfGLRendererQuirks1[0], arrayOfInt1[0], arrayOfBoolean3[0], arrayOfGLRendererQuirks2[0], arrayOfInt2[0], arrayOfBoolean4[0], arrayOfGLRendererQuirks3[0], arrayOfInt3[0], arrayOfBoolean5[0], arrayOfGLRendererQuirks4[0], arrayOfInt4[0]);
+        
+
+
+
+        if (i != 0) {
+          EGLDrawableFactory.access$402(localSharedResource);
+        }
+      }
+      
+      if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+        System.err.println("EGLDrawableFactory.MapGLVersions: mapSuccess " + bool + ", mappedToDefaultDevice " + arrayOfBoolean1[0]);
+        System.err.println("EGLDrawableFactory.MapGLVersions: defDevice  : " + EGLDrawableFactory.defaultDevice);
+        System.err.println("EGLDrawableFactory.MapGLVersions: adevice    : " + paramAbstractGraphicsDevice);
+        System.err.println("EGLDrawableFactory.MapGLVersions: eglDevice  : " + EGLDrawableFactory.SharedResource.access$600(localSharedResource));
+        System.err.println("EGLDrawableFactory.MapGLVersions: context ES1: " + isAvailableES1 + ", quirks " + rendererQuirksES1);
+        System.err.println("EGLDrawableFactory.MapGLVersions: context ES2: " + isAvailableES2 + ", quirks " + rendererQuirksES2);
+        System.err.println("EGLDrawableFactory.MapGLVersions: context ES3: " + isAvailableES3 + ", quirks " + rendererQuirksES3);
+        System.err.println("EGLDrawableFactory.MapGLVersions: context GLn: " + isAvailableGLn + ", quirks " + rendererQuirksGLn);
+        EGLDrawableFactory.this.dumpMap();
+      }
+      return localSharedResource;
+    }
+    
+    private void handleDontCloseX11DisplayQuirk(GLRendererQuirks paramGLRendererQuirks) {
+      if ((null != paramGLRendererQuirks) && (paramGLRendererQuirks.exist(8))) {
+        X11Util.markAllDisplaysUnclosable();
+      }
+    }
+    
+
+
+
+
+    private boolean mapAvailableEGLESConfig(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean[] paramArrayOfBoolean, EGLGraphicsDevice[] paramArrayOfEGLGraphicsDevice)
+    {
+      String str1 = EGLContext.getGLProfile(2, 0, 8);
+      
+      if (!GLProfile.isAvailable(paramAbstractGraphicsDevice, str1)) {
+        if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+          System.err.println("EGLDrawableFactory.MapGLVersions: " + str1 + " n/a on " + paramAbstractGraphicsDevice);
+        }
+        return false;
+      }
+      GLProfile localGLProfile = GLProfile.get(paramAbstractGraphicsDevice, str1);
+      GLDrawableFactoryImpl localGLDrawableFactoryImpl = (GLDrawableFactoryImpl)GLDrawableFactory.getDesktopFactory();
+      
+      GLCapabilities localGLCapabilities = new GLCapabilities(localGLProfile);
+      localGLCapabilities.setRedBits(5);localGLCapabilities.setGreenBits(5);localGLCapabilities.setBlueBits(5);localGLCapabilities.setAlphaBits(0);
+      localGLCapabilities.setDoubleBuffered(false);
+      GLCapabilitiesImmutable localGLCapabilitiesImmutable = GLGraphicsConfigurationUtil.fixGLPBufferGLCapabilities(localGLCapabilities);
+      List localList = EGLDrawableFactory.getAvailableEGLConfigs(EGLDrawableFactory.defaultDevice, localGLCapabilitiesImmutable);
+      boolean bool1 = localList.size() > 0;
+      
+      boolean bool2 = paramAbstractGraphicsDevice == EGLDrawableFactory.defaultDevice;
+      
+      paramArrayOfBoolean[0] = ((!bool2) && 
+        (null != EGLDrawableFactory.defaultSharedResource) && (defaultSharedResourceisAvailable) && 
+        (EGLDrawableFactory.defaultConnection.equals(paramAbstractGraphicsDevice.getConnection())) ? 1 : false);
+      
+      if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+        System.err.println("EGLDrawableFactory.MapGLVersions: " + str1 + " ( " + 2 + " ), " + "mapsADeviceToDefaultDevice " + paramArrayOfBoolean[0] + " (useDefaultDevice " + bool2 + ", defaultDeviceHasPBuffer " + bool1 + ", hasDesktopFactory " + (null != localGLDrawableFactoryImpl) + ", isEGLGraphicsDevice " + (paramAbstractGraphicsDevice instanceof EGLGraphicsDevice) + ")");
+      }
+      
+
+
+
+      if (paramArrayOfBoolean[0] != 0) {
+        return true;
+      }
+      
+      boolean bool3 = GLRendererQuirks.existStickyDeviceQuirk(EGLDrawableFactory.defaultDevice, 22);
+      boolean bool4 = false;
+      int i;
+      if ((defaultDeviceEGLFeatureshasKHRSurfaceless) && (!bool3)) {
+        i = 1;
+        localObject1 = bool2 ? EGLDrawableFactory.defaultDevice : paramAbstractGraphicsDevice;
+        localObject2 = createSurfacelessImpl((AbstractGraphicsDevice)localObject1, false, localGLCapabilities, localGLCapabilities, null, 64, 64);
+        paramArrayOfEGLGraphicsDevice[0] = ((EGLGraphicsDevice)((EGLSurface)localObject2).getGraphicsConfiguration().getScreen().getDevice());
+        if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+          System.err.println("EGLDrawableFactory-MapGLVersions.0: " + paramArrayOfEGLGraphicsDevice[0]);
+        }
+        localEGLDrawable = null;
+        localObject3 = null;
+        int j = 0;
+        try {
+          localEGLDrawable = (EGLDrawable)createOnscreenDrawableImpl((NativeSurface)localObject2);
+          localEGLDrawable.setRealized(true);
+          
+          localObject3 = (EGLContext)localEGLDrawable.createContext(null);
+          if (null == localObject3) {
+            throw new GLException("Couldn't create shared context for drawable: " + localEGLDrawable);
+          }
+          
+          if (0 != ((EGLContext)localObject3).makeCurrent())
+          {
+            GL localGL1 = ((EGLContext)localObject3).getGL();
+            localObject4 = localGL1.glGetString(7938);
+            if (null != localObject4) {
+              bool4 = true;
+            } else {
+              setNoSurfacelessCtxQuirk((GLContext)localObject3);
+            }
+          } else if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+            System.err.println("EGLDrawableFactory-MapGLVersions.0: NOT_CURRENT: " + paramArrayOfEGLGraphicsDevice[0] + ", " + localObject3);
+          }
+        } catch (Throwable localThrowable1) {
+          j = 1;
+          if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+            System.err.println("EGLDrawableFactory-MapGLVersions.0: INFO: context create/makeCurrent failed");
+            localThrowable1.printStackTrace();
+          }
+        } finally {
+          if (null != localObject3) {
+            try {
+              ((EGLContext)localObject3).destroy();
+            } catch (GLException localGLException5) {
+              if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+                System.err.println("EGLDrawableFactory-MapGLVersions.0: INFO: destroy caught exception:");
+                localGLException5.printStackTrace();
+              }
+            }
+          }
+          if (null != localEGLDrawable) {
+            localEGLDrawable.setRealized(false);
+          }
+          if (null != localObject2) {
+            ((EGLSurface)localObject2).destroyNotify();
+          }
+          if (((bool4) || (j != 0)) && 
+            (EGLDrawableFactory.defaultDevice != paramArrayOfEGLGraphicsDevice[0]) && 
+            (null != paramArrayOfEGLGraphicsDevice[0])) {
+            paramArrayOfEGLGraphicsDevice[0].close();
+          }
+        }
+        
+
+        if (bool4) {
+          return true;
+        }
+      } else {
+        i = 0;
+      }
+      Object localObject1 = null;
+      Object localObject2 = null;
+      EGLDrawable localEGLDrawable = null;
+      Object localObject3 = null;
+      EGLContext localEGLContext = null;
+      ProxySurface localProxySurface = null;
+      Object localObject4 = null;
+      try {
+        if ((bool2) && (bool1))
+        {
+          paramArrayOfEGLGraphicsDevice[0] = EGLDrawableFactory.defaultDevice;
+          localObject1 = EGLDrawableFactory.defaultDeviceEGLFeatures;
+          if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+            System.err.println("EGLDrawableFactory-MapGLVersions.1: " + paramArrayOfEGLGraphicsDevice[0]);
+            System.err.println("EGLDrawableFactory-MapGLVersions.1: " + localObject1);
+          }
+          
+          localObject4 = createDummySurfaceImpl(paramArrayOfEGLGraphicsDevice[0], false, localGLCapabilitiesImmutable, localGLCapabilitiesImmutable, null, 64, 64);
+          if (null != localObject4) {
+            ((ProxySurface)localObject4).createNotify();
+            localObject2 = localObject4;
+          }
+        } else if (paramAbstractGraphicsDevice != EGLDrawableFactory.defaultDevice)
+        {
+          localProxySurface = localGLDrawableFactoryImpl.createDummySurface(paramAbstractGraphicsDevice, localGLCapabilities, null, 64, 64);
+          if (null != localProxySurface) {
+            localProxySurface.createNotify();
+            paramArrayOfEGLGraphicsDevice[0] = EGLDisplayUtil.eglCreateEGLGraphicsDevice(localProxySurface);
+            paramArrayOfEGLGraphicsDevice[0].open();
+            localObject1 = new EGLDrawableFactory.EGLFeatures(paramArrayOfEGLGraphicsDevice[0]);
+            if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+              System.err.println("EGLDrawableFactory-MapGLVersions.2: " + paramArrayOfEGLGraphicsDevice[0]);
+              System.err.println("EGLDrawableFactory-MapGLVersions.2: " + localObject1);
+            }
+            localObject2 = localProxySurface;
+          }
+        }
+        
+        if (null != localObject2) {
+          localEGLDrawable = (EGLDrawable)createOnscreenDrawableImpl((NativeSurface)localObject2);
+          localEGLDrawable.setRealized(true);
+          
+          localEGLContext = (EGLContext)localEGLDrawable.createContext(null);
+          if (null == localEGLContext) {
+            throw new GLException("Couldn't create shared context for drawable: " + localEGLDrawable);
+          }
+          
+
+          if (0 != localEGLContext.makeCurrent())
+          {
+            GL localGL2 = localEGLContext.getGL();
+            String str2 = localGL2.glGetString(7938);
+            if (null != str2) {
+              bool4 = true;
+              if ((i == 0) && (hasKHRSurfaceless) && (
+                (localEGLContext.isGLES()) || (localEGLContext.getGLVersionNumber().compareTo(GLContext.Version3_0) >= 0)))
+              {
+
+                if (probeSurfacelessCtx(localEGLContext, false)) {
+                  localObject3 = localEGLContext.getGLDrawable();
+                }
+              } else {
+                setNoSurfacelessCtxQuirk(localEGLContext);
+              }
+            } else if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+              System.err.println("EGLDrawableFactory-MapGLVersions.12: NULL VERSION: " + paramArrayOfEGLGraphicsDevice[0] + ", " + localEGLContext.getGLVersion());
+            }
+          } else if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+            System.err.println("EGLDrawableFactory-MapGLVersions.12: NOT_CURRENT: " + paramArrayOfEGLGraphicsDevice[0] + ", " + localEGLContext);
+          }
+        }
+      } catch (Throwable localThrowable2) {
+        if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+          System.err.println("EGLDrawableFactory-MapGLVersions.12: INFO: context create/makeCurrent failed");
+          localThrowable2.printStackTrace();
+        }
+        bool4 = false;
+      } finally {
+        if (null != localEGLContext) {
+          try {
+            localEGLContext.destroy();
+          } catch (GLException localGLException6) {
+            if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+              System.err.println("EGLDrawableFactory-MapGLVersions.12: INFO: destroy caught exception:");
+              localGLException6.printStackTrace();
+            }
+          }
+        }
+        if (null != localObject3) {
+          ((GLDrawable)localObject3).setRealized(false);
+        }
+        if (null != localEGLDrawable) {
+          localEGLDrawable.setRealized(false);
+        }
+        if (null != localObject4) {
+          ((ProxySurface)localObject4).destroyNotify();
+        }
+        if ((EGLDrawableFactory.defaultDevice != paramArrayOfEGLGraphicsDevice[0]) && 
+          (null != paramArrayOfEGLGraphicsDevice[0])) {
+          paramArrayOfEGLGraphicsDevice[0].close();
+        }
+        
+        if (null != localProxySurface) {
+          localProxySurface.destroyNotify();
+        }
+      }
+      return bool4;
+    }
+    
+    public void releaseSharedResource(SharedResourceRunner.Resource paramResource)
+    {
+      EGLDrawableFactory.SharedResource localSharedResource = (EGLDrawableFactory.SharedResource)paramResource;
+      if (EGLDrawableFactory.DEBUG_SHAREDCTX) {
+        System.err.println("Shutdown Shared:");
+        System.err.println("Device  : " + EGLDrawableFactory.SharedResource.access$600(localSharedResource));
+        ExceptionUtils.dumpStack(System.err);
+      }
+      
+      if (null != EGLDrawableFactory.SharedResource.access$600(localSharedResource))
+      {
+
+        EGLDrawableFactory.SharedResource.access$600(localSharedResource).close();
+        EGLDrawableFactory.SharedResource.access$602(localSharedResource, null);
+      }
+    }
+  }
+  
+  public final boolean hasDefaultDeviceKHRCreateContext() {
+    return defaultDeviceEGLFeatureshasKHRCreateContext;
+  }
+  
+
+
+
+
+  private SharedResourceImplementation sharedResourceImplementation;
+  
+
+
+  private SharedResourceRunner sharedResourceRunner;
+  
+
+
+  public final boolean hasOpenGLDesktopSupport()
+  {
+    return (null != eglGLnDynamicLookupHelper) && (defaultDeviceEGLFeatureshasGLAPI) && (defaultDeviceEGLFeatureshasKHRCreateContext);
+  }
+  
+
+
+
+
+
+
+  public final boolean hasOpenGLESSupport()
+  {
+    return true;
+  }
+  
+
+
+
+
+
+
+  public final boolean hasMajorMinorCreateContextARB()
+  {
+    return hasDefaultDeviceKHRCreateContext();
+  }
+  
+  public final AbstractGraphicsDevice getDefaultDevice()
+  {
+    return defaultDevice;
+  }
+  
+
+  public final boolean getIsDeviceCompatible(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    return null != sharedResourceImplementation;
+  }
+  
+  private static List<GLCapabilitiesImmutable> getAvailableEGLConfigs(EGLGraphicsDevice paramEGLGraphicsDevice, GLCapabilitiesImmutable paramGLCapabilitiesImmutable) {
+    IntBuffer localIntBuffer1 = Buffers.newDirectIntBuffer(1);
+    if (!EGL.eglGetConfigs(paramEGLGraphicsDevice.getHandle(), null, 0, localIntBuffer1)) {
+      throw new GLException("EGLDrawableFactory.getAvailableEGLConfigs: Get maxConfigs (eglGetConfigs) call failed, error " + EGLContext.toHexString(EGL.eglGetError()));
+    }
+    if (0 < localIntBuffer1.get(0)) {
+      PointerBuffer localPointerBuffer = PointerBuffer.allocateDirect(localIntBuffer1.get(0));
+      IntBuffer localIntBuffer2 = EGLGraphicsConfiguration.GLCapabilities2AttribList(paramGLCapabilitiesImmutable);
+      int i = GLGraphicsConfigurationUtil.getExclusiveWinAttributeBits(paramGLCapabilitiesImmutable);
+      if ((EGL.eglChooseConfig(paramEGLGraphicsDevice.getHandle(), localIntBuffer2, localPointerBuffer, localPointerBuffer.capacity(), localIntBuffer1)) && (localIntBuffer1.get(0) > 0)) {
+        return EGLGraphicsConfigurationFactory.eglConfigs2GLCaps(paramEGLGraphicsDevice, paramGLCapabilitiesImmutable.getGLProfile(), localPointerBuffer, localIntBuffer1.get(0), i, false, false);
+      }
+    }
+    return new ArrayList(0);
+  }
+  
+  static void dumpEGLInfo(String paramString, long paramLong) {
+    String str1 = EGL.eglQueryString(paramLong, 12371);
+    String str2 = EGL.eglQueryString(paramLong, 12429);
+    String str3 = EGL.eglQueryString(0L, 12372);
+    String str4 = EGL.eglQueryString(paramLong, 12372);
+    System.err.println(paramString + "EGL vendor " + str1 + ", version [client " + str3 + ", server " + str4 + "], clientAPIs " + str2);
+  }
+  
+  protected final SharedResource getOrCreateSharedResourceImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    return (SharedResource)sharedResourceRunner.getOrCreateShared(paramAbstractGraphicsDevice);
+  }
+  
+  protected final Thread getSharedResourceThread()
+  {
+    return sharedResourceRunner.start();
+  }
+  
+  public final boolean isANGLE() {
+    return isANGLE;
+  }
+  
+  public final GLDynamicLookupHelper getGLDynamicLookupHelper(int paramInt1, int paramInt2)
+  {
+    GLDynamicLookupHelper localGLDynamicLookupHelper;
+    if (EGLContext.isGLES2ES3(paramInt1, paramInt2)) {
+      localGLDynamicLookupHelper = eglES2DynamicLookupHelper;
+    } else if (EGLContext.isGLES1(paramInt1, paramInt2)) {
+      localGLDynamicLookupHelper = eglES1DynamicLookupHelper;
+    } else if (EGLContext.isGLDesktop(paramInt2)) {
+      localGLDynamicLookupHelper = eglGLnDynamicLookupHelper;
+    } else {
+      throw new IllegalArgumentException("neither GLES1, GLES2, GLES3 nor desktop GL has been specified: " + paramInt1 + " (" + EGLContext.getGLProfile(new StringBuilder(), paramInt2).toString());
+    }
+    if ((DEBUG_SHAREDCTX) && 
+      (null == localGLDynamicLookupHelper)) {
+      System.err.println("EGLDrawableFactory.getGLDynamicLookupHelper: NULL for profile " + paramInt1 + " (" + EGLContext.getGLProfile(new StringBuilder(), paramInt2).toString());
+    }
+    
+    return localGLDynamicLookupHelper;
+  }
+  
+  protected List<GLCapabilitiesImmutable> getAvailableCapabilitiesImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    if (null == sharedResourceImplementation) {
+      return new ArrayList();
+    }
+    return EGLGraphicsConfigurationFactory.getAvailableCapabilities(this, paramAbstractGraphicsDevice);
+  }
+  
+  protected GLDrawableImpl createOnscreenDrawableImpl(NativeSurface paramNativeSurface)
+  {
+    if (paramNativeSurface == null) {
+      throw new IllegalArgumentException("Null target");
+    }
+    return new EGLDrawable(this, EGLSurface.get(paramNativeSurface));
+  }
+  
+  protected GLDrawableImpl createOffscreenDrawableImpl(NativeSurface paramNativeSurface)
+  {
+    if (paramNativeSurface == null) {
+      throw new IllegalArgumentException("Null target");
+    }
+    AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = paramNativeSurface.getGraphicsConfiguration();
+    GLCapabilitiesImmutable localGLCapabilitiesImmutable = (GLCapabilitiesImmutable)localAbstractGraphicsConfiguration.getChosenCapabilities();
+    if (!localGLCapabilitiesImmutable.isPBuffer()) {
+      throw new GLException("Non pbuffer not yet implemented");
+    }
+    
+    return new EGLDrawable(this, EGLSurface.get(paramNativeSurface));
+  }
+  
+
+
+  public boolean canCreateGLPbuffer(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLProfile paramGLProfile)
+  {
+    return true;
+  }
+  
+
+  private final EGLGraphicsConfiguration evalConfig(boolean[] paramArrayOfBoolean, AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean, GLCapabilitiesImmutable paramGLCapabilitiesImmutable1, GLCapabilitiesImmutable paramGLCapabilitiesImmutable2, GLCapabilitiesChooser paramGLCapabilitiesChooser)
+  {
+    EGLGraphicsDevice localEGLGraphicsDevice;
+    if ((paramBoolean) || (!(paramAbstractGraphicsDevice instanceof EGLGraphicsDevice))) {
+      localEGLGraphicsDevice = EGLDisplayUtil.eglCreateEGLGraphicsDevice(paramAbstractGraphicsDevice);
+      localEGLGraphicsDevice.open();
+      paramArrayOfBoolean[0] = true;
+    } else {
+      localEGLGraphicsDevice = (EGLGraphicsDevice)paramAbstractGraphicsDevice;
+      paramArrayOfBoolean[0] = false;
+    }
+    DefaultGraphicsScreen localDefaultGraphicsScreen = new DefaultGraphicsScreen(localEGLGraphicsDevice, 0);
+    EGLGraphicsConfiguration localEGLGraphicsConfiguration = EGLGraphicsConfigurationFactory.chooseGraphicsConfigurationStatic(paramGLCapabilitiesImmutable1, paramGLCapabilitiesImmutable2, paramGLCapabilitiesChooser, localDefaultGraphicsScreen, 0, false);
+    if (null == localEGLGraphicsConfiguration) {
+      throw new GLException("Choosing GraphicsConfiguration failed w/ " + paramGLCapabilitiesImmutable1 + " on " + localDefaultGraphicsScreen);
+    }
+    return localEGLGraphicsConfiguration;
+  }
+  
+
+
+  protected final EGLSurface createMutableSurfaceImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean, GLCapabilitiesImmutable paramGLCapabilitiesImmutable1, GLCapabilitiesImmutable paramGLCapabilitiesImmutable2, GLCapabilitiesChooser paramGLCapabilitiesChooser, UpstreamSurfaceHook paramUpstreamSurfaceHook)
+  {
+    boolean[] arrayOfBoolean = { false };
+    EGLGraphicsConfiguration localEGLGraphicsConfiguration = evalConfig(arrayOfBoolean, paramAbstractGraphicsDevice, paramBoolean, paramGLCapabilitiesImmutable1, paramGLCapabilitiesImmutable2, paramGLCapabilitiesChooser);
+    return EGLSurface.createWrapped(localEGLGraphicsConfiguration, 0L, paramUpstreamSurfaceHook, arrayOfBoolean[0]);
+  }
+  
+
+  public final EGLSurface createDummySurfaceImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean, GLCapabilitiesImmutable paramGLCapabilitiesImmutable1, GLCapabilitiesImmutable paramGLCapabilitiesImmutable2, GLCapabilitiesChooser paramGLCapabilitiesChooser, int paramInt1, int paramInt2)
+  {
+    paramGLCapabilitiesImmutable1 = GLGraphicsConfigurationUtil.fixGLPBufferGLCapabilities(paramGLCapabilitiesImmutable1);
+    return createMutableSurfaceImpl(paramAbstractGraphicsDevice, paramBoolean, paramGLCapabilitiesImmutable1, paramGLCapabilitiesImmutable2, paramGLCapabilitiesChooser, new EGLDummyUpstreamSurfaceHook(paramInt1, paramInt2));
+  }
+  
+
+  public final EGLSurface createSurfacelessImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean, GLCapabilitiesImmutable paramGLCapabilitiesImmutable1, GLCapabilitiesImmutable paramGLCapabilitiesImmutable2, GLCapabilitiesChooser paramGLCapabilitiesChooser, int paramInt1, int paramInt2)
+  {
+    paramGLCapabilitiesImmutable1 = GLGraphicsConfigurationUtil.fixOnscreenGLCapabilities(paramGLCapabilitiesImmutable1);
+    boolean[] arrayOfBoolean = { false };
+    EGLGraphicsConfiguration localEGLGraphicsConfiguration = evalConfig(arrayOfBoolean, paramAbstractGraphicsDevice, paramBoolean, paramGLCapabilitiesImmutable1, paramGLCapabilitiesImmutable2, paramGLCapabilitiesChooser);
+    return EGLSurface.createSurfaceless(localEGLGraphicsConfiguration, new GenericUpstreamSurfacelessHook(paramInt1, paramInt2), arrayOfBoolean[0]);
+  }
+  
+
+
+
+
+
+
+
+  protected static MutableSurface createPBufferSurfaceImpl(MutableSurface paramMutableSurface, boolean paramBoolean) { return null; }
+  
+  protected static long createPBufferSurfaceImpl(EGLGraphicsConfiguration paramEGLGraphicsConfiguration, int paramInt1, int paramInt2, boolean paramBoolean) {
+    EGLGraphicsDevice localEGLGraphicsDevice = (EGLGraphicsDevice)paramEGLGraphicsConfiguration.getScreen().getDevice();
+    GLCapabilitiesImmutable localGLCapabilitiesImmutable = (GLCapabilitiesImmutable)paramEGLGraphicsConfiguration.getChosenCapabilities();
+    
+    int i;
+    if (paramBoolean) {
+      i = localGLCapabilitiesImmutable.getAlphaBits() > 0 ? 12382 : 12381;
+    } else {
+      i = 12380;
+    }
+    
+    if (DEBUG) {
+      System.out.println("Pbuffer config: " + paramEGLGraphicsConfiguration);
+    }
+    
+    IntBuffer localIntBuffer = EGLGraphicsConfiguration.CreatePBufferSurfaceAttribList(paramInt1, paramInt2, i);
+    long l = EGL.eglCreatePbufferSurface(localEGLGraphicsDevice.getHandle(), paramEGLGraphicsConfiguration.getNativeConfig(), localIntBuffer);
+    if (0L == l)
+      throw new GLException("Creation of window surface (eglCreatePbufferSurface) failed, dim " + paramInt1 + "x" + paramInt2 + ", " + localEGLGraphicsDevice + ", " + paramEGLGraphicsConfiguration + ", error 0x" + Integer.toHexString(EGL.eglGetError()));
+    if (DEBUG) {
+      System.err.println("PBuffer setSurface result: eglSurface 0x" + Long.toHexString(l));
+    }
+    return l;
+  }
+  
+
+
+  protected EGLSurface createProxySurfaceImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice, int paramInt, long paramLong, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser, UpstreamSurfaceHook paramUpstreamSurfaceHook)
+  {
+    EGLGraphicsDevice localEGLGraphicsDevice = EGLDisplayUtil.eglCreateEGLGraphicsDevice(paramAbstractGraphicsDevice);
+    localEGLGraphicsDevice.open();
+    DefaultGraphicsScreen localDefaultGraphicsScreen = new DefaultGraphicsScreen(localEGLGraphicsDevice, paramInt);
+    EGLGraphicsConfiguration localEGLGraphicsConfiguration = EGLGraphicsConfigurationFactory.chooseGraphicsConfigurationStatic(paramGLCapabilitiesImmutable, paramGLCapabilitiesImmutable, paramGLCapabilitiesChooser, localDefaultGraphicsScreen, 0, false);
+    return EGLSurface.createWrapped(localEGLGraphicsConfiguration, paramLong, paramUpstreamSurfaceHook, true);
+  }
+  
+  protected GLContext createExternalGLContextImpl()
+  {
+    AbstractGraphicsScreen localAbstractGraphicsScreen = DefaultGraphicsScreen.createDefault(NativeWindowFactory.TYPE_EGL);
+    return new EGLExternalContext(localAbstractGraphicsScreen);
+  }
+  
+  public boolean canCreateExternalGLDrawable(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    return false;
+  }
+  
+  protected GLDrawable createExternalGLDrawableImpl()
+  {
+    throw new GLException("Not yet implemented");
+  }
+}

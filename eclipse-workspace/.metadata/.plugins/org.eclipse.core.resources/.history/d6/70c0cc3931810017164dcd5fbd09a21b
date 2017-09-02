@@ -1,0 +1,215 @@
+package com.jogamp.common.net;
+
+import com.jogamp.common.os.AndroidVersion;
+import com.jogamp.common.util.IOUtil;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.net.MalformedURLException;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLStreamHandler;
+
+
+public abstract class AssetURLContext
+  implements PiggybackURLContext
+{
+  private static final boolean DEBUG = IOUtil.DEBUG;
+  
+
+  public static final String asset_protocol = "asset";
+  
+
+  public static final String asset_protocol_prefix = "asset:";
+  
+
+  public static final String assets_folder = "assets/";
+  
+
+
+  public AssetURLContext() {}
+  
+
+  public static AssetURLContext create(ClassLoader paramClassLoader)
+  {
+    new AssetURLContext()
+    {
+      public ClassLoader getClassLoader() {
+        return val$cl;
+      }
+    };
+  }
+  
+  public static AssetURLStreamHandler createHandler(ClassLoader paramClassLoader) {
+    return new AssetURLStreamHandler(create(paramClassLoader));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static URL createURL(String paramString, ClassLoader paramClassLoader)
+    throws MalformedURLException
+  {
+    return new URL(null, "asset:" + paramString, createHandler(paramClassLoader));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static URL createURL(String paramString)
+    throws MalformedURLException
+  {
+    return new URL("asset:" + paramString);
+  }
+  
+
+
+
+  public static URLStreamHandler getRegisteredHandler()
+  {
+    GenericURLStreamHandlerFactory localGenericURLStreamHandlerFactory = GenericURLStreamHandlerFactory.register();
+    return null != localGenericURLStreamHandlerFactory ? localGenericURLStreamHandlerFactory.getHandler("asset") : null;
+  }
+  
+
+
+
+
+
+  public static boolean registerHandler(ClassLoader paramClassLoader)
+  {
+    GenericURLStreamHandlerFactory localGenericURLStreamHandlerFactory = GenericURLStreamHandlerFactory.register();
+    if (null != localGenericURLStreamHandlerFactory) {
+      localGenericURLStreamHandlerFactory.setHandler("asset", createHandler(paramClassLoader));
+      return true;
+    }
+    return false;
+  }
+  
+
+
+
+
+
+
+
+
+  public abstract ClassLoader getClassLoader();
+  
+
+
+
+
+
+
+
+  public String getImplementedProtocol()
+  {
+    return "asset";
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public URLConnection resolve(String paramString)
+    throws IOException
+  {
+    return resolve(paramString, getClassLoader());
+  }
+  
+  public static URLConnection resolve(String paramString, ClassLoader paramClassLoader) throws IOException {
+    URL localURL = null;
+    URLConnection localURLConnection = null;
+    int i = -1;
+    
+    if (DEBUG) {
+      System.err.println("AssetURLContext.resolve: <" + paramString + ">");
+    }
+    try {
+      paramString = IOUtil.cleanPathString(paramString);
+    } catch (URISyntaxException localURISyntaxException) {
+      throw new IOException(localURISyntaxException);
+    }
+    
+    try
+    {
+      localURL = new URL(paramString);
+      localURLConnection = open(localURL);
+      i = null != localURLConnection ? 1 : -1;
+    } catch (MalformedURLException localMalformedURLException) { if (DEBUG) System.err.println("FAIL(1): " + localMalformedURLException.getMessage()); }
+    Object localObject;
+    if ((null == localURLConnection) && (null != paramClassLoader))
+    {
+      localObject = paramString;
+      while (((String)localObject).startsWith("/")) {
+        localObject = ((String)localObject).substring(1);
+      }
+      if (AndroidVersion.isAvailable) {
+        localObject = "assets/" + (String)localObject;
+      }
+      localURL = paramClassLoader.getResource((String)localObject);
+      localURLConnection = open(localURL);
+      i = null != localURLConnection ? 2 : -1;
+    }
+    
+    if (null == localURLConnection) {
+      try
+      {
+        localObject = new File(paramString);
+        if (((File)localObject).exists()) {
+          localURL = Uri.valueOf((File)localObject).toURL();
+          localURLConnection = open(localURL);
+          i = null != localURLConnection ? 3 : -1;
+        }
+      } catch (Throwable localThrowable) { if (DEBUG) System.err.println("FAIL(3): " + localThrowable.getMessage());
+      }
+    }
+    if (DEBUG) {
+      System.err.println("AssetURLContext.resolve: type " + i + ": url <" + localURL + ">, conn <" + localURLConnection + ">, connURL <" + (null != localURLConnection ? localURLConnection.getURL() : null) + ">");
+    }
+    if (null == localURLConnection) {
+      throw new FileNotFoundException("Could not look-up: " + paramString + " as URL, w/ ClassLoader or as File");
+    }
+    return localURLConnection;
+  }
+  
+  private static URLConnection open(URL paramURL) {
+    if (null == paramURL) {
+      return null;
+    }
+    try {
+      URLConnection localURLConnection = paramURL.openConnection();
+      localURLConnection.connect();
+      return localURLConnection;
+    } catch (IOException localIOException) { if (DEBUG) System.err.println("FAIL(2): " + localIOException.getMessage()); }
+    return null;
+  }
+}

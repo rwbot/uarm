@@ -1,0 +1,139 @@
+package jogamp.opengl.x11.glx;
+
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.MutableSurface;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import java.io.PrintStream;
+import jogamp.nativewindow.x11.X11Lib;
+import jogamp.nativewindow.x11.XVisualInfo;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class X11PixmapGLXDrawable
+  extends X11GLXDrawable
+{
+  private long pixmap;
+  
+  protected X11PixmapGLXDrawable(GLDrawableFactory paramGLDrawableFactory, NativeSurface paramNativeSurface)
+  {
+    super(paramGLDrawableFactory, paramNativeSurface, false);
+  }
+  
+  protected void setRealizedImpl()
+  {
+    if (realized) {
+      createPixmap();
+    } else {
+      destroyPixmap();
+    }
+  }
+  
+  public GLContext createContext(GLContext paramGLContext)
+  {
+    return new X11GLXContext(this, paramGLContext);
+  }
+  
+  private void createPixmap() {
+    NativeSurface localNativeSurface = getNativeSurface();
+    X11GLXGraphicsConfiguration localX11GLXGraphicsConfiguration = (X11GLXGraphicsConfiguration)localNativeSurface.getGraphicsConfiguration();
+    XVisualInfo localXVisualInfo = localX11GLXGraphicsConfiguration.getXVisualInfo();
+    int i = localXVisualInfo.getDepth();
+    AbstractGraphicsScreen localAbstractGraphicsScreen = localX11GLXGraphicsConfiguration.getScreen();
+    AbstractGraphicsDevice localAbstractGraphicsDevice = localAbstractGraphicsScreen.getDevice();
+    long l1 = localAbstractGraphicsDevice.getHandle();
+    int j = localAbstractGraphicsScreen.getIndex();
+    
+    pixmap = X11Lib.XCreatePixmap(l1, X11Lib.RootWindow(l1, j), surface
+      .getSurfaceWidth(), surface.getSurfaceHeight(), i);
+    if (pixmap == 0L) {
+      throw new GLException("XCreatePixmap failed");
+    }
+    long l2 = GLX.glXCreateGLXPixmap(l1, localXVisualInfo, pixmap);
+    if (l2 == 0L) {
+      X11Lib.XFreePixmap(l1, pixmap);
+      pixmap = 0L;
+      throw new GLException("glXCreateGLXPixmap failed");
+    }
+    ((MutableSurface)localNativeSurface).setSurfaceHandle(l2);
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": Created pixmap " + toHexString(pixmap) + ", GLXPixmap " + 
+        toHexString(l2) + ", display " + 
+        toHexString(l1));
+    }
+  }
+  
+  protected void destroyPixmap() {
+    if (pixmap == 0L) { return;
+    }
+    NativeSurface localNativeSurface = getNativeSurface();
+    long l1 = localNativeSurface.getDisplayHandle();
+    
+    long l2 = localNativeSurface.getSurfaceHandle();
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": Destroying pixmap " + toHexString(pixmap) + ", GLXPixmap " + 
+        toHexString(l2) + ", display " + 
+        toHexString(l1));
+    }
+    
+
+
+    if (DEBUG) {
+      long l3 = GLX.glXGetCurrentContext();
+      if (l3 != 0L) {
+        System.err.println("WARNING: found context " + toHexString(l3) + " current during pixmap destruction");
+      }
+    }
+    
+
+
+
+
+    GLX.glXMakeCurrent(l1, 0L, 0L);
+    
+    GLX.glXDestroyGLXPixmap(l1, l2);
+    X11Lib.XFreePixmap(l1, pixmap);
+    l2 = 0L;
+    pixmap = 0L;
+    ((MutableSurface)localNativeSurface).setSurfaceHandle(0L);
+    l1 = 0L;
+  }
+}

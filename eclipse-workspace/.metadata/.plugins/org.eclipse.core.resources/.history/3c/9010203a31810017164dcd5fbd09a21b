@@ -1,0 +1,840 @@
+package jogamp.opengl;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.util.RunnableTask;
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.WindowClosingProtocol;
+import com.jogamp.nativewindow.WindowClosingProtocol.WindowClosingMode;
+import com.jogamp.opengl.FPSCounter;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLAnimatorControl;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawable;
+import com.jogamp.opengl.GLEventListener;
+import com.jogamp.opengl.GLEventListenerState;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.GLRunnable;
+import com.jogamp.opengl.GLSharedContextSetter;
+import com.jogamp.opengl.GLStateKeeper;
+import com.jogamp.opengl.GLStateKeeper.Listener;
+import java.io.PrintStream;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class GLAutoDrawableBase
+  implements GLAutoDrawable, GLStateKeeper, FPSCounter, GLSharedContextSetter
+{
+  public static final boolean DEBUG = GLDrawableImpl.DEBUG;
+  protected final GLDrawableHelper helper = new GLDrawableHelper();
+  protected final FPSCounterImpl fpsCounter = new FPSCounterImpl();
+  
+  protected volatile GLDrawableImpl drawable;
+  protected volatile GLContextImpl context;
+  protected boolean preserveGLELSAtDestroy;
+  protected GLEventListenerState glels;
+  protected GLStateKeeper.Listener glStateKeeperListener;
+  protected final boolean ownsDevice;
+  protected int additionalCtxCreationFlags = 0;
+  protected volatile boolean sendReshape = false;
+  protected volatile boolean sendDestroy = false;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public GLAutoDrawableBase(GLDrawableImpl paramGLDrawableImpl, GLContextImpl paramGLContextImpl, boolean paramBoolean)
+  {
+    drawable = paramGLDrawableImpl;
+    context = paramGLContextImpl;
+    preserveGLELSAtDestroy = false;
+    glels = null;
+    glStateKeeperListener = null;
+    ownsDevice = paramBoolean;
+    if ((null != paramGLContextImpl) && (null != paramGLDrawableImpl)) {
+      paramGLContextImpl.setGLDrawable(paramGLDrawableImpl, false);
+    }
+    resetFPSCounter();
+  }
+  
+  public final void setSharedContext(GLContext paramGLContext) throws IllegalStateException
+  {
+    helper.setSharedContext(context, paramGLContext);
+  }
+  
+  public final void setSharedAutoDrawable(GLAutoDrawable paramGLAutoDrawable) throws IllegalStateException
+  {
+    helper.setSharedAutoDrawable(this, paramGLAutoDrawable);
+  }
+  
+  public final GLStateKeeper.Listener setGLStateKeeperListener(GLStateKeeper.Listener paramListener)
+  {
+    GLStateKeeper.Listener localListener = glStateKeeperListener;
+    glStateKeeperListener = paramListener;
+    return localListener;
+  }
+  
+  public final boolean preserveGLStateAtDestroy(boolean paramBoolean)
+  {
+    boolean bool = isGLStatePreservationSupported();
+    if (bool) {
+      if (DEBUG) {
+        long l = null != getNativeSurface() ? getNativeSurface().getSurfaceHandle() : 0L;
+        System.err.println("GLAutoDrawableBase.setPreserveGLStateAtDestroy: (" + getThreadName() + "): " + preserveGLELSAtDestroy + " -> " + paramBoolean + " - surfaceHandle 0x" + Long.toHexString(l));
+      }
+      preserveGLELSAtDestroy = paramBoolean;
+    }
+    return bool;
+  }
+  
+  public boolean isGLStatePreservationSupported() {
+    return false;
+  }
+  
+  public final GLEventListenerState getPreservedGLState() {
+    return glels;
+  }
+  
+  public final GLEventListenerState clearPreservedGLState()
+  {
+    GLEventListenerState localGLEventListenerState = glels;
+    glels = null;
+    return localGLEventListenerState;
+  }
+  
+
+
+
+
+
+
+
+
+  protected final boolean preserveGLEventListenerState()
+    throws IllegalStateException
+  {
+    if (null != glels) {
+      throw new IllegalStateException("GLEventListenerState already pulled");
+    }
+    if ((null != context) && (context.isCreated())) {
+      if (null != glStateKeeperListener) {
+        glStateKeeperListener.glStatePreserveNotify(this);
+      }
+      glels = GLEventListenerState.moveFrom(this);
+      return null != glels;
+    }
+    return false;
+  }
+  
+
+
+
+
+
+
+
+
+  protected final boolean restoreGLEventListenerState()
+  {
+    if (null != glels) {
+      glels.moveTo(this);
+      glels = null;
+      if (null != glStateKeeperListener) {
+        glStateKeeperListener.glStateRestored(this);
+      }
+      return true;
+    }
+    return false;
+  }
+  
+  protected final void defaultWindowRepaintOp()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    if ((null != localGLDrawableImpl) && (localGLDrawableImpl.isRealized()) && 
+      (!localGLDrawableImpl.getNativeSurface().isSurfaceLockedByOtherThread()) && (!helper.isAnimatorAnimatingOnOtherThread())) {
+      display();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected final void defaultWindowResizedOp(int paramInt1, int paramInt2)
+    throws NativeWindowException, GLException
+  {
+    Object localObject1 = drawable;
+    if (null != localObject1) {
+      if (DEBUG) {
+        long l = null != getNativeSurface() ? getNativeSurface().getSurfaceHandle() : 0L;
+        System.err.println("GLAutoDrawableBase.sizeChanged: (" + getThreadName() + "): " + paramInt1 + "x" + paramInt2 + " - surfaceHandle 0x" + Long.toHexString(l));
+      }
+      if (!((GLDrawableImpl)localObject1).getChosenGLCapabilities().isOnscreen()) {
+        RecursiveLock localRecursiveLock = getUpstreamLock();
+        localRecursiveLock.lock();
+        try {
+          GLDrawableImpl localGLDrawableImpl = GLDrawableHelper.resizeOffscreenDrawable((GLDrawableImpl)localObject1, context, paramInt1, paramInt2);
+          if (localObject1 != localGLDrawableImpl)
+          {
+            localObject1 = localGLDrawableImpl;
+            drawable = localGLDrawableImpl;
+          }
+        } finally {
+          localRecursiveLock.unlock();
+        }
+      }
+      sendReshape = true;
+      if ((((GLDrawableImpl)localObject1).isRealized()) && 
+        (!((GLDrawableImpl)localObject1).getNativeSurface().isSurfaceLockedByOtherThread()) && (!helper.isAnimatorAnimatingOnOtherThread())) {
+        display();
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+  protected final void defaultWindowDestroyNotifyOp()
+  {
+    NativeSurface localNativeSurface = getNativeSurface();
+    int i;
+    if ((localNativeSurface instanceof WindowClosingProtocol)) {
+      i = WindowClosingProtocol.WindowClosingMode.DISPOSE_ON_CLOSE == ((WindowClosingProtocol)localNativeSurface).getDefaultCloseOperation() ? 1 : 0;
+    } else {
+      i = 1;
+    }
+    if (i != 0) {
+      try {
+        destroyAvoidAwareOfLocking();
+      }
+      catch (Throwable localThrowable)
+      {
+        ExceptionUtils.dumpThrowable("ignored", localThrowable);
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected final void destroyAvoidAwareOfLocking()
+  {
+    NativeSurface localNativeSurface = getNativeSurface();
+    
+    GLAnimatorControl localGLAnimatorControl = helper.getAnimator();
+    
+
+    if (helper.isAnimatorStartedOnOtherThread())
+    {
+      boolean bool = localGLAnimatorControl.pause();
+      destroy();
+      if (bool) {
+        localGLAnimatorControl.resume();
+      }
+    } else if ((null != localNativeSurface) && (localNativeSurface.isSurfaceLockedByOtherThread()))
+    {
+
+
+      sendDestroy = true;
+    }
+    else
+    {
+      destroy();
+    }
+  }
+  
+
+
+  protected final void defaultDestroy()
+  {
+    RecursiveLock localRecursiveLock = getUpstreamLock();
+    localRecursiveLock.lock();
+    try {
+      destroyImplInLock();
+      
+      localRecursiveLock.unlock(); } finally { localRecursiveLock.unlock();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  protected void destroyImplInLock()
+  {
+    if (preserveGLELSAtDestroy) {
+      preserveGLStateAtDestroy(false);
+      preserveGLEventListenerState();
+    }
+    
+    Object localObject1 = null;
+    if (null != context) {
+      if (context.isCreated()) {
+        try {
+          helper.disposeGL(this, context, true);
+        } catch (GLException localGLException) {
+          localObject1 = localGLException;
+        }
+      }
+      context = null;
+    }
+    
+    Object localObject2 = null;
+    Object localObject3 = null;
+    if (null != drawable) {
+      AbstractGraphicsDevice localAbstractGraphicsDevice = drawable.getNativeSurface().getGraphicsConfiguration().getScreen().getDevice();
+      try {
+        drawable.setRealized(false);
+      } catch (Throwable localThrowable1) {
+        localObject2 = localThrowable1;
+      }
+      drawable = null;
+      try {
+        if (ownsDevice) {
+          localAbstractGraphicsDevice.close();
+        }
+      } catch (Throwable localThrowable2) {
+        localObject3 = localThrowable2;
+      }
+    }
+    
+
+    if (null != localObject1) {
+      throw localObject1;
+    }
+    if (null != localObject2) {
+      throw GLException.newGLException(localObject2);
+    }
+    if (null != localObject3) {
+      throw GLException.newGLException(localObject3);
+    }
+  }
+  
+  public final void defaultSwapBuffers() throws GLException {
+    RecursiveLock localRecursiveLock = getUpstreamLock();
+    localRecursiveLock.lock();
+    try {
+      if (null != drawable) {
+        drawable.swapBuffers();
+      }
+      
+      localRecursiveLock.unlock(); } finally { localRecursiveLock.unlock();
+    }
+  }
+  
+
+
+
+
+  protected final Runnable defaultInitAction = new Runnable()
+  {
+    public final void run()
+    {
+      helper.init(GLAutoDrawableBase.this, !sendReshape);
+      resetFPSCounter();
+    }
+  };
+  protected final Runnable defaultDisplayAction = new Runnable()
+  {
+    public final void run()
+    {
+      if (sendReshape) {
+        helper.reshape(GLAutoDrawableBase.this, 0, 0, getSurfaceWidth(), getSurfaceHeight());
+        sendReshape = false;
+      }
+      helper.display(GLAutoDrawableBase.this);
+      fpsCounter.tickFPS();
+    }
+  };
+  
+  protected final void defaultDisplay() { if (sendDestroy) {
+      sendDestroy = false;
+      destroy();
+      return;
+    }
+    RecursiveLock localRecursiveLock = getUpstreamLock();
+    localRecursiveLock.lock();
+    try {
+      if (null == context) {
+        boolean bool = false;
+        GLDrawableImpl localGLDrawableImpl = drawable;
+        if ((null != localGLDrawableImpl) && (localGLDrawableImpl.isRealized()) && (0 < localGLDrawableImpl.getSurfaceWidth() * localGLDrawableImpl.getSurfaceHeight())) {
+          GLContext[] arrayOfGLContext = { null };
+          if ((!helper.isSharedGLContextPending(arrayOfGLContext)) && 
+            (!restoreGLEventListenerState())) {
+            context = ((GLContextImpl)localGLDrawableImpl.createContext(arrayOfGLContext[0]));
+            context.setContextCreationFlags(additionalCtxCreationFlags);
+            bool = true;
+            
+            helper.invokeGL(localGLDrawableImpl, context, defaultDisplayAction, defaultInitAction);
+          }
+        }
+        
+        if (DEBUG) {
+          System.err.println("GLAutoDrawableBase.defaultDisplay: contextCreated " + bool);
+        }
+      }
+      else {
+        helper.invokeGL(drawable, context, defaultDisplayAction, defaultInitAction);
+      }
+    } finally {
+      localRecursiveLock.unlock();
+    }
+  }
+  
+  protected final GLEventListener defaultDisposeGLEventListener(GLEventListener paramGLEventListener, boolean paramBoolean) {
+    RecursiveLock localRecursiveLock = getUpstreamLock();
+    localRecursiveLock.lock();
+    try {
+      return helper.disposeGLEventListener(this, drawable, context, paramGLEventListener, paramBoolean);
+    } finally {
+      localRecursiveLock.unlock();
+    }
+  }
+  
+  public final GLDrawable getDelegatedDrawable()
+  {
+    return drawable;
+  }
+  
+  public final GLContext getContext()
+  {
+    return context;
+  }
+  
+  public final GLContext setContext(GLContext paramGLContext, boolean paramBoolean)
+  {
+    RecursiveLock localRecursiveLock = getUpstreamLock();
+    localRecursiveLock.lock();
+    try {
+      GLContextImpl localGLContextImpl1 = context;
+      GLDrawableHelper.switchContext(drawable, localGLContextImpl1, paramBoolean, paramGLContext, additionalCtxCreationFlags);
+      context = ((GLContextImpl)paramGLContext);
+      return localGLContextImpl1;
+    } finally {
+      localRecursiveLock.unlock();
+    }
+  }
+  
+  public final GL getGL()
+  {
+    GLContextImpl localGLContextImpl = context;
+    if (localGLContextImpl == null) {
+      return null;
+    }
+    return localGLContextImpl.getGL();
+  }
+  
+  public final GL setGL(GL paramGL)
+  {
+    GLContextImpl localGLContextImpl = context;
+    if (localGLContextImpl != null) {
+      localGLContextImpl.setGL(paramGL);
+      return paramGL;
+    }
+    return null;
+  }
+  
+  public final void addGLEventListener(GLEventListener paramGLEventListener)
+  {
+    helper.addGLEventListener(paramGLEventListener);
+  }
+  
+  public final void addGLEventListener(int paramInt, GLEventListener paramGLEventListener) throws IndexOutOfBoundsException
+  {
+    helper.addGLEventListener(paramInt, paramGLEventListener);
+  }
+  
+  public int getGLEventListenerCount()
+  {
+    return helper.getGLEventListenerCount();
+  }
+  
+  public GLEventListener getGLEventListener(int paramInt) throws IndexOutOfBoundsException
+  {
+    return helper.getGLEventListener(paramInt);
+  }
+  
+  public boolean areAllGLEventListenerInitialized()
+  {
+    return helper.areAllGLEventListenerInitialized();
+  }
+  
+  public boolean getGLEventListenerInitState(GLEventListener paramGLEventListener)
+  {
+    return helper.getGLEventListenerInitState(paramGLEventListener);
+  }
+  
+  public void setGLEventListenerInitState(GLEventListener paramGLEventListener, boolean paramBoolean)
+  {
+    helper.setGLEventListenerInitState(paramGLEventListener, paramBoolean);
+  }
+  
+  public GLEventListener disposeGLEventListener(GLEventListener paramGLEventListener, boolean paramBoolean)
+  {
+    return defaultDisposeGLEventListener(paramGLEventListener, paramBoolean);
+  }
+  
+  public final GLEventListener removeGLEventListener(GLEventListener paramGLEventListener)
+  {
+    return helper.removeGLEventListener(paramGLEventListener);
+  }
+  
+  public final void setAnimator(GLAnimatorControl paramGLAnimatorControl)
+    throws GLException
+  {
+    helper.setAnimator(paramGLAnimatorControl);
+  }
+  
+  public final GLAnimatorControl getAnimator()
+  {
+    return helper.getAnimator();
+  }
+  
+  public final Thread setExclusiveContextThread(Thread paramThread) throws GLException
+  {
+    return helper.setExclusiveContextThread(paramThread, context);
+  }
+  
+  public final Thread getExclusiveContextThread()
+  {
+    return helper.getExclusiveContextThread();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public final void invokeOnCurrentThread(Runnable paramRunnable)
+  {
+    helper.runOutsideOfExclusiveContextThread(context, paramRunnable);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final RunnableTask invokeOnNewThread(ThreadGroup paramThreadGroup, boolean paramBoolean, final Runnable paramRunnable)
+  {
+    RunnableTask.invokeOnNewThread(paramThreadGroup, null, paramBoolean, new Runnable()
+    {
+      public final void run() {
+        helper.runOutsideOfExclusiveContextThread(context, paramRunnable);
+      }
+    });
+  }
+  
+  public final boolean invoke(boolean paramBoolean, GLRunnable paramGLRunnable) throws IllegalStateException {
+    return helper.invoke(this, paramBoolean, paramGLRunnable);
+  }
+  
+  public boolean invoke(boolean paramBoolean, List<GLRunnable> paramList) throws IllegalStateException
+  {
+    return helper.invoke(this, paramBoolean, paramList);
+  }
+  
+  public void flushGLRunnables()
+  {
+    helper.flushGLRunnables();
+  }
+  
+  public final void setAutoSwapBufferMode(boolean paramBoolean)
+  {
+    helper.setAutoSwapBufferMode(paramBoolean);
+  }
+  
+  public final boolean getAutoSwapBufferMode()
+  {
+    return helper.getAutoSwapBufferMode();
+  }
+  
+  public final void setContextCreationFlags(int paramInt)
+  {
+    additionalCtxCreationFlags = paramInt;
+    GLContextImpl localGLContextImpl = context;
+    if (null != localGLContextImpl) {
+      localGLContextImpl.setContextCreationFlags(additionalCtxCreationFlags);
+    }
+  }
+  
+  public final int getContextCreationFlags()
+  {
+    return additionalCtxCreationFlags;
+  }
+  
+
+
+
+
+
+  public final boolean isThreadGLCapable()
+  {
+    return true;
+  }
+  
+
+
+
+  public final void setUpdateFPSFrames(int paramInt, PrintStream paramPrintStream)
+  {
+    fpsCounter.setUpdateFPSFrames(paramInt, paramPrintStream);
+  }
+  
+  public final void resetFPSCounter()
+  {
+    fpsCounter.resetFPSCounter();
+  }
+  
+  public final int getUpdateFPSFrames()
+  {
+    return fpsCounter.getUpdateFPSFrames();
+  }
+  
+  public final long getFPSStartTime()
+  {
+    return fpsCounter.getFPSStartTime();
+  }
+  
+  public final long getLastFPSUpdateTime()
+  {
+    return fpsCounter.getLastFPSUpdateTime();
+  }
+  
+  public final long getLastFPSPeriod()
+  {
+    return fpsCounter.getLastFPSPeriod();
+  }
+  
+  public final float getLastFPS()
+  {
+    return fpsCounter.getLastFPS();
+  }
+  
+  public final int getTotalFPSFrames()
+  {
+    return fpsCounter.getTotalFPSFrames();
+  }
+  
+  public final long getTotalFPSDuration()
+  {
+    return fpsCounter.getTotalFPSDuration();
+  }
+  
+  public final float getTotalFPS()
+  {
+    return fpsCounter.getTotalFPS();
+  }
+  
+
+
+
+
+  public final GLContext createContext(GLContext paramGLContext)
+  {
+    RecursiveLock localRecursiveLock = getUpstreamLock();
+    localRecursiveLock.lock();
+    try { GLContext localGLContext1;
+      if (drawable != null) {
+        localGLContext1 = drawable.createContext(paramGLContext);
+        localGLContext1.setContextCreationFlags(additionalCtxCreationFlags);
+        return localGLContext1;
+      }
+      return null;
+    } finally {
+      localRecursiveLock.unlock();
+    }
+  }
+  
+  public final void setRealized(boolean paramBoolean)
+  {
+    RecursiveLock localRecursiveLock = getUpstreamLock();
+    localRecursiveLock.lock();
+    try {
+      GLDrawableImpl localGLDrawableImpl = drawable;
+      if ((null == localGLDrawableImpl) || ((paramBoolean) && ((0 >= localGLDrawableImpl.getSurfaceWidth()) || (0 >= localGLDrawableImpl.getSurfaceHeight())))) {
+        return;
+      }
+      localGLDrawableImpl.setRealized(paramBoolean);
+      if ((paramBoolean) && (localGLDrawableImpl.isRealized())) {
+        sendReshape = true;
+      }
+    } finally {
+      localRecursiveLock.unlock();
+    }
+  }
+  
+  public final boolean isRealized()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return null != localGLDrawableImpl ? localGLDrawableImpl.isRealized() : false;
+  }
+  
+  public int getSurfaceWidth()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return null != localGLDrawableImpl ? localGLDrawableImpl.getSurfaceWidth() : 0;
+  }
+  
+  public int getSurfaceHeight()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return null != localGLDrawableImpl ? localGLDrawableImpl.getSurfaceHeight() : 0;
+  }
+  
+  public boolean isGLOriented()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return null != localGLDrawableImpl ? localGLDrawableImpl.isGLOriented() : true;
+  }
+  
+  public final GLCapabilitiesImmutable getChosenGLCapabilities()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return null != localGLDrawableImpl ? localGLDrawableImpl.getChosenGLCapabilities() : null;
+  }
+  
+  public final GLCapabilitiesImmutable getRequestedGLCapabilities()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return null != localGLDrawableImpl ? localGLDrawableImpl.getRequestedGLCapabilities() : null;
+  }
+  
+  public final GLProfile getGLProfile()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return null != localGLDrawableImpl ? localGLDrawableImpl.getGLProfile() : null;
+  }
+  
+  public final NativeSurface getNativeSurface()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return null != localGLDrawableImpl ? localGLDrawableImpl.getNativeSurface() : null;
+  }
+  
+  public final long getHandle()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return null != localGLDrawableImpl ? localGLDrawableImpl.getHandle() : 0L;
+  }
+  
+  protected static String getThreadName() { return Thread.currentThread().getName(); }
+  
+  public String toString()
+  {
+    return getClass().getSimpleName() + "[ \n\tHelper: " + helper + ", \n\tDrawable: " + drawable + ", \n\tContext: " + context + "]";
+  }
+}

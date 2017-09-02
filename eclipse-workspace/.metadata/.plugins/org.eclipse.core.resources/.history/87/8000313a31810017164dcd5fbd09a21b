@@ -1,0 +1,323 @@
+package jogamp.opengl.util.stereo;
+
+import com.jogamp.nativewindow.util.Dimension;
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.Point;
+import com.jogamp.nativewindow.util.PointImmutable;
+import com.jogamp.nativewindow.util.Rectangle;
+import com.jogamp.nativewindow.util.RectangleImmutable;
+import com.jogamp.opengl.math.FovHVHalves;
+import com.jogamp.opengl.util.stereo.EyeParameter;
+import com.jogamp.opengl.util.stereo.LocationSensorParameter;
+import com.jogamp.opengl.util.stereo.StereoDevice;
+import com.jogamp.opengl.util.stereo.StereoDeviceConfig;
+import com.jogamp.opengl.util.stereo.StereoDeviceFactory;
+import com.jogamp.opengl.util.stereo.StereoDeviceRenderer;
+import com.jogamp.opengl.util.stereo.StereoUtil;
+import com.jogamp.opengl.util.stereo.generic.GenericStereoDeviceConfig;
+import com.jogamp.opengl.util.stereo.generic.GenericStereoDeviceFactory;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GenericStereoDevice
+  implements StereoDevice
+{
+  public static final GenericStereoDeviceConfig config01Mono01;
+  public static final GenericStereoDeviceConfig config01Mono02;
+  public static final GenericStereoDeviceConfig config02StereoSBS01;
+  public static final GenericStereoDeviceConfig config02StereoSBS02;
+  public static final GenericStereoDeviceConfig config03StereoSBSLense01;
+  public static final GenericStereoDeviceConfig config03StereoSBSLense02;
+  
+  static
+  {
+    float[] arrayOfFloat1 = { 0.0F, 1.6F, -5.0F };
+    float[] arrayOfFloat2 = { 0.0F, 0.3F, 3.0F };
+    float[] arrayOfFloat3 = { 0.0F, 0.0F, 3.0F };
+    
+    Dimension localDimension1 = new Dimension(1280, 800);
+    float[] arrayOfFloat4 = { 0.14976F, 0.0936F };
+    Dimension localDimension2 = new Dimension(1122, 1553);
+    
+    Dimension localDimension3 = new Dimension(1920, 1080);
+    float[] arrayOfFloat5 = { 0.12576F, 0.07074F };
+    Dimension localDimension4 = new Dimension(1182, 1461);
+    
+
+
+    config01Mono01 = GenericStereoDeviceFactory.createMono("Def01Mono01", localDimension1, arrayOfFloat4, arrayOfFloat3);
+    
+
+
+    config02StereoSBS01 = GenericStereoDeviceFactory.createStereoSBS("Def02StereoSBS01", localDimension1, arrayOfFloat4, 0.0635F, 45.0F, arrayOfFloat2);
+    
+
+
+
+    config03StereoSBSLense01 = GenericStereoDeviceFactory.createStereoSBSLense("Def03StereoSBSLense01", localDimension1, arrayOfFloat4, 0.0635F, 129.0F, localDimension2, arrayOfFloat1);
+    
+
+
+
+
+    config01Mono02 = GenericStereoDeviceFactory.createMono("Def01Mono02", localDimension3, arrayOfFloat5, arrayOfFloat3);
+    
+
+
+    config02StereoSBS02 = GenericStereoDeviceFactory.createStereoSBS("Def02StereoSBS02", localDimension3, arrayOfFloat5, 0.0635F, 45.0F, arrayOfFloat2);
+    
+
+
+
+    config03StereoSBSLense02 = GenericStereoDeviceFactory.createStereoSBSLense("Def03StereoSBSLense02", localDimension3, arrayOfFloat5, 0.0635F, 129.0F, localDimension4, arrayOfFloat1);
+  }
+  
+
+
+
+  private static final GenericStereoDeviceConfig[] configs = { config01Mono01, config02StereoSBS01, config03StereoSBSLense01, config01Mono02, config02StereoSBS02, config03StereoSBSLense02 };
+  
+  private final StereoDeviceFactory factory;
+  
+  public final int deviceIndex;
+  
+  public final GenericStereoDeviceConfig config;
+  
+  public final Point surfacePos;
+  
+  private final FovHVHalves[] defaultEyeFov;
+  
+  private int usedSensorBits;
+  private boolean sensorsStarted = false;
+  
+  public GenericStereoDevice(StereoDeviceFactory paramStereoDeviceFactory, int paramInt, StereoDeviceConfig paramStereoDeviceConfig) {
+    factory = paramStereoDeviceFactory;
+    deviceIndex = paramInt;
+    
+    if ((paramStereoDeviceConfig instanceof GenericStereoDeviceConfig)) {
+      config = ((GenericStereoDeviceConfig)paramStereoDeviceConfig);
+    } else {
+      i = Math.min(paramInt % 10, configs.length - 1);
+      config = (null != configs[i] ? configs[i] : config02StereoSBS01);
+    }
+    config.init();
+    
+    surfacePos = new Point(0, 0);
+    
+    defaultEyeFov = new FovHVHalves[config.defaultEyeParam.length];
+    for (int i = 0; i < defaultEyeFov.length; i++) {
+      defaultEyeFov[i] = config.defaultEyeParam[i].fovhv;
+    }
+    
+
+    usedSensorBits = 0;
+  }
+  
+  public final StereoDeviceFactory getFactory() {
+    return factory;
+  }
+  
+  public String toString()
+  {
+    return "GenericStereoDevice[" + config + ", surfacePos " + surfacePos + ", sensorBits[enabled [" + StereoUtil.sensorBitsToString(getEnabledSensorBits()) + "]]]";
+  }
+  
+  public void setSurfacePosition(int paramInt1, int paramInt2) {
+    surfacePos.set(paramInt1, paramInt2);
+  }
+  
+  public final void dispose()
+  {
+    stopSensors();
+  }
+  
+  public boolean isValid() {
+    return true;
+  }
+  
+  public final PointImmutable getPosition() { return surfacePos; }
+  
+
+  public final DimensionImmutable getSurfaceSize() { return config.surfaceSizeInPixels; }
+  
+  public int getRequiredRotation() { return 0; }
+  
+  public float[] getDefaultEyePositionOffset() {
+    return config.defaultEyeParam[0].positionOffset;
+  }
+  
+  public final FovHVHalves[] getDefaultFOV() { return defaultEyeFov; }
+  
+  public final LocationSensorParameter getLocationSensorParams() {
+    return null;
+  }
+  
+
+
+  public final boolean startSensors(int paramInt1, int paramInt2)
+  {
+    if (!sensorsStarted) {
+      if (paramInt2 != (config.supportedSensorBits & paramInt2))
+      {
+        return false;
+      }
+      if (0 == (config.supportedSensorBits & (paramInt2 | paramInt1)))
+      {
+        return false;
+      }
+      if (startSensorsImpl(true, paramInt1, paramInt2)) {
+        sensorsStarted = true;
+        return true;
+      }
+      return false;
+    }
+    
+
+    return true;
+  }
+  
+
+
+  protected boolean startSensorsImpl(boolean paramBoolean, int paramInt1, int paramInt2)
+  {
+    return false;
+  }
+  
+  public final boolean stopSensors()
+  {
+    if (sensorsStarted) {
+      if (startSensorsImpl(false, 0, 0)) {
+        sensorsStarted = false;
+        usedSensorBits = 0;
+        return true;
+      }
+      return false;
+    }
+    
+
+    return true;
+  }
+  
+  public boolean getSensorsStarted()
+  {
+    return sensorsStarted;
+  }
+  
+  public final int getSupportedSensorBits() {
+    return config.supportedSensorBits;
+  }
+  
+  public final int getEnabledSensorBits()
+  {
+    return usedSensorBits;
+  }
+  
+  public int[] getEyeRenderOrder() {
+    return config.eyeRenderOrder;
+  }
+  
+  public int getSupportedDistortionBits() {
+    return config.supportedDistortionBits;
+  }
+  
+  public int getRecommendedDistortionBits()
+  {
+    return config.recommendedDistortionBits;
+  }
+  
+  public int getMinimumDistortionBits()
+  {
+    return config.minimumDistortionBits;
+  }
+  
+
+
+
+  public final StereoDeviceRenderer createRenderer(int paramInt1, int paramInt2, float[] paramArrayOfFloat, FovHVHalves[] paramArrayOfFovHVHalves, float paramFloat, int paramInt3)
+  {
+    EyeParameter[] arrayOfEyeParameter = new EyeParameter[paramArrayOfFovHVHalves.length];
+    for (int i = 0; i < arrayOfEyeParameter.length; i++) {
+      localObject1 = config.defaultEyeParam[i];
+      arrayOfEyeParameter[i] = new EyeParameter(i, paramArrayOfFloat, paramArrayOfFovHVHalves[i], distNoseToPupilX, distMiddleToPupilY, eyeReliefZ);
+    }
+    
+
+    i = (null != config.distortionMeshProducer) && (0 != paramInt1) ? 1 : 0;
+    
+    Object localObject1 = new RectangleImmutable[arrayOfEyeParameter.length];
+    DimensionImmutable localDimensionImmutable1;
+    Object localObject2; if (1 < arrayOfEyeParameter.length)
+    {
+      localDimensionImmutable1 = config.eyeTextureSizes[0];
+      DimensionImmutable localDimensionImmutable2 = config.eyeTextureSizes[1];
+      int j = Math.max(localDimensionImmutable1.getHeight(), localDimensionImmutable2.getHeight());
+      
+      localObject2 = new Dimension(localDimensionImmutable1.getWidth() + localDimensionImmutable2.getWidth(), j);
+      if (1 == paramInt2)
+      {
+
+        localObject1[0] = new Rectangle(0, 0, localDimensionImmutable1.getWidth(), j);
+        
+        localObject1[1] = new Rectangle(localDimensionImmutable1.getWidth(), 0, localDimensionImmutable2
+          .getWidth(), j);
+      }
+      else if (i != 0)
+      {
+
+
+        localObject1[0] = new Rectangle(0, 0, localDimensionImmutable1.getWidth(), localDimensionImmutable1.getHeight());
+        localObject1[1] = new Rectangle(0, 0, localDimensionImmutable2
+          .getWidth(), localDimensionImmutable2
+          .getHeight());
+
+      }
+      else
+      {
+        localObject1[0] = new Rectangle(0, 0, localDimensionImmutable1.getWidth(), localDimensionImmutable1.getHeight());
+        localObject1[1] = new Rectangle(localDimensionImmutable1.getWidth(), 0, localDimensionImmutable2
+          .getWidth(), localDimensionImmutable2
+          .getHeight());
+      }
+    }
+    else {
+      localDimensionImmutable1 = config.eyeTextureSizes[0];
+      localObject2 = localDimensionImmutable1;
+      localObject1[0] = new Rectangle(0, 0, localDimensionImmutable1.getWidth(), localDimensionImmutable1.getHeight());
+    }
+    return new GenericStereoDeviceRenderer(this, paramInt1, paramInt2, paramArrayOfFloat, arrayOfEyeParameter, paramFloat, paramInt3, config.eyeTextureSizes, (DimensionImmutable)localObject2, (RectangleImmutable[])localObject1);
+  }
+  
+  public final void resetLocationSensorOrigin() {}
+}

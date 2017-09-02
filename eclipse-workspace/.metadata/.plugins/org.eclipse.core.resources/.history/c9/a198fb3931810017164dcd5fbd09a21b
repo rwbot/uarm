@@ -1,0 +1,63 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+public class CvtTable
+  implements Table
+{
+  private final DirectoryEntry de;
+  private final short[] values;
+  
+  protected CvtTable(DirectoryEntry paramDirectoryEntry, DataInput paramDataInput)
+    throws IOException
+  {
+    de = ((DirectoryEntry)paramDirectoryEntry.clone());
+    int i = paramDirectoryEntry.getLength() / 2;
+    values = new short[i];
+    for (int j = 0; j < i; j++) {
+      values[j] = paramDataInput.readShort();
+    }
+  }
+  
+  public int getType()
+  {
+    return 1668707360;
+  }
+  
+  public short[] getValues() {
+    return values;
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("'cvt ' Table - Control Value Table\n----------------------------------\n");
+    localStringBuilder.append("Size = ").append(0).append(" bytes, ").append(values.length).append(" entries\n");
+    localStringBuilder.append("        Values\n        ------\n");
+    for (int i = 0; i < values.length; i++) {
+      localStringBuilder.append("        ").append(i).append(": ").append(values[i]).append("\n");
+    }
+    return localStringBuilder.toString();
+  }
+  
+
+
+
+
+
+
+  public DirectoryEntry getDirectoryEntry()
+  {
+    return de;
+  }
+}

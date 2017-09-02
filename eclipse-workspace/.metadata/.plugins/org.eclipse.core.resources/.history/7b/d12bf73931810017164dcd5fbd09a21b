@@ -1,0 +1,456 @@
+package com.jogamp.opengl.util.texture.spi;
+
+import com.jogamp.common.util.IOUtil;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLProfile;
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class TGAImage
+{
+  private final Header header;
+  private int format;
+  private int bpp;
+  private ByteBuffer data;
+  
+  private TGAImage(Header paramHeader)
+  {
+    header = paramHeader;
+  }
+  
+
+  public static class Header
+  {
+    public static final int TYPE_NEW = 0;
+    
+    public static final int TYPE_OLD = 1;
+    
+    public static final int TYPE_UNK = 2;
+    
+    public static final int NO_IMAGE = 0;
+    
+    public static final int UCOLORMAPPED = 1;
+    
+    public static final int UTRUECOLOR = 2;
+    
+    public static final int UBLACKWHITE = 3;
+    
+    public static final int COLORMAPPED = 9;
+    
+    public static final int TRUECOLOR = 10;
+    
+    public static final int BLACKWHITE = 11;
+    
+    public static final int ID_ATTRIBPERPIXEL = 15;
+    
+    public static final int ID_RIGHTTOLEFT = 16;
+    
+    public static final int ID_TOPTOBOTTOM = 32;
+    
+    public static final int ID_INTERLEAVE = 192;
+    
+    public static final int I_NOTINTERLEAVED = 0;
+    
+    public static final int I_TWOWAY = 1;
+    
+    public static final int I_FOURWAY = 2;
+    
+    private final int tgaType;
+    
+    private int idLength;
+    
+    private int colorMapType;
+    
+    private int imageType;
+    
+    private int firstEntryIndex;
+    private int colorMapLength;
+    private byte colorMapEntrySize;
+    private int xOrigin;
+    private int yOrigin;
+    private int width;
+    private int height;
+    private byte pixelDepth;
+    private byte imageDescriptor;
+    private byte[] imageIDbuf;
+    private String imageID;
+    
+    Header()
+    {
+      tgaType = 1;
+    }
+    
+    Header(LEDataInputStream paramLEDataInputStream) throws IOException {
+      tgaType = 1;
+      
+
+      idLength = paramLEDataInputStream.readUnsignedByte();
+      colorMapType = paramLEDataInputStream.readUnsignedByte();
+      imageType = paramLEDataInputStream.readUnsignedByte();
+      
+
+      firstEntryIndex = paramLEDataInputStream.readUnsignedShort();
+      colorMapLength = paramLEDataInputStream.readUnsignedShort();
+      colorMapEntrySize = paramLEDataInputStream.readByte();
+      
+
+      xOrigin = paramLEDataInputStream.readUnsignedShort();
+      yOrigin = paramLEDataInputStream.readUnsignedShort();
+      width = paramLEDataInputStream.readUnsignedShort();
+      height = paramLEDataInputStream.readUnsignedShort();
+      pixelDepth = paramLEDataInputStream.readByte();
+      imageDescriptor = paramLEDataInputStream.readByte();
+      
+      if (idLength > 0) {
+        imageIDbuf = new byte[idLength];
+        paramLEDataInputStream.read(imageIDbuf, 0, idLength);
+        imageID = new String(imageIDbuf, "US-ASCII");
+      }
+    }
+    
+    public int tgaType() { return tgaType; }
+    
+
+    public int idLength() { return idLength; }
+    public int colorMapType() { return colorMapType; }
+    public int imageType() { return imageType; }
+    
+
+    public int firstEntryIndex() { return firstEntryIndex; }
+    public int colorMapLength() { return colorMapLength; }
+    public byte colorMapEntrySize() { return colorMapEntrySize; }
+    
+
+    public int xOrigin() { return xOrigin; }
+    public int yOrigin() { return yOrigin; }
+    public int width() { return width; }
+    public int height() { return height; }
+    public byte pixelDepth() { return pixelDepth; }
+    public byte imageDescriptor() { return imageDescriptor; }
+    
+
+    public byte attribPerPixel() { return (byte)(imageDescriptor & 0xF); }
+    public boolean rightToLeft() { return (imageDescriptor & 0x10) != 0; }
+    public boolean topToBottom() { return (imageDescriptor & 0x20) != 0; }
+    public byte interleave() { return (byte)((imageDescriptor & 0xC0) >> 6); }
+    
+    public byte[] imageIDbuf() { return imageIDbuf; }
+    public String imageID() { return imageID; }
+    
+    public String toString()
+    {
+      return "TGA Header  id length: " + idLength + " color map type: " + colorMapType + " image type: " + imageType + " first entry index: " + firstEntryIndex + " color map length: " + colorMapLength + " color map entry size: " + colorMapEntrySize + " x Origin: " + xOrigin + " y Origin: " + yOrigin + " width: " + width + " height: " + height + " pixel depth: " + pixelDepth + " image descriptor: " + imageDescriptor + (imageIDbuf == null ? "" : new StringBuilder().append(" ID String: ").append(imageID).toString());
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+    public int size()
+    {
+      return 18 + idLength;
+    }
+    
+    private void write(ByteBuffer paramByteBuffer) {
+      paramByteBuffer.put((byte)idLength);
+      paramByteBuffer.put((byte)colorMapType);
+      paramByteBuffer.put((byte)imageType);
+      paramByteBuffer.putShort((short)firstEntryIndex);
+      paramByteBuffer.putShort((short)colorMapLength);
+      paramByteBuffer.put(colorMapEntrySize);
+      paramByteBuffer.putShort((short)xOrigin);
+      paramByteBuffer.putShort((short)yOrigin);
+      paramByteBuffer.putShort((short)width);
+      paramByteBuffer.putShort((short)height);
+      paramByteBuffer.put(pixelDepth);
+      paramByteBuffer.put(imageDescriptor);
+      if (idLength > 0) {
+        try {
+          byte[] arrayOfByte = imageID.getBytes("US-ASCII");
+          paramByteBuffer.put(arrayOfByte);
+        } catch (UnsupportedEncodingException localUnsupportedEncodingException) {
+          throw new RuntimeException(localUnsupportedEncodingException);
+        }
+      }
+    }
+  }
+  
+
+
+
+
+  private void decodeImage(GLProfile paramGLProfile, LEDataInputStream paramLEDataInputStream)
+    throws IOException
+  {
+    switch (header.imageType()) {
+    case 1: 
+      throw new IOException("TGADecoder Uncompressed Colormapped images not supported");
+    
+    case 2: 
+      switch (header.pixelDepth) {
+      case 16: 
+        throw new IOException("TGADecoder Compressed 16-bit True Color images not supported");
+      
+      case 24: 
+      case 32: 
+        decodeRGBImageU24_32(paramGLProfile, paramLEDataInputStream);
+      }
+      
+      break;
+    
+    case 3: 
+      throw new IOException("TGADecoder Uncompressed Grayscale images not supported");
+    
+    case 9: 
+      throw new IOException("TGADecoder Compressed Colormapped images not supported");
+    
+    case 10: 
+      switch (header.pixelDepth) {
+      case 16: 
+        throw new IOException("TGADecoder Compressed 16-bit True Color images not supported");
+      
+      case 24: 
+      case 32: 
+        decodeRGBImageRLE24_32(paramGLProfile, paramLEDataInputStream);
+      }
+      
+      break;
+    
+    case 11: 
+      throw new IOException("TGADecoder Compressed Grayscale images not supported");
+    }
+    
+  }
+  
+
+  private void decodeRGBImageU24_32(GLProfile paramGLProfile, LEDataInputStream paramLEDataInputStream)
+    throws IOException
+  {
+    setupImage24_32(paramGLProfile);
+    
+
+
+    int k = header.width() * bpp;
+    byte[] arrayOfByte1 = new byte[k];
+    byte[] arrayOfByte2 = new byte[k * header.height()];
+    
+    for (int i = 0; i < header.height(); i++) {
+      paramLEDataInputStream.readFully(arrayOfByte1, 0, k);
+      int j;
+      if (header.topToBottom()) {
+        j = header.height - i - 1;
+      } else {
+        j = i;
+      }
+      System.arraycopy(arrayOfByte1, 0, arrayOfByte2, j * k, arrayOfByte1.length);
+    }
+    
+    if ((format == 6407) || (format == 6408))
+      swapBGR(arrayOfByte2, k, header.height(), bpp);
+    data = ByteBuffer.wrap(arrayOfByte2);
+  }
+  
+
+
+  private void decodeRGBImageRLE24_32(GLProfile paramGLProfile, LEDataInputStream paramLEDataInputStream)
+    throws IOException
+  {
+    setupImage24_32(paramGLProfile);
+    
+    byte[] arrayOfByte1 = new byte[bpp];
+    int i = header.width() * bpp;
+    byte[] arrayOfByte2 = new byte[i * header.height()];
+    int j = 0;
+    
+    while (j < arrayOfByte2.length) {
+      int m = paramLEDataInputStream.readUnsignedByte();
+      int n = (m & 0x7F) + 1;
+      if ((m & 0x80) != 0) {
+        paramLEDataInputStream.read(arrayOfByte1);
+        for (int k = 0; k < n; k++)
+          System.arraycopy(arrayOfByte1, 0, arrayOfByte2, j + k * bpp, bpp);
+      }
+      paramLEDataInputStream.read(arrayOfByte2, j, n * bpp);
+      j += bpp * n;
+    }
+    
+    if ((format == 6407) || (format == 6408))
+      swapBGR(arrayOfByte2, i, header.height(), bpp);
+    data = ByteBuffer.wrap(arrayOfByte2);
+  }
+  
+  private void setupImage24_32(GLProfile paramGLProfile) {
+    bpp = (header.pixelDepth / 8);
+    switch (header.pixelDepth) {
+    case 24: 
+      format = (paramGLProfile.isGL2GL3() ? 32992 : 6407);
+      break;
+    case 32: 
+      boolean bool = paramGLProfile.isGL2GL3();
+      if (!bool) {
+        GLContext localGLContext = GLContext.getCurrent();
+        bool = (null != localGLContext) && (localGLContext.isTextureFormatBGRA8888Available());
+      }
+      format = (bool ? 32993 : 6408);
+      break;
+    default: 
+      if (!$assertionsDisabled) throw new AssertionError();
+      break;
+    }
+  }
+  
+  private static void swapBGR(byte[] paramArrayOfByte, int paramInt1, int paramInt2, int paramInt3)
+  {
+    for (int m = 0; m < paramInt2; m++) {
+      for (int n = 0; n < paramInt1; n += paramInt3) {
+        int k = m * paramInt1 + n;
+        int j = paramArrayOfByte[(k + 0)];
+        int i = paramArrayOfByte[(k + 2)];
+        paramArrayOfByte[(k + 0)] = i;
+        paramArrayOfByte[(k + 2)] = j;
+      }
+    }
+  }
+  
+  public int getWidth() {
+    return header.width();
+  }
+  
+  public int getHeight() { return header.height(); }
+  
+  public int getGLFormat() {
+    return format;
+  }
+  
+  public int getBytesPerPixel() { return bpp; }
+  
+  public ByteBuffer getData()
+  {
+    return data;
+  }
+  
+  public static TGAImage read(GLProfile paramGLProfile, String paramString) throws IOException {
+    return read(paramGLProfile, new FileInputStream(paramString));
+  }
+  
+  public static TGAImage read(GLProfile paramGLProfile, InputStream paramInputStream) throws IOException
+  {
+    LEDataInputStream localLEDataInputStream = new LEDataInputStream(new BufferedInputStream(paramInputStream));
+    
+    Header localHeader = new Header(localLEDataInputStream);
+    TGAImage localTGAImage = new TGAImage(localHeader);
+    localTGAImage.decodeImage(paramGLProfile, localLEDataInputStream);
+    return localTGAImage;
+  }
+  
+  public void write(String paramString) throws IOException
+  {
+    write(new File(paramString));
+  }
+  
+  public void write(File paramFile) throws IOException
+  {
+    FileOutputStream localFileOutputStream = IOUtil.getFileOutputStream(paramFile, true);
+    FileChannel localFileChannel = localFileOutputStream.getChannel();
+    ByteBuffer localByteBuffer = ByteBuffer.allocate(header.size());
+    localByteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+    header.write(localByteBuffer);
+    localByteBuffer.rewind();
+    localFileChannel.write(localByteBuffer);
+    localFileChannel.write(data);
+    localFileChannel.force(true);
+    localFileChannel.close();
+    localFileOutputStream.close();
+    data.rewind();
+  }
+  
+
+
+
+
+
+
+
+  public static TGAImage createFromData(int paramInt1, int paramInt2, boolean paramBoolean1, boolean paramBoolean2, ByteBuffer paramByteBuffer)
+  {
+    Header localHeader = new Header();
+    imageType = 2;
+    width = paramInt1;
+    height = paramInt2;
+    pixelDepth = ((byte)(paramBoolean1 ? 32 : 24));
+    imageDescriptor = ((byte)(paramBoolean2 ? 32 : 0));
+    
+    TGAImage localTGAImage = new TGAImage(localHeader);
+    data = paramByteBuffer;
+    return localTGAImage;
+  }
+}

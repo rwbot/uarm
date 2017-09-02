@@ -1,0 +1,59 @@
+package com.jogamp.opengl.util.glsl.sdk;
+
+import com.jogamp.opengl.GLException;
+import java.io.File;
+
+
+
+
+public class CompileShaderNVidia
+  extends CompileShader
+{
+  private static final String NVAPSDK;
+  
+  static
+  {
+    String str = System.getProperty("NVAPSDK");
+    if (str != null) {
+      NVAPSDK = str;
+    } else {
+      NVAPSDK = "C:\\nvap_sdk_0_3_x";
+    }
+  }
+  
+  public int getBinaryFormat()
+  {
+    return 35083;
+  }
+  
+  public File getSDKCompilerDir()
+  {
+    File localFile1 = new File(NVAPSDK + File.separator + "tools" + File.separator);
+    File localFile2 = new File(localFile1, getVertexShaderCompiler());
+    if (!localFile2.exists()) {
+      localFile1 = new File(NVAPSDK);
+      localFile2 = new File(localFile1, getVertexShaderCompiler());
+    }
+    if (!localFile2.exists()) {
+      throw new GLException("Can't find compiler: " + getVertexShaderCompiler() + " in : " + NVAPSDK + ", " + NVAPSDK + File.separator + "tools");
+    }
+    
+    return localFile1;
+  }
+  
+  public String getVertexShaderCompiler()
+  {
+    return "glslv.bat";
+  }
+  
+  public String getFragmentShaderCompiler()
+  {
+    return "glslf.bat";
+  }
+  
+  public static void main(String[] paramArrayOfString) {
+    new CompileShaderNVidia().run(paramArrayOfString);
+  }
+  
+  public CompileShaderNVidia() {}
+}

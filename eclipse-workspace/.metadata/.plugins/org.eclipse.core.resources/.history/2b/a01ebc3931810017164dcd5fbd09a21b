@@ -1,0 +1,114 @@
+package g4p_controls;
+
+import java.awt.Color;
+import java.awt.Graphics2D;
+import processing.awt.PGraphicsJava2D;
+import processing.core.PApplet;
+
+public class GSlider
+  extends GLinearTrackControl
+{
+  static int BACK = 6;
+  static int TOFF = 3;
+  static int TOVER = 11;
+  static int TDOWN = 14;
+  static int TDRAG = 15;
+  
+  public GSlider(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5)
+  {
+    super(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+    trackWidth = paramFloat5;
+    trackDisplayLength = (width - 2.0F * TINSET);
+    trackLength = (trackDisplayLength - trackWidth);
+    trackOffset = calcTrackOffset();
+    hotspots = new HotSpot[] { new HotSpot.HScircle(THUMB_SPOT, width / 2.0F + (parametricPos - 0.5F) * trackLength, height / 2.0F, trackWidth / 2.0F), new HotSpot.HSrect(TRACK_SPOT, (width - trackLength) / 2.0F, (height - trackWidth) / 2.0F, trackLength, trackWidth) };
+    z = 24;
+    epsilon = 0.98F / trackLength;
+    ssStartLimit = new StyledString("0.00");
+    ssEndLimit = new StyledString("1.00");
+    ssValue = new StyledString("0.50");
+    createEventHandler(G4P.sketchWindow, "handleSliderEvents", new Class[] { GValueControl.class, GEvent.class }, new String[] { "slider", "event" });
+    registeredMethods = 7;
+    cursorOver = 12;
+    G4P.registerControl(this);
+  }
+  
+  protected void updateDueToValueChanging()
+  {
+    hotspots[0].x = (width / 2.0F + (parametricPos - 0.5F) * trackLength);
+  }
+  
+  public void setEnabled(boolean paramBoolean)
+  {
+    super.setEnabled(paramBoolean);
+    if (!paramBoolean) {
+      status = 0;
+    }
+  }
+  
+  protected void updateBuffer()
+  {
+    if (bufferInvalid)
+    {
+      bufferInvalid = false;
+      buffer.beginDraw();
+      Graphics2D localGraphics2D = buffer.g2;
+      localGraphics2D.setFont(localFont);
+      buffer.rectMode(3);
+      buffer.ellipseMode(3);
+      buffer.background(opaque ? palette[6].getRGB() : palette[2].getRGB() & 0xFFFFFF);
+      buffer.pushMatrix();
+      buffer.translate(width / 2.0F, height / 2.0F);
+      if (showTicks)
+      {
+        float f1 = 1.0F / (nbrTicks - 1);
+        for (int i = 0; i < nbrTicks; i++)
+        {
+          float f2 = (i * f1 - 0.5F) * trackLength;
+          buffer.strokeWeight(2.0F);
+          buffer.stroke(palette[4].getRGB());
+          buffer.line(f2, -trackWidth, f2, trackWidth);
+          buffer.strokeWeight(1.2F);
+          buffer.stroke(palette[1].getRGB());
+          buffer.line(f2, -trackWidth, f2, trackWidth);
+        }
+      }
+      buffer.fill(palette[5].getRGB());
+      buffer.stroke(palette[3].getRGB());
+      buffer.strokeWeight(2.0F);
+      buffer.rect(0.0F, 0.0F, trackDisplayLength, trackWidth, trackWidth);
+      switch (status)
+      {
+      case 0: 
+        buffer.fill(palette[TOFF].getRGB());
+        break;
+      case 1: 
+        buffer.fill(palette[TOVER].getRGB());
+        break;
+      case 2: 
+        buffer.fill(palette[TDOWN].getRGB());
+        break;
+      case 3: 
+        buffer.fill(palette[TDRAG].getRGB());
+      }
+      buffer.noStroke();
+      buffer.ellipse((parametricPos - 0.5F) * trackLength, 0.0F, trackWidth, trackWidth);
+      localGraphics2D.setColor(palette[2]);
+      if (labels != null)
+      {
+        drawLabels(localGraphics2D);
+      }
+      else
+      {
+        if (showLimits) {
+          drawLimits(localGraphics2D);
+        }
+        if (showValue) {
+          drawValue(localGraphics2D);
+        }
+      }
+      buffer.popMatrix();
+      buffer.endDraw();
+    }
+  }
+}

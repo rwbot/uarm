@@ -1,0 +1,254 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+import java.io.PrintStream;
+import jogamp.graph.font.typecast.ot.Disassembler;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GlyfSimpleDescript
+  extends GlyfDescript
+{
+  private final int[] _endPtsOfContours;
+  private final byte[] _flags;
+  private final short[] _xCoordinates;
+  private final short[] _yCoordinates;
+  private final int _count;
+  
+  public GlyfSimpleDescript(GlyfTable paramGlyfTable, int paramInt, short paramShort, DataInput paramDataInput)
+    throws IOException
+  {
+    super(paramGlyfTable, paramInt, paramShort, paramDataInput);
+    
+
+    _endPtsOfContours = new int[paramShort];
+    for (short s = 0; s < paramShort; s++) {
+      _endPtsOfContours[s] = paramDataInput.readShort();
+    }
+    
+
+    _count = (_endPtsOfContours[(paramShort - 1)] + 1);
+    _flags = new byte[_count];
+    _xCoordinates = new short[_count];
+    _yCoordinates = new short[_count];
+    
+    s = paramDataInput.readShort();
+    readInstructions(paramDataInput, s);
+    readFlags(_count, paramDataInput);
+    readCoords(_count, paramDataInput);
+  }
+  
+  public int getEndPtOfContours(int paramInt)
+  {
+    return _endPtsOfContours[paramInt];
+  }
+  
+  public byte getFlags(int paramInt)
+  {
+    return _flags[paramInt];
+  }
+  
+  public short getXCoordinate(int paramInt)
+  {
+    return _xCoordinates[paramInt];
+  }
+  
+  public short getYCoordinate(int paramInt)
+  {
+    return _yCoordinates[paramInt];
+  }
+  
+  public boolean isComposite()
+  {
+    return false;
+  }
+  
+  public int getPointCount()
+  {
+    return _count;
+  }
+  
+  public int getContourCount()
+  {
+    return getNumberOfContours();
+  }
+  
+
+
+
+
+
+
+
+
+
+  private void readCoords(int paramInt, DataInput paramDataInput)
+    throws IOException
+  {
+    int i = 0;
+    int j = 0;
+    for (int k = 0; k < paramInt; k++) {
+      if ((_flags[k] & 0x10) != 0) {
+        if ((_flags[k] & 0x2) != 0) {
+          i = (short)(i + (short)paramDataInput.readUnsignedByte());
+        }
+      }
+      else if ((_flags[k] & 0x2) != 0) {
+        i = (short)(i + (short)-(short)paramDataInput.readUnsignedByte());
+      } else {
+        i = (short)(i + paramDataInput.readShort());
+      }
+      
+      _xCoordinates[k] = i;
+    }
+    
+    for (k = 0; k < paramInt; k++) {
+      if ((_flags[k] & 0x20) != 0) {
+        if ((_flags[k] & 0x4) != 0) {
+          j = (short)(j + (short)paramDataInput.readUnsignedByte());
+        }
+      }
+      else if ((_flags[k] & 0x4) != 0) {
+        j = (short)(j + (short)-(short)paramDataInput.readUnsignedByte());
+      } else {
+        j = (short)(j + paramDataInput.readShort());
+      }
+      
+      _yCoordinates[k] = j;
+    }
+  }
+  
+  private void readFlags(int paramInt, DataInput paramDataInput)
+    throws IOException
+  {
+    try
+    {
+      for (int i = 0; i < paramInt; i++) {
+        _flags[i] = paramDataInput.readByte();
+        if ((_flags[i] & 0x8) != 0) {
+          int j = paramDataInput.readByte();
+          for (int k = 1; k <= j; k++) {
+            _flags[(i + k)] = _flags[i];
+          }
+          i += j;
+        }
+      }
+    } catch (ArrayIndexOutOfBoundsException localArrayIndexOutOfBoundsException) {
+      System.out.println("error: array index out of bounds");
+    }
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append(super.toString());
+    localStringBuilder.append("\n\n        EndPoints\n        ---------");
+    for (int i = 0; i < _endPtsOfContours.length; i++) {
+      localStringBuilder.append("\n          ").append(i).append(": ").append(_endPtsOfContours[i]);
+    }
+    localStringBuilder.append("\n\n          Length of Instructions: ");
+    localStringBuilder.append(getInstructions().length).append("\n");
+    localStringBuilder.append(Disassembler.disassemble(getInstructions(), 8));
+    localStringBuilder.append("\n        Flags\n        -----");
+    for (i = 0; i < _flags.length; i++) {
+      localStringBuilder.append("\n          ").append(i).append(":  ");
+      if ((_flags[i] & 0x20) != 0) {
+        localStringBuilder.append("YDual ");
+      } else {
+        localStringBuilder.append("      ");
+      }
+      if ((_flags[i] & 0x10) != 0) {
+        localStringBuilder.append("XDual ");
+      } else {
+        localStringBuilder.append("      ");
+      }
+      if ((_flags[i] & 0x8) != 0) {
+        localStringBuilder.append("Repeat ");
+      } else {
+        localStringBuilder.append("       ");
+      }
+      if ((_flags[i] & 0x4) != 0) {
+        localStringBuilder.append("Y-Short ");
+      } else {
+        localStringBuilder.append("        ");
+      }
+      if ((_flags[i] & 0x2) != 0) {
+        localStringBuilder.append("X-Short ");
+      } else {
+        localStringBuilder.append("        ");
+      }
+      if ((_flags[i] & 0x1) != 0) {
+        localStringBuilder.append("On");
+      } else {
+        localStringBuilder.append("  ");
+      }
+    }
+    localStringBuilder.append("\n\n        Coordinates\n        -----------");
+    i = 0;
+    int j = 0;
+    for (int k = 0; k < _xCoordinates.length; k++)
+    {
+
+
+
+      localStringBuilder.append("\n          ").append(k).append(": Rel (").append(_xCoordinates[k] - i).append(", ").append(_yCoordinates[k] - j).append(")  ->  Abs (").append(_xCoordinates[k]).append(", ").append(_yCoordinates[k]).append(")");
+      i = _xCoordinates[k];
+      j = _yCoordinates[k];
+    }
+    return localStringBuilder.toString();
+  }
+}

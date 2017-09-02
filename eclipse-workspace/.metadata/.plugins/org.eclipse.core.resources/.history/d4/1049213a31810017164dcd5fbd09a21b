@@ -1,0 +1,302 @@
+package jogamp.opengl;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.util.InterruptSource.Thread;
+import com.jogamp.common.util.InterruptedRuntimeException;
+import com.jogamp.opengl.GLContext;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLWorkerThread
+{
+  private static volatile boolean started;
+  private static volatile Thread thread;
+  private static Object lock;
+  private static volatile boolean shouldTerminate;
+  private static volatile Throwable exception;
+  private static volatile Runnable work;
+  private static List<Runnable> queue = new ArrayList();
+  
+
+  public GLWorkerThread() {}
+  
+
+  public static void start()
+  {
+    if (!started) {
+      synchronized (GLWorkerThread.class) {
+        if (!started) {
+          lock = new Object();
+          WorkerRunnable localWorkerRunnable = new WorkerRunnable();
+          thread = new InterruptSource.Thread(null, localWorkerRunnable, "JOGL-GLWorkerThread-");
+          thread.setDaemon(true);
+          started = true;
+          synchronized (lock) {
+            thread.start();
+            try {
+              while (!isRunning) {
+                lock.wait();
+              }
+            } catch (InterruptedException localInterruptedException) {
+              throw new InterruptedRuntimeException(localInterruptedException);
+
+
+
+
+
+
+
+
+
+
+
+
+            }
+            
+
+
+
+
+
+
+
+
+
+
+
+
+          }
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+        }
+        else
+        {
+
+
+
+
+
+
+
+
+
+
+
+
+          throw new RuntimeException(getThreadName() + ": Should not start GLWorkerThread twice");
+        }
+      }
+    }
+  }
+  
+  public static void invoke(boolean paramBoolean, Runnable paramRunnable) throws InvocationTargetException, InterruptedException
+  {
+    if (paramBoolean) {
+      invokeAndWait(paramRunnable);
+    } else {
+      invokeLater(paramRunnable);
+    }
+  }
+  
+  public static void invokeAndWait(Runnable paramRunnable) throws InvocationTargetException, InterruptedException
+  {
+    if (!started) {
+      throw new RuntimeException(getThreadName() + ": May not invokeAndWait on worker thread without starting it first");
+    }
+    
+    Object localObject1 = lock;
+    if (localObject1 == null) {
+      return;
+    }
+    
+    synchronized (localObject1) {
+      if (thread == null)
+      {
+        return;
+      }
+      
+      work = paramRunnable;
+      localObject1.notifyAll();
+      while (null != work) {
+        localObject1.wait();
+      }
+      if (exception != null) {
+        Throwable localThrowable = exception;
+        exception = null;
+        throw new InvocationTargetException(localThrowable);
+      }
+    }
+  }
+  
+  public static void invokeLater(Runnable paramRunnable) {
+    if (!started) {
+      throw new RuntimeException(getThreadName() + ": May not invokeLater on worker thread without starting it first");
+    }
+    
+    Object localObject1 = lock;
+    if (localObject1 == null) {
+      return;
+    }
+    
+    synchronized (localObject1) {
+      if (thread == null)
+      {
+        return;
+      }
+      
+      queue.add(paramRunnable);
+      localObject1.notifyAll();
+    }
+  }
+  
+
+  public static boolean isStarted()
+  {
+    return started;
+  }
+  
+
+  public static boolean isWorkerThread()
+  {
+    return Thread.currentThread() == thread;
+  }
+  
+  protected static String getThreadName() { return Thread.currentThread().getName(); }
+  
+  static class WorkerRunnable implements Runnable {
+    volatile boolean isRunning = false;
+    
+    WorkerRunnable() {}
+    
+    public void run() {
+      synchronized (GLWorkerThread.lock) {
+        isRunning = true;
+        GLWorkerThread.lock.notifyAll();
+      }
+      
+      while (!GLWorkerThread.shouldTerminate) {
+        synchronized (GLWorkerThread.lock) {
+          while ((!GLWorkerThread.shouldTerminate) && 
+            (GLWorkerThread.work == null) && 
+            (GLWorkerThread.queue.isEmpty()))
+          {
+            try {
+              GLWorkerThread.lock.wait(1000L);
+            } catch (InterruptedException localInterruptedException) {
+              throw new InterruptedRuntimeException(localInterruptedException);
+            }
+            
+            if (GLContext.getCurrent() != null) {
+              break;
+            }
+          }
+          
+
+          if (GLWorkerThread.shouldTerminate) {
+            GLWorkerThread.lock.notifyAll();
+            GLWorkerThread.access$402(null);
+            GLWorkerThread.access$002(null);
+            return;
+          }
+          
+          if (GLWorkerThread.work != null) {
+            try {
+              GLWorkerThread.work.run();
+            } catch (Throwable localThrowable1) {
+              GLWorkerThread.access$502(localThrowable1);
+            } finally {
+              GLWorkerThread.access$202(null);
+              GLWorkerThread.lock.notifyAll();
+            }
+          }
+          
+          while (!GLWorkerThread.queue.isEmpty()) {
+            try {
+              Runnable localRunnable = (Runnable)GLWorkerThread.queue.remove(0);
+              localRunnable.run();
+            } catch (Throwable localThrowable2) {
+              ExceptionUtils.dumpThrowable("suppressed", localThrowable2);
+            }
+          }
+          
+
+          GLContext localGLContext = GLContext.getCurrent();
+          if ((localGLContext != null) && ((localGLContext instanceof GLContextImpl)))
+          {
+            GLContextImpl localGLContextImpl = (GLContextImpl)localGLContext;
+            if (localGLContextImpl.hasWaiters()) {
+              localGLContextImpl.release();
+            }
+          }
+        }
+      }
+      isRunning = false;
+    }
+  }
+}

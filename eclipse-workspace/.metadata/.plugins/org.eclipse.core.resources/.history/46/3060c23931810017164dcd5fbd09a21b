@@ -1,0 +1,372 @@
+package g4p_controls;
+
+import java.awt.Graphics2D;
+import java.awt.font.TextLayout;
+import java.util.Iterator;
+import java.util.LinkedList;
+import processing.awt.PGraphicsJava2D;
+import processing.core.PApplet;
+import processing.core.PImage;
+
+public abstract class GTextIconBase
+  extends GTextBase
+{
+  protected float PAD = 2.0F;
+  protected float GUTTER = 4.0F;
+  protected Zone textZone = new Zone();
+  protected GAlign textAlignH = GAlign.LEFT;
+  protected GAlign textAlignV = GAlign.MIDDLE;
+  protected Zone iconZone = new Zone();
+  protected GAlign iconAlignH = GAlign.CENTER;
+  protected GAlign iconAlignV = GAlign.MIDDLE;
+  protected GIcon icon = null;
+  protected int iconW = 0;
+  protected int iconH = 0;
+  protected float iconX;
+  protected float iconY;
+  protected GAlign iconPos = GAlign.WEST;
+  
+  public GTextIconBase(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    super(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+  }
+  
+  protected void calcZones()
+  {
+    boolean bool1 = icon != null;
+    boolean bool2 = stext.length() != 0;
+    calcZones(bool1, bool2);
+  }
+  
+  protected void calcZones(boolean paramBoolean)
+  {
+    boolean bool = icon != null;
+    calcZones(bool, paramBoolean);
+  }
+  
+  protected void calcZones(boolean paramBoolean1, boolean paramBoolean2)
+  {
+    fixIconZone(paramBoolean1, paramBoolean2);
+    fixTextZone(paramBoolean1, paramBoolean2);
+    bufferInvalid = true;
+  }
+  
+  public void setIconPos(GAlign paramGAlign)
+  {
+    if ((paramGAlign != null) && (paramGAlign.isPosAlign()))
+    {
+      iconPos = paramGAlign;
+      calcZones();
+    }
+  }
+  
+  public void setIconAlign(GAlign paramGAlign1, GAlign paramGAlign2)
+  {
+    if (icon != null)
+    {
+      if ((paramGAlign1 != null) && (paramGAlign1.isHorzAlign())) {
+        iconAlignH = paramGAlign1;
+      }
+      if ((paramGAlign2 != null) && (paramGAlign2.isVertAlign())) {
+        iconAlignV = paramGAlign2;
+      }
+      calcIconPosInZone();
+      bufferInvalid = true;
+    }
+  }
+  
+  public void setIcon(String paramString, int paramInt)
+  {
+    PImage localPImage = ImageManager.loadImage(winApp, paramString);
+    GIcon localGIcon = new GIcon(winApp, localPImage, paramInt, 1);
+    implSetIcon(localGIcon, null, null, null);
+  }
+  
+  public void setIcon(String paramString, int paramInt, GAlign paramGAlign1, GAlign paramGAlign2)
+  {
+    PImage localPImage = ImageManager.loadImage(winApp, paramString);
+    GIcon localGIcon = new GIcon(winApp, localPImage, paramInt, 1);
+    implSetIcon(localGIcon, null, paramGAlign1, paramGAlign2);
+  }
+  
+  public void setIcon(String paramString, int paramInt, GAlign paramGAlign1, GAlign paramGAlign2, GAlign paramGAlign3)
+  {
+    PImage localPImage = ImageManager.loadImage(winApp, paramString);
+    GIcon localGIcon = new GIcon(winApp, localPImage, paramInt, 1);
+    implSetIcon(localGIcon, paramGAlign1, paramGAlign2, paramGAlign3);
+  }
+  
+  public void setIcon(PImage paramPImage, int paramInt, GAlign paramGAlign1, GAlign paramGAlign2)
+  {
+    GIcon localGIcon = new GIcon(winApp, paramPImage, paramInt, 1);
+    implSetIcon(localGIcon, null, paramGAlign1, paramGAlign2);
+  }
+  
+  public void setIcon(PImage paramPImage, int paramInt, GAlign paramGAlign1, GAlign paramGAlign2, GAlign paramGAlign3)
+  {
+    GIcon localGIcon = new GIcon(winApp, paramPImage, paramInt, 1);
+    implSetIcon(localGIcon, paramGAlign1, paramGAlign2, paramGAlign3);
+  }
+  
+  public void setIcon(GIcon paramGIcon, GAlign paramGAlign1, GAlign paramGAlign2, GAlign paramGAlign3)
+  {
+    implSetIcon(paramGIcon, paramGAlign1, paramGAlign2, paramGAlign3);
+  }
+  
+  protected void implSetIcon(GIcon paramGIcon, GAlign paramGAlign1, GAlign paramGAlign2, GAlign paramGAlign3)
+  {
+    icon = (owner != null ? paramGIcon.copy() : paramGIcon);
+    icon.owner = this;
+    iconW = icon.width;
+    iconH = icon.height;
+    if ((paramGAlign2 != null) && (paramGAlign2.isHorzAlign())) {
+      iconAlignH = paramGAlign2;
+    }
+    if ((paramGAlign3 != null) && (paramGAlign3.isVertAlign())) {
+      iconAlignV = paramGAlign3;
+    }
+    if ((paramGAlign1 != null) && (paramGAlign1.isPosAlign())) {
+      iconPos = paramGAlign1;
+    }
+    calcZones();
+    bufferInvalid = true;
+  }
+  
+  public GAnimIcon getIcon()
+  {
+    return icon.me();
+  }
+  
+  public void setTextAlign(GAlign paramGAlign1, GAlign paramGAlign2)
+  {
+    if ((paramGAlign1 != null) && (paramGAlign1.isHorzAlign()))
+    {
+      textAlignH = paramGAlign1;
+      stext.setJustify(textAlignH == GAlign.JUSTIFY);
+    }
+    if ((paramGAlign2 != null) && (paramGAlign2.isVertAlign())) {
+      textAlignV = paramGAlign2;
+    }
+    bufferInvalid = true;
+  }
+  
+  public void setText(String paramString, GAlign paramGAlign1, GAlign paramGAlign2)
+  {
+    if (paramString == null) {
+      paramString = "";
+    }
+    if (stext.length() == 0) {
+      calcZones(true);
+    }
+    stext.setText(paramString, (int)textZone.w);
+    if (stext.length() == 0) {
+      calcZones();
+    }
+    setTextAlign(paramGAlign1, paramGAlign2);
+    bufferInvalid = true;
+  }
+  
+  public void setText(String paramString)
+  {
+    setText(paramString, null, null);
+  }
+  
+  protected void displayText(Graphics2D paramGraphics2D, LinkedList<StyledString.TextLayoutInfo> paramLinkedList)
+  {
+    float f1 = 0.0F;
+    float f2 = 0.0F;
+    float f3;
+    switch (1.$SwitchMap$g4p_controls$GAlign[textAlignV.ordinal()])
+    {
+    case 1: 
+      f3 = 0.0F;
+      break;
+    case 2: 
+      f3 = textZone.h - stext.getTextAreaHeight();
+      break;
+    case 3: 
+    default: 
+      f3 = (textZone.h - stext.getTextAreaHeight()) / 2.0F;
+    }
+    buffer.translate(textZone.x, textZone.y + f3);
+    Iterator localIterator = paramLinkedList.iterator();
+    while (localIterator.hasNext())
+    {
+      StyledString.TextLayoutInfo localTextLayoutInfo = (StyledString.TextLayoutInfo)localIterator.next();
+      TextLayout localTextLayout = layout;
+      buffer.translate(0.0F, localTextLayout.getAscent());
+      switch (1.$SwitchMap$g4p_controls$GAlign[textAlignH.ordinal()])
+      {
+      case 4: 
+        f2 = localTextLayout.getVisibleAdvance();
+        f2 = f2 > textZone.w ? f2 - textZone.w : f2;
+        f1 = (textZone.w - f2) / 2.0F;
+        break;
+      case 5: 
+        f2 = localTextLayout.getVisibleAdvance();
+        f2 = f2 > textZone.w ? f2 - textZone.w : f2;
+        f1 = textZone.w - f2;
+        break;
+      case 6: 
+      case 7: 
+      default: 
+        f1 = 0.0F;
+      }
+      paramGraphics2D.setColor(palette[2]);
+      localTextLayout.draw(paramGraphics2D, f1, 0.0F);
+      buffer.translate(0.0F, localTextLayout.getDescent() + localTextLayout.getLeading());
+    }
+  }
+  
+  private void calcIconPosInZone()
+  {
+    switch (1.$SwitchMap$g4p_controls$GAlign[iconAlignH.ordinal()])
+    {
+    case 6: 
+      iconX = iconZone.x;
+      break;
+    case 4: 
+      iconX = (iconZone.x + (iconZone.w - iconW) / 2.0F);
+      break;
+    case 5: 
+    default: 
+      iconX = (iconZone.x + iconZone.w - iconW);
+    }
+    switch (1.$SwitchMap$g4p_controls$GAlign[iconAlignV.ordinal()])
+    {
+    case 1: 
+      iconY = iconZone.y;
+      break;
+    case 2: 
+      iconY = (iconZone.y + iconZone.h - iconH);
+      break;
+    case 3: 
+    default: 
+      iconY = (iconZone.y + (iconZone.h - iconH) / 2.0F);
+    }
+    bufferInvalid = true;
+  }
+  
+  private void fixTextZone(boolean paramBoolean1, boolean paramBoolean2)
+  {
+    if (!paramBoolean1)
+    {
+      textZone.x = PAD;
+      textZone.y = PAD;
+      textZone.w = (width - 2.0F * PAD);
+      textZone.h = (height - 2.0F * PAD);
+      stext.setWrapWidth((int)textZone.w);
+    }
+    else
+    {
+      switch (1.$SwitchMap$g4p_controls$GAlign[iconPos.ordinal()])
+      {
+      case 8: 
+        textZone.x = (iconZone.w + PAD + GUTTER);
+        textZone.y = PAD;
+        textZone.w = (width - iconZone.w - 2.0F * PAD - GUTTER);
+        textZone.h = (height - 2.0F * PAD);
+        break;
+      case 9: 
+        textZone.x = PAD;
+        textZone.y = PAD;
+        textZone.w = (width - iconZone.w - 2.0F * PAD - GUTTER);
+        textZone.h = (height - 2.0F * PAD);
+        break;
+      case 10: 
+        textZone.x = PAD;
+        textZone.y = PAD;
+        textZone.w = (width - 2.0F * PAD);
+        textZone.h = (height - iconZone.h - 2.0F * PAD - GUTTER);
+        break;
+      case 11: 
+        textZone.x = PAD;
+        textZone.y = (iconZone.h + PAD + GUTTER);
+        textZone.w = (width - 2.0F * PAD);
+        textZone.h = (height - iconZone.h - 2.0F * PAD - GUTTER);
+        break;
+      }
+    }
+    if (paramBoolean2) {
+      stext.setWrapWidth((int)textZone.w);
+    }
+  }
+  
+  private void fixIconZone(boolean paramBoolean1, boolean paramBoolean2)
+  {
+    if (!paramBoolean1)
+    {
+      iconZone.clear();
+      return;
+    }
+    if (paramBoolean2)
+    {
+      switch (1.$SwitchMap$g4p_controls$GAlign[iconPos.ordinal()])
+      {
+      case 8: 
+        iconZone.x = PAD;
+        iconZone.y = PAD;
+        iconZone.w = iconW;
+        iconZone.h = PApplet.max(iconH, height - 2.0F * PAD);
+        break;
+      case 9: 
+        iconZone.x = (width - iconW - PAD);
+        iconZone.y = PAD;
+        iconZone.w = iconW;
+        iconZone.h = PApplet.max(iconH, height - 2.0F * PAD);
+        break;
+      case 10: 
+        iconZone.x = PAD;
+        iconZone.y = (height - iconH - PAD);
+        iconZone.w = PApplet.max(iconW, width - 2.0F * PAD);
+        iconZone.h = iconH;
+        break;
+      case 11: 
+        iconZone.x = PAD;
+        iconZone.y = PAD;
+        iconZone.w = PApplet.max(iconW, width - 2.0F * PAD);
+        iconZone.h = iconH;
+        break;
+      }
+    }
+    else
+    {
+      iconZone.x = PAD;
+      iconZone.y = PAD;
+      iconZone.w = (width - 2.0F * PAD);
+      iconZone.h = (height - 2.0F * PAD);
+    }
+    calcIconPosInZone();
+  }
+  
+  class Zone
+  {
+    public float x;
+    public float y;
+    public float w;
+    public float h;
+    
+    public Zone()
+    {
+      x = (this.y = this.w = this.h = 0.0F);
+    }
+    
+    public Zone(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+    {
+      x = paramFloat1;
+      y = paramFloat2;
+      w = paramFloat3;
+      h = paramFloat4;
+    }
+    
+    public void clear()
+    {
+      x = (this.y = this.w = this.h = 0.0F);
+    }
+    
+    public String toString()
+    {
+      return "Zone " + x + "  " + y + "  " + w + "  " + h;
+    }
+  }
+}

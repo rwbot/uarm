@@ -1,0 +1,52 @@
+package g4p_controls;
+
+import processing.core.PApplet;
+
+public abstract class GValueControl2D
+  extends GAbstractControl
+{
+  protected static int THUMB_SPOT = 1;
+  protected static int TRACK_SPOT = 2;
+  protected float parametricPosX = 0.5F;
+  protected float parametricTargetX = 0.5F;
+  protected float parametricPosY = 0.5F;
+  protected float parametricTargetY = 0.5F;
+  protected float easing = 1.0F;
+  protected float offsetH;
+  protected float offsetV;
+  protected int valueType = 1;
+  protected int precision = 2;
+  
+  public GValueControl2D(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    super(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+  }
+  
+  public void pre()
+  {
+    if ((Math.abs(parametricTargetX - parametricPosX) > epsilon) || (Math.abs(parametricTargetY - parametricPosY) > epsilon))
+    {
+      parametricPosX += (parametricTargetX - parametricPosX) / easing;
+      parametricPosY += (parametricTargetY - parametricPosY) / easing;
+      updateDueToValueChanging();
+      bufferInvalid = true;
+      if ((Math.abs(parametricTargetX - parametricPosX) > epsilon) || (Math.abs(parametricTargetY - parametricPosY) > epsilon))
+      {
+        fireEvent(new Object[] { this, GEvent.VALUE_CHANGING });
+      }
+      else
+      {
+        parametricPosX = parametricTargetX;
+        parametricPosY = parametricTargetY;
+        fireEvent(new Object[] { this, GEvent.VALUE_STEADY });
+      }
+    }
+  }
+  
+  protected void updateDueToValueChanging() {}
+  
+  protected void setEpsilon()
+  {
+    epsilon = (float)Math.min(0.001D, Math.pow(10.0D, -precision));
+  }
+}

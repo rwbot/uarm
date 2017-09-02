@@ -1,0 +1,222 @@
+package com.jogamp.graph.geom;
+
+import com.jogamp.opengl.math.VectorUtil;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class SVertex
+  implements Vertex
+{
+  private int id;
+  protected boolean onCurve;
+  protected final float[] coord = new float[3];
+  private final float[] texCoord = new float[3];
+  
+  static final Factory factory = new Factory();
+  
+  public static Factory factory() { return factory; }
+  
+  public static class Factory implements Vertex.Factory<SVertex> {
+    public Factory() {}
+    
+    public SVertex create() { return new SVertex(); }
+    
+    public SVertex create(Vertex paramVertex)
+    {
+      return new SVertex(paramVertex);
+    }
+    
+    public SVertex create(int paramInt, boolean paramBoolean, float[] paramArrayOfFloat)
+    {
+      return new SVertex(paramInt, paramBoolean, paramArrayOfFloat);
+    }
+    
+    public SVertex create(float paramFloat1, float paramFloat2, float paramFloat3, boolean paramBoolean)
+    {
+      return new SVertex(paramFloat1, paramFloat2, paramFloat3, paramBoolean);
+    }
+    
+    public SVertex create(float[] paramArrayOfFloat, int paramInt1, int paramInt2, boolean paramBoolean)
+    {
+      return new SVertex(paramArrayOfFloat, paramInt1, paramInt2, paramBoolean);
+    }
+  }
+  
+  public SVertex() {
+    id = Integer.MAX_VALUE;
+  }
+  
+  public SVertex(Vertex paramVertex) {
+    id = Integer.MAX_VALUE;
+    System.arraycopy(paramVertex.getCoord(), 0, coord, 0, 3);
+    System.arraycopy(paramVertex.getTexCoord(), 0, texCoord, 0, 3);
+    setOnCurve(paramVertex.isOnCurve());
+  }
+  
+  public SVertex(int paramInt, boolean paramBoolean, float[] paramArrayOfFloat) {
+    id = paramInt;
+    onCurve = paramBoolean;
+    System.arraycopy(paramArrayOfFloat, 0, texCoord, 0, 3);
+  }
+  
+  public SVertex(float paramFloat1, float paramFloat2, float paramFloat3, boolean paramBoolean) {
+    id = Integer.MAX_VALUE;
+    setCoord(paramFloat1, paramFloat2, paramFloat3);
+    setOnCurve(paramBoolean);
+  }
+  
+  public SVertex(float[] paramArrayOfFloat, int paramInt1, int paramInt2, boolean paramBoolean) {
+    id = Integer.MAX_VALUE;
+    setCoord(paramArrayOfFloat, paramInt1, paramInt2);
+    setOnCurve(paramBoolean);
+  }
+  
+  public final void setCoord(float paramFloat1, float paramFloat2, float paramFloat3)
+  {
+    coord[0] = paramFloat1;
+    coord[1] = paramFloat2;
+    coord[2] = paramFloat3;
+  }
+  
+  public final void setCoord(float[] paramArrayOfFloat, int paramInt1, int paramInt2)
+  {
+    System.arraycopy(paramArrayOfFloat, paramInt1, coord, 0, paramInt2);
+  }
+  
+  public int getCoordCount()
+  {
+    return 3;
+  }
+  
+  public final float[] getCoord()
+  {
+    return coord;
+  }
+  
+  public final void setX(float paramFloat)
+  {
+    coord[0] = paramFloat;
+  }
+  
+  public final void setY(float paramFloat)
+  {
+    coord[1] = paramFloat;
+  }
+  
+  public final void setZ(float paramFloat)
+  {
+    coord[2] = paramFloat;
+  }
+  
+  public final float getX()
+  {
+    return coord[0];
+  }
+  
+  public final float getY()
+  {
+    return coord[1];
+  }
+  
+  public final float getZ()
+  {
+    return coord[2];
+  }
+  
+  public final boolean isOnCurve()
+  {
+    return onCurve;
+  }
+  
+  public final void setOnCurve(boolean paramBoolean)
+  {
+    onCurve = paramBoolean;
+  }
+  
+  public final int getId()
+  {
+    return id;
+  }
+  
+  public final void setId(int paramInt)
+  {
+    id = paramInt;
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    if (paramObject == this) {
+      return true;
+    }
+    if ((null == paramObject) || (!(paramObject instanceof Vertex))) {
+      return false;
+    }
+    Vertex localVertex = (Vertex)paramObject;
+    
+
+
+    return (this == localVertex) || ((isOnCurve() == localVertex.isOnCurve()) && (VectorUtil.isVec3Equal(getTexCoord(), 0, localVertex.getTexCoord(), 0, 1.1920929E-7F)) && (VectorUtil.isVec3Equal(getCoord(), 0, localVertex.getCoord(), 0, 1.1920929E-7F)));
+  }
+  
+  public final int hashCode() {
+    throw new InternalError("hashCode not designed");
+  }
+  
+  public final float[] getTexCoord()
+  {
+    return texCoord;
+  }
+  
+  public final void setTexCoord(float paramFloat1, float paramFloat2, float paramFloat3)
+  {
+    texCoord[0] = paramFloat1;
+    texCoord[1] = paramFloat2;
+    texCoord[2] = paramFloat3;
+  }
+  
+  public final void setTexCoord(float[] paramArrayOfFloat, int paramInt1, int paramInt2)
+  {
+    System.arraycopy(paramArrayOfFloat, paramInt1, texCoord, 0, paramInt2);
+  }
+  
+
+
+
+  public SVertex clone()
+  {
+    return new SVertex(this);
+  }
+  
+  public String toString()
+  {
+    return "[ID: " + id + ", onCurve: " + onCurve + ": p " + coord[0] + ", " + coord[1] + ", " + coord[2] + ", t " + texCoord[0] + ", " + texCoord[1] + ", " + texCoord[2] + "]";
+  }
+}

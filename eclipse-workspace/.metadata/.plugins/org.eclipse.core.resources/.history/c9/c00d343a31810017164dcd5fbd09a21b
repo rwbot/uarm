@@ -1,0 +1,282 @@
+package jogamp.opengl.x11.glx;
+
+import com.jogamp.common.nio.PointerBuffer;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import java.nio.LongBuffer;
+
+public abstract interface GLXExt
+{
+  public static final int GLX_BIND_TO_TEXTURE_TARGETS_EXT = 8403;
+  public static final int GLX_SYNC_FRAME_SGIX = 0;
+  public static final int GLX_BACK_LEFT_EXT = 8416;
+  public static final int GLX_GPU_CLOCK_AMD = 8612;
+  public static final int GLX_RGBA_TYPE_SGIX = 32788;
+  public static final int GLX_NUM_VIDEO_SLOTS_NV = 8432;
+  public static final int GLX_COLOR_SAMPLES_NV = 8371;
+  public static final int GLX_GPU_NUM_SPI_AMD = 8616;
+  public static final int GLX_VIDEO_OUT_FIELD_2_NV = 8394;
+  public static final int GLX_VIDEO_OUT_STACKED_FIELDS_1_2_NV = 8395;
+  public static final int GLX_COVERAGE_SAMPLES_NV = 100001;
+  public static final int GLX_MIPMAP_TEXTURE_EXT = 8407;
+  public static final int GLX_BLENDED_RGBA_SGIS = 32805;
+  public static final int GLX_WIDTH_SGIX = 32797;
+  public static final int GLX_SAMPLES_SGIS = 100001;
+  public static final int GLX_LARGEST_PBUFFER_SGIX = 32796;
+  public static final int GLX_AUX_BUFFERS_BIT_SGIX = 16;
+  public static final int GLX_AUX7_EXT = 8425;
+  public static final int GLX_VIDEO_OUT_ALPHA_NV = 8388;
+  public static final int GLX_TEXTURE_2D_EXT = 8412;
+  public static final int GLX_HEIGHT_SGIX = 32798;
+  public static final int GLX_DEVICE_ID_NV = 8397;
+  public static final int GLX_RENDERER_VIDEO_MEMORY_MESA = 33159;
+  public static final int GLX_VIDEO_OUT_COLOR_AND_DEPTH_NV = 8391;
+  public static final int GLX_FBCONFIG_ID_SGIX = 32787;
+  public static final int GLX_VIDEO_OUT_FRAME_NV = 8392;
+  public static final int GLX_FRONT_LEFT_BUFFER_BIT_SGIX = 1;
+  public static final int GLX_BAD_HYPERPIPE_SGIX = 92;
+  public static final int GLX_TEXTURE_FORMAT_RGBA_EXT = 8410;
+  public static final int GLX_VIDEO_OUT_COLOR_NV = 8387;
+  public static final int GLX_3DFX_WINDOW_MODE_MESA = 1;
+  public static final int GLX_Y_INVERTED_EXT = 8404;
+  public static final int GLX_VIDEO_OUT_FIELD_1_NV = 8393;
+  public static final int GLX_RENDERER_OPENGL_COMPATIBILITY_PROFILE_VERSION_MESA = 33163;
+  public static final int GLX_EVENT_MASK_SGIX = 32799;
+  public static final int GLX_BACK_LEFT_BUFFER_BIT_SGIX = 4;
+  public static final int GLX_OPTIMAL_PBUFFER_WIDTH_SGIX = 32793;
+  public static final int GLX_TEXTURE_2D_BIT_EXT = 2;
+  public static final int GLX_AUX2_EXT = 8420;
+  public static final int GLX_MAX_PBUFFER_PIXELS_SGIX = 32792;
+  public static final int GLX_WINDOW_BIT_SGIX = 1;
+  public static final int GLX_PBUFFER_SGIX = 32803;
+  public static final int GLX_DEPTH_BUFFER_BIT_SGIX = 32;
+  public static final int GLX_ACCUM_BUFFER_BIT_SGIX = 128;
+  public static final int GLX_RENDERER_ACCELERATED_MESA = 33158;
+  public static final int GLX_GPU_RAM_AMD = 8611;
+  public static final int GLX_SAVED_SGIX = 32801;
+  public static final int GLX_WINDOW_SGIX = 32802;
+  public static final int GLX_BACK_EXT = 8416;
+  public static final int GLX_TEXTURE_RECTANGLE_BIT_EXT = 4;
+  public static final int GLX_MULTISAMPLE_SUB_RECT_HEIGHT_SGIS = 32807;
+  public static final int GLX_X_RENDERABLE_SGIX = 32786;
+  public static final int GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX = 80;
+  public static final int GLX_RENDER_TYPE_SGIX = 32785;
+  public static final int GLX_VIDEO_OUT_DEPTH_NV = 8389;
+  public static final int GLX_MAX_PBUFFER_HEIGHT_SGIX = 32791;
+  public static final int GLX_GPU_OPENGL_VERSION_STRING_AMD = 7938;
+  public static final int GLX_BUFFER_CLOBBER_MASK_SGIX = 134217728;
+  public static final int GLX_TEXTURE_FORMAT_NONE_EXT = 8408;
+  public static final int GLX_AUX8_EXT = 8426;
+  public static final int GLX_3DFX_FULLSCREEN_MODE_MESA = 2;
+  public static final int GLX_HYPERPIPE_DISPLAY_PIPE_SGIX = 1;
+  public static final int GLX_VISUAL_SELECT_GROUP_SGIX = 32808;
+  public static final int GLX_RGBA_BIT_SGIX = 1;
+  public static final int GLX_COLOR_INDEX_TYPE_SGIX = 32789;
+  public static final int GLX_FRONT_LEFT_EXT = 8414;
+  public static final int GLX_VIDEO_OUT_COLOR_AND_ALPHA_NV = 8390;
+  public static final int GLX_FLOAT_COMPONENTS_NV = 8368;
+  public static final int GLX_AUX3_EXT = 8421;
+  public static final int GLX_SWAP_EXCHANGE_OML = 32865;
+  public static final int GLX_SWAP_METHOD_OML = 32864;
+  public static final int GLX_RENDERER_UNIFIED_MEMORY_ARCHITECTURE_MESA = 33160;
+  public static final int GLX_TEXTURE_RECTANGLE_EXT = 8413;
+  public static final int GLX_MAX_PBUFFER_WIDTH_SGIX = 32790;
+  public static final int GLX_HYPERPIPE_ID_SGIX = 32816;
+  public static final int GLX_AUX1_EXT = 8419;
+  public static final int GLX_HYPERPIPE_PIXEL_AVERAGE_SGIX = 4;
+  public static final int GLX_TEXTURE_1D_BIT_EXT = 1;
+  public static final int GLX_MULTISAMPLE_SUB_RECT_WIDTH_SGIS = 32806;
+  public static final int GLX_DRAWABLE_TYPE_SGIX = 32784;
+  public static final int GLX_FRONT_EXT = 8414;
+  public static final int GLX_OPTIMAL_PBUFFER_HEIGHT_SGIX = 32794;
+  public static final int GLX_RENDERER_PREFERRED_PROFILE_MESA = 33161;
+  public static final int GLX_PIXMAP_BIT_SGIX = 2;
+  public static final int GLX_RENDERER_VERSION_MESA = 33157;
+  public static final int GLX_FRONT_RIGHT_BUFFER_BIT_SGIX = 2;
+  public static final int GLX_GPU_VENDOR_AMD = 7936;
+  public static final int GLX_TEXTURE_TARGET_EXT = 8406;
+  public static final int GLX_PIPE_RECT_SGIX = 1;
+  public static final int GLX_BIND_TO_MIPMAP_TEXTURE_EXT = 8402;
+  public static final int GLX_RENDERER_VENDOR_ID_MESA = 33155;
+  public static final int GLX_DAMAGED_SGIX = 32800;
+  public static final int GLX_AUX4_EXT = 8422;
+  public static final int GLX_AUX9_EXT = 8427;
+  public static final int GLX_COLOR_INDEX_BIT_SGIX = 2;
+  public static final int GLX_RENDERER_OPENGL_ES2_PROFILE_VERSION_MESA = 33165;
+  public static final int GLX_GPU_RENDERER_STRING_AMD = 7937;
+  public static final int GLX_TEXTURE_FORMAT_RGB_EXT = 8409;
+  public static final int GLX_SAMPLE_BUFFERS_BIT_SGIX = 256;
+  public static final int GLX_SYNC_SWAP_SGIX = 1;
+  public static final int GLX_GPU_NUM_RB_AMD = 8615;
+  public static final int GLX_PRESERVED_CONTENTS_SGIX = 32795;
+  public static final int GLX_GPU_NUM_PIPES_AMD = 8613;
+  public static final int GLX_BIND_TO_TEXTURE_RGBA_EXT = 8401;
+  public static final int GLX_NUM_VIDEO_CAPTURE_SLOTS_NV = 8399;
+  public static final int GLX_GPU_NUM_SIMD_AMD = 8614;
+  public static final int GLX_BACK_RIGHT_BUFFER_BIT_SGIX = 8;
+  public static final int GLX_AUX0_EXT = 8418;
+  public static final int GLX_SWAP_COPY_OML = 32866;
+  public static final int GLX_HYPERPIPE_RENDER_PIPE_SGIX = 2;
+  public static final int GLX_VIDEO_OUT_STACKED_FIELDS_2_1_NV = 8396;
+  public static final int GLX_SWAP_UNDEFINED_OML = 32867;
+  public static final int GLX_PIPE_RECT_LIMITS_SGIX = 2;
+  public static final int GLX_AUX6_EXT = 8424;
+  public static final int GLX_FRONT_RIGHT_EXT = 8415;
+  public static final int GLX_RENDERER_DEVICE_ID_MESA = 33156;
+  public static final int GLX_PBUFFER_BIT_SGIX = 4;
+  public static final int GLX_AUX5_EXT = 8423;
+  public static final int GLX_BACK_RIGHT_EXT = 8417;
+  public static final int GLX_RENDERER_OPENGL_ES_PROFILE_VERSION_MESA = 33164;
+  public static final int GLX_UNIQUE_ID_NV = 8398;
+  public static final int GLX_SAMPLE_BUFFERS_SGIS = 100000;
+  public static final int GLX_STENCIL_BUFFER_BIT_SGIX = 64;
+  public static final int GLX_BIND_TO_TEXTURE_RGB_EXT = 8400;
+  public static final int GLX_BAD_HYPERPIPE_CONFIG_SGIX = 91;
+  public static final int GLX_TEXTURE_FORMAT_EXT = 8405;
+  public static final int GLX_RENDERER_ID_MESA = 33166;
+  public static final int GLX_GPU_FASTEST_TARGET_GPUS_AMD = 8610;
+  public static final int GLX_HYPERPIPE_STEREO_SGIX = 3;
+  public static final int GLX_TEXTURE_1D_EXT = 8411;
+  public static final int GLX_RENDERER_OPENGL_CORE_PROFILE_VERSION_MESA = 33162;
+  
+  public abstract long glXCreateContextAttribsARB(long paramLong1, long paramLong2, long paramLong3, boolean paramBoolean, IntBuffer paramIntBuffer);
+  
+  public abstract int glXGetGPUIDsAMD(int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract int glXGetGPUInfoAMD(int paramInt1, int paramInt2, int paramInt3, int paramInt4, Buffer paramBuffer);
+  
+  public abstract int glXGetContextGPUIDAMD(long paramLong);
+  
+  public abstract long glXCreateAssociatedContextAMD(int paramInt, long paramLong);
+  
+  public abstract long glXCreateAssociatedContextAttribsAMD(int paramInt, long paramLong, IntBuffer paramIntBuffer);
+  
+  public abstract boolean glXDeleteAssociatedContextAMD(long paramLong);
+  
+  public abstract boolean glXMakeAssociatedContextCurrentAMD(long paramLong);
+  
+  public abstract long glXGetCurrentAssociatedContextAMD();
+  
+  public abstract void glXBlitContextFramebufferAMD(long paramLong, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, int paramInt10);
+  
+  public abstract long glXGetCurrentDisplayEXT();
+  
+  public abstract int glXQueryContextInfoEXT(long paramLong1, long paramLong2, int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract long glXGetContextIDEXT(long paramLong);
+  
+  public abstract long glXImportContextEXT(long paramLong1, long paramLong2);
+  
+  public abstract void glXFreeContextEXT(long paramLong1, long paramLong2);
+  
+  public abstract void glXBindTexImageEXT(long paramLong1, long paramLong2, int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract void glXReleaseTexImageEXT(long paramLong1, long paramLong2, int paramInt);
+  
+  public abstract int glXGetAGPOffsetMESA(Buffer paramBuffer);
+  
+  public abstract void glXCopySubBufferMESA(long paramLong1, long paramLong2, int paramInt1, int paramInt2, int paramInt3, int paramInt4);
+  
+  public abstract boolean glXQueryCurrentRendererIntegerMESA(int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract ByteBuffer glXQueryCurrentRendererStringMESA(int paramInt);
+  
+  public abstract boolean glXQueryRendererIntegerMESA(long paramLong, int paramInt1, int paramInt2, int paramInt3, IntBuffer paramIntBuffer);
+  
+  public abstract ByteBuffer glXQueryRendererStringMESA(long paramLong, int paramInt1, int paramInt2, int paramInt3);
+  
+  public abstract boolean glXReleaseBuffersMESA(long paramLong1, long paramLong2);
+  
+  public abstract boolean glXSet3DfxModeMESA(int paramInt);
+  
+  public abstract void glXCopyBufferSubDataNV(long paramLong1, long paramLong2, long paramLong3, int paramInt1, int paramInt2, long paramLong4, long paramLong5, long paramLong6);
+  
+  public abstract void glXNamedCopyBufferSubDataNV(long paramLong1, long paramLong2, long paramLong3, int paramInt1, int paramInt2, long paramLong4, long paramLong5, long paramLong6);
+  
+  public abstract void glXCopyImageSubDataNV(long paramLong1, long paramLong2, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, long paramLong3, int paramInt7, int paramInt8, int paramInt9, int paramInt10, int paramInt11, int paramInt12, int paramInt13, int paramInt14, int paramInt15);
+  
+  public abstract boolean glXDelayBeforeSwapNV(long paramLong1, long paramLong2, float paramFloat);
+  
+  public abstract IntBuffer glXEnumerateVideoDevicesNV(long paramLong, int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract int glXBindVideoDeviceNV(long paramLong, int paramInt1, int paramInt2, IntBuffer paramIntBuffer);
+  
+  public abstract boolean glXJoinSwapGroupNV(long paramLong1, long paramLong2, int paramInt);
+  
+  public abstract boolean glXBindSwapBarrierNV(long paramLong, int paramInt1, int paramInt2);
+  
+  public abstract boolean glXQuerySwapGroupNV(long paramLong1, long paramLong2, IntBuffer paramIntBuffer1, IntBuffer paramIntBuffer2);
+  
+  public abstract boolean glXQueryMaxSwapGroupsNV(long paramLong, int paramInt, IntBuffer paramIntBuffer1, IntBuffer paramIntBuffer2);
+  
+  public abstract boolean glXQueryFrameCountNV(long paramLong, int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract boolean glXResetFrameCountNV(long paramLong, int paramInt);
+  
+  public abstract int glXBindVideoCaptureDeviceNV(long paramLong1, int paramInt, long paramLong2);
+  
+  public abstract PointerBuffer glXEnumerateVideoCaptureDevicesNV(long paramLong, int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract void glXLockVideoCaptureDeviceNV(long paramLong1, long paramLong2);
+  
+  public abstract int glXQueryVideoCaptureDeviceNV(long paramLong1, long paramLong2, int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract void glXReleaseVideoCaptureDeviceNV(long paramLong1, long paramLong2);
+  
+  public abstract int glXGetVideoDeviceNV(long paramLong, int paramInt1, int paramInt2, IntBuffer paramIntBuffer);
+  
+  public abstract int glXReleaseVideoDeviceNV(long paramLong, int paramInt1, int paramInt2);
+  
+  public abstract int glXBindVideoImageNV(long paramLong1, int paramInt1, long paramLong2, int paramInt2);
+  
+  public abstract int glXReleaseVideoImageNV(long paramLong1, long paramLong2);
+  
+  public abstract int glXSendPbufferToVideoNV(long paramLong1, long paramLong2, int paramInt, LongBuffer paramLongBuffer, boolean paramBoolean);
+  
+  public abstract int glXGetVideoInfoNV(long paramLong, int paramInt1, int paramInt2, LongBuffer paramLongBuffer1, LongBuffer paramLongBuffer2);
+  
+  public abstract boolean glXGetSyncValuesOML(long paramLong1, long paramLong2, LongBuffer paramLongBuffer1, LongBuffer paramLongBuffer2, LongBuffer paramLongBuffer3);
+  
+  public abstract boolean glXGetMscRateOML(long paramLong1, long paramLong2, IntBuffer paramIntBuffer1, IntBuffer paramIntBuffer2);
+  
+  public abstract long glXSwapBuffersMscOML(long paramLong1, long paramLong2, long paramLong3, long paramLong4, long paramLong5);
+  
+  public abstract boolean glXWaitForMscOML(long paramLong1, long paramLong2, long paramLong3, long paramLong4, long paramLong5, LongBuffer paramLongBuffer1, LongBuffer paramLongBuffer2, LongBuffer paramLongBuffer3);
+  
+  public abstract boolean glXWaitForSbcOML(long paramLong1, long paramLong2, long paramLong3, LongBuffer paramLongBuffer1, LongBuffer paramLongBuffer2, LongBuffer paramLongBuffer3);
+  
+  public abstract void glXBindSwapBarrierSGIX(long paramLong1, long paramLong2, int paramInt);
+  
+  public abstract boolean glXQueryMaxSwapBarriersSGIX(long paramLong, int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract void glXJoinSwapGroupSGIX(long paramLong1, long paramLong2, long paramLong3);
+  
+  public abstract int glXBindChannelToWindowSGIX(long paramLong1, int paramInt1, int paramInt2, long paramLong2);
+  
+  public abstract int glXChannelRectSGIX(long paramLong, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6);
+  
+  public abstract int glXQueryChannelRectSGIX(long paramLong, int paramInt1, int paramInt2, IntBuffer paramIntBuffer1, IntBuffer paramIntBuffer2, IntBuffer paramIntBuffer3, IntBuffer paramIntBuffer4);
+  
+  public abstract int glXQueryChannelDeltasSGIX(long paramLong, int paramInt1, int paramInt2, IntBuffer paramIntBuffer1, IntBuffer paramIntBuffer2, IntBuffer paramIntBuffer3, IntBuffer paramIntBuffer4);
+  
+  public abstract int glXChannelRectSyncSGIX(long paramLong, int paramInt1, int paramInt2, int paramInt3);
+  
+  public abstract void glXCushionSGI(long paramLong1, long paramLong2, float paramFloat);
+  
+  public abstract boolean glXMakeCurrentReadSGI(long paramLong1, long paramLong2, long paramLong3, long paramLong4);
+  
+  public abstract long glXGetCurrentReadDrawableSGI();
+  
+  public abstract int glXSwapIntervalSGI(int paramInt);
+  
+  public abstract int glXGetVideoSyncSGI(IntBuffer paramIntBuffer);
+  
+  public abstract int glXWaitVideoSyncSGI(int paramInt1, int paramInt2, IntBuffer paramIntBuffer);
+  
+  public abstract int glXGetTransparentIndexSUN(long paramLong1, long paramLong2, long paramLong3, LongBuffer paramLongBuffer);
+  
+  public abstract boolean isFunctionAvailable(String paramString);
+  
+  public abstract boolean isExtensionAvailable(String paramString);
+}

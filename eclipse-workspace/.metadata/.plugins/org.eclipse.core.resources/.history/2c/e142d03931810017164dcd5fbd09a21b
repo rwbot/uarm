@@ -1,0 +1,1361 @@
+package com.jogamp.common.util;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.net.AssetURLContext;
+import com.jogamp.common.net.Uri;
+import com.jogamp.common.net.Uri.ASCIIEncoded;
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.os.Platform.CPUFamily;
+import com.jogamp.common.os.Platform.CPUType;
+import com.jogamp.common.os.Platform.OSType;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.Closeable;
+import java.io.File;
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
+import java.io.FilePermission;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.io.Reader;
+import java.io.SyncFailedException;
+import java.lang.ref.WeakReference;
+import java.lang.reflect.Constructor;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.nio.ByteBuffer;
+import java.security.Permission;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import jogamp.common.Debug;
+import jogamp.common.os.AndroidUtils;
+import jogamp.common.os.PlatformPropsImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class IOUtil
+{
+  public static final boolean DEBUG = Debug.debug("IOUtil");
+  private static final boolean DEBUG_EXE = PropertyAccess.isPropertyDefined("jogamp.debug.IOUtil.Exe", true);
+  private static final boolean DEBUG_EXE_NOSTREAM = PropertyAccess.isPropertyDefined("jogamp.debug.IOUtil.Exe.NoStream", true);
+  
+  private static final boolean DEBUG_EXE_EXISTING_FILE = false;
+  
+
+  private static final String java_io_tmpdir_propkey = "java.io.tmpdir";
+  
+
+  private static final String user_home_propkey = "user.home";
+  
+
+  private static final String XDG_CACHE_HOME_envkey = "XDG_CACHE_HOME";
+  
+
+  public static final String tmpSubDir = "jogamp";
+  
+
+
+  private IOUtil() {}
+  
+
+
+  private static final Constructor<?> getFOSCtor()
+  {
+    Constructor localConstructor;
+    
+
+    Object localObject;
+    
+    try
+    {
+      localConstructor = ReflectionUtil.getConstructor("java.io.FileOutputStream", new Class[] { File.class }, true, IOUtil.class.getClassLoader());
+      localObject = null;
+    } catch (Throwable localThrowable) {
+      localConstructor = null;
+      localObject = localThrowable;
+    }
+    if (DEBUG) {
+      System.err.println("IOUtil: java.io.FileOutputStream available: " + (null != localConstructor));
+      if (null != localObject) {
+        localObject.printStackTrace();
+      }
+    }
+    return localConstructor;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static int copyURLConn2File(URLConnection paramURLConnection, File paramFile)
+    throws IOException
+  {
+    paramURLConnection.connect();
+    
+    int i = 0;
+    BufferedInputStream localBufferedInputStream = new BufferedInputStream(paramURLConnection.getInputStream());
+    try {
+      i = copyStream2File(localBufferedInputStream, paramFile, paramURLConnection.getContentLength());
+    } finally {
+      localBufferedInputStream.close();
+    }
+    return i;
+  }
+  
+
+
+
+
+
+
+
+
+  public static int copyStream2File(InputStream paramInputStream, File paramFile, int paramInt)
+    throws IOException
+  {
+    BufferedOutputStream localBufferedOutputStream = new BufferedOutputStream(new FileOutputStream(paramFile));
+    try {
+      paramInt = copyStream2Stream(paramInputStream, localBufferedOutputStream, paramInt);
+    } finally {
+      localBufferedOutputStream.close();
+    }
+    return paramInt;
+  }
+  
+
+
+
+
+
+
+
+
+  public static int copyStream2Stream(InputStream paramInputStream, OutputStream paramOutputStream, int paramInt)
+    throws IOException
+  {
+    return copyStream2Stream(Platform.getMachineDataInfo().pageSizeInBytes(), paramInputStream, paramOutputStream, paramInt);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public static int copyStream2Stream(int paramInt1, InputStream paramInputStream, OutputStream paramOutputStream, int paramInt2)
+    throws IOException
+  {
+    byte[] arrayOfByte = new byte[paramInt1];
+    int i = 0;
+    
+    int j;
+    while ((j = paramInputStream.read(arrayOfByte)) != -1)
+    {
+
+      paramOutputStream.write(arrayOfByte, 0, j);
+      i += j;
+    }
+    return i;
+  }
+  
+  public static StringBuilder appendCharStream(StringBuilder paramStringBuilder, Reader paramReader) throws IOException {
+    char[] arrayOfChar = new char['Ѐ'];
+    int i;
+    while (0 < (i = paramReader.read(arrayOfChar))) {
+      paramStringBuilder.append(arrayOfChar, 0, i);
+    }
+    return paramStringBuilder;
+  }
+  
+
+  public static byte[] copyStream2ByteArray(InputStream paramInputStream)
+    throws IOException
+  {
+    if (!(paramInputStream instanceof BufferedInputStream)) {
+      paramInputStream = new BufferedInputStream(paramInputStream);
+    }
+    int i = 0;
+    int j = paramInputStream.available();
+    Object localObject = new byte[j];
+    int k = 0;
+    byte[] arrayOfByte;
+    do { if (i + j > localObject.length) {
+        arrayOfByte = new byte[i + j];
+        System.arraycopy(localObject, 0, arrayOfByte, 0, i);
+        localObject = arrayOfByte;
+      }
+      k = paramInputStream.read((byte[])localObject, i, j);
+      if (k >= 0) {
+        i += k;
+      }
+      j = paramInputStream.available();
+    } while ((j > 0) && (k >= 0));
+    
+
+    if (i != localObject.length) {
+      arrayOfByte = new byte[i];
+      System.arraycopy(localObject, 0, arrayOfByte, 0, i);
+      localObject = arrayOfByte;
+    }
+    return localObject;
+  }
+  
+
+
+
+
+  public static ByteBuffer copyStream2ByteBuffer(InputStream paramInputStream)
+    throws IOException
+  {
+    return copyStream2ByteBuffer(paramInputStream, -1);
+  }
+  
+
+
+
+
+
+  public static ByteBuffer copyStream2ByteBuffer(InputStream paramInputStream, int paramInt)
+    throws IOException
+  {
+    if (!(paramInputStream instanceof BufferedInputStream)) {
+      paramInputStream = new BufferedInputStream(paramInputStream);
+    }
+    int i = paramInputStream.available();
+    if (paramInt < i) {
+      paramInt = i;
+    }
+    MachineDataInfo localMachineDataInfo = Platform.getMachineDataInfo();
+    Object localObject = Buffers.newDirectByteBuffer(localMachineDataInfo.pageAlignedSize(paramInt));
+    byte[] arrayOfByte = new byte[localMachineDataInfo.pageSizeInBytes()];
+    int j = Math.min(localMachineDataInfo.pageSizeInBytes(), i);
+    int k = 0;
+    do {
+      if (i > ((ByteBuffer)localObject).remaining()) {
+        ByteBuffer localByteBuffer = Buffers.newDirectByteBuffer(localMachineDataInfo
+          .pageAlignedSize(((ByteBuffer)localObject).position() + i));
+        localByteBuffer.put((ByteBuffer)localObject);
+        localObject = localByteBuffer;
+      }
+      
+      k = paramInputStream.read(arrayOfByte, 0, j);
+      if (k > 0) {
+        ((ByteBuffer)localObject).put(arrayOfByte, 0, k);
+      }
+      i = paramInputStream.available();
+      j = Math.min(localMachineDataInfo.pageSizeInBytes(), i);
+    } while (k > 0);
+    
+    ((ByteBuffer)localObject).flip();
+    return localObject;
+  }
+  
+
+
+
+
+
+
+  private static final Pattern patternSingleBS = Pattern.compile("\\\\{1}");
+  
+
+
+
+
+
+
+  public static String slashify(String paramString, boolean paramBoolean1, boolean paramBoolean2)
+    throws URISyntaxException
+  {
+    String str = patternSingleBS.matcher(paramString).replaceAll("/");
+    if ((paramBoolean1) && (!str.startsWith("/"))) {
+      str = "/" + str;
+    }
+    if ((paramBoolean2) && (!str.endsWith("/"))) {
+      str = str + "/";
+    }
+    return cleanPathString(str);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static String getFileSuffix(File paramFile)
+  {
+    return getFileSuffix(paramFile.getName());
+  }
+  
+
+
+
+
+
+
+
+
+
+  public static String getFileSuffix(String paramString)
+  {
+    int i = paramString.lastIndexOf('.');
+    if (i < 0) {
+      return null;
+    }
+    return toLowerCase(paramString.substring(i + 1));
+  }
+  
+  private static String toLowerCase(String paramString) { if (paramString == null) {
+      return null;
+    }
+    
+    return paramString.toLowerCase();
+  }
+  
+
+
+
+
+
+
+  public static FileOutputStream getFileOutputStream(File paramFile, boolean paramBoolean)
+    throws IOException
+  {
+    Constructor localConstructor = getFOSCtor();
+    if (null == localConstructor) {
+      throw new IOException("Cannot open file (" + paramFile + ") for writing, FileOutputStream feature not available.");
+    }
+    if ((paramFile.exists()) && (!paramBoolean)) {
+      throw new IOException("File already exists (" + paramFile + ") and overwrite=false");
+    }
+    try {
+      return (FileOutputStream)localConstructor.newInstance(new Object[] { paramFile });
+    } catch (Exception localException) {
+      throw new IOException("error opening " + paramFile + " for write. ", localException);
+    }
+  }
+  
+  public static String getClassFileName(String paramString)
+  {
+    return paramString.replace('.', '/') + ".class";
+  }
+  
+
+
+
+
+  public static URL getClassURL(String paramString, ClassLoader paramClassLoader)
+    throws IOException
+  {
+    URL localURL = paramClassLoader.getResource(getClassFileName(paramString));
+    if (null == localURL) {
+      throw new IOException("Cannot not find: " + paramString);
+    }
+    return localURL;
+  }
+  
+
+
+  public static String getBasename(String paramString)
+    throws URISyntaxException
+  {
+    paramString = slashify(paramString, false, false);
+    int i = paramString.lastIndexOf('/');
+    if (i >= 0) {
+      paramString = paramString.substring(i + 1);
+    }
+    return paramString;
+  }
+  
+
+
+  public static String getDirname(String paramString)
+    throws URISyntaxException
+  {
+    paramString = slashify(paramString, false, false);
+    int i = paramString.lastIndexOf('/');
+    if (i >= 0) {
+      paramString = paramString.substring(0, i + 1);
+    }
+    return paramString;
+  }
+  
+
+
+
+
+  public static class ClassResources
+  {
+    public final ClassLoader classLoader;
+    
+
+
+    public final Class<?> contextCL;
+    
+
+
+    public final String[] resourcePaths;
+    
+
+
+
+    public final int resourceCount()
+    {
+      return resourcePaths.length;
+    }
+    
+    /**
+     * @deprecated
+     */
+    public ClassResources(Class<?> paramClass, String[] paramArrayOfString)
+    {
+      this(paramArrayOfString, paramClass.getClassLoader(), paramClass);
+    }
+    
+
+
+
+    public ClassResources(String[] paramArrayOfString, ClassLoader paramClassLoader, Class<?> paramClass)
+    {
+      for (int i = paramArrayOfString.length - 1; i >= 0; i--) {
+        if (null == paramArrayOfString[i]) {
+          throw new IllegalArgumentException("resourcePath[" + i + "] is null");
+        }
+      }
+      classLoader = paramClassLoader;
+      contextCL = paramClass;
+      resourcePaths = paramArrayOfString;
+    }
+    
+
+
+
+    public URLConnection resolve(int paramInt)
+      throws ArrayIndexOutOfBoundsException
+    {
+      return IOUtil.getResource(resourcePaths[paramInt], classLoader, contextCL);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  /**
+   * @deprecated
+   */
+  public static URLConnection getResource(Class<?> paramClass, String paramString)
+  {
+    ClassLoader localClassLoader = null != paramClass ? paramClass.getClassLoader() : IOUtil.class.getClassLoader();
+    return getResource(paramString, localClassLoader, paramClass);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static URLConnection getResource(String paramString, ClassLoader paramClassLoader, Class<?> paramClass)
+  {
+    if (null == paramString) {
+      return null;
+    }
+    URLConnection localURLConnection = null;
+    if (null != paramClass)
+    {
+      String str1 = paramClass.getName().replace('.', '/');
+      int i = str1.lastIndexOf('/');
+      if (i >= 0) {
+        String str2 = str1.substring(0, i + 1);
+        localURLConnection = getResource(str2 + paramString, paramClassLoader);
+        if (DEBUG) {
+          System.err.println("IOUtil: found <" + paramString + "> within class package <" + str2 + "> of given class <" + paramClass.getName() + ">: " + (null != localURLConnection));
+        }
+      }
+    } else if (DEBUG) {
+      System.err.println("IOUtil: null context, skip rel. lookup");
+    }
+    if (null == localURLConnection) {
+      localURLConnection = getResource(paramString, paramClassLoader);
+      if (DEBUG) {
+        System.err.println("IOUtil: found <" + paramString + "> by classloader: " + (null != localURLConnection));
+      }
+    }
+    return localURLConnection;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static URLConnection getResource(String paramString, ClassLoader paramClassLoader)
+  {
+    if (null == paramString) {
+      return null;
+    }
+    if (DEBUG) {
+      System.err.println("IOUtil: locating <" + paramString + ">, has cl: " + (null != paramClassLoader));
+    }
+    if (paramString.startsWith("asset:")) {
+      try {
+        return AssetURLContext.createURL(paramString, paramClassLoader).openConnection();
+      } catch (IOException localIOException1) {
+        if (DEBUG) {
+          ExceptionUtils.dumpThrowable("IOUtil", localIOException1);
+        }
+        return null;
+      }
+    }
+    try {
+      return AssetURLContext.resolve(paramString, paramClassLoader);
+    } catch (IOException localIOException2) {
+      if (DEBUG) {
+        ExceptionUtils.dumpThrowable("IOUtil", localIOException2);
+      }
+    }
+    
+    return null;
+  }
+  
+
+
+
+
+
+  public static String getRelativeOf(File paramFile, String paramString)
+    throws URISyntaxException
+  {
+    if (null == paramString) {
+      return null;
+    }
+    
+    if (paramFile != null) {
+      File localFile = new File(paramFile, paramString);
+      
+      return slashify(localFile.getPath(), false, false);
+    }
+    return null;
+  }
+  
+
+
+
+  public static String getParentOf(String paramString)
+    throws URISyntaxException
+  {
+    int i = null != paramString ? paramString.length() : 0;
+    if (i == 0) {
+      throw new IllegalArgumentException("path is empty <" + paramString + ">");
+    }
+    
+    int j = paramString.lastIndexOf("/");
+    if (j < 0) {
+      throw new URISyntaxException(paramString, "path contains no '/': <" + paramString + ">");
+    }
+    if (j == 0)
+    {
+      throw new URISyntaxException(paramString, "path has no parents: <" + paramString + ">");
+    }
+    if (j < i - 1)
+    {
+      return paramString.substring(0, j + 1);
+    }
+    int k = paramString.lastIndexOf("!") + 1;
+    
+    int m = paramString.lastIndexOf("/", j - 1);
+    if (m >= k)
+    {
+      return paramString.substring(0, m + 1);
+    }
+    
+    String str = paramString.substring(k, j);
+    if (str.equals("..")) {
+      throw new URISyntaxException(paramString, "parent is unresolved: <" + paramString + ">");
+    }
+    
+    return paramString.substring(0, k);
+  }
+  
+
+
+
+
+
+
+
+  public static String cleanPathString(String paramString)
+    throws URISyntaxException
+  {
+    int i = paramString.length() - 1;
+    while ((i >= 1) && ((i = paramString.lastIndexOf("./", i)) >= 0)) {
+      if ((0 < i) && (paramString.charAt(i - 1) == '.')) {
+        i -= 2;
+      } else {
+        paramString = paramString.substring(0, i) + paramString.substring(i + 2);
+        i--;
+      }
+    }
+    i = 0;
+    while ((i = paramString.indexOf("../", i)) >= 0) {
+      if (0 == i) {
+        i += 3;
+      } else {
+        paramString = getParentOf(paramString.substring(0, i)) + paramString.substring(i + 3);
+        i = 0;
+      }
+    }
+    return paramString;
+  }
+  
+  public static final Pattern patternSpaceEnc = Pattern.compile("%20");
+  
+
+
+
+
+
+
+  public static String getUriFilePathOrASCII(Uri paramUri)
+  {
+    if (paramUri.isFileScheme()) {
+      return paramUri.toFile().getPath();
+    }
+    return paramUri.toASCIIString().get();
+  }
+  
+
+
+
+  public static URLConnection openURL(URL paramURL)
+  {
+    return openURL(paramURL, ".");
+  }
+  
+
+
+  public static URLConnection openURL(URL paramURL, String paramString)
+  {
+    if (null != paramURL) {
+      try {
+        URLConnection localURLConnection = paramURL.openConnection();
+        localURLConnection.connect();
+        if (DEBUG) {
+          System.err.println("IOUtil: urlExists(" + paramURL + ") [" + paramString + "] - true");
+        }
+        return localURLConnection;
+      } catch (IOException localIOException) {
+        if (DEBUG) {
+          ExceptionUtils.dumpThrowable("IOUtil: urlExists(" + paramURL + ") [" + paramString + "] - false -", localIOException);
+        }
+      }
+    } else if (DEBUG) {
+      System.err.println("IOUtil: no url - urlExists(null) [" + paramString + "]");
+    }
+    
+    return null;
+  }
+  
+  private static String getExeTestFileSuffix() {
+    switch (1.$SwitchMap$com$jogamp$common$os$Platform$OSType[PlatformPropsImpl.OS_TYPE.ordinal()]) {
+    case 1: 
+      if (Platform.CPUFamily.X86 == CPU_ARCHfamily) {
+        return ".exe";
+      }
+      return ".bat";
+    }
+    
+    return ".sh";
+  }
+  
+  private static String getExeTestShellCode() {
+    switch (1.$SwitchMap$com$jogamp$common$os$Platform$OSType[PlatformPropsImpl.OS_TYPE.ordinal()]) {
+    case 1: 
+      return "echo off" + PlatformPropsImpl.NEWLINE;
+    }
+    return null;
+  }
+  
+  private static String[] getExeTestCommandArgs(String paramString) {
+    switch (1.$SwitchMap$com$jogamp$common$os$Platform$OSType[PlatformPropsImpl.OS_TYPE.ordinal()])
+    {
+    }
+    
+    return new String[] { paramString };
+  }
+  
+  private static final byte[] readCode(String paramString) throws IOException
+  {
+    URLConnection localURLConnection = getResource(paramString, IOUtil.class.getClassLoader(), IOUtil.class);
+    InputStream localInputStream = localURLConnection.getInputStream();
+    byte[] arrayOfByte = null;
+    try {
+      arrayOfByte = CustomCompress.inflateFromStream(localInputStream);
+    } finally {
+      localInputStream.close();
+    }
+    return arrayOfByte; }
+  
+  private static final Object exeTestLock = new Object();
+  private static WeakReference<byte[]> exeTestCodeRef = null;
+  
+  private static void fillExeTestFile(File paramFile) throws IOException { Object localObject1;
+    if ((Platform.OSType.WINDOWS == PlatformPropsImpl.OS_TYPE) && (Platform.CPUFamily.X86 == CPU_ARCHfamily))
+    {
+
+
+      synchronized (exeTestLock) {
+        byte[] arrayOfByte = null;
+        if ((null == exeTestCodeRef) || (null == (arrayOfByte = (byte[])exeTestCodeRef.get()))) {
+          String str;
+          if (Platform.CPUType.X86_64 == PlatformPropsImpl.CPU_ARCH) {
+            str = "bin/exe-windows-x86_64.defl";
+          } else {
+            str = "bin/exe-windows-i386.defl";
+          }
+          localObject1 = readCode(str);
+          exeTestCodeRef = new WeakReference(localObject1);
+        } else {
+          localObject1 = arrayOfByte;
+        }
+      }
+      ??? = new FileOutputStream(paramFile);
+      try {
+        ((FileOutputStream)???).write((byte[])localObject1, 0, localObject1.length);
+        try {
+          ((FileOutputStream)???).getFD().sync();
+        } catch (SyncFailedException localSyncFailedException) {
+          ExceptionUtils.dumpThrowable("", localSyncFailedException);
+        }
+      } finally {
+        ((FileOutputStream)???).close();
+      }
+    } else {
+      localObject1 = getExeTestShellCode();
+      if (isStringSet((String)localObject1)) {
+        ??? = new FileWriter(paramFile);
+        try {
+          ((FileWriter)???).write((String)localObject1);
+          
+          try {}catch (IOException localIOException)
+          {
+            ExceptionUtils.dumpThrowable("", localIOException);
+          }
+        } finally {
+          ((FileWriter)???).close();
+        }
+      }
+    }
+  }
+  
+  private static boolean getOSHasNoexecFS() { switch (1.$SwitchMap$com$jogamp$common$os$Platform$OSType[PlatformPropsImpl.OS_TYPE.ordinal()]) {
+    case 2: 
+      return false;
+    }
+    
+    return true;
+  }
+  
+
+
+
+  private static boolean getOSHasFreeDesktopXDG()
+  {
+    switch (1.$SwitchMap$com$jogamp$common$os$Platform$OSType[PlatformPropsImpl.OS_TYPE.ordinal()]) {
+    case 1: 
+    case 2: 
+    case 3: 
+    case 4: 
+      return false;
+    }
+    
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+  public static boolean testFile(File paramFile, boolean paramBoolean1, boolean paramBoolean2)
+  {
+    if (!paramFile.exists()) {
+      if (DEBUG) {
+        System.err.println("IOUtil.testFile: <" + paramFile.getAbsolutePath() + ">: does not exist");
+      }
+      return false;
+    }
+    if ((paramBoolean1) && (!paramFile.isDirectory())) {
+      if (DEBUG) {
+        System.err.println("IOUtil.testFile: <" + paramFile.getAbsolutePath() + ">: is not a directory");
+      }
+      return false;
+    }
+    if ((paramBoolean2) && (!paramFile.canWrite())) {
+      if (DEBUG) {
+        System.err.println("IOUtil.testFile: <" + paramFile.getAbsolutePath() + ">: is not writable");
+      }
+      return false;
+    }
+    return true;
+  }
+  
+  public static class StreamMonitor implements Runnable {
+    private final InputStream[] istreams;
+    private final boolean[] eos;
+    private final PrintStream ostream;
+    private final String prefix;
+    
+    public StreamMonitor(InputStream[] paramArrayOfInputStream, PrintStream paramPrintStream, String paramString) { istreams = paramArrayOfInputStream;
+      eos = new boolean[paramArrayOfInputStream.length];
+      ostream = paramPrintStream;
+      prefix = paramString;
+      InterruptSource.Thread localThread = new InterruptSource.Thread(null, this, "StreamMonitor-" + Thread.currentThread().getName());
+      localThread.setDaemon(true);
+      localThread.start();
+    }
+    
+
+    public void run()
+    {
+      byte[] arrayOfByte = new byte['က'];
+      try {
+        int i = istreams.length;
+        int j = 0;
+        do {
+          for (int k = 0; k < istreams.length; k++) {
+            if (eos[k] == 0) {
+              int m = istreams[k].read(arrayOfByte);
+              if (m > 0) {
+                if (null != ostream) {
+                  if (null != prefix) {
+                    ostream.write(prefix.getBytes());
+                  }
+                  ostream.write(arrayOfByte, 0, m);
+                }
+              }
+              else {
+                j++;
+                eos[k] = true;
+              }
+            }
+          }
+          if (null != ostream) {
+            ostream.flush();
+          }
+        } while (j < i);
+      }
+      catch (IOException localIOException) {}finally {
+        if (null != ostream) {
+          ostream.flush();
+        }
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static boolean testDirExec(File paramFile)
+    throws SecurityException
+  {
+    int i = (DEBUG_EXE) || (DEBUG) ? 1 : 0;
+    
+    if (!testFile(paramFile, true, true)) {
+      if (i != 0) {
+        System.err.println("IOUtil.testDirExec: <" + paramFile.getAbsolutePath() + ">: Not writeable dir");
+      }
+      return false;
+    }
+    if (!getOSHasNoexecFS()) {
+      if (i != 0) {
+        System.err.println("IOUtil.testDirExec: <" + paramFile.getAbsolutePath() + ">: Always executable");
+      }
+      return true;
+    }
+    
+    long l1 = i != 0 ? System.currentTimeMillis() : 0L;
+    Object localObject1;
+    boolean bool1;
+    try {
+      Object localObject2 = DEBUG_EXE_EXISTING_FILE ? new File(paramFile, "jogamp_exe_tst" + getExeTestFileSuffix()) : null;
+      if ((null != localObject2) && (localObject2.exists())) {
+        localObject1 = localObject2;
+        bool1 = true;
+      } else {
+        localObject1 = File.createTempFile("jogamp_exe_tst", getExeTestFileSuffix(), paramFile);
+        bool1 = false;
+      }
+    } catch (SecurityException localSecurityException1) {
+      throw localSecurityException1;
+    } catch (IOException localIOException) {
+      if (i != 0) {
+        localIOException.printStackTrace();
+      }
+      return false;
+    }
+    long l2 = i != 0 ? System.currentTimeMillis() : 0L;
+    
+    int j = -1;
+    int k = -1;
+    if ((bool1) || (((File)localObject1).setExecutable(true, true))) {
+      Process localProcess = null;
+      try {
+        if (!bool1) {
+          fillExeTestFile((File)localObject1);
+        }
+        l3 = i != 0 ? System.currentTimeMillis() : 0L;
+        
+
+
+        localProcess = Runtime.getRuntime().exec(getExeTestCommandArgs(((File)localObject1).getCanonicalPath()), null, null);
+        if ((DEBUG_EXE) && (!DEBUG_EXE_NOSTREAM)) {
+          new StreamMonitor(new InputStream[] { localProcess.getInputStream(), localProcess.getErrorStream() }, System.err, "Exe-Tst: ");
+        }
+        localProcess.waitFor();
+        k = localProcess.exitValue();
+        j = 0;
+      } catch (SecurityException localSecurityException2) {
+        throw localSecurityException2;
+      } catch (Throwable localThrowable2) {
+        l3 = i != 0 ? System.currentTimeMillis() : 0L;
+        j = -2;
+        if (i != 0) {
+          System.err.println("IOUtil.testDirExec: <" + ((File)localObject1).getAbsolutePath() + ">: Caught " + localThrowable2.getClass().getSimpleName() + ": " + localThrowable2.getMessage());
+          localThrowable2.printStackTrace();
+        }
+      } finally {
+        if (null != localProcess)
+        {
+          try
+          {
+
+            localProcess.destroy();
+          } catch (Throwable localThrowable4) {
+            ExceptionUtils.dumpThrowable("", localThrowable4);
+          }
+        }
+      }
+    }
+    long l3 = i != 0 ? System.currentTimeMillis() : 0L;
+    
+
+    boolean bool2 = 0 == j;
+    if ((!DEBUG_EXE) && (!bool1)) {
+      ((File)localObject1).delete();
+    }
+    if (i != 0) {
+      long l4 = System.currentTimeMillis();
+      System.err.println("IOUtil.testDirExec(): test-exe <" + ((File)localObject1).getAbsolutePath() + ">, existingFile " + bool1 + ", returned " + k);
+      System.err.println("IOUtil.testDirExec(): abs-path <" + paramFile.getAbsolutePath() + ">: res " + j + " -> " + bool2);
+      System.err.println("IOUtil.testDirExec(): total " + (l4 - l1) + "ms, create " + (l2 - l1) + "ms, fill " + (l3 - l2) + "ms, execute " + (l4 - l3) + "ms");
+    }
+    return bool2;
+  }
+  
+
+  private static File testDirImpl(File paramFile, boolean paramBoolean1, boolean paramBoolean2, String paramString)
+    throws SecurityException
+  {
+    if ((paramBoolean1) && (!paramFile.exists()))
+      paramFile.mkdirs();
+    File localFile;
+    if (paramBoolean2) {
+      localFile = testDirExec(paramFile) ? paramFile : null;
+    } else {
+      localFile = testFile(paramFile, true, true) ? paramFile : null;
+    }
+    if (DEBUG) {
+      System.err.println("IOUtil.testDirImpl(" + paramString + "): <" + paramFile.getAbsolutePath() + ">, create " + paramBoolean1 + ", exec " + paramBoolean2 + ": " + (null != localFile));
+    }
+    return localFile;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static File testDir(File paramFile, boolean paramBoolean1, boolean paramBoolean2)
+    throws SecurityException
+  {
+    return testDirImpl(paramFile, paramBoolean1, paramBoolean2, "testDir");
+  }
+  
+  private static boolean isStringSet(String paramString) { return (null != paramString) && (0 < paramString.length()); }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private static File getSubTempDir(File paramFile, String paramString1, boolean paramBoolean, String paramString2)
+    throws SecurityException
+  {
+    File localFile = null;
+    if (null != testDirImpl(paramFile, true, paramBoolean, paramString2)) {
+      for (int i = 0; (null == localFile) && (i <= 9999); i++) {
+        String str = String.format("_%04d", new Object[] { Integer.valueOf(i) });
+        localFile = testDirImpl(new File(paramFile, paramString1 + str), true, paramBoolean, paramString2);
+      }
+    }
+    return localFile;
+  }
+  
+  private static File getFile(String paramString) {
+    if (isStringSet(paramString)) {
+      return new File(paramString);
+    }
+    return null;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static File getTempDir(boolean paramBoolean)
+    throws SecurityException, IOException
+  {
+    if (!tempRootSet) {
+      synchronized (IOUtil.class) {
+        if (!tempRootSet) {
+          tempRootSet = true;
+          
+          localObject1 = AndroidUtils.getTempRoot();
+          if (null != localObject1) {
+            tempRootNoexec = getSubTempDir((File)localObject1, "jogamp", false, "Android.ctxTemp");
+            tempRootExec = tempRootNoexec;
+            return tempRootExec;
+          }
+          
+
+          localObject1 = getFile(PropertyAccess.getProperty("java.io.tmpdir", false));
+          if (DEBUG) {
+            System.err.println("IOUtil.getTempRoot(): tempX1 <" + localObject1 + ">, used " + (null != localObject1));
+          }
+          
+
+
+          Object localObject3 = System.getenv("TMPDIR");
+          if (!isStringSet((String)localObject3)) {
+            localObject3 = System.getenv("TEMP");
+          }
+          Object localObject4 = getFile((String)localObject3);
+          Object localObject2; if ((null != localObject4) && (!((File)localObject4).equals(localObject1))) {
+            localObject2 = localObject4;
+          } else {
+            localObject2 = null;
+          }
+          if (DEBUG) {
+            System.err.println("IOUtil.getTempRoot(): tempX3 <" + localObject4 + ">, used " + (null != localObject2));
+          }
+          
+
+          localObject3 = getFile(PropertyAccess.getProperty("user.home", false));
+          if (DEBUG) {
+            System.err.println("IOUtil.getTempRoot(): tempX4 <" + localObject3 + ">, used " + (null != localObject3));
+          }
+          
+
+          String str;
+          
+          if (getOSHasFreeDesktopXDG()) {
+            str = System.getenv("XDG_CACHE_HOME");
+            if ((!isStringSet(str)) && (null != localObject3)) {
+              str = ((File)localObject3).getAbsolutePath() + File.separator + ".cache";
+            }
+          } else {
+            str = null;
+          }
+          File localFile = getFile(str);
+          if ((null != localFile) && (!localFile.equals(localObject1))) {
+            localObject4 = localFile;
+          } else {
+            localObject4 = null;
+          }
+          if (DEBUG) {
+            System.err.println("IOUtil.getTempRoot(): tempX2 <" + localFile + ">, used " + (null != localObject4));
+          }
+          
+
+
+          if ((null == tempRootExec) && (null != localObject1)) {
+            if (Platform.OSType.MACOS == PlatformPropsImpl.OS_TYPE)
+            {
+
+              tempRootExec = getSubTempDir((File)localObject1, "jogamp", false, "tempX1");
+            } else {
+              tempRootExec = getSubTempDir((File)localObject1, "jogamp", true, "tempX1");
+            }
+          }
+          
+
+          if ((null == tempRootExec) && (null != localObject4)) {
+            tempRootExec = getSubTempDir((File)localObject4, "jogamp", true, "tempX2");
+          }
+          
+
+          if ((null == tempRootExec) && (null != localObject2)) {
+            tempRootExec = getSubTempDir(localObject2, "jogamp", true, "tempX3");
+          }
+          
+
+          if ((null == tempRootExec) && (null != localObject3)) {
+            tempRootExec = getSubTempDir((File)localObject3, ".jogamp", true, "tempX4");
+          }
+          
+          if (null != tempRootExec) {
+            tempRootNoexec = tempRootExec;
+          }
+          else {
+            if ((null == tempRootNoexec) && (null != localObject1)) {
+              tempRootNoexec = getSubTempDir((File)localObject1, "jogamp", false, "temp01");
+            }
+            
+
+            if ((null == tempRootNoexec) && (null != localObject4)) {
+              tempRootNoexec = getSubTempDir((File)localObject4, "jogamp", false, "temp02");
+            }
+            
+
+            if ((null == tempRootNoexec) && (null != localObject2)) {
+              tempRootNoexec = getSubTempDir(localObject2, "jogamp", false, "temp03");
+            }
+            
+
+            if ((null == tempRootNoexec) && (null != localObject3)) {
+              tempRootNoexec = getSubTempDir((File)localObject3, ".jogamp", false, "temp04");
+            }
+          }
+          
+          if (DEBUG) {
+            str = null != tempRootExec ? tempRootExec.getAbsolutePath() : null;
+            localFile = null != tempRootNoexec ? tempRootNoexec.getAbsolutePath() : null;
+            System.err.println("IOUtil.getTempRoot(): temp dirs: exec: " + str + ", noexec: " + localFile);
+          }
+        }
+      }
+    }
+    ??? = paramBoolean ? tempRootExec : tempRootNoexec;
+    if (null == ???) {
+      localObject1 = paramBoolean ? "executable " : "";
+      throw new IOException("Could not determine a temporary " + (String)localObject1 + "directory");
+    }
+    Object localObject1 = new FilePermission(((File)???).getAbsolutePath(), "read,write,delete");
+    SecurityUtil.checkPermission((Permission)localObject1);
+    return ???; }
+  
+  private static File tempRootExec = null;
+  private static File tempRootNoexec = null;
+  private static volatile boolean tempRootSet = false;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static File createTempFile(String paramString1, String paramString2, boolean paramBoolean)
+    throws IllegalArgumentException, IOException, SecurityException
+  {
+    return File.createTempFile(paramString1, paramString2, getTempDir(paramBoolean));
+  }
+  
+  public static void close(Closeable paramCloseable, boolean paramBoolean) throws RuntimeException {
+    if (null != paramCloseable) {
+      try {
+        paramCloseable.close();
+      } catch (IOException localIOException) {
+        if (paramBoolean)
+          throw new RuntimeException(localIOException);
+        if (DEBUG) {
+          System.err.println("Caught Exception: ");
+          localIOException.printStackTrace();
+        }
+      }
+    }
+  }
+  
+
+
+
+
+
+
+  public static IOException close(Closeable paramCloseable, IOException[] paramArrayOfIOException, PrintStream paramPrintStream)
+  {
+    try
+    {
+      paramCloseable.close();
+    } catch (IOException localIOException) {
+      if (null == paramArrayOfIOException[0]) {
+        paramArrayOfIOException[0] = localIOException;
+      } else {
+        if (null != paramPrintStream) {
+          paramPrintStream.println("Caught " + localIOException.getClass().getSimpleName() + ": " + localIOException.getMessage());
+          localIOException.printStackTrace(paramPrintStream);
+        }
+        return localIOException;
+      }
+    }
+    return null;
+  }
+  
+  static {}
+}

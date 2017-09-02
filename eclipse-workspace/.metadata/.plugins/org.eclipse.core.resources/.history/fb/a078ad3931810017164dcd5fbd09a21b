@@ -1,0 +1,109 @@
+package de.voidplus.leapmotion;
+
+import processing.core.PApplet;
+import processing.core.PVector;
+
+public class Arm
+  implements RawAccess<com.leapmotion.leap.Arm>
+{
+  protected PApplet parent;
+  protected LeapMotion leap;
+  private com.leapmotion.leap.Arm _arm;
+  
+  public Arm(PApplet paramPApplet, LeapMotion paramLeapMotion, com.leapmotion.leap.Arm paramArm)
+  {
+    parent = paramPApplet;
+    leap = paramLeapMotion;
+    _arm = paramArm;
+  }
+  
+  public boolean isValid()
+  {
+    return _arm.isValid();
+  }
+  
+  public com.leapmotion.leap.Arm getRaw()
+  {
+    return _arm;
+  }
+  
+  public PVector getElbowPosition()
+  {
+    return leap.map(_arm.elbowPosition());
+  }
+  
+  public PVector getWristRawPosition()
+  {
+    return leap.convert(_arm.wristPosition());
+  }
+  
+  public PVector getWristPosition()
+  {
+    return leap.map(_arm.wristPosition());
+  }
+  
+  public PVector getElbowRawPosition()
+  {
+    return leap.convert(_arm.elbowPosition());
+  }
+  
+  public float getWidth()
+  {
+    return _arm.width();
+  }
+  
+  public PVector getPosition()
+  {
+    return leap.map(_arm.center());
+  }
+  
+  public PVector getRawPosition()
+  {
+    return leap.convert(_arm.center());
+  }
+  
+  public void draw(float paramFloat)
+  {
+    PVector localPVector1 = getWristPosition();
+    PVector localPVector2 = getElbowPosition();
+    if (leap.is2D)
+    {
+      parent.stroke(0, 35.0F);
+      parent.noFill();
+      parent.beginShape(5);
+      parent.vertex(x, y);
+      parent.vertex(x, y);
+      parent.endShape(1);
+      parent.noStroke();
+      parent.fill(0);
+      parent.ellipseMode(3);
+      parent.ellipse(x, y, paramFloat, paramFloat);
+      parent.ellipse(x, y, paramFloat, paramFloat);
+    }
+    else
+    {
+      parent.stroke(0, 35.0F);
+      parent.noFill();
+      parent.beginShape(5);
+      parent.vertex(x, y, z);
+      parent.vertex(x, y, z);
+      parent.endShape(1);
+      parent.noStroke();
+      parent.fill(0);
+      parent.sphereDetail(20);
+      parent.pushMatrix();
+      parent.translate(x, y, z);
+      parent.sphere(paramFloat);
+      parent.popMatrix();
+      parent.pushMatrix();
+      parent.translate(x, y, z);
+      parent.sphere(paramFloat);
+      parent.popMatrix();
+    }
+  }
+  
+  public void draw()
+  {
+    draw(3.0F);
+  }
+}

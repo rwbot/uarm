@@ -1,0 +1,679 @@
+package jogamp.opengl;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.common.util.VersionUtil;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.MutableGraphicsConfiguration;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.ProxySurface;
+import com.jogamp.nativewindow.UpstreamSurfaceHook;
+import com.jogamp.nativewindow.UpstreamSurfaceHook.MutableSize;
+import com.jogamp.opengl.FBObject;
+import com.jogamp.opengl.FBObject.Attachment.Type;
+import com.jogamp.opengl.FBObject.Colorbuffer;
+import com.jogamp.opengl.FBObject.TextureAttachment;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLFBODrawable;
+import com.jogamp.opengl.GLFBODrawable.Resizeable;
+import com.jogamp.opengl.JoglVersion;
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLFBODrawableImpl
+  extends GLDrawableImpl
+  implements GLFBODrawable
+{
+  protected static final boolean DEBUG = (GLDrawableImpl.DEBUG) || (Debug.debug("FBObject"));
+  protected static final boolean DEBUG_SWAP = PropertyAccess.isPropertyDefined("jogl.debug.FBObject.Swap", true);
+  
+  private final GLDrawableImpl parent;
+  
+  private GLCapabilitiesImmutable origParentChosenCaps;
+  
+  private boolean initialized;
+  
+  private int maxSamples;
+  private int fboModeBits;
+  private int texUnit;
+  private int samples;
+  private boolean fboResetQuirk;
+  private FBObject[] fbos;
+  private int fboIBack;
+  private int fboIFront;
+  private int pendingFBOReset = -1;
+  
+
+  private boolean fboBound;
+  
+  private boolean fboSwapped;
+  
+  private static volatile boolean resetQuirkInfoDumped = false;
+  
+
+
+
+  private static final int bufferCount = 2;
+  
+
+
+
+  private SwapBufferContext swapBufferContext;
+  
+
+
+
+  private static final String illegalBufferName = "Only GL_FRONT and GL_BACK buffer are allowed, passed ";
+  
+
+
+
+  protected GLFBODrawableImpl(GLDrawableFactoryImpl paramGLDrawableFactoryImpl, GLDrawableImpl paramGLDrawableImpl, NativeSurface paramNativeSurface, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, int paramInt)
+  {
+    super(paramGLDrawableFactoryImpl, paramNativeSurface, paramGLCapabilitiesImmutable, false);
+    initialized = false;
+    fboModeBits = 1;
+    
+    parent = paramGLDrawableImpl;
+    origParentChosenCaps = getChosenGLCapabilities();
+    texUnit = paramInt;
+    samples = paramGLCapabilitiesImmutable.getNumSamples();
+    fboResetQuirk = false;
+    swapBufferContext = null;
+  }
+  
+
+  private final void setupFBO(GL paramGL, int paramInt1, int paramInt2, int paramInt3, int paramInt4, boolean paramBoolean1, int paramInt5, int paramInt6, boolean paramBoolean2, boolean paramBoolean3, boolean paramBoolean4)
+  {
+    FBObject localFBObject1 = new FBObject();
+    fbos[paramInt1] = localFBObject1;
+    
+    int i = paramInt5 > 0 ? 1 : 0;
+    int j = paramInt6 > 0 ? 1 : 0;
+    
+    localFBObject1.init(paramGL, paramInt2, paramInt3, paramInt4);
+    if (localFBObject1.getNumSamples() != paramInt4) {
+      throw new InternalError("Sample number mismatch: " + paramInt4 + ", fbos[" + paramInt1 + "] " + localFBObject1);
+    }
+    if ((paramInt4 > 0) || (!paramBoolean2)) {
+      localFBObject1.attachColorbuffer(paramGL, 0, paramBoolean1);
+    } else {
+      localFBObject1.attachTexture2D(paramGL, 0, paramBoolean1);
+    }
+    if (j != 0) {
+      if (i != 0) {
+        localFBObject1.attachRenderbuffer(paramGL, FBObject.Attachment.Type.DEPTH_STENCIL, paramInt5);
+      } else {
+        localFBObject1.attachRenderbuffer(paramGL, FBObject.Attachment.Type.STENCIL, paramInt6);
+      }
+    } else if (i != 0) {
+      localFBObject1.attachRenderbuffer(paramGL, FBObject.Attachment.Type.DEPTH, paramInt5);
+    }
+    if (paramInt4 > 0) {
+      FBObject localFBObject2 = new FBObject();
+      
+      localFBObject2.init(paramGL, paramInt2, paramInt3, 0);
+      if (!paramBoolean2) {
+        localFBObject2.attachColorbuffer(paramGL, 0, paramBoolean1);
+      } else {
+        localFBObject2.attachTexture2D(paramGL, 0, paramBoolean1);
+      }
+      if (j != 0) {
+        if (i != 0) {
+          localFBObject2.attachRenderbuffer(paramGL, FBObject.Attachment.Type.DEPTH_STENCIL, paramInt5);
+        } else {
+          localFBObject2.attachRenderbuffer(paramGL, FBObject.Attachment.Type.STENCIL, paramInt6);
+        }
+      } else if (i != 0) {
+        localFBObject2.attachRenderbuffer(paramGL, FBObject.Attachment.Type.DEPTH, paramInt5);
+      }
+      
+      localFBObject1.setSamplingSink(localFBObject2);
+      localFBObject1.resetSamplingSink(paramGL);
+    }
+    
+
+
+    localFBObject1.bind(paramGL);
+    if (paramBoolean3)
+    {
+      paramGL.glViewport(0, 0, paramInt2, paramInt3);
+      paramGL.glScissor(0, 0, paramInt2, paramInt3);
+    }
+    if (i != 0) {
+      paramGL.glClear(16640);
+    } else {
+      paramGL.glClear(16384);
+    }
+    if (paramBoolean4) {
+      localFBObject1.unbind(paramGL);
+    } else {
+      localFBObject1.markUnbound();
+    }
+  }
+  
+  private final void initialize(boolean paramBoolean, GL paramGL) {
+    if ((!initialized) && (!paramBoolean)) {
+      if (DEBUG) {
+        System.err.println("GLFBODrawableImpl.initialize(): WARNING - Already unrealized!");
+        ExceptionUtils.dumpStack(System.err);
+      }
+      return;
+    }
+    if (initialized == paramBoolean) {
+      throw new IllegalStateException("initialize already in state " + paramBoolean + ": " + this);
+    }
+    if (paramBoolean) {
+      GLCapabilities localGLCapabilities = (GLCapabilities)getChosenGLCapabilities();
+      
+      maxSamples = paramGL.getMaxRenderbufferSamples();
+      
+      int j = samples <= maxSamples ? samples : maxSamples;
+      if (DEBUG) {
+        System.err.println("GLFBODrawableImpl.initialize(): samples " + samples + " -> " + j + "/" + maxSamples);
+      }
+      samples = j;
+      
+
+
+      if (samples > 0) {
+        j = 1;
+      } else if (localGLCapabilities.getDoubleBuffered()) {
+        j = 2;
+      } else {
+        j = 1;
+      }
+      
+      fbos = new FBObject[j];
+      fboIBack = 0;
+      fboIFront = (fbos.length - 1);
+      
+      if ((0 == (0x1 & fboModeBits)) && 
+        (paramGL.getContext().hasRendererQuirk(18)))
+      {
+        fboModeBits |= 0x1;
+      }
+      
+      boolean bool1 = 0 != (0x1 & fboModeBits);
+      boolean bool2 = localGLCapabilities.getAlphaBits() > 0;
+      int k = getSurfaceWidth();
+      int m = getSurfaceHeight();
+      
+      for (int n = 0; n < j; n++) {
+        setupFBO(paramGL, n, k, m, samples, bool2, localGLCapabilities
+          .getDepthBits(), localGLCapabilities.getStencilBits(), bool1, (0 == n) && 
+          (0L == parent.getHandle()), j - 1 == n);
+      }
+      
+      fbos[0].formatToGLCapabilities(localGLCapabilities);
+      localGLCapabilities.setDoubleBuffered((localGLCapabilities.getDoubleBuffered()) || (samples > 0));
+    } else {
+      for (int i = 0; i < fbos.length; i++) {
+        fbos[i].destroy(paramGL);
+      }
+      fbos = null;
+    }
+    fboBound = false;
+    fboSwapped = false;
+    pendingFBOReset = -1;
+    initialized = paramBoolean;
+    
+    if (DEBUG) {
+      System.err.println("GLFBODrawableImpl.initialize(" + paramBoolean + "): " + this);
+      ExceptionUtils.dumpStack(System.err);
+    }
+  }
+  
+  public final void setSwapBufferContext(SwapBufferContext paramSwapBufferContext) {
+    swapBufferContext = paramSwapBufferContext;
+  }
+  
+  private final void reset(GL paramGL, int paramInt1, int paramInt2, int paramInt3, int paramInt4, boolean paramBoolean, int paramInt5, int paramInt6)
+  {
+    if (!fboResetQuirk) {
+      try {
+        fbos[paramInt1].reset(paramGL, paramInt2, paramInt3, paramInt4);
+        if (fbos[paramInt1].getNumSamples() != paramInt4) {
+          throw new InternalError("Sample number mismatch: " + paramInt4 + ", fbos[" + paramInt1 + "] " + fbos[paramInt1]);
+        }
+        return;
+      } catch (GLException localGLException) {
+        fboResetQuirk = true;
+        if ((DEBUG) && 
+          (!resetQuirkInfoDumped)) {
+          resetQuirkInfoDumped = true;
+          System.err.println("GLFBODrawable: FBO Reset failed: " + localGLException.getMessage());
+          System.err.println("GLFBODrawable: Enabling FBOResetQuirk, due to GL driver bug.");
+          JoglVersion localJoglVersion = JoglVersion.getInstance();
+          System.err.println(VersionUtil.getPlatformInfo());
+          System.err.println(localJoglVersion.toString());
+          System.err.println(JoglVersion.getGLInfo(paramGL, null));
+          localGLException.printStackTrace();
+        }
+      }
+    }
+    
+
+
+    fbos[paramInt1].destroy(paramGL);
+    boolean bool = 0 != (0x1 & fboModeBits);
+    setupFBO(paramGL, paramInt1, paramInt2, paramInt3, paramInt4, paramBoolean, paramInt5, paramInt6, bool, false, true);
+  }
+  
+  private final void reset(GL paramGL, int paramInt) throws GLException {
+    if (!initialized)
+    {
+      return;
+    }
+    
+    GLContext localGLContext1 = GLContext.getCurrent();
+    GLContext localGLContext2 = paramGL.getContext();
+    boolean bool = (null != localGLContext1) && (localGLContext1 != localGLContext2);
+    if (DEBUG) {
+      System.err.println("GLFBODrawableImpl.reset(newSamples " + paramInt + "): BEGIN - ctxSwitch " + bool + ", " + this);
+      ExceptionUtils.dumpStack(System.err);
+    }
+    Object localObject1 = null;
+    Object localObject2 = null;
+    localGLContext2.makeCurrent();
+    paramGL.glFinish();
+    fboBound = false;
+    fboSwapped = false;
+    try {
+      paramInt = paramInt <= maxSamples ? paramInt : maxSamples;
+      
+      if (((0 == samples) && (0 < paramInt)) || ((0 < samples) && (0 == paramInt)))
+      {
+        if (DEBUG) {
+          System.err.println("GLFBODrawableImpl.reset(): samples [on/off] reconfig: " + samples + " -> " + paramInt + "/" + maxSamples);
+        }
+        initialize(false, paramGL);
+        samples = paramInt;
+        initialize(true, paramGL);
+      } else {
+        if (DEBUG) {
+          System.err.println("GLFBODrawableImpl.reset(): simple reconfig: " + samples + " -> " + paramInt + "/" + maxSamples);
+        }
+        int i = getSurfaceWidth();
+        int j = getSurfaceHeight();
+        samples = paramInt;
+        pendingFBOReset = (1 < fbos.length ? fboIFront : -1);
+        GLCapabilitiesImmutable localGLCapabilitiesImmutable = (GLCapabilitiesImmutable)surface.getGraphicsConfiguration().getChosenCapabilities();
+        for (int k = 0; k < fbos.length; k++) {
+          if (pendingFBOReset != k) {
+            reset(paramGL, k, i, j, samples, localGLCapabilitiesImmutable.getAlphaBits() > 0, localGLCapabilitiesImmutable.getDepthBits(), localGLCapabilitiesImmutable.getStencilBits());
+          }
+        }
+        GLCapabilities localGLCapabilities = (GLCapabilities)surface.getGraphicsConfiguration().getChosenCapabilities();
+        fbos[0].formatToGLCapabilities(localGLCapabilities);
+      }
+      
+
+      try
+      {
+        localGLContext2.release();
+        if (bool) {
+          localGLContext1.makeCurrent();
+        }
+      } catch (Throwable localThrowable1) {
+        localObject2 = localThrowable1;
+      }
+      
+      if (null == localObject1) {
+        break label555;
+      }
+    }
+    catch (Throwable localThrowable2)
+    {
+      localObject1 = localThrowable2;
+    } finally {
+      try {
+        localGLContext2.release();
+        if (bool) {
+          localGLContext1.makeCurrent();
+        }
+      } catch (Throwable localThrowable4) {
+        localObject2 = localThrowable4;
+      }
+    }
+    
+    throw GLException.newGLException(localObject1);
+    label555:
+    if (null != localObject2) {
+      throw GLException.newGLException(localObject2);
+    }
+    if (DEBUG) {
+      System.err.println("GLFBODrawableImpl.reset(newSamples " + paramInt + "): END " + this);
+    }
+  }
+  
+
+
+
+
+  public final GLContext createContext(GLContext paramGLContext)
+  {
+    GLContext localGLContext = parent.createContext(paramGLContext);
+    localGLContext.setGLDrawable(this, false);
+    return localGLContext;
+  }
+  
+
+
+
+  protected final int getDefaultDrawFramebuffer()
+  {
+    return initialized ? fbos[fboIBack].getWriteFramebuffer() : 0;
+  }
+  
+  protected final int getDefaultReadFramebuffer() { return initialized ? fbos[fboIFront].getReadFramebuffer() : 0; }
+  
+  protected final int getDefaultReadBuffer(GL paramGL, boolean paramBoolean)
+  {
+    return initialized ? fbos[fboIFront].getDefaultReadBuffer() : 36064;
+  }
+  
+  protected final void setRealizedImpl()
+  {
+    MutableGraphicsConfiguration localMutableGraphicsConfiguration = (MutableGraphicsConfiguration)surface.getGraphicsConfiguration();
+    if (realized) {
+      parent.setRealized(true);
+      origParentChosenCaps = ((GLCapabilitiesImmutable)localMutableGraphicsConfiguration.getChosenCapabilities());
+      GLCapabilities localGLCapabilities = (GLCapabilities)origParentChosenCaps.cloneMutable();
+      localGLCapabilities.copyFrom(getRequestedGLCapabilities());
+      localMutableGraphicsConfiguration.setChosenCapabilities(localGLCapabilities);
+    } else {
+      localMutableGraphicsConfiguration.setChosenCapabilities(origParentChosenCaps);
+      parent.setRealized(false);
+    }
+  }
+  
+  protected void associateContext(GLContext paramGLContext, boolean paramBoolean)
+  {
+    initialize(paramBoolean, paramGLContext.getGL());
+  }
+  
+  protected final void contextMadeCurrent(GLContext paramGLContext, boolean paramBoolean)
+  {
+    GL localGL = paramGLContext.getGL();
+    if (paramBoolean) {
+      if (!initialized) {
+        throw new GLException("Not initialized: " + this);
+      }
+      fbos[fboIBack].bind(localGL);
+      fboBound = true;
+      fboSwapped = false;
+    } else if ((fboBound) && (!fboSwapped)) {
+      swapFBOImpl(paramGLContext);
+      swapFBOImplPost(paramGLContext);
+      fboBound = false;
+      fboSwapped = true;
+      if (DEBUG_SWAP) {
+        System.err.println("Post FBO swap(@release): done");
+      }
+    }
+  }
+  
+  protected void swapBuffersImpl(boolean paramBoolean)
+  {
+    GLContext localGLContext = GLContext.getCurrent();
+    int i;
+    if ((null != localGLContext) && (localGLContext.getGLDrawable() == this) && (fboBound)) {
+      swapFBOImpl(localGLContext);
+      i = 1;
+      fboSwapped = true;
+      if (DEBUG_SWAP) {
+        System.err.println("Post FBO swap(@swap): done");
+      }
+    } else {
+      i = 0;
+    }
+    if (null != swapBufferContext) {
+      swapBufferContext.swapBuffers(paramBoolean);
+    }
+    if (i != 0) {
+      swapFBOImplPost(localGLContext);
+    }
+  }
+  
+  private final void swapFBOImplPost(GLContext paramGLContext)
+  {
+    if (0 <= pendingFBOReset) {
+      GLCapabilitiesImmutable localGLCapabilitiesImmutable = (GLCapabilitiesImmutable)surface.getGraphicsConfiguration().getChosenCapabilities();
+      reset(paramGLContext.getGL(), pendingFBOReset, getSurfaceWidth(), getSurfaceHeight(), samples, localGLCapabilitiesImmutable
+        .getAlphaBits() > 0, localGLCapabilitiesImmutable.getDepthBits(), localGLCapabilitiesImmutable.getStencilBits());
+      pendingFBOReset = -1;
+    }
+  }
+  
+  private final void swapFBOImpl(GLContext paramGLContext) {
+    GL localGL = paramGLContext.getGL();
+    fbos[fboIBack].markUnbound();
+    
+    if (DEBUG) {
+      int i = (fboIFront + 1) % fbos.length;
+      if (i != fboIBack) throw new InternalError("XXX: " + i + "!=" + fboIBack);
+    }
+    fboIFront = fboIBack;
+    fboIBack = ((fboIBack + 1) % fbos.length);
+    
+    FBObject.Colorbuffer localColorbuffer = samples > 0 ? fbos[fboIFront].getSamplingSink() : fbos[fboIFront].getColorbuffer(0);
+    if (null == localColorbuffer) {
+      throw new GLException("Front colorbuffer is null: samples " + samples + ", " + this);
+    }
+    FBObject.TextureAttachment localTextureAttachment;
+    if (localColorbuffer.isTextureAttachment()) {
+      localTextureAttachment = localColorbuffer.getTextureAttachment();
+      localGL.glActiveTexture(33984 + texUnit);
+    } else {
+      localTextureAttachment = null;
+    }
+    fbos[fboIFront].use(localGL, localTextureAttachment);
+    
+
+
+
+
+
+    if (DEBUG_SWAP) {
+      System.err.println("Post FBO swap(X): fboI back " + fboIBack + ", front " + fboIFront + ", num " + fbos.length);
+    }
+  }
+  
+
+
+
+
+  public final boolean isInitialized()
+  {
+    return initialized;
+  }
+  
+  public final void setFBOMode(int paramInt) throws IllegalStateException
+  {
+    if (isInitialized()) {
+      throw new IllegalStateException("Already initialized: " + this);
+    }
+    fboModeBits = paramInt;
+  }
+  
+  public final int getFBOMode()
+  {
+    return fboModeBits;
+  }
+  
+  public final void resetSize(GL paramGL) throws GLException
+  {
+    reset(paramGL, samples);
+  }
+  
+  public final int getTextureUnit() {
+    return texUnit;
+  }
+  
+  public final void setTextureUnit(int paramInt) { texUnit = paramInt; }
+  
+  public final int getNumSamples() {
+    return samples;
+  }
+  
+  public void setNumSamples(GL paramGL, int paramInt) throws GLException {
+    if (samples != paramInt) {
+      reset(paramGL, paramInt);
+    }
+  }
+  
+  public final int setNumBuffers(int paramInt) throws IllegalStateException, GLException
+  {
+    if (isInitialized()) {
+      throw new IllegalStateException("Already initialized: " + this);
+    }
+    
+    return 2;
+  }
+  
+  public final int getNumBuffers()
+  {
+    return 2;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public FBObject getFBObject(int paramInt)
+    throws IllegalArgumentException
+  {
+    if (!initialized) {
+      return null;
+    }
+    FBObject localFBObject;
+    switch (paramInt) {
+    case 1028: 
+      if (samples > 0) {
+        localFBObject = fbos[0].getSamplingSinkFBO();
+      } else {
+        localFBObject = fbos[fboIFront];
+      }
+      break;
+    case 1029: 
+      localFBObject = fbos[fboIBack];
+      break;
+    default: 
+      throw new IllegalArgumentException("Only GL_FRONT and GL_BACK buffer are allowed, passed " + toHexString(paramInt));
+    }
+    return localFBObject;
+  }
+  
+  public final FBObject.Colorbuffer getColorbuffer(int paramInt) throws IllegalArgumentException
+  {
+    if (!initialized) {
+      return null;
+    }
+    FBObject.Colorbuffer localColorbuffer;
+    switch (paramInt) {
+    case 1028: 
+      if (samples > 0) {
+        localColorbuffer = fbos[0].getSamplingSink();
+      } else {
+        localColorbuffer = fbos[fboIFront].getColorbuffer(0);
+      }
+      break;
+    case 1029: 
+      if (samples > 0) {
+        throw new IllegalArgumentException("Cannot access GL_BACK buffer of MSAA FBO: " + this);
+      }
+      localColorbuffer = fbos[fboIBack].getColorbuffer(0);
+      
+      break;
+    default: 
+      throw new IllegalArgumentException("Only GL_FRONT and GL_BACK buffer are allowed, passed " + toHexString(paramInt));
+    }
+    return localColorbuffer;
+  }
+  
+
+
+
+
+
+
+
+  public String toString()
+  {
+    return getClass().getSimpleName() + "[Initialized " + initialized + ", realized " + isRealized() + ", texUnit " + texUnit + ", samples " + samples + ",\n\tFactory   " + getFactory() + ",\n\tHandle    " + toHexString(getHandle()) + ",\n\tCaps      " + surface.getGraphicsConfiguration().getChosenCapabilities() + ",\n\tfboI back " + fboIBack + ", front " + fboIFront + ", num " + (initialized ? fbos.length : 0) + ",\n\tFBO front read " + getDefaultReadFramebuffer() + ", " + getFBObject(1028) + ",\n\tFBO back  write " + getDefaultDrawFramebuffer() + ", " + getFBObject(1029) + ",\n\tSurface   " + surface + "]";
+  }
+  
+  static {}
+  
+  public static class ResizeableImpl extends GLFBODrawableImpl implements GLFBODrawable.Resizeable
+  {
+    protected ResizeableImpl(GLDrawableFactoryImpl paramGLDrawableFactoryImpl, GLDrawableImpl paramGLDrawableImpl, ProxySurface paramProxySurface, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, int paramInt) {
+      super(paramGLDrawableImpl, paramProxySurface, paramGLCapabilitiesImmutable, paramInt);
+    }
+    
+    public final void setSurfaceSize(GLContext paramGLContext, int paramInt1, int paramInt2) throws NativeWindowException, GLException
+    {
+      if (DEBUG) {
+        System.err.println("GLFBODrawableImpl.ResizeableImpl setSize: (" + getThreadName() + "): " + paramInt1 + "x" + paramInt2 + " - surfaceHandle 0x" + Long.toHexString(getNativeSurface().getSurfaceHandle()));
+      }
+      int i = lockSurface();
+      if (1 >= i) {
+        throw new NativeWindowException("Could not lock surface: " + this);
+      }
+      try
+      {
+        ProxySurface localProxySurface = (ProxySurface)getNativeSurface();
+        UpstreamSurfaceHook localUpstreamSurfaceHook = localProxySurface.getUpstreamSurfaceHook();
+        if ((localUpstreamSurfaceHook instanceof UpstreamSurfaceHook.MutableSize)) {
+          ((UpstreamSurfaceHook.MutableSize)localUpstreamSurfaceHook).setSurfaceSize(paramInt1, paramInt2);
+        } else {
+          throw new InternalError("GLFBODrawableImpl.ResizableImpl's ProxySurface doesn't hold a UpstreamSurfaceHookMutableSize but " + localUpstreamSurfaceHook.getClass().getName() + ", " + localProxySurface + ", ush");
+        }
+        if ((null != paramGLContext) && (paramGLContext.isCreated())) {
+          resetSize(paramGLContext.getGL());
+        }
+      } finally {
+        unlockSurface();
+      }
+    }
+  }
+  
+  public static abstract interface SwapBufferContext
+  {
+    public abstract void swapBuffers(boolean paramBoolean);
+  }
+}

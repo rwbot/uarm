@@ -1,0 +1,203 @@
+package jogamp.opengl.glu.nurbs;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Splinespec
+{
+  private final int dim;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private Knotspec kspec;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  private CArrayOfFloats outcpts;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public Splinespec(int paramInt)
+  {
+    dim = paramInt;
+  }
+  
+
+
+
+
+  public void kspecinit(Knotvector paramKnotvector)
+  {
+    kspec = new Knotspec();
+    kspec.inkbegin = new CArrayOfFloats(knotlist, 0);
+    kspec.inkend = new CArrayOfFloats(knotlist, knotcount);
+    
+    kspec.prestride = stride;
+    kspec.order = order;
+    kspec.next = null;
+  }
+  
+
+
+
+
+
+  public void kspecinit(Knotvector paramKnotvector1, Knotvector paramKnotvector2)
+  {
+    kspec = new Knotspec();
+    Knotspec localKnotspec = new Knotspec();
+    
+    kspec.inkbegin = new CArrayOfFloats(knotlist, 0);
+    kspec.inkend = new CArrayOfFloats(knotlist, knotcount);
+    
+    kspec.prestride = stride;
+    kspec.order = order;
+    kspec.next = localKnotspec;
+    
+    inkbegin = new CArrayOfFloats(knotlist, 0);
+    inkend = new CArrayOfFloats(knotlist, knotcount);
+    
+    prestride = stride;
+    order = order;
+    next = null;
+  }
+  
+
+
+
+  public void select()
+  {
+    for (Knotspec localKnotspec = kspec; localKnotspec != null; localKnotspec = next) {
+      localKnotspec.preselect();
+      localKnotspec.select();
+    }
+  }
+  
+
+
+
+
+
+  public void layout(int paramInt)
+  {
+    int i = paramInt;
+    for (Knotspec localKnotspec = kspec; localKnotspec != null; localKnotspec = next) {
+      poststride = i;
+      
+      i = i * ((bend.getPointer() - bbegin.getPointer()) * order + postoffset);
+      
+      preoffset *= prestride;
+      prewidth *= poststride;
+      postwidth *= poststride;
+      postoffset *= poststride;
+      ncoords = paramInt;
+    }
+    outcpts = new CArrayOfFloats(new float[i]);
+  }
+  
+
+
+
+
+
+  public void setupquilt(Quilt paramQuilt)
+  {
+    CArrayOfQuiltspecs localCArrayOfQuiltspecs = new CArrayOfQuiltspecs(qspec);
+    eqspec = new CArrayOfQuiltspecs(localCArrayOfQuiltspecs.getArray(), dim);
+    for (Knotspec localKnotspec = kspec; localKnotspec != null;) {
+      getstride = poststride;
+      
+      getwidth = (bend.getPointer() - bbegin.getPointer());
+      getorder = order;
+      getoffset = postoffset;
+      getindex = 0;
+      getbdry[0] = 
+        (kleft.getPointer() == kfirst.getPointer() ? 1 : 0);
+      getbdry[1] = 
+        (kright.getPointer() == klast.getPointer() ? 1 : 0);
+      getbreakpoints = new float[getwidth + 1];
+      CArrayOfFloats localCArrayOfFloats = new CArrayOfFloats(getbreakpoints, 0);
+      CArrayOfBreakpts localCArrayOfBreakpts = new CArrayOfBreakpts(bbegin);
+      for (; localCArrayOfBreakpts.getPointer() <= bend.getPointer(); localCArrayOfBreakpts.pp()) {
+        localCArrayOfFloats.set(getvalue);
+        localCArrayOfFloats.pp();
+      }
+      localKnotspec = next;
+      if (localKnotspec != null)
+        localCArrayOfQuiltspecs.pp();
+    }
+    cpts = new CArrayOfFloats(outcpts);
+    next = null;
+  }
+  
+
+
+
+
+  public void copy(CArrayOfFloats paramCArrayOfFloats)
+  {
+    kspec.copy(paramCArrayOfFloats, outcpts);
+  }
+  
+
+
+
+
+
+  public void transform()
+  {
+    outcpts.setPointer(0);
+    for (Knotspec localKnotspec1 = kspec; localKnotspec1 != null; localKnotspec1 = next) {
+      istransformed = false;
+    }
+    for (localKnotspec1 = kspec; localKnotspec1 != null; localKnotspec1 = next) {
+      for (Knotspec localKnotspec2 = kspec; localKnotspec2 != null; localKnotspec2 = next)
+        kspectotrans = localKnotspec1;
+      kspec.transform(outcpts);
+      istransformed = true;
+    }
+  }
+}

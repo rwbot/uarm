@@ -1,0 +1,74 @@
+package jogamp.nativewindow.jawt.windows;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.StructAccessor;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import java.nio.ByteBuffer;
+import jogamp.common.os.MachineDataInfoRuntime;
+import jogamp.nativewindow.jawt.JAWT_PlatformInfo;
+
+
+
+
+
+
+
+
+public class JAWT_Win32DrawingSurfaceInfo
+  implements JAWT_PlatformInfo
+{
+  StructAccessor accessor;
+  private static final int mdIdx = MachineDataInfoRuntime.getStatic().ordinal();
+  
+  private final MachineDataInfo md;
+  private static final int[] JAWT_Win32DrawingSurfaceInfo_size = { 12, 12, 12, 12, 12, 12, 24, 24 };
+  private static final int[] handle_offset = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  
+  private static final int[] hdc_offset = { 4, 4, 4, 4, 4, 4, 8, 8 };
+  
+  public static int size()
+  {
+    return JAWT_Win32DrawingSurfaceInfo_size[mdIdx];
+  }
+  
+  public static JAWT_Win32DrawingSurfaceInfo create() {
+    return create(Buffers.newDirectByteBuffer(size()));
+  }
+  
+  public static JAWT_Win32DrawingSurfaceInfo create(ByteBuffer paramByteBuffer) {
+    return new JAWT_Win32DrawingSurfaceInfo(paramByteBuffer);
+  }
+  
+  JAWT_Win32DrawingSurfaceInfo(ByteBuffer paramByteBuffer) {
+    md = valuesmdIdxmd;
+    accessor = new StructAccessor(paramByteBuffer);
+  }
+  
+  public ByteBuffer getBuffer() {
+    return accessor.getBuffer();
+  }
+  
+  public JAWT_Win32DrawingSurfaceInfo setHandle(long paramLong)
+  {
+    accessor.setLongAt(handle_offset[mdIdx], paramLong, md.pointerSizeInBytes());
+    return this;
+  }
+  
+  public long getHandle()
+  {
+    return accessor.getLongAt(handle_offset[mdIdx], md.pointerSizeInBytes());
+  }
+  
+
+  public JAWT_Win32DrawingSurfaceInfo setHdc(long paramLong)
+  {
+    accessor.setLongAt(hdc_offset[mdIdx], paramLong, md.pointerSizeInBytes());
+    return this;
+  }
+  
+  public long getHdc()
+  {
+    return accessor.getLongAt(hdc_offset[mdIdx], md.pointerSizeInBytes());
+  }
+}

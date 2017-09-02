@@ -1,0 +1,190 @@
+package com.jogamp.opengl.util.texture;
+
+import com.jogamp.common.util.IOUtil;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import java.io.IOException;
+import java.net.URLConnection;
+import java.util.ArrayList;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ImageSequence
+  implements TextureSequence
+{
+  private final int textureUnit;
+  private final boolean useBuildInTexLookup;
+  private final List<TextureSequence.TextureFrame> frames = new ArrayList();
+  private final int[] texMinMagFilter = { 9728, 9728 };
+  private final int[] texWrapST = { 33071, 33071 };
+  private volatile int frameIdx = 0;
+  private volatile boolean manualStepping = false;
+  private int textureFragmentShaderHashCode = 0;
+  
+  public ImageSequence(int paramInt, boolean paramBoolean) {
+    textureUnit = paramInt;
+    useBuildInTexLookup = paramBoolean;
+  }
+  
+  public void setParams(int paramInt1, int paramInt2, int paramInt3, int paramInt4) {
+    texMinMagFilter[0] = paramInt2;
+    texMinMagFilter[1] = paramInt1;
+    texWrapST[0] = paramInt3;
+    texWrapST[1] = paramInt4;
+  }
+  
+  public final void addFrame(GL paramGL, Texture paramTexture) {
+    TextureSequence.TextureFrame localTextureFrame = new TextureSequence.TextureFrame(paramTexture);
+    frames.add(localTextureFrame);
+    paramTexture.bind(paramGL);
+    paramGL.glTexParameteri(getTextureTarget(), 10241, texMinMagFilter[0]);
+    paramGL.glTexParameteri(getTextureTarget(), 10240, texMinMagFilter[1]);
+    paramGL.glTexParameteri(getTextureTarget(), 10242, texWrapST[0]);
+    paramGL.glTexParameteri(getTextureTarget(), 10243, texWrapST[1]);
+  }
+  
+  public final void addFrame(GL paramGL, Class<?> paramClass, String paramString1, String paramString2) throws IOException {
+    URLConnection localURLConnection = IOUtil.getResource(paramString1, paramClass.getClassLoader(), paramClass);
+    if (null != localURLConnection) {
+      TextureData localTextureData = TextureIO.newTextureData(GLProfile.getGL2ES2(), localURLConnection.getInputStream(), false, paramString2);
+      Texture localTexture = new Texture(getTextureTarget());
+      localTexture.updateImage(paramGL, localTextureData);
+      addFrame(paramGL, localTexture);
+    } }
+  
+  public final int getFrameCount() { return frames.size(); }
+  public final int getCurrentIdx() { return frameIdx; }
+  
+  public final void setCurrentIdx(int paramInt) throws IndexOutOfBoundsException { if ((0 > paramInt) || (paramInt >= frames.size())) {
+      throw new IndexOutOfBoundsException("idx shall be within 0 <= " + paramInt + " < " + frames.size());
+    }
+    frameIdx = paramInt; }
+  
+  public final void setManualStepping(boolean paramBoolean) { manualStepping = paramBoolean; }
+  public final boolean getManualStepping() { return manualStepping; }
+  public final TextureSequence.TextureFrame getFrame(int paramInt) { return (TextureSequence.TextureFrame)frames.get(paramInt); }
+  
+  public void destroy(GL paramGL) throws GLException {
+    for (int i = frames.size() - 1; i >= 0; i--) {
+      ((TextureSequence.TextureFrame)frames.get(i)).getTexture().destroy(paramGL);
+    }
+    frames.clear();
+  }
+  
+  public int getTextureTarget()
+  {
+    return 3553;
+  }
+  
+  public int getTextureUnit()
+  {
+    return textureUnit;
+  }
+  
+  public int[] getTextureMinMagFilter()
+  {
+    return texMinMagFilter;
+  }
+  
+  public int[] getTextureWrapST()
+  {
+    return texWrapST;
+  }
+  
+  public boolean isTextureAvailable() {
+    return frames.size() > 0;
+  }
+  
+  public TextureSequence.TextureFrame getLastTexture() throws IllegalStateException {
+    return (TextureSequence.TextureFrame)frames.get(frameIdx);
+  }
+  
+  public TextureSequence.TextureFrame getNextTexture(GL paramGL) throws IllegalStateException
+  {
+    if (!manualStepping) {
+      frameIdx = ((frameIdx + 1) % frames.size());
+    }
+    return (TextureSequence.TextureFrame)frames.get(frameIdx);
+  }
+  
+  public String getRequiredExtensionsShaderStub() throws IllegalStateException
+  {
+    return "// TextTextureSequence: No extensions required\n";
+  }
+  
+  public String getTextureSampler2DType() throws IllegalStateException
+  {
+    return "sampler2D";
+  }
+  
+  private String textureLookupFunctionName = "myTexture2D";
+  
+  public String getTextureLookupFunctionName(String paramString) throws IllegalStateException
+  {
+    if (useBuildInTexLookup) {
+      return "texture2D";
+    }
+    if ((null != paramString) && (paramString.length() > 0)) {
+      textureLookupFunctionName = paramString;
+    }
+    return textureLookupFunctionName;
+  }
+  
+  public String getTextureLookupFragmentShaderImpl() throws IllegalStateException
+  {
+    if (useBuildInTexLookup) {
+      return "";
+    }
+    
+
+    return "\nvec4 " + textureLookupFunctionName + "(in " + getTextureSampler2DType() + " image, in vec2 texCoord) {\n" + "  return texture2D(image, texCoord);\n" + "}\n\n";
+  }
+  
+
+
+  public int getTextureFragmentShaderHashCode()
+  {
+    if (!isTextureAvailable()) {
+      textureFragmentShaderHashCode = 0;
+      return 0; }
+    if (0 == textureFragmentShaderHashCode) {
+      int i = 31 + getTextureLookupFragmentShaderImpl().hashCode();
+      i = (i << 5) - i + getTextureSampler2DType().hashCode();
+      textureFragmentShaderHashCode = i;
+    }
+    return textureFragmentShaderHashCode;
+  }
+}

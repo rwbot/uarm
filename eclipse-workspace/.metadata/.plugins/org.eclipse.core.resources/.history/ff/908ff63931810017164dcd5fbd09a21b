@@ -1,0 +1,509 @@
+package com.jogamp.opengl.util.texture.awt;
+
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.util.GLPixelBuffer.GLPixelAttributes;
+import com.jogamp.opengl.util.texture.TextureData;
+import java.awt.AlphaComposite;
+import java.awt.Graphics2D;
+import java.awt.color.ColorSpace;
+import java.awt.image.BufferedImage;
+import java.awt.image.ColorModel;
+import java.awt.image.ComponentColorModel;
+import java.awt.image.ComponentSampleModel;
+import java.awt.image.DataBuffer;
+import java.awt.image.DataBufferByte;
+import java.awt.image.DataBufferDouble;
+import java.awt.image.DataBufferFloat;
+import java.awt.image.DataBufferInt;
+import java.awt.image.DataBufferShort;
+import java.awt.image.DataBufferUShort;
+import java.awt.image.MultiPixelPackedSampleModel;
+import java.awt.image.SampleModel;
+import java.awt.image.SinglePixelPackedSampleModel;
+import java.awt.image.WritableRaster;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import java.nio.ShortBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AWTTextureData
+  extends TextureData
+{
+  private BufferedImage imageForLazyCustomConversion;
+  private boolean expectingEXTABGR;
+  private boolean expectingGL12;
+  private static final ColorModel rgbaColorModel = new ComponentColorModel(
+    ColorSpace.getInstance(1000), new int[] { 8, 8, 8, 8 }, true, true, 3, 0);
+  
+
+
+  private static final ColorModel rgbColorModel = new ComponentColorModel(
+    ColorSpace.getInstance(1000), new int[] { 8, 8, 8, 0 }, false, false, 1, 0);
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public AWTTextureData(GLProfile paramGLProfile, int paramInt1, int paramInt2, boolean paramBoolean, BufferedImage paramBufferedImage)
+  {
+    super(paramGLProfile);
+    if (paramInt1 == 0) {
+      internalFormat = (paramBufferedImage.getColorModel().hasAlpha() ? 6408 : 6407);
+    } else {
+      internalFormat = paramInt1;
+    }
+    createFromImage(paramGLProfile, paramBufferedImage);
+    mipmap = paramBoolean;
+    if (buffer != null) {
+      estimatedMemorySize = estimatedMemorySize(buffer);
+
+    }
+    else if (imageForLazyCustomConversion != null) {
+      estimatedMemorySize = estimatedMemorySize(wrapImageDataBuffer(imageForLazyCustomConversion));
+    }
+  }
+  
+  private void validatePixelAttributes()
+  {
+    if ((imageForLazyCustomConversion != null) && 
+      ((!expectingEXTABGR) || (!haveEXTABGR)) && ((!expectingGL12) || (!haveGL12)))
+    {
+      revertPixelAttributes();
+    }
+  }
+  
+
+  public GLPixelBuffer.GLPixelAttributes getPixelAttributes()
+  {
+    validatePixelAttributes();
+    return super.getPixelAttributes();
+  }
+  
+  public int getPixelFormat()
+  {
+    validatePixelAttributes();
+    return super.getPixelFormat();
+  }
+  
+  public int getPixelType() {
+    validatePixelAttributes();
+    return super.getPixelType();
+  }
+  
+  public Buffer getBuffer()
+  {
+    if ((imageForLazyCustomConversion != null) && 
+      ((!expectingEXTABGR) || (!haveEXTABGR)) && ((!expectingGL12) || (!haveGL12)))
+    {
+      revertPixelAttributes();
+      
+
+      createFromCustom(imageForLazyCustomConversion);
+    }
+    
+    return buffer;
+  }
+  
+  private void createFromImage(GLProfile paramGLProfile, BufferedImage paramBufferedImage) {
+    pixelAttributes = GLPixelBuffer.GLPixelAttributes.UNDEF;
+    mustFlipVertically = true;
+    
+    width = paramBufferedImage.getWidth();
+    height = paramBufferedImage.getHeight();
+    
+
+
+    SampleModel localSampleModel = paramBufferedImage.getRaster().getSampleModel();
+    int i; if ((localSampleModel instanceof SinglePixelPackedSampleModel))
+    {
+      i = ((SinglePixelPackedSampleModel)localSampleModel).getScanlineStride();
+    } else if ((localSampleModel instanceof MultiPixelPackedSampleModel))
+    {
+      i = ((MultiPixelPackedSampleModel)localSampleModel).getScanlineStride();
+    } else if ((localSampleModel instanceof ComponentSampleModel))
+    {
+      i = ((ComponentSampleModel)localSampleModel).getScanlineStride();
+    }
+    else {
+      setupLazyCustomConversion(paramBufferedImage);
+      return;
+    }
+    
+    width = paramBufferedImage.getWidth();
+    height = paramBufferedImage.getHeight();
+    ColorModel localColorModel;
+    if (paramGLProfile.isGL2GL3()) {
+      switch (paramBufferedImage.getType()) {
+      case 1: 
+        pixelAttributes = new GLPixelBuffer.GLPixelAttributes(32993, 33639);
+        rowLength = i;
+        alignment = 4;
+        expectingGL12 = true;
+        setupLazyCustomConversion(paramBufferedImage);
+        break;
+      case 3: 
+        pixelAttributes = new GLPixelBuffer.GLPixelAttributes(32993, 33639);
+        rowLength = i;
+        alignment = 4;
+        expectingGL12 = true;
+        setupLazyCustomConversion(paramBufferedImage);
+        break;
+      case 4: 
+        pixelAttributes = new GLPixelBuffer.GLPixelAttributes(6408, 33639);
+        rowLength = i;
+        alignment = 4;
+        expectingGL12 = true;
+        setupLazyCustomConversion(paramBufferedImage);
+        break;
+      
+
+
+      case 5: 
+        if (i % 3 == 0) {
+          pixelAttributes = new GLPixelBuffer.GLPixelAttributes(32992, 5121);
+          rowLength = (i / 3);
+          alignment = 1;
+        } else {
+          setupLazyCustomConversion(paramBufferedImage); return;
+        }
+        
+
+
+
+
+
+
+
+
+
+
+        break;
+      case 7: 
+        if ((i % 4 == 0) && (paramGLProfile.isGL2())) {}
+        
+
+
+
+
+
+
+
+
+
+
+        setupLazyCustomConversion(paramBufferedImage);
+        return;
+      
+
+      case 8: 
+        pixelAttributes = new GLPixelBuffer.GLPixelAttributes(6407, 33635);
+        rowLength = i;
+        alignment = 2;
+        expectingGL12 = true;
+        setupLazyCustomConversion(paramBufferedImage);
+        break;
+      case 9: 
+        pixelAttributes = new GLPixelBuffer.GLPixelAttributes(32993, 33638);
+        rowLength = i;
+        alignment = 2;
+        expectingGL12 = true;
+        setupLazyCustomConversion(paramBufferedImage);
+        break;
+      case 10: 
+        pixelAttributes = new GLPixelBuffer.GLPixelAttributes(6409, 5121);
+        rowLength = i;
+        alignment = 1;
+        break;
+      case 11: 
+        pixelAttributes = new GLPixelBuffer.GLPixelAttributes(6409, 5123);
+        rowLength = i;
+        alignment = 2;
+        break;
+      
+
+
+      case 0: 
+      case 2: 
+      case 6: 
+      case 12: 
+      case 13: 
+      default: 
+        localColorModel = paramBufferedImage.getColorModel();
+        if (localColorModel.equals(rgbColorModel)) {
+          pixelAttributes = new GLPixelBuffer.GLPixelAttributes(6407, 5121);
+          rowLength = (i / 3);
+          alignment = 1;
+        } else if (localColorModel.equals(rgbaColorModel)) {
+          pixelAttributes = new GLPixelBuffer.GLPixelAttributes(6408, 5121);
+          rowLength = (i / 4);
+          alignment = 4;
+        } else {
+          setupLazyCustomConversion(paramBufferedImage); return;
+        }
+        break;
+      }
+      
+    } else {
+      switch (paramBufferedImage.getType()) {
+      case 1: 
+        pixelAttributes = new GLPixelBuffer.GLPixelAttributes(6407, 5121);
+        rowLength = i;
+        alignment = 3;
+        expectingGL12 = true;
+        setupLazyCustomConversion(paramBufferedImage);
+        break;
+      case 3: 
+        throw new GLException("INT_ARGB_PRE n.a.");
+      case 4: 
+        throw new GLException("INT_BGR n.a.");
+      case 5: 
+        throw new GLException("INT_BGR n.a.");
+      case 7: 
+        throw new GLException("INT_BGR n.a.");
+      case 8: 
+        pixelAttributes = new GLPixelBuffer.GLPixelAttributes(6407, 33635);
+        rowLength = i;
+        alignment = 2;
+        expectingGL12 = true;
+        setupLazyCustomConversion(paramBufferedImage);
+        break;
+      case 9: 
+        pixelAttributes = new GLPixelBuffer.GLPixelAttributes(6408, 32820);
+        rowLength = i;
+        alignment = 2;
+        expectingGL12 = true;
+        setupLazyCustomConversion(paramBufferedImage);
+        break;
+      case 10: 
+        pixelAttributes = new GLPixelBuffer.GLPixelAttributes(6409, 5121);
+        rowLength = i;
+        alignment = 1;
+        break;
+      case 11: 
+        throw new GLException("USHORT_GRAY n.a.");
+      
+
+
+      case 0: 
+      case 2: 
+      case 6: 
+      case 12: 
+      case 13: 
+      default: 
+        localColorModel = paramBufferedImage.getColorModel();
+        if (localColorModel.equals(rgbColorModel)) {
+          pixelAttributes = new GLPixelBuffer.GLPixelAttributes(6407, 5121);
+          rowLength = (i / 3);
+          alignment = 1;
+        } else if (localColorModel.equals(rgbaColorModel)) {
+          pixelAttributes = new GLPixelBuffer.GLPixelAttributes(6408, 5121);
+          rowLength = (i / 4);
+          alignment = 4;
+        } else {
+          setupLazyCustomConversion(paramBufferedImage); return;
+        }
+        
+        break;
+      }
+      
+    }
+    createNIOBufferFromImage(paramBufferedImage);
+  }
+  
+  private void setupLazyCustomConversion(BufferedImage paramBufferedImage) {
+    imageForLazyCustomConversion = paramBufferedImage;
+    boolean bool = paramBufferedImage.getColorModel().hasAlpha();
+    int i = pixelAttributes.format;
+    int j = pixelAttributes.type;
+    if (i == 0) {
+      i = bool ? 6408 : 6407;
+    }
+    alignment = 1;
+    rowLength = width;
+    
+
+
+    DataBuffer localDataBuffer = paramBufferedImage.getRaster().getDataBuffer();
+    if (((localDataBuffer instanceof DataBufferByte)) || (isPackedInt(paramBufferedImage)))
+    {
+      if (j == 0) j = 5121;
+    } else { if ((localDataBuffer instanceof DataBufferDouble))
+        throw new RuntimeException("DataBufferDouble rasters not supported by OpenGL");
+      if ((localDataBuffer instanceof DataBufferFloat)) {
+        if (j == 0) j = 5126;
+      } else if ((localDataBuffer instanceof DataBufferInt))
+      {
+        if (j == 0) j = 5125;
+      } else if ((localDataBuffer instanceof DataBufferShort)) {
+        if (j == 0) j = 5122;
+      } else if ((localDataBuffer instanceof DataBufferUShort)) {
+        if (j == 0) j = 5123;
+      } else
+        throw new RuntimeException("Unexpected DataBuffer type?");
+    }
+    pixelAttributes = new GLPixelBuffer.GLPixelAttributes(i, j);
+  }
+  
+  private void createFromCustom(BufferedImage paramBufferedImage) {
+    int i = paramBufferedImage.getWidth();
+    int j = paramBufferedImage.getHeight();
+    
+
+    boolean bool1 = paramBufferedImage.getColorModel().hasAlpha();
+    Object localObject = null;
+    int k = paramBufferedImage.getRaster().getDataBuffer().getDataType();
+    
+    if (isPackedInt(paramBufferedImage)) {
+      k = 0;
+    }
+    if (k == 0) {
+      localObject = bool1 ? rgbaColorModel : rgbColorModel;
+    }
+    else if (bool1) {
+      localObject = new ComponentColorModel(ColorSpace.getInstance(1000), null, true, true, 3, k);
+
+    }
+    else
+    {
+      localObject = new ComponentColorModel(ColorSpace.getInstance(1000), null, false, false, 1, k);
+    }
+    
+
+
+
+
+    boolean bool2 = ((ColorModel)localObject).isAlphaPremultiplied();
+    
+    WritableRaster localWritableRaster = ((ColorModel)localObject).createCompatibleWritableRaster(i, j);
+    BufferedImage localBufferedImage = new BufferedImage((ColorModel)localObject, localWritableRaster, bool2, null);
+    
+
+    Graphics2D localGraphics2D = localBufferedImage.createGraphics();
+    localGraphics2D.setComposite(AlphaComposite.Src);
+    localGraphics2D.drawImage(paramBufferedImage, 0, 0, null);
+    localGraphics2D.dispose();
+    
+
+    createNIOBufferFromImage(localBufferedImage);
+  }
+  
+  private boolean isPackedInt(BufferedImage paramBufferedImage) {
+    int i = paramBufferedImage.getType();
+    return (i == 1) || (i == 4) || (i == 2) || (i == 3);
+  }
+  
+
+
+
+
+
+
+  private void revertPixelAttributes()
+  {
+    pixelAttributes = GLPixelBuffer.GLPixelAttributes.UNDEF;
+    setupLazyCustomConversion(imageForLazyCustomConversion);
+  }
+  
+  private void createNIOBufferFromImage(BufferedImage paramBufferedImage) {
+    buffer = wrapImageDataBuffer(paramBufferedImage);
+  }
+  
+
+
+
+
+
+
+
+
+  private Buffer wrapImageDataBuffer(BufferedImage paramBufferedImage)
+  {
+    DataBuffer localDataBuffer = paramBufferedImage.getRaster().getDataBuffer();
+    if ((localDataBuffer instanceof DataBufferByte))
+      return ByteBuffer.wrap(((DataBufferByte)localDataBuffer).getData());
+    if ((localDataBuffer instanceof DataBufferDouble))
+      throw new RuntimeException("DataBufferDouble rasters not supported by OpenGL");
+    if ((localDataBuffer instanceof DataBufferFloat))
+      return FloatBuffer.wrap(((DataBufferFloat)localDataBuffer).getData());
+    if ((localDataBuffer instanceof DataBufferInt))
+      return IntBuffer.wrap(((DataBufferInt)localDataBuffer).getData());
+    if ((localDataBuffer instanceof DataBufferShort))
+      return ShortBuffer.wrap(((DataBufferShort)localDataBuffer).getData());
+    if ((localDataBuffer instanceof DataBufferUShort)) {
+      return ShortBuffer.wrap(((DataBufferUShort)localDataBuffer).getData());
+    }
+    throw new RuntimeException("Unexpected DataBuffer type?");
+  }
+}

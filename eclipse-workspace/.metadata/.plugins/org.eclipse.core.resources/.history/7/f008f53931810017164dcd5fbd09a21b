@@ -1,0 +1,306 @@
+package com.jogamp.opengl.util.packrect;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class RectanglePacker
+{
+  private final BackingStoreManager manager;
+  private Object backingStore;
+  private LevelSet levels;
+  private static final float EXPANSION_FACTOR = 0.5F;
+  private static final float SHRINK_FACTOR = 0.3F;
+  private final int initialWidth;
+  private final int initialHeight;
+  private int maxWidth = -1;
+  private int maxHeight = -1;
+  
+  static class RectHComparator implements Comparator<Rect> {
+    RectHComparator() {}
+    
+    public int compare(Rect paramRect1, Rect paramRect2) { return paramRect2.h() - paramRect1.h(); }
+    
+
+
+
+    public boolean equals(Object paramObject) { return this == paramObject; }
+  }
+  
+  private static final Comparator<Rect> rectHComparator = new RectHComparator();
+  
+
+  public RectanglePacker(BackingStoreManager paramBackingStoreManager, int paramInt1, int paramInt2)
+  {
+    manager = paramBackingStoreManager;
+    levels = new LevelSet(paramInt1, paramInt2);
+    initialWidth = paramInt1;
+    initialHeight = paramInt2;
+  }
+  
+  public Object getBackingStore() {
+    if (backingStore == null) {
+      backingStore = manager.allocateBackingStore(levels.w(), levels.h());
+    }
+    
+    return backingStore;
+  }
+  
+
+
+
+
+  public void setMaxSize(int paramInt1, int paramInt2)
+  {
+    maxWidth = paramInt1;
+    maxHeight = paramInt2;
+  }
+  
+
+
+
+
+
+
+  public void add(Rect paramRect)
+    throws RuntimeException
+  {
+    if (backingStore == null) {
+      backingStore = manager.allocateBackingStore(levels.w(), levels.h());
+    }
+    int i = 0;
+    boolean bool = false;
+    
+    do
+    {
+      if (levels.add(paramRect)) {
+        return;
+      }
+      if (manager.canCompact())
+      {
+        if (levels.compactAndAdd(paramRect, backingStore, manager)) {
+          return;
+        }
+        bool = manager.preExpand(paramRect, i++);
+      } else {
+        bool = manager.additionFailed(paramRect, i++);
+      }
+    } while (bool);
+    
+    if (!manager.canCompact()) {
+      throw new RuntimeException("BackingStoreManager does not support compaction or expansion, and didn't clear space for new rectangle");
+    }
+    
+    compactImpl(paramRect);
+    
+
+    add(paramRect);
+  }
+  
+
+  public void remove(Rect paramRect)
+  {
+    levels.remove(paramRect);
+  }
+  
+  public void visit(RectVisitor paramRectVisitor)
+  {
+    levels.visit(paramRectVisitor);
+  }
+  
+
+
+
+
+  public float verticalFragmentationRatio()
+  {
+    return levels.verticalFragmentationRatio();
+  }
+  
+
+  public void compact()
+  {
+    compactImpl(null);
+  }
+  
+
+
+
+
+
+
+  private void compactImpl(Rect paramRect)
+  {
+    int i = 0;
+    int j = levels.w();
+    int k = levels.h();
+    LevelSet localLevelSet = null;
+    int m = 0;
+    int n = 0;
+    Level localLevel;
+    Iterator localIterator2; Rect localRect1; while (i == 0) {
+      if (paramRect != null) {
+        if (paramRect.w() > j) {
+          j = paramRect.w();
+        } else {
+          k = (int)(k * 1.5F);
+        }
+      }
+      
+
+      n = 0;
+      if ((maxWidth > 0) && (j > maxWidth)) {
+        j = maxWidth;
+        n = 1;
+      }
+      if ((maxHeight > 0) && (k > maxHeight)) {
+        k = maxHeight;
+        n = 1;
+      }
+      
+      localLevelSet = new LevelSet(j, k);
+      
+
+      ArrayList localArrayList = new ArrayList();
+      for (localIterator1 = levels.iterator(); localIterator1.hasNext();) {
+        localLevel = (Level)localIterator1.next();
+        for (localIterator2 = localLevel.iterator(); localIterator2.hasNext();) {
+          localRect1 = (Rect)localIterator2.next();
+          Rect localRect2 = new Rect(0, 0, localRect1.w(), localRect1.h(), null);
+          localRect1.setNextLocation(localRect2);
+          
+          localRect2.setNextLocation(localRect1);
+          localArrayList.add(localRect2);
+        }
+      }
+      
+
+      Collections.sort(localArrayList, rectHComparator);
+      
+      i = 1;
+      for (localIterator1 = localArrayList.iterator(); localIterator1.hasNext();) {
+        if (!localLevelSet.add((Rect)localIterator1.next())) {
+          i = 0;
+        }
+      }
+      
+
+      if ((i != 0) && (paramRect != null))
+      {
+        if (!localLevelSet.add(paramRect))
+        {
+
+          i = 0;
+        }
+      }
+      
+
+
+      if ((i == 0) && (n != 0) && (paramRect != null)) {
+        manager.additionFailed(paramRect, m);
+      }
+      m++;
+    }
+    
+
+
+    if ((localLevelSet.getUsedHeight() > 0) && 
+      (localLevelSet.getUsedHeight() < localLevelSet.h() * 0.3F)) {
+      int i1 = Math.max(initialHeight, 
+        (int)(localLevelSet.getUsedHeight() * 1.5F));
+      if ((maxHeight > 0) && (i1 > maxHeight)) {
+        i1 = maxHeight;
+      }
+      localLevelSet.setHeight(i1);
+    }
+    
+
+
+    if (paramRect != null) {
+      localLevelSet.remove(paramRect);
+    }
+    
+
+
+
+
+    Object localObject = manager.allocateBackingStore(localLevelSet.w(), localLevelSet
+      .h());
+    manager.beginMovement(backingStore, localObject);
+    for (Iterator localIterator1 = levels.iterator(); localIterator1.hasNext();) {
+      localLevel = (Level)localIterator1.next();
+      for (localIterator2 = localLevel.iterator(); localIterator2.hasNext();) {
+        localRect1 = (Rect)localIterator2.next();
+        manager.move(backingStore, localRect1, localObject, localRect1
+          .getNextLocation());
+      }
+    }
+    
+    localLevelSet.updateRectangleReferences();
+    manager.endMovement(backingStore, localObject);
+    
+    manager.deleteBackingStore(backingStore);
+    
+    backingStore = localObject;
+    levels = localLevelSet;
+  }
+  
+  public void clear()
+  {
+    levels.clear();
+  }
+  
+
+
+  public void dispose()
+  {
+    if (backingStore != null)
+      manager.deleteBackingStore(backingStore);
+    backingStore = null;
+    levels = null;
+  }
+}

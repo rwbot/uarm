@@ -1,0 +1,1579 @@
+package com.jogamp.opengl.util.texture;
+
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ImageType
+{
+  public static final int MAGIC_MAX_SIZE = 25;
+  public static final String T_JPG = "jpg";
+  public static final String T_PNG = "png";
+  public static final String T_ICNS = "icns";
+  public static final String T_ICO = "ico";
+  public static final String T_CUR = "cur";
+  public static final String T_GIF = "gif";
+  public static final String T_BMP = "bmp";
+  public static final String T_DIB = "dib";
+  public static final String T_DCX = "dcx";
+  public static final String T_PCX = "pcx";
+  public static final String T_PPM = "ppm";
+  public static final String T_PSD = "psd";
+  public static final String T_TIFF = "tiff";
+  public static final String T_LDF = "ldf";
+  public static final String T_SGI_RGB = "rgb";
+  public static final String T_DDS = "dds";
+  public static final String T_PAM = "pam";
+  public static final String T_PGM = "pgm";
+  public static final String T_PBM = "pbm";
+  public static final String T_3D2 = "3d2";
+  public static final String T_3DMF = "3dmf";
+  public static final String T_92I = "92i";
+  public static final String T_AMFF = "amff";
+  public static final String T_ART = "art";
+  public static final String T_CALS = "cals";
+  public static final String T_CAM = "cam";
+  public static final String T_CBD = "cbd";
+  public static final String T_CE2 = "ce2";
+  public static final String T_CIN = "cin";
+  public static final String T_COB = "cob";
+  public static final String T_CPT = "cpt";
+  public static final String T_CVG = "cvg";
+  public static final String T_DEM = "dem";
+  public static final String T_DPX = "dpx";
+  public static final String T_DRW = "drw";
+  public static final String T_DWG = "dwg";
+  public static final String T_ECW = "ecw";
+  public static final String T_EMF = "emf";
+  public static final String T_FPX = "fpx";
+  public static final String T_FTS = "fts";
+  public static final String T_GRO = "gro";
+  public static final String T_HDR = "hdr";
+  public static final String T_HRU = "hru";
+  public static final String T_IMG = "img";
+  public static final String T_INFINI_D = "infini-d";
+  public static final String T_IWC = "iwc";
+  public static final String T_J6I = "j6i";
+  public static final String T_JIF = "jif";
+  public static final String T_JP2 = "jp2";
+  public static final String T_KDC = "kdc";
+  public static final String T_L64 = "l64";
+  public static final String T_LBM = "lbm";
+  public static final String T_RAD = "rad";
+  public static final String T_LWF = "lwf";
+  public static final String T_MBM = "mbm";
+  public static final String T_MGL = "mgl";
+  public static final String T_MIF = "mif";
+  public static final String T_MNG = "mng";
+  public static final String T_MPW = "mpw";
+  public static final String T_MSP = "msp";
+  public static final String T_N64 = "n64";
+  public static final String T_NCR = "ncr";
+  public static final String T_NFF = "nff";
+  public static final String T_NGG = "ngg";
+  public static final String T_NLM = "nlm";
+  public static final String T_NOL = "nol";
+  public static final String T_PAL = "pal";
+  public static final String T_PAX = "pax";
+  public static final String T_PCD = "pcd";
+  public static final String T_PCL = "pcl";
+  public static final String T_PIC = "pic";
+  public static final String T_PIX = "pix";
+  public static final String T_POL = "pol";
+  public static final String T_PSP = "psp";
+  public static final String T_QFX = "qfx";
+  public static final String T_QTM = "qtm";
+  public static final String T_RAS = "ras";
+  public static final String T_RIX = "rix";
+  public static final String T_SID = "sid";
+  public static final String T_SLD = "sld";
+  public static final String T_SOD = "sod";
+  public static final String T_WIC = "wic";
+  public static final String T_WLM = "wlm";
+  public static final String T_WMF = "wmf";
+  public static final String T_WPG = "wpg";
+  public static final String T_WRL = "wrl";
+  public static final String T_XBM = "xbm";
+  public static final String T_XPM = "xpm";
+  public static final String T_TGA = "tga";
+  public final String type;
+  public final byte[] header;
+  private final int hash;
+  
+  public ImageType(InputStream paramInputStream)
+    throws IOException
+  {
+    byte[] arrayOfByte = new byte[25];
+    type = Util.getFileSuffix(paramInputStream, arrayOfByte);
+    header = arrayOfByte;
+    hash = (null != type ? type.hashCode() : 0);
+  }
+  
+
+
+  public ImageType(String paramString)
+  {
+    header = null;
+    type = paramString;
+    hash = type.hashCode();
+  }
+  
+  public final boolean isDefined() { return null != type; }
+  
+  public final int hashCode()
+  {
+    return hash;
+  }
+  
+  public boolean equals(Object paramObject) {
+    if (paramObject == this)
+      return true;
+    if ((paramObject instanceof ImageType)) {
+      ImageType localImageType = (ImageType)paramObject;
+      return type.equals(type);
+    }
+    return false;
+  }
+  
+  public String toString() {
+    return "ImageType[" + type + "]";
+  }
+  
+
+
+
+
+  public static class Util
+  {
+    public Util() {}
+    
+
+
+
+
+    public static String getFileSuffix(InputStream paramInputStream)
+      throws IOException
+    {
+      return getFileSuffix(paramInputStream, new byte[25]);
+    }
+    
+
+
+
+
+
+
+
+    public static String getFileSuffix(InputStream paramInputStream, byte[] paramArrayOfByte)
+      throws IOException
+    {
+      if (paramInputStream == null) {
+        throw new IOException("Stream was null");
+      }
+      if (!(paramInputStream instanceof BufferedInputStream)) {
+        paramInputStream = new BufferedInputStream(paramInputStream);
+      }
+      if (!paramInputStream.markSupported()) {
+        throw new IOException("Mark not supported");
+      }
+      if (paramInputStream.available() < 25) {
+        throw new IOException("Requires 25 bytes, has " + paramInputStream.available() + " bytes");
+      }
+      try {
+        paramInputStream.mark(25);
+        int i = paramInputStream.read(paramArrayOfByte);
+        if (25 > i) {
+          throw new IOException("Could not read 25 bytes, read " + i + " bytes");
+        }
+        return getFileSuffix(paramArrayOfByte);
+      } finally {
+        paramInputStream.reset();
+      }
+    }
+    
+
+
+
+
+
+
+
+
+    public static String getFileSuffix(byte[] paramArrayOfByte)
+    {
+      if (paramArrayOfByte.length < 25) {
+        throw new IllegalArgumentException("byte array must be >= 25, has " + paramArrayOfByte.length);
+      }
+      int i = paramArrayOfByte[0];
+      int j = paramArrayOfByte[1];
+      int k = paramArrayOfByte[2];
+      int m = paramArrayOfByte[3];
+      int n = paramArrayOfByte[4];
+      int i1 = paramArrayOfByte[5];
+      
+
+
+      if (i == 0) {
+        if ((j == 0) && (k == 0) && (m == 12) && (n == 106) && (i1 == 80) && (paramArrayOfByte[6] == 32) && (paramArrayOfByte[7] == 32) && (paramArrayOfByte[8] == 13) && (paramArrayOfByte[9] == 10) && (paramArrayOfByte[10] == -121) && (paramArrayOfByte[11] == 10))
+        {
+
+
+          return "jp2";
+        }
+        if (j == 1) {
+          return "ico";
+        }
+        if (j == 2) {
+          return "cur";
+        }
+      }
+      else if (i == 1) {
+        if (j == -38) {
+          return "rgb";
+        }
+        if ((j == -1) && (k == 2) && (m == 4) && (n == 3) && (i1 == 2))
+        {
+          return "drw";
+        }
+        if ((j == 0) && (k == 0) && (m == 0) && (n == 88) && (i1 == 0) && (paramArrayOfByte[6] == 0) && (paramArrayOfByte[7] == 0))
+        {
+
+          return "emf";
+        }
+      } else {
+        if ((i == 7) && (j == 32) && (k == 77) && (m == 77)) {
+          return "cam";
+        }
+        if ((i == 10) && (j == 5) && (k == 1) && (m == 8)) {
+          return "pcx";
+        }
+        if ((i == 27) && (j == 69) && (k == 27) && (m == 38) && (n == 108) && (i1 == 48) && (paramArrayOfByte[6] == 79) && (paramArrayOfByte[7] == 27) && (paramArrayOfByte[8] == 38) && (paramArrayOfByte[9] == 108) && (paramArrayOfByte[10] == 48) && (paramArrayOfByte[11] == 69) && (paramArrayOfByte[12] == 27) && (paramArrayOfByte[13] == 38))
+        {
+
+
+          return "pcl";
+        }
+        if ((i == 32) && (j == 119) && (k == 0) && (m == 2)) {
+          return "cbd";
+        }
+        if (i == 35) {
+          if ((j == 32) && (k == 36) && (m == 73) && (n == 100) && (i1 == 58) && (paramArrayOfByte[6] == 32))
+          {
+
+            return "sid";
+          }
+          if ((j == 86) && (k == 82) && (m == 77) && (n == 76) && (i1 == 32) && (paramArrayOfByte[6] == 86) && (paramArrayOfByte[7] == 50) && (paramArrayOfByte[8] == 46) && (paramArrayOfByte[9] == 48))
+          {
+
+            return "wrl";
+          }
+          if ((j == 100) && (k == 101) && (m == 102) && (n == 105) && (i1 == 110) && (paramArrayOfByte[6] == 101))
+          {
+
+            return "xbm";
+          }
+        } else {
+          if ((i == 42) && (j == 42) && (k == 84) && (m == 73) && (n == 57) && (i1 == 50) && (paramArrayOfByte[6] == 42) && (paramArrayOfByte[7] == 42) && (paramArrayOfByte[8] == 1) && (paramArrayOfByte[9] == 0) && (paramArrayOfByte[10] == 88) && (paramArrayOfByte[11] == 110) && (paramArrayOfByte[12] == 86) && (paramArrayOfByte[13] == 105))
+          {
+
+
+            return "92i";
+          }
+          if ((i == 47) && (j == 42) && (k == 32) && (m == 88) && (n == 80) && (i1 == 77) && (paramArrayOfByte[6] == 32) && (paramArrayOfByte[7] == 42) && (paramArrayOfByte[8] == 47))
+          {
+
+            return "xpm";
+          }
+          if ((i == 51) && (j == 68) && (k == 77) && (m == 70)) {
+            return "3dmf";
+          }
+          if ((i == 53) && (j == 75) && (k == 80) && (m == 53) && (n == 49) && (i1 == 93) && (paramArrayOfByte[6] == 42) && (paramArrayOfByte[7] == 103) && (paramArrayOfByte[8] == 114) && (paramArrayOfByte[9] == 114) && (paramArrayOfByte[10] == Byte.MIN_VALUE) && (paramArrayOfByte[11] == -125) && (paramArrayOfByte[12] == -123) && (paramArrayOfByte[13] == 99))
+          {
+
+
+            return "hru";
+          }
+          if ((i == 54) && (j == 52) && (k == 76) && (m == 65) && (n == 78) && (i1 == 32) && (paramArrayOfByte[6] == 73) && (paramArrayOfByte[7] == 68) && (paramArrayOfByte[8] == 66) && (paramArrayOfByte[9] == 76) && (paramArrayOfByte[10] == 79) && (paramArrayOfByte[11] == 67) && (paramArrayOfByte[12] == 75))
+          {
+
+
+            return "l64";
+          }
+          if ((i == 55) && (j == 0) && (k == 0) && (m == 16) && (n == 66) && (i1 == 0) && (paramArrayOfByte[6] == 0) && (paramArrayOfByte[7] == 16) && (paramArrayOfByte[8] == 0) && (paramArrayOfByte[9] == 0) && (paramArrayOfByte[10] == 0) && (paramArrayOfByte[11] == 0) && (paramArrayOfByte[12] == 57) && (paramArrayOfByte[13] == 100))
+          {
+
+
+            return "mbm";
+          }
+          if ((i == 56) && (j == 66) && (k == 80) && (m == 83) && (n == 0) && (i1 == 1) && (paramArrayOfByte[6] == 0) && (paramArrayOfByte[7] == 0) && (paramArrayOfByte[8] == 0) && (paramArrayOfByte[9] == 0))
+          {
+
+            return "psd";
+          }
+          if ((i == 58) && (j == -34) && (k == 104) && (m == -79)) {
+            return "dcx";
+          }
+          if ((i == 61) && (j == 2)) {
+            return "3d2";
+          }
+          if (i == 65) {
+            if ((j == 67) && (k == 49) && (m == 48)) {
+              return "dwg";
+            }
+            if (j == 72) {
+              return "pal";
+            }
+            if ((j == 77) && (k == 70) && (m == 70)) {
+              return "amff";
+            }
+            if ((j == 117) && (k == 116) && (m == 111) && (n == 67) && (i1 == 65) && (paramArrayOfByte[6] == 68) && (paramArrayOfByte[7] == 32) && (paramArrayOfByte[8] == 83) && (paramArrayOfByte[9] == 108) && (paramArrayOfByte[10] == 105) && (paramArrayOfByte[11] == 100) && (paramArrayOfByte[12] == 101))
+            {
+
+
+              return "sld";
+            }
+          } else {
+            if ((i == 66) && (j == 77)) {
+              if (k == 54)
+              {
+                return "dib";
+              }
+              return "bmp";
+            }
+            
+            if (i == 67) {
+              if ((j == 54) && (k == 52)) {
+                return "n64";
+              }
+              if ((j == 65) && (k == 76) && (m == 65) && (n == 77) && (i1 == 85) && (paramArrayOfByte[6] == 83) && (paramArrayOfByte[7] == 67) && (paramArrayOfByte[8] == 86) && (paramArrayOfByte[9] == 71))
+              {
+
+                return "cvg";
+              }
+              if ((j == 80) && (k == 84) && (m == 70) && (n == 73) && (i1 == 76) && (paramArrayOfByte[6] == 69))
+              {
+
+                return "cpt";
+              }
+              if ((j == 97) && (k == 108) && (m == 105) && (n == 103) && (i1 == 97) && (paramArrayOfByte[6] == 114) && (paramArrayOfByte[7] == 105))
+              {
+
+                return "cob";
+              }
+            }
+            else if (i == 68) {
+              if ((j == 68) && (k == 83) && (m == 32)) {
+                return "dds";
+              }
+              if ((j == 97) && (k == 110) && (m == 77)) {
+                return "msp";
+              }
+            }
+            else if (i == 69) {
+              if ((j == 89) && (k == 69) && (m == 83)) {
+                return "ce2";
+              }
+              if ((j == 120) && (k == 105) && (m == 102))
+              {
+
+
+
+
+                return "jpg";
+              }
+            } else {
+              if ((i == 70) && (j == 79) && (k == 82) && (m == 77)) {
+                if ((n == 65) && (i1 == 84) && (paramArrayOfByte[6] == 61))
+                {
+                  return "rad";
+                }
+                return "lbm";
+              }
+              
+              if ((i == 71) && (j == 73) && (k == 70) && (m == 56) && ((n == 55) || (n == 57)) && (i1 == 97))
+              {
+                return "gif";
+              }
+              if ((i == 72) && (j == 80) && (k == 72) && (m == 80) && (n == 52) && (i1 == 56) && (paramArrayOfByte[6] == 45) && (paramArrayOfByte[7] == 69) && (paramArrayOfByte[8] == 30) && (paramArrayOfByte[9] == 43))
+              {
+
+                return "gro";
+              }
+              if (i == 73) {
+                if ((j == 73) && (k == 42) && (m == 0)) {
+                  if ((n == 8) && (i1 == 0) && (paramArrayOfByte[6] == 0) && (paramArrayOfByte[7] == 0) && (paramArrayOfByte[8] == 14) && (paramArrayOfByte[9] == 0) && (paramArrayOfByte[10] == 0) && (paramArrayOfByte[11] == 1) && (paramArrayOfByte[12] == 4) && (paramArrayOfByte[13] == 0))
+                  {
+
+
+                    return "ldf";
+                  }
+                  return "tiff";
+                }
+                
+                if ((j == 87) && (k == 67) && (m == 1)) {
+                  return "iwc";
+                }
+              }
+              else if (i == 74) {
+                if ((j == 70) && (k == 73) && (m == 70))
+                {
+
+
+
+
+                  return "jpg";
+                }
+                if ((j == 71) && ((k == 3) || (k == 4)) && (m == 14) && (n == 0) && (i1 == 0) && (paramArrayOfByte[6] == 0))
+                {
+
+                  return "art";
+                }
+                if ((j == 73) && (k == 70) && (m == 57) && (n == 57) && (i1 == 97))
+                {
+                  return "jif";
+                }
+              }
+              else if (i == 77) {
+                if ((j == 71) && (k == 76)) {
+                  return "mgl";
+                }
+                if ((j == 77) && (k == 0) && (m == 42)) {
+                  return "kdc";
+                }
+                if ((j == 80) && (k == 70)) {
+                  return "mpw";
+                }
+              }
+              else if (i == 78) {
+                if ((j == 71) && (k == 71) && (m == 0) && (n == 1) && (i1 == 0))
+                {
+                  return "ngg";
+                }
+                if ((j == 76) && (k == 77) && (m == 32) && (n == 1) && (i1 == 2) && (paramArrayOfByte[6] == 0))
+                {
+
+                  return "nlm";
+                }
+                if ((j == 79) && (k == 76) && (m == 0) && (n == 1) && (i1 == 0) && (paramArrayOfByte[6] == 6) && (paramArrayOfByte[7] == 1) && (paramArrayOfByte[8] == 3) && (paramArrayOfByte[9] == 0))
+                {
+
+                  return "nol";
+                }
+              }
+              else if (i == 80) {
+                if ((j == 49) || (j == 52)) {
+                  return "pbm";
+                }
+                if ((j == 50) || (j == 53)) {
+                  return "pgm";
+                }
+                if ((j == 51) || (j == 54)) {
+                  return "ppm";
+                }
+                if (j == 55) {
+                  return "pam";
+                }
+                if ((j == 65) && (k == 88)) {
+                  return "pax";
+                }
+                if ((j == 73) && (k == 88) && (m == 32)) {
+                  return "pix";
+                }
+                if ((j == 79) && (k == 76) && (m == 32) && (n == 70) && (i1 == 111) && (paramArrayOfByte[6] == 114) && (paramArrayOfByte[7] == 109) && (paramArrayOfByte[8] == 97) && (paramArrayOfByte[9] == 116))
+                {
+
+                  return "pol";
+                }
+                if ((j == 97) && (k == 105) && (m == 110) && (n == 116) && (i1 == 32) && (paramArrayOfByte[6] == 83) && (paramArrayOfByte[7] == 104) && (paramArrayOfByte[8] == 111) && (paramArrayOfByte[9] == 112) && (paramArrayOfByte[10] == 32) && (paramArrayOfByte[11] == 80) && (paramArrayOfByte[12] == 114) && (paramArrayOfByte[13] == 111) && (paramArrayOfByte[14] == 32) && (paramArrayOfByte[15] == 73) && (paramArrayOfByte[16] == 109) && (paramArrayOfByte[17] == 97) && (paramArrayOfByte[18] == 103) && (paramArrayOfByte[19] == 101) && (paramArrayOfByte[20] == 32) && (paramArrayOfByte[21] == 70) && (paramArrayOfByte[22] == 105) && (paramArrayOfByte[23] == 108) && (paramArrayOfByte[24] == 101))
+                {
+
+
+
+
+                  return "psp";
+                }
+              } else {
+                if ((i == 81) && (j == 76) && (k == 73) && (m == 73) && (n == 70) && (i1 == 65) && (paramArrayOfByte[6] == 88))
+                {
+
+                  return "qfx";
+                }
+                if ((i == 82) && (j == 73) && (k == 88) && (m == 51)) {
+                  return "rix";
+                }
+                if (i == 83) {
+                  if ((j == 68) && (k == 80) && (m == 88)) {
+                    return "dpx";
+                  }
+                  if ((j == 73) && (k == 77) && (m == 80) && (n == 76) && (i1 == 69) && (paramArrayOfByte[6] == 32) && (paramArrayOfByte[7] == 32) && (paramArrayOfByte[8] == 61))
+                  {
+
+                    return "fts";
+                  }
+                  if ((j == 116) && (k == 111) && (m == 114) && (n == 109) && (i1 == 51) && (paramArrayOfByte[6] == 68))
+                  {
+
+                    return "sod";
+                  }
+                  if ((j == -128) && (k == -10) && (m == 52)) {
+                    return "pic";
+                  }
+                } else {
+                  if ((i == 86) && (j == 105) && (k == 115) && (m == 116) && (n == 97) && (i1 == 32) && (paramArrayOfByte[6] == 68) && (paramArrayOfByte[7] == 69) && (paramArrayOfByte[8] == 77) && (paramArrayOfByte[9] == 32) && (paramArrayOfByte[10] == 70) && (paramArrayOfByte[11] == 105) && (paramArrayOfByte[12] == 108) && (paramArrayOfByte[13] == 101))
+                  {
+
+
+                    return "dem";
+                  }
+                  if ((i == 87) && (j == 86) && (k == 2) && (m == 0) && (n == 71) && (i1 == 69) && (paramArrayOfByte[6] == 0) && (paramArrayOfByte[7] == 14))
+                  {
+
+                    return "lwf";
+                  }
+                  if ((i == 89) && (j == -90) && (k == 106) && (m == -107)) {
+                    return "ras";
+                  }
+                  if ((i == 99) && (j == 82) && (k == 1) && (m == 1) && (n == 56) && (i1 == 9) && (paramArrayOfByte[6] == 61) && (paramArrayOfByte[7] == 0))
+                  {
+
+                    return "pcd";
+                  }
+                  if (i == 101) {
+                    if ((j == 2) && (k == 1) && (m == 2)) {
+                      return "ecw";
+                    }
+                    if ((j == 108) && (k == 109) && (m == 111)) {
+                      return "infini-d";
+                    }
+                  } else {
+                    if ((i == 105) && (j == 99) && (k == 110) && (m == 115)) {
+                      return "icns";
+                    }
+                    if ((i == 109) && (j == 111) && (k == 111) && (m == 118)) {
+                      return "qtm";
+                    }
+                    if (i == 110) {
+                      if ((j == 99) && (k == 111) && (m == 108) && (n == 115))
+                      {
+                        return "hdr";
+                      }
+                      if ((j == 102) && (k == 102)) {
+                        return "nff";
+                      }
+                      if ((j == 110) && (k == 10) && (m == 0) && (n == 94) && (i1 == 0))
+                      {
+                        return "ncr";
+                      }
+                    } else {
+                      if ((i == 115) && (j == 114) && (k == 99) && (m == 100) && (n == 111) && (i1 == 99) && (paramArrayOfByte[6] == 105) && (paramArrayOfByte[7] == 100) && (paramArrayOfByte[8] == 58))
+                      {
+
+                        return "cals";
+                      }
+                      if ((i == 123) && (j == 10) && (k == 32) && (m == 32) && (n == 67) && (i1 == 114) && (paramArrayOfByte[6] == 101) && (paramArrayOfByte[7] == 97) && (paramArrayOfByte[8] == 116) && (paramArrayOfByte[9] == 101) && (paramArrayOfByte[10] == 100))
+                      {
+
+                        return "mif";
+                      }
+                      if ((i == 126) && (j == 66) && (k == 75) && (m == 0)) {
+                        return "psp";
+                      }
+                      if (i == -128) {
+                        if ((j == 42) && (k == 95) && (m == -41) && (n == 0) && (i1 == 0) && (paramArrayOfByte[6] == 8) && (paramArrayOfByte[7] == 0) && (paramArrayOfByte[8] == 0) && (paramArrayOfByte[9] == 0) && (paramArrayOfByte[10] == 4) && (paramArrayOfByte[11] == 0) && (paramArrayOfByte[12] == 0) && (paramArrayOfByte[13] == 0))
+                        {
+
+
+                          return "cin";
+                        }
+                        if ((j == 62) && (k == 68) && (m == 83) && (n == 67) && (i1 == 73) && (paramArrayOfByte[6] == 77))
+                        {
+
+                          return "j6i";
+                        }
+                      } else {
+                        if ((i == -119) && (j == 80) && (k == 78) && (m == 71) && (n == 13) && (i1 == 10) && (paramArrayOfByte[6] == 26) && (paramArrayOfByte[7] == 10))
+                        {
+
+                          return "png";
+                        }
+                        if ((i == -118) && (j == 77) && (k == 78) && (m == 71) && (n == 13) && (i1 == 10) && (paramArrayOfByte[6] == 26) && (paramArrayOfByte[7] == 10))
+                        {
+
+                          return "mng";
+                        }
+                        if ((i == -48) && (j == -49) && (k == 17) && (m == -32) && (n == -95) && (i1 == -79) && (paramArrayOfByte[6] == 26) && (paramArrayOfByte[7] == -31) && (paramArrayOfByte[8] == 0))
+                        {
+
+                          return "fpx";
+                        }
+                        if ((i == -45) && (j == 35) && (k == 0) && (m == 0) && (n == 3) && (i1 == 0) && (paramArrayOfByte[6] == 0) && (paramArrayOfByte[7] == 0))
+                        {
+
+                          return "wlm";
+                        }
+                        if ((i == -41) && (j == -51) && (k == -58) && (m == -102)) {
+                          return "wmf";
+                        }
+                        if ((i == -21) && (j == 60) && (k == -112) && (m == 42)) {
+                          return "img";
+                        }
+                        if ((i == -6) && (j == -34) && (k == -70) && (m == -66) && (n == 1) && (i1 == 1))
+                        {
+                          return "wic";
+                        }
+                        if (i == -1) {
+                          if (j == -40)
+                          {
+
+
+
+
+                            return "jpg";
+                          }
+                          if ((j == 87) && (k == 80) && (m == 67) && (n == 16))
+                            return "wpg";
+                        }
+                      } } } } } } } } }
+      return null;
+    }
+  }
+}

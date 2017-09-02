@@ -1,0 +1,1004 @@
+package jogamp.opengl.util.pngj;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.zip.CRC32;
+import java.util.zip.Inflater;
+import java.util.zip.InflaterInputStream;
+import jogamp.opengl.util.pngj.chunks.ChunkHelper;
+import jogamp.opengl.util.pngj.chunks.ChunkLoadBehaviour;
+import jogamp.opengl.util.pngj.chunks.ChunkRaw;
+import jogamp.opengl.util.pngj.chunks.ChunksList;
+import jogamp.opengl.util.pngj.chunks.PngChunk;
+import jogamp.opengl.util.pngj.chunks.PngChunkIDAT;
+import jogamp.opengl.util.pngj.chunks.PngChunkIHDR;
+import jogamp.opengl.util.pngj.chunks.PngChunkSkipped;
+import jogamp.opengl.util.pngj.chunks.PngMetadata;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class PngReader
+{
+  public final ImageInfo imgInfo;
+  protected final String filename;
+  private ChunkLoadBehaviour chunkLoadBehaviour = ChunkLoadBehaviour.LOAD_CHUNK_ALWAYS;
+  private boolean shouldCloseStream = true;
+  
+  private long maxTotalBytesRead = 209715200L;
+  private int maxBytesMetadata = 5242880;
+  private int skipChunkMaxSize = 2097152;
+  private String[] skipChunkIds = { "fdAT" };
+  
+  private HashSet<String> skipChunkIdsSet;
+  protected final PngMetadata metadata;
+  protected final ChunksList chunksList;
+  protected ImageLine imgLine;
+  protected final int buffersLen;
+  protected byte[] rowb = null;
+  protected byte[] rowbprev = null;
+  protected byte[] rowbfilter = null;
+  
+  private final boolean interlaced;
+  private final PngDeinterlacer deinterlacer;
+  private boolean crcEnabled = true;
+  
+  private boolean unpackedMode = false;
+  private Inflater inflater = null;
+  
+
+
+
+
+  protected int currentChunkGroup = -1;
+  protected int rowNum = -1;
+  private long offset = 0L;
+  
+
+  private int bytesChunksLoaded;
+  
+
+  protected final InputStream inputStream;
+  
+
+  protected InflaterInputStream idatIstream;
+  
+
+  protected PngIDatChunkInputStream iIdatCstream;
+  
+
+  protected CRC32 crctest;
+  
+
+  public PngReader(InputStream paramInputStream, String paramString)
+  {
+    filename = (paramString == null ? "" : paramString);
+    inputStream = paramInputStream;
+    chunksList = new ChunksList(null);
+    metadata = new PngMetadata(chunksList);
+    
+    byte[] arrayOfByte1 = new byte[8];
+    PngHelperInternal.readBytes(paramInputStream, arrayOfByte1, 0, arrayOfByte1.length);
+    offset += arrayOfByte1.length;
+    if (!Arrays.equals(arrayOfByte1, PngHelperInternal.getPngIdSignature())) {
+      throw new PngjInputException("Bad PNG signature");
+    }
+    currentChunkGroup = 0;
+    int i = PngHelperInternal.readInt4(paramInputStream);
+    offset += 4L;
+    if (i != 13)
+      throw new PngjInputException("IDHR chunk len != 13 ?? " + i);
+    byte[] arrayOfByte2 = new byte[4];
+    PngHelperInternal.readBytes(paramInputStream, arrayOfByte2, 0, 4);
+    if (!Arrays.equals(arrayOfByte2, ChunkHelper.b_IHDR))
+      throw new PngjInputException("IHDR not found as first chunk??? [" + ChunkHelper.toString(arrayOfByte2) + "]");
+    offset += 4L;
+    PngChunkIHDR localPngChunkIHDR = (PngChunkIHDR)readChunk(arrayOfByte2, i, false);
+    boolean bool1 = (localPngChunkIHDR.getColormodel() & 0x4) != 0;
+    boolean bool2 = (localPngChunkIHDR.getColormodel() & 0x1) != 0;
+    boolean bool3 = (localPngChunkIHDR.getColormodel() == 0) || (localPngChunkIHDR.getColormodel() == 4);
+    
+    imgInfo = new ImageInfo(localPngChunkIHDR.getCols(), localPngChunkIHDR.getRows(), localPngChunkIHDR.getBitspc(), bool1, bool3, bool2);
+    interlaced = (localPngChunkIHDR.getInterlaced() == 1);
+    deinterlacer = (interlaced ? new PngDeinterlacer(imgInfo) : null);
+    buffersLen = (imgInfo.bytesPerRow + 1);
+    
+    if ((localPngChunkIHDR.getFilmeth() != 0) || (localPngChunkIHDR.getCompmeth() != 0) || ((localPngChunkIHDR.getInterlaced() & 0xFFFE) != 0))
+      throw new PngjInputException("compression method o filter method or interlaced unrecognized ");
+    if ((localPngChunkIHDR.getColormodel() < 0) || (localPngChunkIHDR.getColormodel() > 6) || (localPngChunkIHDR.getColormodel() == 1) || 
+      (localPngChunkIHDR.getColormodel() == 5))
+      throw new PngjInputException("Invalid colormodel " + localPngChunkIHDR.getColormodel());
+    if ((localPngChunkIHDR.getBitspc() != 1) && (localPngChunkIHDR.getBitspc() != 2) && (localPngChunkIHDR.getBitspc() != 4) && (localPngChunkIHDR.getBitspc() != 8) && 
+      (localPngChunkIHDR.getBitspc() != 16))
+      throw new PngjInputException("Invalid bit depth " + localPngChunkIHDR.getBitspc());
+  }
+  
+  private boolean firstChunksNotYetRead() {
+    return currentChunkGroup < 1;
+  }
+  
+  private void allocateBuffers() {
+    if ((rowbfilter == null) || (rowbfilter.length < buffersLen)) {
+      rowbfilter = new byte[buffersLen];
+      rowb = new byte[buffersLen];
+      rowbprev = new byte[buffersLen];
+    }
+  }
+  
+
+
+
+
+  private void readLastAndClose()
+  {
+    if (currentChunkGroup < 5) {
+      try {
+        idatIstream.close();
+      }
+      catch (Exception localException) {}
+      readLastChunks();
+    }
+    close();
+  }
+  
+  private void close() {
+    if (currentChunkGroup < 6) {
+      try {
+        idatIstream.close();
+      }
+      catch (Exception localException1) {}
+      currentChunkGroup = 6;
+    }
+    if (shouldCloseStream) {
+      try {
+        inputStream.close();
+      } catch (Exception localException2) {
+        throw new PngjInputException("error closing input stream!", localException2);
+      }
+    }
+  }
+  
+  private void unfilterRow(int paramInt)
+  {
+    int i = rowbfilter[0];
+    FilterType localFilterType = FilterType.getByVal(i);
+    if (localFilterType == null)
+      throw new PngjInputException("Filter type " + i + " invalid");
+    switch (1.$SwitchMap$jogamp$opengl$util$pngj$FilterType[localFilterType.ordinal()]) {
+    case 1: 
+      unfilterRowNone(paramInt);
+      break;
+    case 2: 
+      unfilterRowSub(paramInt);
+      break;
+    case 3: 
+      unfilterRowUp(paramInt);
+      break;
+    case 4: 
+      unfilterRowAverage(paramInt);
+      break;
+    case 5: 
+      unfilterRowPaeth(paramInt);
+      break;
+    default: 
+      throw new PngjInputException("Filter type " + i + " not implemented");
+    }
+    if (crctest != null) {
+      crctest.update(rowb, 1, buffersLen - 1);
+    }
+  }
+  
+  private void unfilterRowAverage(int paramInt) {
+    int j = 1 - imgInfo.bytesPixel; for (int i = 1; i <= paramInt; j++) {
+      int k = j > 0 ? rowb[j] & 0xFF : 0;
+      rowb[i] = ((byte)(rowbfilter[i] + (k + (rowbprev[i] & 0xFF)) / 2));i++;
+    }
+  }
+  
+  private void unfilterRowNone(int paramInt)
+  {
+    for (int i = 1; i <= paramInt; i++) {
+      rowb[i] = rowbfilter[i];
+    }
+  }
+  
+  private void unfilterRowPaeth(int paramInt)
+  {
+    int j = 1 - imgInfo.bytesPixel; for (int i = 1; i <= paramInt; j++) {
+      int k = j > 0 ? rowb[j] & 0xFF : 0;
+      int m = j > 0 ? rowbprev[j] & 0xFF : 0;
+      rowb[i] = ((byte)(rowbfilter[i] + PngHelperInternal.filterPaethPredictor(k, rowbprev[i] & 0xFF, m)));i++;
+    }
+  }
+  
+
+
+  private void unfilterRowSub(int paramInt)
+  {
+    for (int i = 1; i <= imgInfo.bytesPixel; i++) {
+      rowb[i] = rowbfilter[i];
+    }
+    int j = 1; for (i = imgInfo.bytesPixel + 1; i <= paramInt; j++) {
+      rowb[i] = ((byte)(rowbfilter[i] + rowb[j]));i++;
+    }
+  }
+  
+  private void unfilterRowUp(int paramInt) {
+    for (int i = 1; i <= paramInt; i++) {
+      rowb[i] = ((byte)(rowbfilter[i] + rowbprev[i]));
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private final void readFirstChunks()
+  {
+    if (!firstChunksNotYetRead())
+      return;
+    int i = 0;
+    int j = 0;
+    byte[] arrayOfByte = new byte[4];
+    currentChunkGroup = 1;
+    while (j == 0) {
+      i = PngHelperInternal.readInt4(inputStream);
+      offset += 4L;
+      if (i < 0)
+        break;
+      PngHelperInternal.readBytes(inputStream, arrayOfByte, 0, 4);
+      offset += 4L;
+      if (Arrays.equals(arrayOfByte, ChunkHelper.b_IDAT)) {
+        j = 1;
+        currentChunkGroup = 4;
+        
+        chunksList.appendReadChunk(new PngChunkIDAT(imgInfo, i, offset - 8L), currentChunkGroup);
+        break; }
+      if (Arrays.equals(arrayOfByte, ChunkHelper.b_IEND)) {
+        throw new PngjInputException("END chunk found before image data (IDAT) at offset=" + offset);
+      }
+      if (Arrays.equals(arrayOfByte, ChunkHelper.b_PLTE))
+        currentChunkGroup = 2;
+      readChunk(arrayOfByte, i, false);
+      if (Arrays.equals(arrayOfByte, ChunkHelper.b_PLTE))
+        currentChunkGroup = 3;
+    }
+    int k = j != 0 ? i : -1;
+    if (k < 0)
+      throw new PngjInputException("first idat chunk not found!");
+    iIdatCstream = new PngIDatChunkInputStream(inputStream, k, offset);
+    if (inflater == null) {
+      inflater = new Inflater();
+    } else {
+      inflater.reset();
+    }
+    idatIstream = new InflaterInputStream(iIdatCstream, inflater);
+    if (!crcEnabled) {
+      iIdatCstream.disableCrcCheck();
+    }
+  }
+  
+
+
+  void readLastChunks()
+  {
+    currentChunkGroup = 5;
+    if (!iIdatCstream.isEnded())
+      iIdatCstream.forceChunkEnd();
+    int i = iIdatCstream.getLenLastChunk();
+    byte[] arrayOfByte = iIdatCstream.getIdLastChunk();
+    int j = 0;
+    int k = 1;
+    boolean bool = false;
+    while (j == 0) {
+      bool = false;
+      if (k == 0) {
+        i = PngHelperInternal.readInt4(inputStream);
+        offset += 4L;
+        if (i < 0)
+          throw new PngjInputException("bad chuck len " + i);
+        PngHelperInternal.readBytes(inputStream, arrayOfByte, 0, 4);
+        offset += 4L;
+      }
+      k = 0;
+      if (Arrays.equals(arrayOfByte, ChunkHelper.b_IDAT)) {
+        bool = true;
+      } else if (Arrays.equals(arrayOfByte, ChunkHelper.b_IEND)) {
+        currentChunkGroup = 6;
+        j = 1;
+      }
+      readChunk(arrayOfByte, i, bool);
+    }
+    if (j == 0) {
+      throw new PngjInputException("end chunk not found - offset=" + offset);
+    }
+  }
+  
+
+
+
+  private PngChunk readChunk(byte[] paramArrayOfByte, int paramInt, boolean paramBoolean)
+  {
+    if (paramInt < 0) {
+      throw new PngjInputException("invalid chunk lenght: " + paramInt);
+    }
+    if ((skipChunkIdsSet == null) && (currentChunkGroup > 0))
+      skipChunkIdsSet = new HashSet(Arrays.asList(skipChunkIds));
+    String str = ChunkHelper.toString(paramArrayOfByte);
+    boolean bool1 = ChunkHelper.isCritical(str);
+    Object localObject = null;
+    boolean bool2 = paramBoolean;
+    if ((maxTotalBytesRead > 0L) && (paramInt + offset > maxTotalBytesRead)) {
+      throw new PngjInputException("Maximum total bytes to read exceeeded: " + maxTotalBytesRead + " offset:" + offset + " clen=" + paramInt);
+    }
+    
+    if ((currentChunkGroup > 0) && (!bool1))
+    {
+
+      bool2 = (bool2) || ((skipChunkMaxSize > 0) && (paramInt >= skipChunkMaxSize)) || (skipChunkIdsSet.contains(str)) || ((maxBytesMetadata > 0) && (paramInt > maxBytesMetadata - bytesChunksLoaded)) || (!ChunkHelper.shouldLoad(str, chunkLoadBehaviour)); }
+    if (bool2) {
+      PngHelperInternal.skipBytes(inputStream, paramInt);
+      PngHelperInternal.readInt4(inputStream);
+      
+      localObject = new PngChunkSkipped(str, imgInfo, paramInt);
+    } else {
+      ChunkRaw localChunkRaw = new ChunkRaw(paramInt, paramArrayOfByte, true);
+      localChunkRaw.readChunkData(inputStream, (crcEnabled) || (bool1));
+      localObject = PngChunk.factory(localChunkRaw, imgInfo);
+      if (!crit)
+        bytesChunksLoaded += len;
+    }
+    ((PngChunk)localObject).setOffset(offset - 8L);
+    chunksList.appendReadChunk((PngChunk)localObject, currentChunkGroup);
+    offset += paramInt + 4L;
+    return localObject;
+  }
+  
+
+
+
+
+
+
+  protected void logWarn(String paramString)
+  {
+    System.err.println(paramString);
+  }
+  
+
+
+  public ChunkLoadBehaviour getChunkLoadBehaviour()
+  {
+    return chunkLoadBehaviour;
+  }
+  
+
+
+
+
+
+  public void setChunkLoadBehaviour(ChunkLoadBehaviour paramChunkLoadBehaviour)
+  {
+    chunkLoadBehaviour = paramChunkLoadBehaviour;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public ChunksList getChunksList()
+  {
+    if (firstChunksNotYetRead())
+      readFirstChunks();
+    return chunksList;
+  }
+  
+  int getCurrentChunkGroup() {
+    return currentChunkGroup;
+  }
+  
+
+
+
+
+  public PngMetadata getMetadata()
+  {
+    if (firstChunksNotYetRead())
+      readFirstChunks();
+    return metadata;
+  }
+  
+
+
+
+
+
+
+
+  public ImageLine readRow(int paramInt)
+  {
+    if (imgLine == null)
+      imgLine = new ImageLine(imgInfo, ImageLine.SampleType.INT, unpackedMode);
+    return imgLine.sampleType != ImageLine.SampleType.BYTE ? readRowInt(paramInt) : readRowByte(paramInt);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public ImageLine readRowInt(int paramInt)
+  {
+    if (imgLine == null)
+      imgLine = new ImageLine(imgInfo, ImageLine.SampleType.INT, unpackedMode);
+    if (imgLine.getRown() == paramInt)
+      return imgLine;
+    readRowInt(imgLine.scanline, paramInt);
+    imgLine.setFilterUsed(FilterType.getByVal(rowbfilter[0]));
+    imgLine.setRown(paramInt);
+    return imgLine;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public ImageLine readRowByte(int paramInt)
+  {
+    if (imgLine == null)
+      imgLine = new ImageLine(imgInfo, ImageLine.SampleType.BYTE, unpackedMode);
+    if (imgLine.getRown() == paramInt)
+      return imgLine;
+    readRowByte(imgLine.scanlineb, paramInt);
+    imgLine.setFilterUsed(FilterType.getByVal(rowbfilter[0]));
+    imgLine.setRown(paramInt);
+    return imgLine;
+  }
+  
+
+
+  public final int[] readRow(int[] paramArrayOfInt, int paramInt)
+  {
+    return readRowInt(paramArrayOfInt, paramInt);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final int[] readRowInt(int[] paramArrayOfInt, int paramInt)
+  {
+    if (paramArrayOfInt == null)
+      paramArrayOfInt = new int[unpackedMode ? imgInfo.samplesPerRow : imgInfo.samplesPerRowPacked];
+    if (!interlaced) {
+      if (paramInt <= rowNum)
+        throw new PngjInputException("rows must be read in increasing order: " + paramInt);
+      int i = 0;
+      while (rowNum < paramInt)
+        i = readRowRaw(rowNum + 1);
+      decodeLastReadRowToInt(paramArrayOfInt, i);
+    } else {
+      if (deinterlacer.getImageInt() == null)
+        deinterlacer.setImageInt(readRowsIntscanlines);
+      System.arraycopy(deinterlacer.getImageInt()[paramInt], 0, paramArrayOfInt, 0, unpackedMode ? imgInfo.samplesPerRow : imgInfo.samplesPerRowPacked);
+    }
+    
+    return paramArrayOfInt;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final byte[] readRowByte(byte[] paramArrayOfByte, int paramInt)
+  {
+    if (paramArrayOfByte == null)
+      paramArrayOfByte = new byte[unpackedMode ? imgInfo.samplesPerRow : imgInfo.samplesPerRowPacked];
+    if (!interlaced) {
+      if (paramInt <= rowNum)
+        throw new PngjInputException("rows must be read in increasing order: " + paramInt);
+      int i = 0;
+      while (rowNum < paramInt)
+        i = readRowRaw(rowNum + 1);
+      decodeLastReadRowToByte(paramArrayOfByte, i);
+    } else {
+      if (deinterlacer.getImageByte() == null)
+        deinterlacer.setImageByte(readRowsBytescanlinesb);
+      System.arraycopy(deinterlacer.getImageByte()[paramInt], 0, paramArrayOfByte, 0, unpackedMode ? imgInfo.samplesPerRow : imgInfo.samplesPerRowPacked);
+    }
+    
+    return paramArrayOfByte;
+  }
+  
+
+
+
+  /**
+   * @deprecated
+   */
+  public ImageLine getRow(int paramInt) { return readRow(paramInt); }
+  
+  private void decodeLastReadRowToInt(int[] paramArrayOfInt, int paramInt) { int i;
+    int j;
+    if (imgInfo.bitDepth <= 8) {
+      i = 0; for (j = 1; i < paramInt; i++)
+        paramArrayOfInt[i] = (rowb[(j++)] & 0xFF);
+    } else {
+      i = 0; for (j = 1; j <= paramInt; i++)
+        paramArrayOfInt[i] = (((rowb[(j++)] & 0xFF) << 8) + (rowb[(j++)] & 0xFF)); }
+    if ((imgInfo.packed) && (unpackedMode))
+      ImageLine.unpackInplaceInt(imgInfo, paramArrayOfInt, paramArrayOfInt, false);
+  }
+  
+  private void decodeLastReadRowToByte(byte[] paramArrayOfByte, int paramInt) {
+    if (imgInfo.bitDepth <= 8) {
+      System.arraycopy(rowb, 1, paramArrayOfByte, 0, paramInt);
+    } else {
+      int i = 0; for (int j = 1; j < paramInt; j += 2) {
+        paramArrayOfByte[i] = rowb[j];i++; } }
+    if ((imgInfo.packed) && (unpackedMode)) {
+      ImageLine.unpackInplaceByte(imgInfo, paramArrayOfByte, paramArrayOfByte, false);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public ImageLines readRowsInt(int paramInt1, int paramInt2, int paramInt3)
+  {
+    if (paramInt2 < 0)
+      paramInt2 = (imgInfo.rows - paramInt1) / paramInt3;
+    if ((paramInt3 < 1) || (paramInt1 < 0) || (paramInt2 * paramInt3 + paramInt1 > imgInfo.rows))
+      throw new PngjInputException("bad args");
+    ImageLines localImageLines = new ImageLines(imgInfo, ImageLine.SampleType.INT, unpackedMode, paramInt1, paramInt2, paramInt3);
+    int j; int k; if (!interlaced) {
+      for (int i = 0; i < imgInfo.rows; i++) {
+        j = readRowRaw(i);
+        k = localImageLines.imageRowToMatrixRowStrict(i);
+        if (k >= 0)
+          decodeLastReadRowToInt(scanlines[k], j);
+      }
+    } else {
+      int[] arrayOfInt = new int[unpackedMode ? imgInfo.samplesPerRow : imgInfo.samplesPerRowPacked];
+      for (j = 1; j <= 7; j++) {
+        deinterlacer.setPass(j);
+        for (k = 0; k < deinterlacer.getRows(); k++) {
+          int m = readRowRaw(k);
+          int n = deinterlacer.getCurrRowReal();
+          int i1 = localImageLines.imageRowToMatrixRowStrict(n);
+          if (i1 >= 0) {
+            decodeLastReadRowToInt(arrayOfInt, m);
+            deinterlacer.deinterlaceInt(arrayOfInt, scanlines[i1], !unpackedMode);
+          }
+        }
+      }
+    }
+    end();
+    return localImageLines;
+  }
+  
+
+
+
+
+  public ImageLines readRowsInt()
+  {
+    return readRowsInt(0, imgInfo.rows, 1);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public ImageLines readRowsByte(int paramInt1, int paramInt2, int paramInt3)
+  {
+    if (paramInt2 < 0)
+      paramInt2 = (imgInfo.rows - paramInt1) / paramInt3;
+    if ((paramInt3 < 1) || (paramInt1 < 0) || (paramInt2 * paramInt3 + paramInt1 > imgInfo.rows))
+      throw new PngjInputException("bad args");
+    ImageLines localImageLines = new ImageLines(imgInfo, ImageLine.SampleType.BYTE, unpackedMode, paramInt1, paramInt2, paramInt3);
+    int j; int k; if (!interlaced) {
+      for (int i = 0; i < imgInfo.rows; i++) {
+        j = readRowRaw(i);
+        k = localImageLines.imageRowToMatrixRowStrict(i);
+        if (k >= 0)
+          decodeLastReadRowToByte(scanlinesb[k], j);
+      }
+    } else {
+      byte[] arrayOfByte = new byte[unpackedMode ? imgInfo.samplesPerRow : imgInfo.samplesPerRowPacked];
+      for (j = 1; j <= 7; j++) {
+        deinterlacer.setPass(j);
+        for (k = 0; k < deinterlacer.getRows(); k++) {
+          int m = readRowRaw(k);
+          int n = deinterlacer.getCurrRowReal();
+          int i1 = localImageLines.imageRowToMatrixRowStrict(n);
+          if (i1 >= 0) {
+            decodeLastReadRowToByte(arrayOfByte, m);
+            deinterlacer.deinterlaceByte(arrayOfByte, scanlinesb[i1], !unpackedMode);
+          }
+        }
+      }
+    }
+    end();
+    return localImageLines;
+  }
+  
+
+
+
+
+  public ImageLines readRowsByte()
+  {
+    return readRowsByte(0, imgInfo.rows, 1);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  private int readRowRaw(int paramInt)
+  {
+    if (paramInt == 0) {
+      if (firstChunksNotYetRead())
+        readFirstChunks();
+      allocateBuffers();
+      if (interlaced) {
+        Arrays.fill(rowb, (byte)0);
+      }
+    }
+    int i = imgInfo.bytesPerRow;
+    if (interlaced) {
+      if ((paramInt < 0) || (paramInt > deinterlacer.getRows()) || ((paramInt != 0) && (paramInt != deinterlacer.getCurrRowSubimg() + 1)))
+        throw new PngjInputException("invalid row in interlaced mode: " + paramInt);
+      deinterlacer.setRow(paramInt);
+      i = (imgInfo.bitspPixel * deinterlacer.getPixelsToRead() + 7) / 8;
+      if (i < 1) {
+        throw new PngjExceptionInternal("wtf??");
+      }
+    } else if ((paramInt < 0) || (paramInt >= imgInfo.rows) || (paramInt != rowNum + 1)) {
+      throw new PngjInputException("invalid row: " + paramInt);
+    }
+    rowNum = paramInt;
+    
+    byte[] arrayOfByte = rowb;
+    rowb = rowbprev;
+    rowbprev = arrayOfByte;
+    
+    PngHelperInternal.readBytes(idatIstream, rowbfilter, 0, i + 1);
+    offset = iIdatCstream.getOffset();
+    if (offset < 0L)
+      throw new PngjExceptionInternal("bad offset ??" + offset);
+    if ((maxTotalBytesRead > 0L) && (offset >= maxTotalBytesRead)) {
+      throw new PngjInputException("Reading IDAT: Maximum total bytes to read exceeeded: " + maxTotalBytesRead + " offset:" + offset);
+    }
+    rowb[0] = 0;
+    unfilterRow(i);
+    rowb[0] = rowbfilter[0];
+    if (((rowNum == imgInfo.rows - 1) && (!interlaced)) || ((interlaced) && (deinterlacer.isAtLastRow())))
+      readLastAndClose();
+    return i;
+  }
+  
+
+
+
+
+
+
+  public void readSkippingAllRows()
+  {
+    if (firstChunksNotYetRead()) {
+      readFirstChunks();
+    }
+    iIdatCstream.disableCrcCheck();
+    allocateBuffers();
+    try {
+      int i;
+      do {
+        i = iIdatCstream.read(rowbfilter, 0, buffersLen);
+      } while (i >= 0);
+    } catch (IOException localIOException) {
+      throw new PngjInputException("error in raw read of IDAT", localIOException);
+    }
+    offset = iIdatCstream.getOffset();
+    if (offset < 0L)
+      throw new PngjExceptionInternal("bad offset ??" + offset);
+    if ((maxTotalBytesRead > 0L) && (offset >= maxTotalBytesRead)) {
+      throw new PngjInputException("Reading IDAT: Maximum total bytes to read exceeeded: " + maxTotalBytesRead + " offset:" + offset);
+    }
+    readLastAndClose();
+  }
+  
+
+
+
+
+  public void setMaxTotalBytesRead(long paramLong)
+  {
+    maxTotalBytesRead = paramLong;
+  }
+  
+
+
+  public long getMaxTotalBytesRead()
+  {
+    return maxTotalBytesRead;
+  }
+  
+
+
+
+
+  public void setMaxBytesMetadata(int paramInt)
+  {
+    maxBytesMetadata = paramInt;
+  }
+  
+
+
+  public int getMaxBytesMetadata()
+  {
+    return maxBytesMetadata;
+  }
+  
+
+
+
+
+
+
+  public void setSkipChunkMaxSize(int paramInt)
+  {
+    skipChunkMaxSize = paramInt;
+  }
+  
+
+
+  public int getSkipChunkMaxSize()
+  {
+    return skipChunkMaxSize;
+  }
+  
+
+
+
+
+  public void setSkipChunkIds(String[] paramArrayOfString)
+  {
+    skipChunkIds = (paramArrayOfString == null ? new String[0] : paramArrayOfString);
+  }
+  
+
+
+  public String[] getSkipChunkIds()
+  {
+    return skipChunkIds;
+  }
+  
+
+
+
+
+  public void setShouldCloseStream(boolean paramBoolean)
+  {
+    shouldCloseStream = paramBoolean;
+  }
+  
+
+
+
+
+  public void end()
+  {
+    if (currentChunkGroup < 6) {
+      close();
+    }
+  }
+  
+
+  public boolean isInterlaced()
+  {
+    return interlaced;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public void setUnpackedMode(boolean paramBoolean)
+  {
+    unpackedMode = paramBoolean;
+  }
+  
+
+
+  public boolean isUnpackedMode()
+  {
+    return unpackedMode;
+  }
+  
+
+
+
+
+
+
+  public void reuseBuffersFrom(PngReader paramPngReader)
+  {
+    if (paramPngReader == null) return;
+    if (currentChunkGroup < 5)
+      throw new PngjInputException("PngReader to be reused have not yet ended reading pixels");
+    if ((rowbfilter != null) && (rowbfilter.length >= buffersLen)) {
+      rowbfilter = rowbfilter;
+      rowb = rowb;
+      rowbprev = rowbprev;
+    }
+    inflater = inflater;
+  }
+  
+
+
+
+  public void setCrcCheckDisabled()
+  {
+    crcEnabled = false;
+  }
+  
+
+
+
+
+
+  long getCrctestVal()
+  {
+    return crctest.getValue();
+  }
+  
+
+
+  void initCrctest()
+  {
+    crctest = new CRC32();
+  }
+  
+
+
+
+  public String toString()
+  {
+    return "filename=" + filename + " " + imgInfo.toString();
+  }
+}

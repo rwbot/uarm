@@ -1,0 +1,130 @@
+package jogamp.common.os.elf;
+
+import com.jogamp.common.util.Bitstream;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class IOUtils
+{
+  static final long MAX_INT_VALUE = 2147483647L;
+  
+  IOUtils() {}
+  
+  static String toHexString(int paramInt) { return "0x" + Integer.toHexString(paramInt); }
+  
+  static String toHexString(long paramLong) { return "0x" + Long.toHexString(paramLong); }
+  
+  static int shortToInt(short paramShort) {
+    return paramShort & 0xFFFF;
+  }
+  
+  static int long2Int(long paramLong) {
+    if (2147483647L < paramLong) {
+      throw new IllegalArgumentException("Read uint32 value " + toHexString(paramLong) + " > int32-max " + toHexString(2147483647L));
+    }
+    return (int)paramLong;
+  }
+  
+  static void readBytes(RandomAccessFile paramRandomAccessFile, byte[] paramArrayOfByte, int paramInt1, int paramInt2)
+    throws IOException, IllegalArgumentException
+  {
+    paramRandomAccessFile.readFully(paramArrayOfByte, paramInt1, paramInt2);
+  }
+  
+  static void seek(RandomAccessFile paramRandomAccessFile, long paramLong) throws IOException {
+    paramRandomAccessFile.seek(paramLong);
+  }
+  
+  static int readUInt32(boolean paramBoolean, byte[] paramArrayOfByte, int paramInt) {
+    int i = Bitstream.uint32LongToInt(Bitstream.readUInt32(paramBoolean, paramArrayOfByte, paramInt));
+    if (0 > i) {
+      throw new IllegalArgumentException("Read uint32 value " + toHexString(i) + " > int32-max " + toHexString(2147483647L));
+    }
+    return i;
+  }
+  
+
+
+
+
+
+
+
+  static String getString(byte[] paramArrayOfByte, int paramInt1, int paramInt2, int[] paramArrayOfInt)
+    throws IndexOutOfBoundsException
+  {
+    Bitstream.checkBounds(paramArrayOfByte, paramInt1, paramInt2);
+    int i = 0;
+    while ((i < paramInt2) && (paramArrayOfByte[(i + paramInt1)] != 0)) i++;
+    String str = 0 < i ? new String(paramArrayOfByte, paramInt1, i) : "";
+    if (null != paramArrayOfInt) {
+      paramArrayOfInt[0] = (paramInt1 + i + 1);
+    }
+    return str;
+  }
+  
+
+
+
+
+
+
+  static int getStringCount(byte[] paramArrayOfByte, int paramInt1, int paramInt2)
+    throws IndexOutOfBoundsException
+  {
+    Bitstream.checkBounds(paramArrayOfByte, paramInt1, paramInt2);
+    int i = 0;
+    for (int j = 0; j < paramInt2; j++) {
+      while ((j < paramInt2) && (paramArrayOfByte[(j + paramInt1)] != 0)) j++;
+      i++;
+    }
+    return i;
+  }
+  
+
+
+
+
+
+
+  public static String[] getStrings(byte[] paramArrayOfByte, int paramInt1, int paramInt2)
+    throws IndexOutOfBoundsException
+  {
+    int i = getStringCount(paramArrayOfByte, paramInt1, paramInt2);
+    
+
+    String[] arrayOfString = new String[i];
+    int[] arrayOfInt = { paramInt1 };
+    for (int j = 0; j < i; j++)
+    {
+      arrayOfString[j] = getString(paramArrayOfByte, arrayOfInt[0], paramInt2 - arrayOfInt[0], arrayOfInt);
+    }
+    
+    return arrayOfString;
+  }
+}

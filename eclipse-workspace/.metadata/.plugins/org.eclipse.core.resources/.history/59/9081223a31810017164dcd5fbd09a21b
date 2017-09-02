@@ -1,0 +1,119 @@
+package jogamp.opengl.awt;
+
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.ToolkitLock;
+import com.jogamp.opengl.GLException;
+import java.awt.GraphicsEnvironment;
+import java.lang.reflect.Method;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AWTUtil
+{
+  private static boolean headlessMode;
+  private static Method isOGLPipelineActive = null;
+  private static Method isQueueFlusherThread = null;
+  private static boolean j2dOk = false;
+  
+
+  private static boolean lockedToolkit = false;
+  static { headlessMode = GraphicsEnvironment.isHeadless();
+    if (!headlessMode) {
+      try {
+        Class localClass = Class.forName("jogamp.opengl.awt.Java2D");
+        isOGLPipelineActive = localClass.getMethod("isOGLPipelineActive", (Class[])null);
+        isQueueFlusherThread = localClass.getMethod("isQueueFlusherThread", (Class[])null);
+        j2dOk = true;
+      }
+      catch (Exception localException) {}
+    }
+  }
+  
+  public static synchronized void lockToolkit() throws GLException
+  {
+    if (lockedToolkit) {
+      throw new GLException("Toolkit already locked");
+    }
+    lockedToolkit = true;
+    
+    if (headlessMode)
+    {
+
+
+      return;
+    }
+    
+    if (j2dOk)
+      try {
+        if ((!((Boolean)isOGLPipelineActive.invoke(null, (Object[])null)).booleanValue()) || 
+          (!((Boolean)isQueueFlusherThread.invoke(null, (Object[])null)).booleanValue()))
+          NativeWindowFactory.getAWTToolkitLock().lock();
+      } catch (Exception localException) {
+        j2dOk = false;
+      }
+    if (!j2dOk) {
+      NativeWindowFactory.getAWTToolkitLock().lock();
+    }
+  }
+  
+  public static synchronized void unlockToolkit() {
+    if (lockedToolkit) {
+      lockedToolkit = false;
+      if (headlessMode)
+      {
+
+
+        return;
+      }
+      
+      if (j2dOk)
+        try {
+          if ((!((Boolean)isOGLPipelineActive.invoke(null, (Object[])null)).booleanValue()) || 
+            (!((Boolean)isQueueFlusherThread.invoke(null, (Object[])null)).booleanValue()))
+            NativeWindowFactory.getAWTToolkitLock().unlock();
+        } catch (Exception localException) {
+          j2dOk = false;
+        }
+      if (!j2dOk) {
+        NativeWindowFactory.getAWTToolkitLock().unlock();
+      }
+    }
+  }
+  
+  public AWTUtil() {}
+}

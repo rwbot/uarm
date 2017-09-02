@@ -1,0 +1,65 @@
+package jogamp.common.os;
+
+
+
+
+
+
+
+abstract class UnixDynamicLinkerImpl
+  extends DynamicLinkerImpl
+{
+  UnixDynamicLinkerImpl() {}
+  
+
+
+
+
+
+
+  protected static native int dlclose(long paramLong);
+  
+
+
+
+
+
+
+  protected static native String dlerror();
+  
+
+
+
+
+
+  protected static native long dlopen(String paramString, int paramInt);
+  
+
+
+
+
+
+  protected static native long dlsym(long paramLong, String paramString);
+  
+
+
+
+
+
+  protected final long lookupSymbolLocalImpl(long paramLong, String paramString)
+    throws SecurityException
+  {
+    return dlsym(paramLong, paramString);
+  }
+  
+  protected final void closeLibraryImpl(long paramLong) throws SecurityException
+  {
+    dlclose(paramLong);
+  }
+  
+
+  public final String getLastError()
+  {
+    return dlerror();
+  }
+}

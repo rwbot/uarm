@@ -1,0 +1,504 @@
+package com.jogamp.newt.opengl.util;
+
+import com.jogamp.common.util.IOUtil.ClassResources;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.newt.Display;
+import com.jogamp.newt.Display.PointerIcon;
+import com.jogamp.newt.Screen;
+import com.jogamp.newt.event.KeyEvent;
+import com.jogamp.newt.event.KeyListener;
+import com.jogamp.newt.event.MouseEvent;
+import com.jogamp.newt.event.MouseListener;
+import com.jogamp.newt.event.WindowAdapter;
+import com.jogamp.newt.event.WindowEvent;
+import com.jogamp.newt.opengl.GLWindow;
+import com.jogamp.opengl.FPSCounter;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLAnimatorControl;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLRunnable;
+import com.jogamp.opengl.util.Gamma;
+import com.jogamp.opengl.util.PNGPixelRect;
+import java.io.PrintStream;
+import java.net.URLConnection;
+import java.util.ArrayList;
+import java.util.List;
+import jogamp.newt.driver.PNGIcon;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class NEWTDemoListener
+  extends WindowAdapter
+  implements KeyListener, MouseListener
+{
+  protected final GLWindow glWindow;
+  final Display.PointerIcon[] pointerIcons;
+  int pointerIconIdx = 0;
+  float gamma = 1.0F;
+  float brightness = 0.0F;
+  float contrast = 1.0F;
+  boolean confinedFixedCenter = false;
+  
+  public NEWTDemoListener(GLWindow paramGLWindow, Display.PointerIcon[] paramArrayOfPointerIcon) {
+    glWindow = paramGLWindow;
+    if (null != paramArrayOfPointerIcon) {
+      pointerIcons = paramArrayOfPointerIcon;
+    } else
+      pointerIcons = createPointerIcons(glWindow.getScreen().getDisplay());
+  }
+  
+  public NEWTDemoListener(GLWindow paramGLWindow) {
+    this(paramGLWindow, null);
+  }
+  
+  protected void printlnState(String paramString) {
+    System.err.println(paramString + ": " + glWindow.getX() + "/" + glWindow.getY() + " " + glWindow.getSurfaceWidth() + "x" + glWindow.getSurfaceHeight() + ", f " + glWindow.isFullscreen() + ", a " + glWindow.isAlwaysOnTop() + ", " + glWindow.getInsets() + ", state " + glWindow.getStateMaskString());
+  }
+  
+  protected void printlnState(String paramString1, String paramString2) { System.err.println(paramString1 + ": " + glWindow.getX() + "/" + glWindow.getY() + " " + glWindow.getSurfaceWidth() + "x" + glWindow.getSurfaceHeight() + ", f " + glWindow.isFullscreen() + ", a " + glWindow.isAlwaysOnTop() + ", " + glWindow.getInsets() + ", state " + glWindow.getStateMaskString() + ", " + paramString2); }
+  
+
+  public void keyPressed(final KeyEvent paramKeyEvent)
+  {
+    if ((paramKeyEvent.isAutoRepeat()) || (paramKeyEvent.isConsumed())) {
+      return;
+    }
+    int i = paramKeyEvent.getKeySymbol();
+    switch (i) {
+    case 32: 
+      paramKeyEvent.setConsumed(true);
+      glWindow.invokeOnCurrentThread(new Runnable() {
+        public void run() {
+          if (glWindow.getAnimator().isPaused()) {
+            glWindow.getAnimator().resume();
+          } else
+            glWindow.getAnimator().pause();
+        }
+      });
+      break;
+    case 65: 
+      paramKeyEvent.setConsumed(true);
+      glWindow.invokeOnNewThread(null, false, new Runnable() {
+        public void run() {
+          printlnState("[set alwaysontop pre]");
+          glWindow.setAlwaysOnTop(!glWindow.isAlwaysOnTop());
+          printlnState("[set alwaysontop post]");
+        } });
+      break;
+    case 66: 
+      paramKeyEvent.setConsumed(true);
+      glWindow.invokeOnNewThread(null, false, new Runnable() {
+        public void run() {
+          printlnState("[set alwaysonbottom pre]");
+          glWindow.setAlwaysOnBottom(!glWindow.isAlwaysOnBottom());
+          printlnState("[set alwaysonbottom post]");
+        } });
+      break;
+    case 67: 
+      paramKeyEvent.setConsumed(true);
+      glWindow.invokeOnNewThread(null, false, new Runnable() {
+        public void run() {
+          if (null != pointerIcons) {
+            printlnState("[set pointer-icon pre]");
+            Display.PointerIcon localPointerIcon1 = glWindow.getPointerIcon();
+            Display.PointerIcon localPointerIcon2;
+            if (pointerIconIdx >= pointerIcons.length) {
+              localPointerIcon2 = null;
+              pointerIconIdx = 0;
+            } else {
+              localPointerIcon2 = pointerIcons[(pointerIconIdx++)];
+            }
+            glWindow.setPointerIcon(localPointerIcon2);
+            printlnState("[set pointer-icon post]", localPointerIcon1 + " -> " + glWindow.getPointerIcon());
+          }
+        } });
+      break;
+    case 68: 
+      paramKeyEvent.setConsumed(true);
+      glWindow.invokeOnNewThread(null, false, new Runnable() {
+        public void run() {
+          printlnState("[set undecorated pre]");
+          glWindow.setUndecorated(!glWindow.isUndecorated());
+          printlnState("[set undecorated post]");
+        } });
+      break;
+    case 70: 
+      paramKeyEvent.setConsumed(true);
+      quitAdapterOff();
+      glWindow.invokeOnNewThread(null, false, new Runnable() {
+        public void run() {
+          printlnState("[set fullscreen pre]");
+          if (glWindow.isFullscreen()) {
+            glWindow.setFullscreen(false);
+          }
+          else if (paramKeyEvent.isAltDown()) {
+            glWindow.setFullscreen(null);
+          } else {
+            glWindow.setFullscreen(true);
+          }
+          
+          printlnState("[set fullscreen post]");
+          quitAdapterOn();
+        } });
+      break;
+    case 71: 
+      paramKeyEvent.setConsumed(true);
+      glWindow.invokeOnNewThread(null, false, new Runnable() {
+        public void run() {
+          float f = gamma + (paramKeyEvent.isShiftDown() ? -0.1F : 0.1F);
+          System.err.println("[set gamma]: " + gamma + " -> " + f);
+          if (Gamma.setDisplayGamma(glWindow, f, brightness, contrast))
+            gamma = f;
+        }
+      });
+      break;
+    case 73: 
+      paramKeyEvent.setConsumed(true);
+      glWindow.invokeOnNewThread(null, false, new Runnable() {
+        public void run() {
+          printlnState("[set pointer-visible pre]");
+          glWindow.setPointerVisible(!glWindow.isPointerVisible());
+          printlnState("[set pointer-visible post]");
+        } });
+      break;
+    case 74: 
+      paramKeyEvent.setConsumed(true);
+      glWindow.invokeOnNewThread(null, false, new Runnable() {
+        public void run() {
+          printlnState("[set pointer-confined pre]", "warp-center: " + paramKeyEvent.isShiftDown());
+          boolean bool = !glWindow.isPointerConfined();
+          glWindow.confinePointer(bool);
+          printlnState("[set pointer-confined post]", "warp-center: " + paramKeyEvent.isShiftDown());
+          if (paramKeyEvent.isShiftDown()) {
+            setConfinedFixedCenter(bool);
+          } else if (!bool)
+            setConfinedFixedCenter(false);
+        }
+      });
+      break;
+    case 77: 
+      paramKeyEvent.setConsumed(true);
+      glWindow.invokeOnNewThread(null, false, new Runnable()
+      {
+        public void run()
+        {
+          boolean bool1;
+          
+          boolean bool2;
+          if (paramKeyEvent.isControlDown()) {
+            bool1 = false;
+            bool2 = false;
+          } else if (paramKeyEvent.isShiftDown()) {
+            int i = (glWindow.isMaximizedHorz()) && (glWindow.isMaximizedVert()) ? 1 : 0;
+            bool1 = i == 0;
+            bool2 = i == 0;
+          } else if (!paramKeyEvent.isAltDown()) {
+            bool1 = glWindow.isMaximizedHorz();
+            bool2 = !glWindow.isMaximizedVert();
+          } else if (paramKeyEvent.isAltDown()) {
+            bool1 = !glWindow.isMaximizedHorz();
+            bool2 = glWindow.isMaximizedVert();
+          } else {
+            bool2 = glWindow.isMaximizedVert();
+            bool1 = glWindow.isMaximizedHorz();
+          }
+          printlnState("[set maximize pre]", "max[vert " + bool2 + ", horz " + bool1 + "]");
+          glWindow.setMaximized(bool1, bool2);
+          printlnState("[set maximize post]", "max[vert " + bool2 + ", horz " + bool1 + "]");
+        } });
+      break;
+    case 81: 
+      if ((quitAdapterEnabled) && (0 == paramKeyEvent.getModifiers())) {
+        System.err.println("QUIT Key " + Thread.currentThread());
+        quitAdapterShouldQuit = true;
+      }
+      break;
+    case 80: 
+      paramKeyEvent.setConsumed(true);
+      glWindow.invokeOnNewThread(null, false, new Runnable() {
+        public void run() {
+          printlnState("[set position pre]");
+          glWindow.setPosition(100, 100);
+          printlnState("[set position post]");
+        } });
+      break;
+    case 82: 
+      paramKeyEvent.setConsumed(true);
+      glWindow.invokeOnNewThread(null, false, new Runnable() {
+        public void run() {
+          printlnState("[set resizable pre]");
+          glWindow.setResizable(!glWindow.isResizable());
+          printlnState("[set resizable post]");
+        } });
+      break;
+    case 83: 
+      paramKeyEvent.setConsumed(true);
+      glWindow.invokeOnNewThread(null, false, new Runnable() {
+        public void run() {
+          printlnState("[set sticky pre]");
+          glWindow.setSticky(!glWindow.isSticky());
+          printlnState("[set sticky post]");
+        } });
+      break;
+    case 86: 
+      paramKeyEvent.setConsumed(true);
+      if (paramKeyEvent.isControlDown()) {
+        glWindow.invoke(false, new GLRunnable()
+        {
+          public boolean run(GLAutoDrawable paramAnonymousGLAutoDrawable) {
+            GL localGL = paramAnonymousGLAutoDrawable.getGL();
+            int i = localGL.getSwapInterval();
+            int j;
+            switch (i) {
+            case 0:  j = -1; break;
+            case -1:  j = 1; break;
+            case 1:  j = 0; break;
+            default:  j = 1;
+            }
+            localGL.setSwapInterval(j);
+            
+            GLAnimatorControl localGLAnimatorControl = paramAnonymousGLAutoDrawable.getAnimator();
+            if (null != localGLAnimatorControl) {
+              localGLAnimatorControl.resetFPSCounter();
+            }
+            if ((paramAnonymousGLAutoDrawable instanceof FPSCounter)) {
+              ((FPSCounter)paramAnonymousGLAutoDrawable).resetFPSCounter();
+            }
+            System.err.println("Swap Interval: " + i + " -> " + j + " -> " + localGL.getSwapInterval());
+            return true;
+          }
+        });
+      } else
+        glWindow.invokeOnNewThread(null, false, new Runnable() {
+          public void run() {
+            boolean bool = glWindow.isVisible();
+            
+            printlnState("[set visible pre]");
+            glWindow.setVisible(!bool);
+            printlnState("[set visible post]");
+            
+            if ((bool) && (!paramKeyEvent.isShiftDown())) {
+              try {
+                Thread.sleep(5000L);
+              } catch (InterruptedException localInterruptedException) {
+                localInterruptedException.printStackTrace();
+              }
+              printlnState("[reset visible pre]");
+              glWindow.setVisible(true);
+              printlnState("[reset visible post]");
+            }
+          }
+        });
+      break;
+    case 87: 
+      paramKeyEvent.setConsumed(true);
+      glWindow.invokeOnNewThread(null, false, new Runnable() {
+        public void run() {
+          printlnState("[set pointer-pos pre]");
+          glWindow.warpPointer(glWindow.getSurfaceWidth() / 2, glWindow.getSurfaceHeight() / 2);
+          printlnState("[set pointer-pos post]");
+        } });
+      break;
+    case 88: 
+      paramKeyEvent.setConsumed(true);
+      float[] arrayOfFloat1 = glWindow.getCurrentSurfaceScale(new float[2]);
+      float[] arrayOfFloat2;
+      if (arrayOfFloat1[0] == 1.0F) {
+        arrayOfFloat2 = new float[] { 0.0F, 0.0F };
+      } else {
+        arrayOfFloat2 = new float[] { 1.0F, 1.0F };
+      }
+      System.err.println("[set PixelScale pre]: had " + arrayOfFloat1[0] + "x" + arrayOfFloat1[1] + " -> req " + arrayOfFloat2[0] + "x" + arrayOfFloat2[1]);
+      glWindow.setSurfaceScale(arrayOfFloat2);
+      float[] arrayOfFloat3 = glWindow.getRequestedSurfaceScale(new float[2]);
+      float[] arrayOfFloat4 = glWindow.getCurrentSurfaceScale(new float[2]);
+      System.err.println("[set PixelScale post]: " + arrayOfFloat1[0] + "x" + arrayOfFloat1[1] + " (had) -> " + arrayOfFloat2[0] + "x" + arrayOfFloat2[1] + " (req) -> " + arrayOfFloat3[0] + "x" + arrayOfFloat3[1] + " (val) -> " + arrayOfFloat4[0] + "x" + arrayOfFloat4[1] + " (has)");
+      
+
+
+      setTitle();
+    }
+  }
+  
+  public void keyReleased(KeyEvent paramKeyEvent) {}
+  
+  public void setConfinedFixedCenter(boolean paramBoolean) {
+    confinedFixedCenter = paramBoolean;
+  }
+  
+  public void mouseMoved(MouseEvent paramMouseEvent) {
+    if (paramMouseEvent.isConfined()) {
+      mouseCenterWarp(paramMouseEvent);
+    }
+  }
+  
+  public void mouseDragged(MouseEvent paramMouseEvent) {
+    if (paramMouseEvent.isConfined()) {
+      mouseCenterWarp(paramMouseEvent);
+    }
+  }
+  
+  public void mouseClicked(MouseEvent paramMouseEvent) {
+    if ((paramMouseEvent.getClickCount() == 2) && (paramMouseEvent.getPointerCount() == 3)) {
+      glWindow.setFullscreen(!glWindow.isFullscreen());
+      System.err.println("setFullscreen: " + glWindow.isFullscreen());
+    }
+  }
+  
+  private void mouseCenterWarp(MouseEvent paramMouseEvent) { if ((paramMouseEvent.isConfined()) && (confinedFixedCenter)) {
+      int i = glWindow.getSurfaceWidth() / 2;
+      int j = glWindow.getSurfaceHeight() / 2;
+      glWindow.warpPointer(i, j);
+    }
+  }
+  
+
+  public void mouseEntered(MouseEvent paramMouseEvent) {}
+  
+
+  public void mouseExited(MouseEvent paramMouseEvent) {}
+  
+  public void mousePressed(MouseEvent paramMouseEvent) {}
+  
+  public void mouseReleased(MouseEvent paramMouseEvent) {}
+  
+  public void mouseWheelMoved(MouseEvent paramMouseEvent) {}
+  
+  private boolean quitAdapterShouldQuit = false;
+  private boolean quitAdapterEnabled = false;
+  private boolean quitAdapterEnabled2 = true;
+  
+  protected void quitAdapterOff() {
+    quitAdapterEnabled2 = false; }
+  
+  protected void quitAdapterOn() {
+    clearQuitAdapter();
+    quitAdapterEnabled2 = true; }
+  
+  public void quitAdapterEnable(boolean paramBoolean) { quitAdapterEnabled = paramBoolean; }
+  public void clearQuitAdapter() { quitAdapterShouldQuit = false; }
+  public boolean shouldQuit() { return quitAdapterShouldQuit; }
+  public void doQuit() { quitAdapterShouldQuit = true; }
+  
+  public void windowDestroyNotify(WindowEvent paramWindowEvent) {
+    if ((quitAdapterEnabled) && (quitAdapterEnabled2)) {
+      System.err.println("QUIT Window " + Thread.currentThread());
+      quitAdapterShouldQuit = true;
+    }
+  }
+  
+
+
+
+  public void setTitle() { setTitle(glWindow); }
+  
+  public static void setTitle(GLWindow paramGLWindow) {
+    CapabilitiesImmutable localCapabilitiesImmutable1 = paramGLWindow.getChosenCapabilities();
+    CapabilitiesImmutable localCapabilitiesImmutable2 = paramGLWindow.getRequestedCapabilities();
+    CapabilitiesImmutable localCapabilitiesImmutable3 = null != localCapabilitiesImmutable1 ? localCapabilitiesImmutable1 : localCapabilitiesImmutable2;
+    String str = localCapabilitiesImmutable3.isBackgroundOpaque() ? "opaque" : "transl";
+    float[] arrayOfFloat1 = paramGLWindow.getPixelsPerMM(new float[2]);
+    arrayOfFloat1[0] *= 25.4F;
+    arrayOfFloat1[1] *= 25.4F;
+    float[] arrayOfFloat2 = paramGLWindow.getMinimumSurfaceScale(new float[2]);
+    float[] arrayOfFloat3 = paramGLWindow.getMaximumSurfaceScale(new float[2]);
+    float[] arrayOfFloat4 = paramGLWindow.getRequestedSurfaceScale(new float[2]);
+    float[] arrayOfFloat5 = paramGLWindow.getCurrentSurfaceScale(new float[2]);
+    paramGLWindow.setTitle("GLWindow[" + str + "], win: " + paramGLWindow.getBounds() + ", pix: " + paramGLWindow.getSurfaceWidth() + "x" + paramGLWindow.getSurfaceHeight() + ", sDPI " + arrayOfFloat1[0] + " x " + arrayOfFloat1[1] + ", scale[min " + arrayOfFloat2[0] + "x" + arrayOfFloat2[1] + ", max " + arrayOfFloat3[0] + "x" + arrayOfFloat3[1] + ", req " + arrayOfFloat4[0] + "x" + arrayOfFloat4[1] + " -> has " + arrayOfFloat5[0] + "x" + arrayOfFloat5[1] + "]");
+  }
+  
+
+
+
+  public static Display.PointerIcon[] createPointerIcons(Display paramDisplay)
+  {
+    ArrayList localArrayList = new ArrayList();
+    
+    paramDisplay.createNative();
+    
+    Display.PointerIcon localPointerIcon = null;
+    IOUtil.ClassResources localClassResources = new IOUtil.ClassResources(new String[] { "newt/data/cross-grey-alpha-16x16.png" }, paramDisplay.getClass().getClassLoader(), null);
+    try {
+      localPointerIcon = paramDisplay.createPointerIcon(localClassResources, 8, 8);
+      localArrayList.add(localPointerIcon);
+      System.err.printf("Create PointerIcon #%02d: %s%n", new Object[] { Integer.valueOf(localArrayList.size()), localPointerIcon.toString() });
+    } catch (Exception localException1) {
+      System.err.println(localException1.getMessage());
+    }
+    
+
+    localPointerIcon = null;
+    localClassResources = new IOUtil.ClassResources(new String[] { "newt/data/pointer-grey-alpha-16x24.png" }, paramDisplay.getClass().getClassLoader(), null);
+    try {
+      localPointerIcon = paramDisplay.createPointerIcon(localClassResources, 0, 0);
+      localArrayList.add(localPointerIcon);
+      System.err.printf("Create PointerIcon #%02d: %s%n", new Object[] { Integer.valueOf(localArrayList.size()), localPointerIcon.toString() });
+    } catch (Exception localException2) {
+      System.err.println(localException2.getMessage());
+    }
+    
+
+    localPointerIcon = null;
+    localClassResources = new IOUtil.ClassResources(new String[] { "arrow-red-alpha-64x64.png" }, paramDisplay.getClass().getClassLoader(), null);
+    try {
+      localPointerIcon = paramDisplay.createPointerIcon(localClassResources, 0, 0);
+      localArrayList.add(localPointerIcon);
+      System.err.printf("Create PointerIcon #%02d: %s%n", new Object[] { Integer.valueOf(localArrayList.size()), localPointerIcon.toString() });
+    } catch (Exception localException3) {
+      System.err.println(localException3.getMessage());
+    }
+    
+
+    localPointerIcon = null;
+    localClassResources = new IOUtil.ClassResources(new String[] { "arrow-blue-alpha-64x64.png" }, paramDisplay.getClass().getClassLoader(), null);
+    try {
+      localPointerIcon = paramDisplay.createPointerIcon(localClassResources, 0, 0);
+      localArrayList.add(localPointerIcon);
+      System.err.printf("Create PointerIcon #%02d: %s%n", new Object[] { Integer.valueOf(localArrayList.size()), localPointerIcon.toString() });
+    } catch (Exception localException4) {
+      System.err.println(localException4.getMessage());
+    }
+    
+    if (PNGIcon.isAvailable()) {
+      localPointerIcon = null;
+      localClassResources = new IOUtil.ClassResources(new String[] { "jogamp-pointer-64x64.png" }, paramDisplay.getClass().getClassLoader(), null);
+      try {
+        URLConnection localURLConnection = localClassResources.resolve(0);
+        if (null != localURLConnection) {
+          PNGPixelRect localPNGPixelRect = PNGPixelRect.read(localURLConnection.getInputStream(), null, false, 0, false);
+          System.err.printf("Create PointerIcon #%02d: %s%n", new Object[] { Integer.valueOf(localArrayList.size() + 1), localPNGPixelRect.toString() });
+          localPointerIcon = paramDisplay.createPointerIcon(localPNGPixelRect, 32, 0);
+          localArrayList.add(localPointerIcon);
+          System.err.printf("Create PointerIcon #%02d: %s%n", new Object[] { Integer.valueOf(localArrayList.size()), localPointerIcon.toString() });
+        }
+      } catch (Exception localException5) {
+        System.err.println(localException5.getMessage());
+      }
+    }
+    
+    return (Display.PointerIcon[])localArrayList.toArray(new Display.PointerIcon[localArrayList.size()]);
+  }
+}

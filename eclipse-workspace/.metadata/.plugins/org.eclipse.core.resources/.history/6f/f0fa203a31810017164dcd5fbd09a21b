@@ -1,0 +1,129 @@
+package jogamp.opengl;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLRunnable;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLRunnableTask
+  implements GLRunnable
+{
+  GLRunnable runnable;
+  Object notifyObject;
+  boolean catchExceptions;
+  volatile boolean isExecuted;
+  volatile boolean isFlushed;
+  Throwable runnableException;
+  
+  public GLRunnableTask(GLRunnable paramGLRunnable, Object paramObject, boolean paramBoolean)
+  {
+    runnable = paramGLRunnable;
+    notifyObject = paramObject;
+    catchExceptions = paramBoolean;
+    isExecuted = false;
+    isFlushed = false;
+  }
+  
+  public boolean run(GLAutoDrawable paramGLAutoDrawable)
+  {
+    boolean bool = true;
+    if (null == notifyObject) {
+      try {
+        bool = runnable.run(paramGLAutoDrawable);
+      } catch (Throwable localThrowable1) {
+        runnableException = localThrowable1;
+        if (catchExceptions) {
+          ExceptionUtils.dumpThrowable("", runnableException);
+        } else {
+          throw new RuntimeException(runnableException);
+        }
+      } finally {
+        isExecuted = true;
+      }
+    } else {
+      synchronized (notifyObject) {
+        try {
+          bool = runnable.run(paramGLAutoDrawable);
+        } catch (Throwable localThrowable2) {
+          runnableException = localThrowable2;
+          if (catchExceptions) {
+            ExceptionUtils.dumpThrowable("", runnableException);
+          } else {
+            throw new RuntimeException(runnableException);
+          }
+        } finally {
+          isExecuted = true;
+          notifyObject.notifyAll();
+        }
+      }
+    }
+    return bool;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public void flush()
+  {
+    if ((!isExecuted()) && (null != notifyObject)) {
+      synchronized (notifyObject) {
+        isFlushed = true;
+        notifyObject.notifyAll();
+      }
+    }
+  }
+  
+
+  public boolean isInQueue()
+  {
+    return (!isExecuted) && (!isFlushed);
+  }
+  
+
+  public boolean isExecuted()
+  {
+    return isExecuted;
+  }
+  
+
+
+
+  public boolean isFlushed() { return isFlushed; }
+  
+  public Throwable getThrowable() { return runnableException; }
+}

@@ -1,0 +1,269 @@
+package jogamp.opengl;
+
+import com.jogamp.common.util.IntIntHashMap;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLException;
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLBufferStateTracker
+{
+  protected static final boolean DEBUG = PropertyAccess.isPropertyDefined("jogl.debug.GLBufferStateTracker", true);
+  
+
+
+  private final IntIntHashMap bindingMap;
+  
+
+
+  private static final int bindingNotFound = -1;
+  
+
+  private final int[] bufTmp = new int[1];
+  
+  public GLBufferStateTracker() {
+    bindingMap = new IntIntHashMap();
+    bindingMap.setKeyNotFoundValue(-1);
+    
+
+
+    setBoundBufferObject(34962, 0);
+    setBoundBufferObject(36671, 0);
+    setBoundBufferObject(34963, 0);
+    setBoundBufferObject(35051, 0);
+    setBoundBufferObject(35052, 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private static final int getQueryName(int paramInt)
+  {
+    switch (paramInt) {
+    case 34962:  return 34964;
+    case 37568:  return 37569;
+    case 36662:  return 36662;
+    case 36663:  return 36663;
+    case 36671:  return 36675;
+    case 37102:  return 37103;
+    case 34963:  return 34965;
+    case 35051:  return 35053;
+    case 35052:  return 35055;
+    case 37266:  return 37267;
+    case 37074:  return 37075;
+    case 35882:  return 35884;
+    case 35982:  return 35983;
+    case 35345:  return 35368;
+    case 34229: 
+      return 34229;
+    }
+    
+    throw new GLException(String.format("GL_INVALID_ENUM​: Invalid binding target 0x%X", new Object[] { Integer.valueOf(paramInt) }));
+  }
+  
+  private static final void checkTargetName(int paramInt) {
+    switch (paramInt)
+    {
+    case 34229: 
+    case 34962: 
+    case 34963: 
+    case 35051: 
+    case 35052: 
+    case 35345: 
+    case 35882: 
+    case 35982: 
+    case 36662: 
+    case 36663: 
+    case 36671: 
+    case 37074: 
+    case 37102: 
+    case 37266: 
+    case 37568: 
+      return;
+    }
+    
+    throw new GLException(String.format("GL_INVALID_ENUM​: Invalid binding target 0x%X", new Object[] { Integer.valueOf(paramInt) }));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final void setBoundBufferObject(int paramInt1, int paramInt2)
+  {
+    checkTargetName(paramInt1);
+    int i = bindingMap.put(paramInt1, paramInt2);
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    if (DEBUG) {
+      System.err.println("GLBufferStateTracker.setBoundBufferObject() target " + 
+        toHexString(paramInt1) + ": " + toHexString(i) + " -> " + toHexString(paramInt2));
+    }
+  }
+  
+
+
+
+
+  public final int getBoundBufferObject(int paramInt, GL paramGL)
+  {
+    int i = bindingMap.get(paramInt);
+    if (-1 == i)
+    {
+
+
+      int j = getQueryName(paramInt);
+      if (0 != j) {
+        int k = paramGL.glGetError();
+        paramGL.glGetIntegerv(j, bufTmp, 0);
+        int m = paramGL.glGetError();
+        if (0 == m) {
+          i = bufTmp[0];
+        } else {
+          i = 0;
+        }
+        if (DEBUG) {
+          System.err.println("GLBufferStateTracker.getBoundBufferObject() glerr[pre " + toHexString(k) + ", post " + toHexString(m) + "], [queried value]: target " + 
+            toHexString(paramInt) + " / query " + toHexString(j) + " -> mapped bound buffer " + 
+            toHexString(i));
+        }
+        setBoundBufferObject(paramInt, i);
+        return i;
+      }
+      return 0;
+    }
+    if (DEBUG) {
+      System.err.println("GLBufferStateTracker.getBoundBufferObject() [mapped value]: target 0x" + 
+        Integer.toHexString(paramInt) + " -> mapped bound buffer 0x" + 
+        Integer.toHexString(i));
+    }
+    return i;
+  }
+  
+
+
+
+
+
+
+  public final void clear()
+  {
+    if (DEBUG) {
+      System.err.println("GLBufferStateTracker.clear() - Thread " + Thread.currentThread().getName());
+    }
+    
+    bindingMap.clear(); }
+  
+  private final String toHexString(int paramInt) { return Integer.toHexString(paramInt); }
+  
+  static {}
+}

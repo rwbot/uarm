@@ -1,0 +1,99 @@
+package jogamp.opengl.windows.wgl;
+
+import com.jogamp.common.util.PropertyAccess;
+import java.io.PrintStream;
+import jogamp.nativewindow.windows.GDI;
+import jogamp.nativewindow.windows.PIXELFORMATDESCRIPTOR;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class WGLUtil
+{
+  public static final boolean USE_WGLVersion_Of_5WGLGDIFuncSet;
+  
+  static
+  {
+    Debug.initSingleton();
+    USE_WGLVersion_Of_5WGLGDIFuncSet = PropertyAccess.isPropertyDefined("jogl.windows.useWGLVersionOf5WGLGDIFuncSet", true);
+    if (USE_WGLVersion_Of_5WGLGDIFuncSet) {
+      System.err.println("Use WGL version of 5 WGL/GDI functions.");
+    }
+  }
+  
+  public static int ChoosePixelFormat(long paramLong, PIXELFORMATDESCRIPTOR paramPIXELFORMATDESCRIPTOR) {
+    if (USE_WGLVersion_Of_5WGLGDIFuncSet) {
+      return WGL.wglChoosePixelFormat(paramLong, paramPIXELFORMATDESCRIPTOR);
+    }
+    return GDI.ChoosePixelFormat(paramLong, paramPIXELFORMATDESCRIPTOR);
+  }
+  
+  public static int DescribePixelFormat(long paramLong, int paramInt1, int paramInt2, PIXELFORMATDESCRIPTOR paramPIXELFORMATDESCRIPTOR) {
+    if (USE_WGLVersion_Of_5WGLGDIFuncSet) {
+      return WGL.wglDescribePixelFormat(paramLong, paramInt1, paramInt2, paramPIXELFORMATDESCRIPTOR);
+    }
+    return GDI.DescribePixelFormat(paramLong, paramInt1, paramInt2, paramPIXELFORMATDESCRIPTOR);
+  }
+  
+  public static int GetPixelFormat(long paramLong) {
+    if (USE_WGLVersion_Of_5WGLGDIFuncSet) {
+      return WGL.wglGetPixelFormat(paramLong);
+    }
+    return GDI.GetPixelFormat(paramLong);
+  }
+  
+  public static boolean SetPixelFormat(long paramLong, int paramInt, PIXELFORMATDESCRIPTOR paramPIXELFORMATDESCRIPTOR) {
+    if (USE_WGLVersion_Of_5WGLGDIFuncSet) {
+      return WGL.wglSetPixelFormat(paramLong, paramInt, paramPIXELFORMATDESCRIPTOR);
+    }
+    return GDI.SetPixelFormat(paramLong, paramInt, paramPIXELFORMATDESCRIPTOR);
+  }
+  
+  public static boolean SwapBuffers(long paramLong) {
+    if (USE_WGLVersion_Of_5WGLGDIFuncSet) {
+      return WGL.wglSwapBuffers(paramLong);
+    }
+    return GDI.SwapBuffers(paramLong);
+  }
+  
+  public WGLUtil() {}
+}

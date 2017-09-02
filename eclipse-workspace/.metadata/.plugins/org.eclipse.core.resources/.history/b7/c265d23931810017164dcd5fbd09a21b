@@ -1,0 +1,178 @@
+package com.jogamp.common.util;
+
+import java.io.PrintStream;
+import jogamp.common.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class TaskBase
+  implements Runnable
+{
+  private static final boolean TRACE_SOURCE = PropertyAccess.isPropertyDefined("jogamp.debug.TaskBase.TraceSource", true);
+  
+  protected final Object syncObject;
+  protected final boolean catchExceptions;
+  protected final PrintStream exceptionOut;
+  protected final Throwable sourceStack;
+  protected Object attachment;
+  protected Throwable runnableException;
+  protected long tCreated;
+  protected long tStarted;
+  protected volatile long tExecuted;
+  protected volatile boolean isExecuted;
+  protected volatile boolean isFlushed;
+  protected volatile Thread execThread;
+  
+  protected TaskBase(Object paramObject, boolean paramBoolean, PrintStream paramPrintStream)
+  {
+    syncObject = paramObject;
+    catchExceptions = paramBoolean;
+    exceptionOut = paramPrintStream;
+    sourceStack = (TRACE_SOURCE ? new Throwable("Creation @") : null);
+    tCreated = System.currentTimeMillis();
+    tStarted = 0L;
+    tExecuted = 0L;
+    isExecuted = false;
+    isFlushed = false;
+    execThread = null;
+  }
+  
+
+  protected final String getExceptionOutIntro() { return catchExceptions ? "A caught" : "An uncaught"; }
+  
+  protected final void printSourceTrace() {
+    if ((null != sourceStack) && (null != exceptionOut)) {
+      sourceStack.printStackTrace(exceptionOut);
+    }
+  }
+  
+
+
+
+  public final Thread getExecutionThread()
+  {
+    return execThread;
+  }
+  
+
+
+
+  public final Object getSyncObject()
+  {
+    return syncObject;
+  }
+  
+
+
+
+  public final void setAttachment(Object paramObject)
+  {
+    attachment = paramObject;
+  }
+  
+
+
+
+  public final Object getAttachment()
+  {
+    return attachment;
+  }
+  
+
+
+
+
+
+  public abstract void run();
+  
+
+
+
+
+
+  public final void flush(Throwable paramThrowable)
+  {
+    if ((!isExecuted()) && (hasWaiter())) {
+      runnableException = paramThrowable;
+      synchronized (syncObject) {
+        isFlushed = true;
+        syncObject.notifyAll();
+      }
+    }
+  }
+  
+
+  public final boolean isInQueue()
+  {
+    return (!isExecuted) && (!isFlushed);
+  }
+  
+  public final boolean isExecuted()
+  {
+    return isExecuted;
+  }
+  
+  public final boolean isFlushed()
+  {
+    return isFlushed;
+  }
+  
+
+  public final boolean hasWaiter()
+  {
+    return null != syncObject;
+  }
+  
+
+
+
+  public final Throwable getThrowable() { return runnableException; }
+  
+  public final long getTimestampCreate() { return tCreated; }
+  public final long getTimestampBeforeExec() { return tStarted; }
+  public final long getTimestampAfterExec() { return tExecuted; }
+  public final long getDurationInQueue() { return tStarted - tCreated; }
+  public final long getDurationInExec() { return 0L < tExecuted ? tExecuted - tStarted : 0L; }
+  public final long getDurationTotal() { return 0L < tExecuted ? tExecuted - tCreated : tStarted - tCreated; }
+  
+  public String toString()
+  {
+    return "RunnableTask[enqueued " + isInQueue() + "[executed " + isExecuted() + ", flushed " + isFlushed() + "], tTotal " + getDurationTotal() + " ms, tExec " + getDurationInExec() + " ms, tQueue " + getDurationInQueue() + " ms, attachment " + attachment + ", throwable " + getThrowable() + "]";
+  }
+  
+  static {}
+}

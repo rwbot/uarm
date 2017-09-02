@@ -1,0 +1,84 @@
+package com.jogamp.common.net;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.net.URLConnection;
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class PiggybackURLConnection<I extends PiggybackURLContext>
+  extends URLConnection
+{
+  protected URL subUrl;
+  protected URLConnection subConn;
+  protected I context;
+  
+  protected PiggybackURLConnection(URL paramURL, I paramI)
+  {
+    super(paramURL);
+    context = paramI;
+  }
+  
+
+
+
+
+
+
+
+  public synchronized void connect()
+    throws IOException
+  {
+    if (!connected) {
+      subConn = context.resolve(url.getPath());
+      subUrl = subConn.getURL();
+      connected = true;
+    }
+  }
+  
+  public InputStream getInputStream() throws IOException
+  {
+    if (!connected) {
+      throw new IOException("not connected");
+    }
+    return subConn.getInputStream();
+  }
+  
+
+
+
+
+
+
+
+
+  public abstract String getEntryName()
+    throws IOException;
+  
+
+
+
+
+
+
+
+
+  public URL getSubProtocol()
+    throws IOException
+  {
+    if (!connected) {
+      throw new IOException("not connected");
+    }
+    return subUrl;
+  }
+}

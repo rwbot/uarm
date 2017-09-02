@@ -1,0 +1,352 @@
+package com.jogamp.graph.curve.opengl;
+
+import com.jogamp.graph.curve.Region;
+import com.jogamp.graph.geom.Vertex;
+import com.jogamp.graph.geom.Vertex.Factory;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLUniformData;
+import com.jogamp.opengl.util.GLArrayDataServer;
+import com.jogamp.opengl.util.PMVMatrix;
+import com.jogamp.opengl.util.glsl.ShaderProgram;
+import java.nio.FloatBuffer;
+import jogamp.common.os.PlatformPropsImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class RenderState
+{
+  private static final String thisKey = "jogamp.graph.curve.RenderState";
+  public static final int BITHINT_BLENDING_ENABLED = 1;
+  public static final int BITHINT_GLOBAL_DEPTH_TEST_ENABLED = 2;
+  private final Vertex.Factory<? extends Vertex> vertexFactory;
+  private final PMVMatrix pmvMatrix;
+  private final float[] weight;
+  private final FloatBuffer weightBuffer;
+  private final float[] colorStatic;
+  private final FloatBuffer colorStaticBuffer;
+  private ShaderProgram sp;
+  private int hintBitfield;
+  private final int id;
+  
+  public static RenderState createRenderState(Vertex.Factory<? extends Vertex> paramFactory)
+  {
+    return new RenderState(paramFactory, null);
+  }
+  
+  public static RenderState createRenderState(Vertex.Factory<? extends Vertex> paramFactory, PMVMatrix paramPMVMatrix) {
+    return new RenderState(paramFactory, paramPMVMatrix);
+  }
+  
+  public static final RenderState getRenderState(GL2ES2 paramGL2ES2) {
+    return (RenderState)paramGL2ES2.getContext().getAttachedObject("jogamp.graph.curve.RenderState");
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  private static synchronized int getNextID() { return nextID++; }
+  
+  private static int nextID = 1;
+  
+
+
+  public static class ProgramLocal
+  {
+    public final GLUniformData gcu_PMVMatrix01;
+    
+
+    public final GLUniformData gcu_Weight;
+    
+    public final GLUniformData gcu_ColorStatic;
+    
+    private int rsId = -1;
+    
+    public ProgramLocal() {
+      gcu_PMVMatrix01 = GLUniformData.creatEmptyMatrix("gcu_PMVMatrix01", 4, 4);
+      gcu_Weight = GLUniformData.creatEmptyVector("gcu_Weight", 1);
+      gcu_ColorStatic = GLUniformData.creatEmptyVector("gcu_ColorStatic", 4);
+    }
+    
+    public final int getRenderStateId() { return rsId; }
+    
+
+
+
+
+
+
+
+
+
+
+    public final boolean update(GL2ES2 paramGL2ES2, RenderState paramRenderState, boolean paramBoolean1, int paramInt, boolean paramBoolean2, boolean paramBoolean3)
+    {
+      if (paramRenderState.id() != rsId) {
+        gcu_PMVMatrix01.setData(pmvMatrix.glGetPMvMatrixf());
+        gcu_Weight.setData(weightBuffer);
+        gcu_ColorStatic.setData(colorStaticBuffer);
+        rsId = paramRenderState.id();
+      }
+      boolean bool1 = true;
+      if ((null != sp) && (sp.inUse())) { boolean bool2;
+        if ((!Region.isTwoPass(paramInt)) || (!paramBoolean2)) {
+          bool2 = paramRenderState.updateUniformDataLoc(paramGL2ES2, paramBoolean1, true, gcu_PMVMatrix01, paramBoolean3);
+          bool1 = (bool1) && (bool2);
+        }
+        if (paramBoolean2) {
+          if (Region.hasVariableWeight(paramInt)) {
+            bool2 = paramRenderState.updateUniformDataLoc(paramGL2ES2, paramBoolean1, true, gcu_Weight, paramBoolean3);
+            bool1 = (bool1) && (bool2);
+          }
+          
+          bool2 = paramRenderState.updateUniformDataLoc(paramGL2ES2, paramBoolean1, true, gcu_ColorStatic, paramBoolean3);
+          bool1 = (bool1) && (bool2);
+        }
+      }
+      
+      return bool1;
+    }
+    
+    public StringBuilder toString(StringBuilder paramStringBuilder, boolean paramBoolean) {
+      if (null == paramStringBuilder) {
+        paramStringBuilder = new StringBuilder();
+      }
+      paramStringBuilder.append("ProgramLocal[rsID ").append(rsId).append(PlatformPropsImpl.NEWLINE);
+      
+      paramStringBuilder.append(gcu_PMVMatrix01).append(", ").append(PlatformPropsImpl.NEWLINE);
+      paramStringBuilder.append(gcu_ColorStatic).append(", ");
+      paramStringBuilder.append(gcu_Weight).append("]");
+      return paramStringBuilder;
+    }
+    
+    public String toString()
+    {
+      return toString(null, false).toString();
+    }
+  }
+  
+  protected RenderState(Vertex.Factory<? extends Vertex> paramFactory, PMVMatrix paramPMVMatrix) {
+    id = getNextID();
+    sp = null;
+    vertexFactory = paramFactory;
+    pmvMatrix = (null != paramPMVMatrix ? paramPMVMatrix : new PMVMatrix());
+    weight = new float[1];
+    weightBuffer = FloatBuffer.wrap(weight);
+    colorStatic = new float[4];
+    colorStaticBuffer = FloatBuffer.wrap(colorStatic);
+    hintBitfield = 0;
+  }
+  
+  public final int id() { return id; }
+  public final ShaderProgram getShaderProgram() { return sp; }
+  public final boolean isShaderProgramInUse() { return null != sp ? sp.inUse() : false; }
+  
+
+
+
+
+
+
+
+  public final boolean setShaderProgram(GL2ES2 paramGL2ES2, ShaderProgram paramShaderProgram)
+  {
+    if (paramShaderProgram.equals(sp)) {
+      paramShaderProgram.useProgram(paramGL2ES2, true);
+      return false;
+    }
+    if (null != sp) {
+      sp.notifyNotInUse();
+    }
+    sp = paramShaderProgram;
+    paramShaderProgram.useProgram(paramGL2ES2, true);
+    return true;
+  }
+  
+  public final Vertex.Factory<? extends Vertex> getVertexFactory() { return vertexFactory; }
+  
+  public final PMVMatrix getMatrix() { return pmvMatrix; }
+  
+
+  public static boolean isWeightValid(float paramFloat) { return (0.0F <= paramFloat) && (paramFloat <= 1.9F); }
+  
+  public final float getWeight() { return weight[0]; }
+  
+  public final void setWeight(float paramFloat) { if (!isWeightValid(paramFloat)) {
+      throw new IllegalArgumentException("Weight out of range");
+    }
+    weight[0] = paramFloat;
+  }
+  
+  public final float[] getColorStatic(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(colorStatic, 0, paramArrayOfFloat, 0, 4);
+    return paramArrayOfFloat;
+  }
+  
+  public final void setColorStatic(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4) { colorStatic[0] = paramFloat1;
+    colorStatic[1] = paramFloat2;
+    colorStatic[2] = paramFloat3;
+    colorStatic[3] = paramFloat4;
+  }
+  
+
+
+
+
+
+
+
+
+  public final boolean updateUniformLoc(GL2ES2 paramGL2ES2, boolean paramBoolean1, GLUniformData paramGLUniformData, boolean paramBoolean2)
+  {
+    if ((paramBoolean1) || (0 > paramGLUniformData.getLocation())) {
+      boolean bool = 0 <= paramGLUniformData.setLocation(paramGL2ES2, sp.program());
+      if ((paramBoolean2) && (!bool)) {
+        throw new GLException("Could not locate " + paramGLUniformData);
+      }
+      return bool;
+    }
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final boolean updateUniformDataLoc(GL2ES2 paramGL2ES2, boolean paramBoolean1, boolean paramBoolean2, GLUniformData paramGLUniformData, boolean paramBoolean3)
+  {
+    paramBoolean1 = (paramBoolean1) || (0 > paramGLUniformData.getLocation());
+    if (paramBoolean1) {
+      paramBoolean2 = 0 <= paramGLUniformData.setLocation(paramGL2ES2, sp.program());
+      if ((paramBoolean3) && (!paramBoolean2)) {
+        throw new GLException("Could not locate " + paramGLUniformData);
+      }
+    }
+    if (paramBoolean2) {
+      paramGL2ES2.glUniform(paramGLUniformData);
+      return true;
+    }
+    return !paramBoolean1;
+  }
+  
+
+
+
+
+
+
+  public final boolean updateAttributeLoc(GL2ES2 paramGL2ES2, boolean paramBoolean1, GLArrayDataServer paramGLArrayDataServer, boolean paramBoolean2)
+  {
+    if ((paramBoolean1) || (0 > paramGLArrayDataServer.getLocation())) {
+      boolean bool = 0 <= paramGLArrayDataServer.setLocation(paramGL2ES2, sp.program());
+      if ((paramBoolean2) && (!bool)) {
+        throw new GLException("Could not locate " + paramGLArrayDataServer);
+      }
+      return bool;
+    }
+    return true;
+  }
+  
+
+  public final boolean isHintMaskSet(int paramInt)
+  {
+    return paramInt == (hintBitfield & paramInt);
+  }
+  
+  public final void setHintMask(int paramInt) { hintBitfield |= paramInt; }
+  
+  public final void clearHintMask(int paramInt) {
+    hintBitfield &= (paramInt ^ 0xFFFFFFFF);
+  }
+  
+  public void destroy(GL2ES2 paramGL2ES2) {
+    if (null != sp) {
+      sp.destroy(paramGL2ES2);
+      sp = null;
+    }
+  }
+  
+  public final RenderState attachTo(GL2ES2 paramGL2ES2) {
+    return (RenderState)paramGL2ES2.getContext().attachObject("jogamp.graph.curve.RenderState", this);
+  }
+  
+  public final boolean detachFrom(GL2ES2 paramGL2ES2) {
+    RenderState localRenderState = (RenderState)paramGL2ES2.getContext().getAttachedObject("jogamp.graph.curve.RenderState");
+    if (localRenderState == this) {
+      paramGL2ES2.getContext().detachObject("jogamp.graph.curve.RenderState");
+      return true;
+    }
+    return false;
+  }
+  
+  public String toString()
+  {
+    return "RenderState[" + sp + "]";
+  }
+}

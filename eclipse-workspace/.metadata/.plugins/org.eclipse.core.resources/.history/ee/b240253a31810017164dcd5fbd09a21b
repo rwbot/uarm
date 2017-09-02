@@ -1,0 +1,87 @@
+package jogamp.opengl.glu.mipmap;
+
+import java.nio.ByteBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Extract233rev
+  implements Extract
+{
+  public Extract233rev() {}
+  
+  public void extract(boolean paramBoolean, ByteBuffer paramByteBuffer, float[] paramArrayOfFloat)
+  {
+    int i = paramByteBuffer.get();
+    paramArrayOfFloat[0] = ((i & 0x7) / 7.0F);
+    paramArrayOfFloat[1] = (((i & 0x38) >> 3) / 7.0F);
+    paramArrayOfFloat[2] = (((i & 0xC0) >> 6) / 3.0F);
+  }
+  
+
+
+
+
+  public void shove(float[] paramArrayOfFloat, int paramInt, ByteBuffer paramByteBuffer)
+  {
+    assert ((0.0F <= paramArrayOfFloat[0]) && (paramArrayOfFloat[0] <= 1.0F));
+    assert ((0.0F <= paramArrayOfFloat[1]) && (paramArrayOfFloat[1] <= 1.0F));
+    assert ((0.0F <= paramArrayOfFloat[2]) && (paramArrayOfFloat[2] <= 1.0F));
+    
+
+    byte b = (byte)((int)(paramArrayOfFloat[0] * 7.0F + 0.5F) & 0x7);
+    b = (byte)(b | (byte)((int)(paramArrayOfFloat[1] * 7.0F + 0.5F) << 3 & 0x38));
+    b = (byte)(b | (byte)((int)(paramArrayOfFloat[2] * 3.0F + 0.5F) << 6 & 0xC0));
+    paramByteBuffer.position(paramInt);
+    paramByteBuffer.put(b);
+  }
+}

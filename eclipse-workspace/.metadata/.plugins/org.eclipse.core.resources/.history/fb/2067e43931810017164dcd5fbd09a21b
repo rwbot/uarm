@@ -1,0 +1,246 @@
+package com.jogamp.nativewindow.util;
+
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Rectangle
+  implements Cloneable, RectangleImmutable
+{
+  int x;
+  int y;
+  int width;
+  int height;
+  
+  public Rectangle()
+  {
+    this(0, 0, 0, 0);
+  }
+  
+  public Rectangle(int paramInt1, int paramInt2, int paramInt3, int paramInt4) {
+    x = paramInt1;
+    y = paramInt2;
+    width = paramInt3;
+    height = paramInt4;
+  }
+  
+  public Rectangle(RectangleImmutable paramRectangleImmutable) { set(paramRectangleImmutable); }
+  
+
+  public Object cloneMutable()
+  {
+    return clone();
+  }
+  
+  protected Object clone()
+  {
+    try {
+      return super.clone();
+    } catch (CloneNotSupportedException localCloneNotSupportedException) {
+      throw new InternalError();
+    }
+  }
+  
+
+  public final int getX() { return x; }
+  
+  public final int getY() { return y; }
+  
+  public final int getWidth() { return width; }
+  
+  public final int getHeight() { return height; }
+  
+  public final void set(int paramInt1, int paramInt2, int paramInt3, int paramInt4) {
+    x = paramInt1;
+    y = paramInt2;
+    width = paramInt3;
+    height = paramInt4;
+  }
+  
+  public final void set(Rectangle paramRectangle) { x = x;
+    y = y;
+    width = width;
+    height = height;
+  }
+  
+  public final void set(RectangleImmutable paramRectangleImmutable) { x = paramRectangleImmutable.getX();
+    y = paramRectangleImmutable.getY();
+    width = paramRectangleImmutable.getWidth();
+    height = paramRectangleImmutable.getHeight(); }
+  
+  public final void setX(int paramInt) { x = paramInt; }
+  public final void setY(int paramInt) { y = paramInt; }
+  public final void setWidth(int paramInt) { width = paramInt; }
+  public final void setHeight(int paramInt) { height = paramInt; }
+  
+  public final RectangleImmutable union(RectangleImmutable paramRectangleImmutable)
+  {
+    return union(paramRectangleImmutable.getX(), paramRectangleImmutable.getY(), paramRectangleImmutable.getX() + paramRectangleImmutable.getWidth(), paramRectangleImmutable.getY() + paramRectangleImmutable.getHeight());
+  }
+  
+  public final RectangleImmutable union(int paramInt1, int paramInt2, int paramInt3, int paramInt4) {
+    int i = Math.min(x, paramInt1);
+    int j = Math.min(y, paramInt2);
+    int k = Math.max(x + width, paramInt3);
+    int m = Math.max(y + height, paramInt4);
+    return new Rectangle(i, j, k - i, m - j);
+  }
+  
+
+
+
+  public final Rectangle union(List<RectangleImmutable> paramList)
+  {
+    int i = Integer.MAX_VALUE;int j = Integer.MAX_VALUE;
+    int k = Integer.MIN_VALUE;int m = Integer.MIN_VALUE;
+    for (int n = paramList.size() - 1; n >= 0; n--) {
+      RectangleImmutable localRectangleImmutable = (RectangleImmutable)paramList.get(n);
+      i = Math.min(i, localRectangleImmutable.getX());
+      k = Math.max(k, localRectangleImmutable.getX() + localRectangleImmutable.getWidth());
+      j = Math.min(j, localRectangleImmutable.getY());
+      m = Math.max(m, localRectangleImmutable.getY() + localRectangleImmutable.getHeight());
+    }
+    set(i, j, k - i, m - j);
+    return this;
+  }
+  
+  public final RectangleImmutable intersection(RectangleImmutable paramRectangleImmutable)
+  {
+    return intersection(paramRectangleImmutable.getX(), paramRectangleImmutable.getY(), paramRectangleImmutable.getX() + paramRectangleImmutable.getWidth(), paramRectangleImmutable.getY() + paramRectangleImmutable.getHeight());
+  }
+  
+  public final RectangleImmutable intersection(int paramInt1, int paramInt2, int paramInt3, int paramInt4) {
+    int i = Math.max(x, paramInt1);
+    int j = Math.max(y, paramInt2);
+    int k = Math.min(x + width, paramInt3);
+    int m = Math.min(y + height, paramInt4);
+    int n;
+    int i2; if (k < i) {
+      n = 0;
+      i2 = 0;
+    } else {
+      n = i;
+      i2 = k - i; }
+    int i1;
+    int i3; if (m < j) {
+      i1 = 0;
+      i3 = 0;
+    } else {
+      i1 = j;
+      i3 = m - j;
+    }
+    return new Rectangle(n, i1, i2, i3);
+  }
+  
+  public final float coverage(RectangleImmutable paramRectangleImmutable) {
+    RectangleImmutable localRectangleImmutable = intersection(paramRectangleImmutable);
+    float f1 = localRectangleImmutable.getWidth() * localRectangleImmutable.getHeight();
+    float f2 = width * height;
+    return f1 / f2;
+  }
+  
+
+
+
+
+
+
+  public final Rectangle scale(int paramInt1, int paramInt2)
+  {
+    x *= paramInt1;
+    y *= paramInt2;
+    width *= paramInt1;
+    height *= paramInt2;
+    return this;
+  }
+  
+
+
+
+
+
+
+  public final Rectangle scaleInv(int paramInt1, int paramInt2)
+  {
+    x /= paramInt1;
+    y /= paramInt2;
+    width /= paramInt1;
+    height /= paramInt2;
+    return this;
+  }
+  
+
+  public int compareTo(RectangleImmutable paramRectangleImmutable)
+  {
+    int i = width * height;
+    int j = paramRectangleImmutable.getWidth() * paramRectangleImmutable.getHeight();
+    
+    if (i > j)
+      return 1;
+    if (i < j) {
+      return -1;
+    }
+    
+
+
+    i = x * y;
+    j = paramRectangleImmutable.getX() * paramRectangleImmutable.getY();
+    
+    if (i > j)
+      return 1;
+    if (i < j) {
+      return -1;
+    }
+    
+    return 0;
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    if (this == paramObject) return true;
+    if ((paramObject instanceof Rectangle)) {
+      Rectangle localRectangle = (Rectangle)paramObject;
+      return (y == y) && (x == x) && (height == height) && (width == width);
+    }
+    
+    return false;
+  }
+  
+  public int hashCode()
+  {
+    int i = x + height;
+    int j = width + y;
+    int k = i * (i + 1) / 2 + x;
+    int m = j * (j + 1) / 2 + y;
+    int n = k + m;
+    return n * (n + 1) / 2 + m;
+  }
+  
+  public String toString()
+  {
+    return "[ " + x + " / " + y + "  " + width + " x " + height + " ]";
+  }
+}

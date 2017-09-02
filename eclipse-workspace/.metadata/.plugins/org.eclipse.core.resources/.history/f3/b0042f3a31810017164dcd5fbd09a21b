@@ -1,0 +1,115 @@
+package jogamp.opengl.util.pngj.chunks;
+
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.zip.CRC32;
+import jogamp.opengl.util.pngj.PngHelperInternal;
+import jogamp.opengl.util.pngj.PngjBadCrcException;
+import jogamp.opengl.util.pngj.PngjOutputException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ChunkRaw
+{
+  public final int len;
+  public final byte[] idbytes = new byte[4];
+  
+
+
+
+
+  public byte[] data = null;
+  
+
+
+
+
+  private int crcval = 0;
+  
+
+
+
+
+
+
+
+  public ChunkRaw(int paramInt, byte[] paramArrayOfByte, boolean paramBoolean)
+  {
+    len = paramInt;
+    System.arraycopy(paramArrayOfByte, 0, idbytes, 0, 4);
+    if (paramBoolean)
+      allocData();
+  }
+  
+  private void allocData() {
+    if ((data == null) || (data.length < len)) {
+      data = new byte[len];
+    }
+  }
+  
+
+  private int computeCrc()
+  {
+    CRC32 localCRC32 = PngHelperInternal.getCRC();
+    localCRC32.reset();
+    localCRC32.update(idbytes, 0, 4);
+    if (len > 0)
+      localCRC32.update(data, 0, len);
+    return (int)localCRC32.getValue();
+  }
+  
+
+
+
+  public void writeChunk(OutputStream paramOutputStream)
+  {
+    if (idbytes.length != 4)
+      throw new PngjOutputException("bad chunkid [" + ChunkHelper.toString(idbytes) + "]");
+    crcval = computeCrc();
+    PngHelperInternal.writeInt4(paramOutputStream, len);
+    PngHelperInternal.writeBytes(paramOutputStream, idbytes);
+    if (len > 0)
+      PngHelperInternal.writeBytes(paramOutputStream, data, 0, len);
+    PngHelperInternal.writeInt4(paramOutputStream, crcval);
+  }
+  
+
+
+
+  public int readChunkData(InputStream paramInputStream, boolean paramBoolean)
+  {
+    PngHelperInternal.readBytes(paramInputStream, data, 0, len);
+    crcval = PngHelperInternal.readInt4(paramInputStream);
+    if (paramBoolean) {
+      int i = computeCrc();
+      if (i != crcval)
+        throw new PngjBadCrcException("chunk: " + this + " crc calc=" + i + " read=" + crcval);
+    }
+    return len + 4;
+  }
+  
+  ByteArrayInputStream getAsByteStream() {
+    return new ByteArrayInputStream(data);
+  }
+  
+  public String toString()
+  {
+    return "chunkid=" + ChunkHelper.toString(idbytes) + " len=" + len;
+  }
+}

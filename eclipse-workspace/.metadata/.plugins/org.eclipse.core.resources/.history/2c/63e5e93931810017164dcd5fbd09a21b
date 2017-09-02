@@ -1,0 +1,305 @@
+package com.jogamp.opengl;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.NativeWindowException;
+import java.io.PrintStream;
+import java.util.List;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class DefaultGLCapabilitiesChooser
+  implements GLCapabilitiesChooser
+{
+  private static final boolean DEBUG = PropertyAccess.isPropertyDefined("jogl.debug.CapabilitiesChooser", true);
+  
+  private static final int NO_SCORE = -9999999;
+  
+  private static final int DOUBLE_BUFFER_MISMATCH_PENALTY = 1000;
+  
+  private static final int OPAQUE_MISMATCH_PENALTY = 750;
+  
+  private static final int STENCIL_MISMATCH_PENALTY = 500;
+  
+  private static final int MULTISAMPLE_MISMATCH_PENALTY = 500;
+  private static final int MULTISAMPLE_EXTENSION_MISMATCH_PENALTY = 250;
+  private static final int COLOR_MISMATCH_PENALTY_SCALE = 36;
+  private static final int DEPTH_MISMATCH_PENALTY_SCALE = 6;
+  private static final int ACCUM_MISMATCH_PENALTY_SCALE = 1;
+  private static final int STENCIL_MISMATCH_PENALTY_SCALE = 3;
+  private static final int MULTISAMPLE_MISMATCH_PENALTY_SCALE = 3;
+  
+  public DefaultGLCapabilitiesChooser() {}
+  
+  public int chooseCapabilities(CapabilitiesImmutable paramCapabilitiesImmutable, List<? extends CapabilitiesImmutable> paramList, int paramInt)
+  {
+    if (null == paramCapabilitiesImmutable) {
+      throw new NativeWindowException("Null desired capabilities");
+    }
+    if (0 == paramList.size()) {
+      throw new NativeWindowException("Empty available capabilities");
+    }
+    
+    GLCapabilitiesImmutable localGLCapabilitiesImmutable1 = (GLCapabilitiesImmutable)paramCapabilitiesImmutable;
+    int i = paramList.size();
+    
+    if (DEBUG) {
+      ExceptionUtils.dumpStack(System.err);
+      System.err.println("Desired: " + localGLCapabilitiesImmutable1);
+      System.err.println("Available: " + i);
+      for (int j = 0; j < paramList.size(); j++) {
+        System.err.println(j + ": " + paramList.get(j));
+      }
+      System.err.println("Window system's recommended choice: " + paramInt);
+    }
+    
+    if ((paramInt >= 0) && (paramInt < i))
+    {
+      if (null != paramList.get(paramInt)) {
+        if (DEBUG) {
+          System.err.println("Choosing window system's recommended choice of " + paramInt);
+          System.err.println(paramList.get(paramInt));
+        }
+        return paramInt;
+      }
+    }
+    
+    int[] arrayOfInt = new int[i];
+    
+    for (int k = 0; k < arrayOfInt.length; k++) {
+      arrayOfInt[k] = -9999999;
+    }
+    k = localGLCapabilitiesImmutable1.getNumSamples();
+    
+
+    for (int m = 0; m < i; m++) {
+      GLCapabilitiesImmutable localGLCapabilitiesImmutable2 = (GLCapabilitiesImmutable)paramList.get(m);
+      if (localGLCapabilitiesImmutable2 != null)
+      {
+
+        if ((!localGLCapabilitiesImmutable1.isOnscreen()) || (localGLCapabilitiesImmutable2.isOnscreen()))
+        {
+
+          if (!localGLCapabilitiesImmutable1.isOnscreen())
+          {
+
+
+
+            if ((!localGLCapabilitiesImmutable1.isPBuffer()) || (localGLCapabilitiesImmutable2.isPBuffer()))
+            {
+
+              if ((localGLCapabilitiesImmutable1.isBitmap()) && (!localGLCapabilitiesImmutable2.isBitmap())) {}
+            }
+            
+          }
+          else if (localGLCapabilitiesImmutable1.getStereo() == localGLCapabilitiesImmutable2.getStereo())
+          {
+
+            i1 = localGLCapabilitiesImmutable2.getNumSamples();
+            i2 = 0;
+            
+
+
+
+
+            i2 = i2 + 36 * (localGLCapabilitiesImmutable2.getRedBits() + localGLCapabilitiesImmutable2.getGreenBits() + localGLCapabilitiesImmutable2.getBlueBits() + localGLCapabilitiesImmutable2.getAlphaBits() - (localGLCapabilitiesImmutable1.getRedBits() + localGLCapabilitiesImmutable1.getGreenBits() + localGLCapabilitiesImmutable1.getBlueBits() + localGLCapabilitiesImmutable1.getAlphaBits()));
+            
+
+            i2 = i2 + 6 * sign(i2) * Math.abs(localGLCapabilitiesImmutable2.getDepthBits() - localGLCapabilitiesImmutable1.getDepthBits());
+            
+
+            i2 = i2 + 1 * sign(i2) * Math.abs(localGLCapabilitiesImmutable2.getAccumRedBits() + localGLCapabilitiesImmutable2.getAccumGreenBits() + localGLCapabilitiesImmutable2.getAccumBlueBits() + localGLCapabilitiesImmutable2.getAccumAlphaBits() - (localGLCapabilitiesImmutable1
+              .getAccumRedBits() + localGLCapabilitiesImmutable1.getAccumGreenBits() + localGLCapabilitiesImmutable1.getAccumBlueBits() + localGLCapabilitiesImmutable1.getAccumAlphaBits()));
+            
+            i2 += 3 * sign(i2) * (localGLCapabilitiesImmutable2.getStencilBits() - localGLCapabilitiesImmutable1.getStencilBits());
+            
+            i2 += 3 * sign(i2) * (i1 - k);
+            
+            if (localGLCapabilitiesImmutable2.getDoubleBuffered() != localGLCapabilitiesImmutable1.getDoubleBuffered()) {
+              i2 += sign(i2) * 1000;
+            }
+            
+            if (localGLCapabilitiesImmutable2.isBackgroundOpaque() != localGLCapabilitiesImmutable1.isBackgroundOpaque()) {
+              i2 += sign(i2) * 750;
+            }
+            if ((localGLCapabilitiesImmutable1.getStencilBits() > 0) && (localGLCapabilitiesImmutable2.getStencilBits() == 0)) {
+              i2 += sign(i2) * 500;
+            }
+            if (k > 0) {
+              if (i1 == 0) {
+                i2 += sign(i2) * 500;
+              }
+              if (!localGLCapabilitiesImmutable1.getSampleExtension().equals(localGLCapabilitiesImmutable2.getSampleExtension())) {
+                i2 += sign(i2) * 250;
+              }
+            }
+            arrayOfInt[m] = i2;
+          } }
+      }
+    }
+    m = 0;
+    int n = 0;
+    GLCapabilitiesImmutable localGLCapabilitiesImmutable3; int i4; for (int i1 = 0; i1 < i; i1++) {
+      i2 = arrayOfInt[i1];
+      if (i2 != -9999999)
+      {
+
+        localGLCapabilitiesImmutable3 = (GLCapabilitiesImmutable)paramList.get(i1);
+        if (localGLCapabilitiesImmutable3.getHardwareAccelerated()) {
+          i4 = Math.abs(i2);
+          if ((m == 0) || (i4 > n))
+          {
+            m = 1;
+            n = i4;
+          }
+        }
+      } }
+    if (m != 0) {
+      for (i1 = 0; i1 < i; i1++) {
+        i2 = arrayOfInt[i1];
+        if (i2 != -9999999)
+        {
+
+          localGLCapabilitiesImmutable3 = (GLCapabilitiesImmutable)paramList.get(i1);
+          if (!localGLCapabilitiesImmutable3.getHardwareAccelerated()) {
+            if (i2 <= 0) {
+              i2 -= n;
+            } else if (i2 > 0) {
+              i2 += n;
+            }
+            arrayOfInt[i1] = i2;
+          }
+        }
+      }
+    }
+    if (DEBUG) {
+      System.err.print("Scores: [");
+      for (i1 = 0; i1 < i; i1++) {
+        if (i1 > 0) {
+          System.err.print(",");
+        }
+        System.err.print(" " + i1 + ": " + arrayOfInt[i1]);
+      }
+      System.err.println(" ]");
+    }
+    
+
+    i1 = -9999999;
+    int i2 = -1;
+    for (int i3 = 0; i3 < i; i3++) {
+      i4 = arrayOfInt[i3];
+      if (i4 != -9999999)
+      {
+
+
+        if ((i1 == -9999999) || (
+          (Math.abs(i4) < Math.abs(i1)) && (
+          (sign(i1) < 0) || (sign(i4) > 0)))) {
+          i1 = i4;
+          i2 = i3;
+        } }
+    }
+    if (i2 < 0) {
+      throw new NativeWindowException("Unable to select one of the provided GLCapabilities");
+    }
+    if (DEBUG) {
+      System.err.println("Chosen index: " + i2);
+      System.err.println("Chosen capabilities:");
+      System.err.println(paramList.get(i2));
+    }
+    
+    return i2;
+  }
+  
+  private static int sign(int paramInt) {
+    if (paramInt < 0) {
+      return -1;
+    }
+    return 1;
+  }
+  
+  static {}
+}

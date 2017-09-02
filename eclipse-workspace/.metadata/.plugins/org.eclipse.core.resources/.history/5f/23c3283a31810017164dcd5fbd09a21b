@@ -1,0 +1,527 @@
+package jogamp.opengl.glu.tessellator;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class Render
+{
+  private static final boolean USE_OPTIMIZED_CODE_PATH = false;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private static final RenderFan renderFan = new RenderFan(null);
+  private static final RenderStrip renderStrip = new RenderStrip(null);
+  private static final RenderTriangle renderTriangle = new RenderTriangle(null);
+  private static final int SIGN_INCONSISTENT = 2;
+  private Render() {}
+  
+  private static class FaceCount {
+    long size;
+    GLUhalfEdge eStart;
+    Render.renderCallBack render;
+    
+    public FaceCount() {}
+    
+    public FaceCount(long paramLong, GLUhalfEdge paramGLUhalfEdge, Render.renderCallBack paramRenderCallBack) { size = paramLong;
+      eStart = paramGLUhalfEdge;
+      render = paramRenderCallBack;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static void __gl_renderMesh(GLUtessellatorImpl paramGLUtessellatorImpl, GLUmesh paramGLUmesh)
+  {
+    lonelyTriList = null;
+    
+    for (GLUface localGLUface = fHead.next; localGLUface != fHead; localGLUface = next) {
+      marked = false;
+    }
+    for (localGLUface = fHead.next; localGLUface != fHead; localGLUface = next)
+    {
+
+
+
+
+      if ((inside) && (!marked)) {
+        RenderMaximumFaceGroup(paramGLUtessellatorImpl, localGLUface);
+        assert (marked);
+      }
+    }
+    if (lonelyTriList != null) {
+      RenderLonelyTriangles(paramGLUtessellatorImpl, lonelyTriList);
+      lonelyTriList = null;
+    }
+  }
+  
+
+
+
+
+
+
+
+  static void RenderMaximumFaceGroup(GLUtessellatorImpl paramGLUtessellatorImpl, GLUface paramGLUface)
+  {
+    GLUhalfEdge localGLUhalfEdge = anEdge;
+    Object localObject = new FaceCount();
+    FaceCount localFaceCount = new FaceCount();
+    
+    size = 1L;
+    eStart = localGLUhalfEdge;
+    render = renderTriangle;
+    
+    if (!flagBoundary) {
+      localFaceCount = MaximumFan(localGLUhalfEdge);
+      if (size > size) {
+        localObject = localFaceCount;
+      }
+      localFaceCount = MaximumFan(Lnext);
+      if (size > size) {
+        localObject = localFaceCount;
+      }
+      localFaceCount = MaximumFan(Onext.Sym);
+      if (size > size) {
+        localObject = localFaceCount;
+      }
+      
+      localFaceCount = MaximumStrip(localGLUhalfEdge);
+      if (size > size) {
+        localObject = localFaceCount;
+      }
+      localFaceCount = MaximumStrip(Lnext);
+      if (size > size) {
+        localObject = localFaceCount;
+      }
+      localFaceCount = MaximumStrip(Onext.Sym);
+      if (size > size) {
+        localObject = localFaceCount;
+      }
+    }
+    render.render(paramGLUtessellatorImpl, eStart, size);
+  }
+  
+
+
+
+
+
+
+
+  private static boolean Marked(GLUface paramGLUface)
+  {
+    return (!inside) || (marked);
+  }
+  
+  private static GLUface AddToTrail(GLUface paramGLUface1, GLUface paramGLUface2) {
+    trail = paramGLUface2;
+    marked = true;
+    return paramGLUface1;
+  }
+  
+  private static void FreeTrail(GLUface paramGLUface)
+  {
+    while (paramGLUface != null) {
+      marked = false;
+      paramGLUface = trail;
+    }
+  }
+  
+
+
+
+
+
+
+  static FaceCount MaximumFan(GLUhalfEdge paramGLUhalfEdge)
+  {
+    FaceCount localFaceCount = new FaceCount(0L, null, renderFan);
+    GLUface localGLUface = null;
+    
+
+    for (GLUhalfEdge localGLUhalfEdge = paramGLUhalfEdge; !Marked(Lface); localGLUhalfEdge = Onext) {
+      localGLUface = AddToTrail(Lface, localGLUface);
+      size += 1L;
+    }
+    for (localGLUhalfEdge = paramGLUhalfEdge; !Marked(Sym.Lface); localGLUhalfEdge = Sym.Lnext) {
+      localGLUface = AddToTrail(Sym.Lface, localGLUface);
+      size += 1L;
+    }
+    eStart = localGLUhalfEdge;
+    
+    FreeTrail(localGLUface);
+    return localFaceCount;
+  }
+  
+  private static boolean IsEven(long paramLong)
+  {
+    return (paramLong & 1L) == 0L;
+  }
+  
+
+
+
+
+
+
+
+
+
+  static FaceCount MaximumStrip(GLUhalfEdge paramGLUhalfEdge)
+  {
+    FaceCount localFaceCount = new FaceCount(0L, null, renderStrip);
+    long l1 = 0L;long l2 = 0L;
+    GLUface localGLUface = null;
+    
+
+    for (GLUhalfEdge localGLUhalfEdge1 = paramGLUhalfEdge; !Marked(Lface); localGLUhalfEdge1 = Onext) {
+      localGLUface = AddToTrail(Lface, localGLUface);
+      l2 += 1L;
+      localGLUhalfEdge1 = Lnext.Sym;
+      if (Marked(Lface)) break;
+      localGLUface = AddToTrail(Lface, localGLUface);l2 += 1L;
+    }
+    GLUhalfEdge localGLUhalfEdge2 = localGLUhalfEdge1;
+    
+    for (localGLUhalfEdge1 = paramGLUhalfEdge; !Marked(Sym.Lface); localGLUhalfEdge1 = Sym.Onext.Sym) {
+      localGLUface = AddToTrail(Sym.Lface, localGLUface);
+      l1 += 1L;
+      localGLUhalfEdge1 = Sym.Lnext;
+      if (Marked(Sym.Lface)) break;
+      localGLUface = AddToTrail(Sym.Lface, localGLUface);l1 += 1L;
+    }
+    GLUhalfEdge localGLUhalfEdge3 = localGLUhalfEdge1;
+    
+    size = (l2 + l1);
+    if (IsEven(l2)) {
+      eStart = Sym;
+    } else if (IsEven(l1)) {
+      eStart = localGLUhalfEdge3;
+
+    }
+    else
+    {
+      size -= 1L;
+      eStart = Onext;
+    }
+    
+    FreeTrail(localGLUface);
+    return localFaceCount;
+  }
+  
+  private static abstract interface renderCallBack {
+    public abstract void render(GLUtessellatorImpl paramGLUtessellatorImpl, GLUhalfEdge paramGLUhalfEdge, long paramLong);
+  }
+  
+  private static class RenderTriangle implements Render.renderCallBack { private RenderTriangle() {}
+    
+    public void render(GLUtessellatorImpl paramGLUtessellatorImpl, GLUhalfEdge paramGLUhalfEdge, long paramLong) { assert (paramLong == 1L);
+      lonelyTriList = Render.AddToTrail(Lface, lonelyTriList);
+    }
+  }
+  
+
+
+
+
+
+  static void RenderLonelyTriangles(GLUtessellatorImpl paramGLUtessellatorImpl, GLUface paramGLUface)
+  {
+    int j = -1;
+    
+    paramGLUtessellatorImpl.callBeginOrBeginData(4);
+    for (; 
+        paramGLUface != null; paramGLUface = trail)
+    {
+
+      GLUhalfEdge localGLUhalfEdge = anEdge;
+      do {
+        if (flagBoundary)
+        {
+
+
+          int i = !Sym.Lface.inside ? 1 : 0;
+          if (j != i) {
+            j = i;
+            paramGLUtessellatorImpl.callEdgeFlagOrEdgeFlagData(j != 0);
+          }
+        }
+        paramGLUtessellatorImpl.callVertexOrVertexData(Org.data);
+        
+        localGLUhalfEdge = Lnext;
+      } while (localGLUhalfEdge != anEdge);
+    }
+    paramGLUtessellatorImpl.callEndOrEndData();
+  }
+  
+  private static class RenderFan
+    implements Render.renderCallBack
+  {
+    private RenderFan() {}
+    
+    public void render(GLUtessellatorImpl paramGLUtessellatorImpl, GLUhalfEdge paramGLUhalfEdge, long paramLong)
+    {
+      paramGLUtessellatorImpl.callBeginOrBeginData(6);
+      paramGLUtessellatorImpl.callVertexOrVertexData(Org.data);
+      paramGLUtessellatorImpl.callVertexOrVertexData(Sym.Org.data);
+      
+      while (!Render.Marked(Lface)) {
+        Lface.marked = true;
+        paramLong -= 1L;
+        paramGLUhalfEdge = Onext;
+        paramGLUtessellatorImpl.callVertexOrVertexData(Sym.Org.data);
+      }
+      
+      assert (paramLong == 0L);
+      paramGLUtessellatorImpl.callEndOrEndData();
+    }
+  }
+  
+  private static class RenderStrip
+    implements Render.renderCallBack
+  {
+    private RenderStrip() {}
+    
+    public void render(GLUtessellatorImpl paramGLUtessellatorImpl, GLUhalfEdge paramGLUhalfEdge, long paramLong)
+    {
+      paramGLUtessellatorImpl.callBeginOrBeginData(5);
+      paramGLUtessellatorImpl.callVertexOrVertexData(Org.data);
+      paramGLUtessellatorImpl.callVertexOrVertexData(Sym.Org.data);
+      
+      while (!Render.Marked(Lface)) {
+        Lface.marked = true;
+        paramLong -= 1L;
+        paramGLUhalfEdge = Lnext.Sym;
+        paramGLUtessellatorImpl.callVertexOrVertexData(Org.data);
+        if (Render.Marked(Lface))
+          break;
+        Lface.marked = true;
+        paramLong -= 1L;
+        paramGLUhalfEdge = Onext;
+        paramGLUtessellatorImpl.callVertexOrVertexData(Sym.Org.data);
+      }
+      
+      assert (paramLong == 0L);
+      paramGLUtessellatorImpl.callEndOrEndData();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public static void __gl_renderBoundary(GLUtessellatorImpl paramGLUtessellatorImpl, GLUmesh paramGLUmesh)
+  {
+    for (GLUface localGLUface = fHead.next; localGLUface != fHead; localGLUface = next) {
+      if (inside) {
+        paramGLUtessellatorImpl.callBeginOrBeginData(2);
+        GLUhalfEdge localGLUhalfEdge = anEdge;
+        do {
+          paramGLUtessellatorImpl.callVertexOrVertexData(Org.data);
+          localGLUhalfEdge = Lnext;
+        } while (localGLUhalfEdge != anEdge);
+        paramGLUtessellatorImpl.callEndOrEndData();
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  static int ComputeNormal(GLUtessellatorImpl paramGLUtessellatorImpl, double[] paramArrayOfDouble, boolean paramBoolean)
+  {
+    CachedVertex[] arrayOfCachedVertex = cache;
+    
+    int i = cacheCount;
+    
+
+
+    double[] arrayOfDouble = new double[3];
+    int k = 0;
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+    if (!paramBoolean) {
+      double tmp32_31 = (paramArrayOfDouble[2] = 0.0D);paramArrayOfDouble[1] = tmp32_31;paramArrayOfDouble[0] = tmp32_31;
+    }
+    
+    int j = 1;
+    double d2 = coords[0] - 0coords[0];
+    double d3 = coords[1] - 0coords[1];
+    double d4 = coords[2] - 0coords[2];
+    for (;;) { j++; if (j >= i) break;
+      double d5 = d2;
+      double d6 = d3;
+      double d7 = d4;
+      d2 = coords[0] - 0coords[0];
+      d3 = coords[1] - 0coords[1];
+      d4 = coords[2] - 0coords[2];
+      
+
+      arrayOfDouble[0] = (d6 * d4 - d7 * d3);
+      arrayOfDouble[1] = (d7 * d2 - d5 * d4);
+      arrayOfDouble[2] = (d5 * d3 - d6 * d2);
+      
+      double d1 = arrayOfDouble[0] * paramArrayOfDouble[0] + arrayOfDouble[1] * paramArrayOfDouble[1] + arrayOfDouble[2] * paramArrayOfDouble[2];
+      if (!paramBoolean)
+      {
+
+
+        if (d1 >= 0.0D) {
+          paramArrayOfDouble[0] += arrayOfDouble[0];
+          paramArrayOfDouble[1] += arrayOfDouble[1];
+          paramArrayOfDouble[2] += arrayOfDouble[2];
+        } else {
+          paramArrayOfDouble[0] -= arrayOfDouble[0];
+          paramArrayOfDouble[1] -= arrayOfDouble[1];
+          paramArrayOfDouble[2] -= arrayOfDouble[2];
+        }
+      } else if (d1 != 0.0D)
+      {
+        if (d1 > 0.0D) {
+          if (k < 0) return 2;
+          k = 1;
+        } else {
+          if (k > 0) return 2;
+          k = -1;
+        }
+      }
+    }
+    return k;
+  }
+  
+
+
+
+
+
+
+  public static boolean __gl_renderCache(GLUtessellatorImpl paramGLUtessellatorImpl)
+  {
+    CachedVertex[] arrayOfCachedVertex = cache;
+    
+    int i = cacheCount;
+    
+
+    double[] arrayOfDouble = new double[3];
+    
+
+    if (cacheCount < 3)
+    {
+      return true;
+    }
+    
+    arrayOfDouble[0] = normal[0];
+    arrayOfDouble[1] = normal[1];
+    arrayOfDouble[2] = normal[2];
+    if ((arrayOfDouble[0] == 0.0D) && (arrayOfDouble[1] == 0.0D) && (arrayOfDouble[2] == 0.0D)) {
+      ComputeNormal(paramGLUtessellatorImpl, arrayOfDouble, false);
+    }
+    
+    int j = ComputeNormal(paramGLUtessellatorImpl, arrayOfDouble, true);
+    if (j == 2)
+    {
+      return false;
+    }
+    if (j == 0)
+    {
+      return true;
+    }
+    
+
+    return false;
+  }
+}

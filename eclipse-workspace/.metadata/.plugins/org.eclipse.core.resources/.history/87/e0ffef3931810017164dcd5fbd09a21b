@@ -1,0 +1,457 @@
+package com.jogamp.opengl.math.geom;
+
+import com.jogamp.opengl.math.FloatUtil;
+import com.jogamp.opengl.math.FovHVHalves;
+import jogamp.common.os.PlatformPropsImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Frustum
+{
+  public static class FovDesc
+  {
+    public final FovHVHalves fovhv;
+    public final float zNear;
+    public final float zFar;
+    
+    public FovDesc(FovHVHalves paramFovHVHalves, float paramFloat1, float paramFloat2)
+      throws IllegalArgumentException
+    {
+      if ((paramFloat1 <= 0.0F) || (paramFloat2 <= paramFloat1)) {
+        throw new IllegalArgumentException("Requirements zNear > 0 and zFar > zNear, but zNear " + paramFloat1 + ", zFar " + paramFloat2);
+      }
+      fovhv = paramFovHVHalves;
+      zNear = paramFloat1;
+      zFar = paramFloat2;
+    }
+    
+    public final String toString() { return "FrustumFovDesc[" + fovhv.toStringInDegrees() + ", Z[" + zNear + " - " + zFar + "]]"; }
+  }
+  
+
+
+  protected final Plane[] planes = new Plane[6];
+  
+  public static final int LEFT = 0;
+  public static final int RIGHT = 1;
+  public static final int BOTTOM = 2;
+  public static final int TOP = 3;
+  public static final int NEAR = 4;
+  public static final int FAR = 5;
+  
+  public Frustum()
+  {
+    for (int i = 0; i < 6; i++) {
+      planes[i] = new Plane();
+    }
+  }
+  
+
+
+
+
+
+
+
+  public static class Plane
+  {
+    public final float[] n = new float[3];
+    
+
+
+
+
+    public float d;
+    
+
+
+
+
+
+    public Plane() {}
+    
+
+
+
+
+    public final float distanceTo(float paramFloat1, float paramFloat2, float paramFloat3)
+    {
+      return n[0] * paramFloat1 + n[1] * paramFloat2 + n[2] * paramFloat3 + d;
+    }
+    
+    public final float distanceTo(float[] paramArrayOfFloat)
+    {
+      return n[0] * paramArrayOfFloat[0] + n[1] * paramArrayOfFloat[1] + n[2] * paramArrayOfFloat[2] + d;
+    }
+    
+    public String toString()
+    {
+      return "Plane[ [ " + n[0] + ", " + n[1] + ", " + n[2] + " ], " + d + "]";
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final Plane[] getPlanes()
+  {
+    return planes;
+  }
+  
+
+
+  public final void updateByPlanes(Plane[] paramArrayOfPlane)
+  {
+    for (int i = 0; i < 6; i++) {
+      Plane localPlane1 = planes[i];
+      Plane localPlane2 = paramArrayOfPlane[i];
+      d = d;
+      System.arraycopy(n, 0, n, 0, 3);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public float[] updateByFovDesc(float[] paramArrayOfFloat, int paramInt, boolean paramBoolean, FovDesc paramFovDesc)
+  {
+    FloatUtil.makePerspective(paramArrayOfFloat, paramInt, paramBoolean, fovhv, zNear, zFar);
+    updateByPMV(paramArrayOfFloat, 0);
+    return paramArrayOfFloat;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public void updateByPMV(float[] paramArrayOfFloat, int paramInt)
+  {
+    Plane localPlane = planes[0];
+    Object localObject = n;
+    localObject[0] = (paramArrayOfFloat[(paramInt + 3 + 0)] + paramArrayOfFloat[(paramInt + 0 + 0)]);
+    localObject[1] = (paramArrayOfFloat[(paramInt + 3 + 4)] + paramArrayOfFloat[(paramInt + 0 + 4)]);
+    localObject[2] = (paramArrayOfFloat[(paramInt + 3 + 8)] + paramArrayOfFloat[(paramInt + 0 + 8)]);
+    d = (paramArrayOfFloat[(paramInt + 3 + 12)] + paramArrayOfFloat[(paramInt + 0 + 12)]);
+    
+
+
+
+
+    localPlane = planes[1];
+    localObject = n;
+    localObject[0] = (paramArrayOfFloat[(paramInt + 3 + 0)] - paramArrayOfFloat[(paramInt + 0 + 0)]);
+    localObject[1] = (paramArrayOfFloat[(paramInt + 3 + 4)] - paramArrayOfFloat[(paramInt + 0 + 4)]);
+    localObject[2] = (paramArrayOfFloat[(paramInt + 3 + 8)] - paramArrayOfFloat[(paramInt + 0 + 8)]);
+    d = (paramArrayOfFloat[(paramInt + 3 + 12)] - paramArrayOfFloat[(paramInt + 0 + 12)]);
+    
+
+
+
+
+    localPlane = planes[2];
+    localObject = n;
+    localObject[0] = (paramArrayOfFloat[(paramInt + 3 + 0)] + paramArrayOfFloat[(paramInt + 1 + 0)]);
+    localObject[1] = (paramArrayOfFloat[(paramInt + 3 + 4)] + paramArrayOfFloat[(paramInt + 1 + 4)]);
+    localObject[2] = (paramArrayOfFloat[(paramInt + 3 + 8)] + paramArrayOfFloat[(paramInt + 1 + 8)]);
+    d = (paramArrayOfFloat[(paramInt + 3 + 12)] + paramArrayOfFloat[(paramInt + 1 + 12)]);
+    
+
+
+
+
+    localPlane = planes[3];
+    localObject = n;
+    localObject[0] = (paramArrayOfFloat[(paramInt + 3 + 0)] - paramArrayOfFloat[(paramInt + 1 + 0)]);
+    localObject[1] = (paramArrayOfFloat[(paramInt + 3 + 4)] - paramArrayOfFloat[(paramInt + 1 + 4)]);
+    localObject[2] = (paramArrayOfFloat[(paramInt + 3 + 8)] - paramArrayOfFloat[(paramInt + 1 + 8)]);
+    d = (paramArrayOfFloat[(paramInt + 3 + 12)] - paramArrayOfFloat[(paramInt + 1 + 12)]);
+    
+
+
+
+
+    localPlane = planes[4];
+    localObject = n;
+    localObject[0] = (paramArrayOfFloat[(paramInt + 3 + 0)] + paramArrayOfFloat[(paramInt + 2 + 0)]);
+    localObject[1] = (paramArrayOfFloat[(paramInt + 3 + 4)] + paramArrayOfFloat[(paramInt + 2 + 4)]);
+    localObject[2] = (paramArrayOfFloat[(paramInt + 3 + 8)] + paramArrayOfFloat[(paramInt + 2 + 8)]);
+    d = (paramArrayOfFloat[(paramInt + 3 + 12)] + paramArrayOfFloat[(paramInt + 2 + 12)]);
+    
+
+
+
+
+    localPlane = planes[5];
+    localObject = n;
+    localObject[0] = (paramArrayOfFloat[(paramInt + 3 + 0)] - paramArrayOfFloat[(paramInt + 2 + 0)]);
+    localObject[1] = (paramArrayOfFloat[(paramInt + 3 + 4)] - paramArrayOfFloat[(paramInt + 2 + 4)]);
+    localObject[2] = (paramArrayOfFloat[(paramInt + 3 + 8)] - paramArrayOfFloat[(paramInt + 2 + 8)]);
+    d = (paramArrayOfFloat[(paramInt + 3 + 12)] - paramArrayOfFloat[(paramInt + 2 + 12)]);
+    
+
+
+    for (int i = 0; i < 6; i++) {
+      localObject = planes[i];
+      float[] arrayOfFloat = n;
+      double d = Math.sqrt(arrayOfFloat[0] * arrayOfFloat[0] + arrayOfFloat[1] * arrayOfFloat[1] + arrayOfFloat[2] * arrayOfFloat[2]); int 
+      
+        tmp619_618 = 0; float[] tmp619_616 = arrayOfFloat;tmp619_616[tmp619_618] = ((float)(tmp619_616[tmp619_618] / d)); int 
+        tmp630_629 = 1; float[] tmp630_627 = arrayOfFloat;tmp630_627[tmp630_629] = ((float)(tmp630_627[tmp630_629] / d)); int 
+        tmp641_640 = 2; float[] tmp641_638 = arrayOfFloat;tmp641_638[tmp641_640] = ((float)(tmp641_638[tmp641_640] / d)); Object 
+        tmp651_649 = localObject;651649d = ((float)(651649d / d));
+    }
+  }
+  
+  private static final boolean isOutsideImpl(Plane paramPlane, AABBox paramAABBox) {
+    float[] arrayOfFloat1 = paramAABBox.getLow();
+    float[] arrayOfFloat2 = paramAABBox.getHigh();
+    
+    if ((paramPlane.distanceTo(arrayOfFloat1[0], arrayOfFloat1[1], arrayOfFloat1[2]) > 0.0F) || 
+      (paramPlane.distanceTo(arrayOfFloat2[0], arrayOfFloat1[1], arrayOfFloat1[2]) > 0.0F) || 
+      (paramPlane.distanceTo(arrayOfFloat1[0], arrayOfFloat2[1], arrayOfFloat1[2]) > 0.0F) || 
+      (paramPlane.distanceTo(arrayOfFloat2[0], arrayOfFloat2[1], arrayOfFloat1[2]) > 0.0F) || 
+      (paramPlane.distanceTo(arrayOfFloat1[0], arrayOfFloat1[1], arrayOfFloat2[2]) > 0.0F) || 
+      (paramPlane.distanceTo(arrayOfFloat2[0], arrayOfFloat1[1], arrayOfFloat2[2]) > 0.0F) || 
+      (paramPlane.distanceTo(arrayOfFloat1[0], arrayOfFloat2[1], arrayOfFloat2[2]) > 0.0F) || 
+      (paramPlane.distanceTo(arrayOfFloat2[0], arrayOfFloat2[1], arrayOfFloat2[2]) > 0.0F)) {
+      return false;
+    }
+    return true;
+  }
+  
+
+
+
+
+
+  public final boolean isAABBoxOutside(AABBox paramAABBox)
+  {
+    for (int i = 0; i < 6; i++) {
+      if (isOutsideImpl(planes[i], paramAABBox))
+      {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  public static enum Location {
+    OUTSIDE,  INSIDE,  INTERSECT;
+    
+
+    private Location() {}
+  }
+  
+
+  public final Location classifyPoint(float[] paramArrayOfFloat)
+  {
+    Location localLocation = Location.INSIDE;
+    
+    for (int i = 0; i < 6; i++) {
+      float f = planes[i].distanceTo(paramArrayOfFloat);
+      if (f < 0.0F)
+        return Location.OUTSIDE;
+      if (f == 0.0F) {
+        localLocation = Location.INTERSECT;
+      }
+    }
+    return localLocation;
+  }
+  
+
+
+
+
+
+  public final boolean isPointOutside(float[] paramArrayOfFloat)
+  {
+    return Location.OUTSIDE == classifyPoint(paramArrayOfFloat);
+  }
+  
+
+
+
+
+
+
+  public final Location classifySphere(float[] paramArrayOfFloat, float paramFloat)
+  {
+    Location localLocation = Location.INSIDE;
+    
+    for (int i = 0; i < 6; i++) {
+      float f = planes[i].distanceTo(paramArrayOfFloat);
+      if (f < -paramFloat)
+      {
+        return Location.OUTSIDE; }
+      if (f < paramFloat)
+      {
+        localLocation = Location.INTERSECT;
+      }
+    }
+    return localLocation;
+  }
+  
+
+
+
+
+
+
+  public final boolean isSphereOutside(float[] paramArrayOfFloat, float paramFloat)
+  {
+    return Location.OUTSIDE == classifySphere(paramArrayOfFloat, paramFloat);
+  }
+  
+  public StringBuilder toString(StringBuilder paramStringBuilder) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    
+
+
+
+
+
+
+    paramStringBuilder.append("Frustum[ Planes[ ").append(PlatformPropsImpl.NEWLINE).append(" L: ").append(planes[0]).append(", ").append(PlatformPropsImpl.NEWLINE).append(" R: ").append(planes[1]).append(", ").append(PlatformPropsImpl.NEWLINE).append(" B: ").append(planes[2]).append(", ").append(PlatformPropsImpl.NEWLINE).append(" T: ").append(planes[3]).append(", ").append(PlatformPropsImpl.NEWLINE).append(" N: ").append(planes[4]).append(", ").append(PlatformPropsImpl.NEWLINE).append(" F: ").append(planes[5]).append("], ").append(PlatformPropsImpl.NEWLINE).append("]");
+    return paramStringBuilder;
+  }
+  
+  public String toString()
+  {
+    return toString(null).toString();
+  }
+}

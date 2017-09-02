@@ -1,0 +1,61 @@
+package com.jogamp.newt.event;
+
+import java.util.LinkedList;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class NEWTEventFiFo
+{
+  private final LinkedList events = new LinkedList();
+  
+  public NEWTEventFiFo() {}
+  
+  public synchronized void put(NEWTEvent paramNEWTEvent) { events.addLast(paramNEWTEvent);
+    notifyAll();
+  }
+  
+  public synchronized NEWTEvent get()
+  {
+    if (0 == events.size()) {
+      return null;
+    }
+    
+    return (NEWTEvent)events.removeFirst();
+  }
+  
+  public synchronized int size()
+  {
+    return events.size();
+  }
+  
+  public synchronized void clear()
+  {
+    events.clear();
+  }
+}

@@ -1,0 +1,171 @@
+package jogamp.opengl.egl;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.GenericUpstreamSurfacelessHook;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindow;
+import com.jogamp.nativewindow.ProxySurface;
+import com.jogamp.nativewindow.UpstreamSurfaceHook;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.egl.EGL;
+import java.io.PrintStream;
+import java.nio.IntBuffer;
+import jogamp.nativewindow.ProxySurfaceImpl;
+import jogamp.nativewindow.WrappedSurface;
+import jogamp.opengl.GLDrawableImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class EGLSurface
+  extends WrappedSurface
+{
+  static boolean DEBUG = (EGLDrawable.DEBUG) || (ProxySurface.DEBUG);
+  
+  public static EGLSurface get(NativeSurface paramNativeSurface) {
+    if ((paramNativeSurface instanceof EGLSurface)) {
+      return (EGLSurface)paramNativeSurface;
+    }
+    return new EGLSurface(paramNativeSurface);
+  }
+  
+  private EGLSurface(NativeSurface paramNativeSurface) { super(paramNativeSurface.getGraphicsConfiguration(), 0L, new EGLUpstreamSurfaceHook(paramNativeSurface), false);
+    if (EGLDrawableFactory.DEBUG) {
+      System.err.println("EGLSurface.ctor().1: " + this);
+      ProxySurfaceImpl.dumpHierarchy(System.err, this);
+    }
+  }
+  
+  public static EGLSurface createWrapped(EGLGraphicsConfiguration paramEGLGraphicsConfiguration, long paramLong, UpstreamSurfaceHook paramUpstreamSurfaceHook, boolean paramBoolean)
+  {
+    return new EGLSurface(paramEGLGraphicsConfiguration, paramLong, paramUpstreamSurfaceHook, paramBoolean);
+  }
+  
+  private EGLSurface(EGLGraphicsConfiguration paramEGLGraphicsConfiguration, long paramLong, UpstreamSurfaceHook paramUpstreamSurfaceHook, boolean paramBoolean) {
+    super(paramEGLGraphicsConfiguration, 0L, new EGLUpstreamSurfaceHook(paramEGLGraphicsConfiguration, paramLong, paramUpstreamSurfaceHook, paramBoolean), false);
+    if (EGLDrawableFactory.DEBUG) {
+      System.err.println("EGLSurface.ctor().2: " + this);
+      ProxySurfaceImpl.dumpHierarchy(System.err, this);
+    }
+  }
+  
+
+  public static EGLSurface createSurfaceless(EGLGraphicsConfiguration paramEGLGraphicsConfiguration, GenericUpstreamSurfacelessHook paramGenericUpstreamSurfacelessHook, boolean paramBoolean) { return new EGLSurface(paramEGLGraphicsConfiguration, paramGenericUpstreamSurfacelessHook, paramBoolean); }
+  
+  private EGLSurface(EGLGraphicsConfiguration paramEGLGraphicsConfiguration, GenericUpstreamSurfacelessHook paramGenericUpstreamSurfacelessHook, boolean paramBoolean) {
+    super(paramEGLGraphicsConfiguration, 0L, paramGenericUpstreamSurfacelessHook, paramBoolean);
+    if (EGLDrawableFactory.DEBUG) {
+      System.err.println("EGLSurface.ctor().3: " + this);
+      ProxySurfaceImpl.dumpHierarchy(System.err, this);
+    }
+  }
+  
+
+  public void setEGLSurfaceHandle() throws GLException { setSurfaceHandle(createEGLSurfaceHandle()); }
+  
+  private long createEGLSurfaceHandle() throws GLException {
+    EGLGraphicsConfiguration localEGLGraphicsConfiguration = (EGLGraphicsConfiguration)getGraphicsConfiguration();
+    NativeSurface localNativeSurface = getUpstreamSurface();
+    boolean bool = ((GLCapabilitiesImmutable)localEGLGraphicsConfiguration.getChosenCapabilities()).isPBuffer();
+    
+    long l = createEGLSurfaceHandle(bool, true, localEGLGraphicsConfiguration, localNativeSurface);
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": EGLSurface: EGL.eglCreateSurface.0: 0x" + Long.toHexString(l));
+      ProxySurfaceImpl.dumpHierarchy(System.err, this);
+    }
+    
+    if (0L == l) {
+      int i = EGL.eglGetError();
+      if ((12299 == i) && (!bool))
+      {
+
+        if (hasUniqueNativeWindowHandle(localNativeSurface)) {
+          l = createEGLSurfaceHandle(bool, false, localEGLGraphicsConfiguration, localNativeSurface);
+          if (DEBUG) {
+            System.err.println(getThreadName() + ": Info: Creation of window surface w/ surface handle failed: " + localEGLGraphicsConfiguration + ", error " + GLDrawableImpl.toHexString(i) + ", retry w/ windowHandle");
+            System.err.println(getThreadName() + ": EGLSurface: EGL.eglCreateSurface.1: 0x" + Long.toHexString(l));
+          }
+          if (0L == l) {
+            throw new GLException("Creation of window surface w/ window handle failed: " + localEGLGraphicsConfiguration + ", " + this + ", error " + GLDrawableImpl.toHexString(EGL.eglGetError()));
+          }
+        } else {
+          throw new GLException("Creation of window surface w/ surface handle failed (2): " + localEGLGraphicsConfiguration + ", " + this + ", error " + GLDrawableImpl.toHexString(i));
+        }
+      } else {
+        throw new GLException("Creation of window surface w/ surface handle failed (1): " + localEGLGraphicsConfiguration + ", " + this + ", error " + GLDrawableImpl.toHexString(i));
+      }
+    }
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": createEGLSurface handle " + GLDrawableImpl.toHexString(l));
+    }
+    return l;
+  }
+  
+  private long createEGLSurfaceHandle(boolean paramBoolean1, boolean paramBoolean2, EGLGraphicsConfiguration paramEGLGraphicsConfiguration, NativeSurface paramNativeSurface) {
+    if (paramBoolean1) {
+      return EGLDrawableFactory.createPBufferSurfaceImpl(paramEGLGraphicsConfiguration, getSurfaceWidth(), getSurfaceHeight(), false);
+    }
+    if (paramBoolean2) {
+      return EGL.eglCreateWindowSurface(paramEGLGraphicsConfiguration.getScreen().getDevice().getHandle(), paramEGLGraphicsConfiguration
+        .getNativeConfig(), paramNativeSurface
+        .getSurfaceHandle(), null);
+    }
+    return EGL.eglCreateWindowSurface(paramEGLGraphicsConfiguration.getScreen().getDevice().getHandle(), paramEGLGraphicsConfiguration
+      .getNativeConfig(), ((NativeWindow)paramNativeSurface)
+      .getWindowHandle(), null);
+  }
+  
+
+
+
+  private static boolean hasUniqueNativeWindowHandle(NativeSurface paramNativeSurface) { return ((paramNativeSurface instanceof NativeWindow)) && (((NativeWindow)paramNativeSurface).getWindowHandle() != paramNativeSurface.getSurfaceHandle()); }
+  
+  static String getThreadName() { return Thread.currentThread().getName(); }
+  
+  public static boolean isValidEGLSurfaceHandle(long paramLong1, long paramLong2) {
+    if (0L == paramLong2) {
+      return false;
+    }
+    IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(1);
+    boolean bool = EGL.eglQuerySurface(paramLong1, paramLong2, 12328, localIntBuffer);
+    if (!bool) {
+      int i = EGL.eglGetError();
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": EGLSurface.isValidEGLSurfaceHandle eglQuerySuface failed: error " + GLDrawableImpl.toHexString(i) + ", " + GLDrawableImpl.toHexString(paramLong2));
+      }
+    }
+    return bool;
+  }
+}

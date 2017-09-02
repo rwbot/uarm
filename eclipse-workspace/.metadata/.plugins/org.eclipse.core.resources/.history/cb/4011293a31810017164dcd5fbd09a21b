@@ -1,0 +1,558 @@
+package jogamp.opengl.macosx.cgl;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.PointerBuffer;
+import com.jogamp.opengl.GLException;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class CGL
+{
+  public static final int kCGLPFAAllRenderers = 1;
+  public static final int kCGLPFADoubleBuffer = 5;
+  public static final int kCGLPFAStereo = 6;
+  public static final int kCGLPFAAuxBuffers = 7;
+  public static final int kCGLPFAColorSize = 8;
+  public static final int kCGLPFAAlphaSize = 11;
+  public static final int kCGLPFADepthSize = 12;
+  public static final int kCGLPFAStencilSize = 13;
+  public static final int kCGLPFAAccumSize = 14;
+  public static final int kCGLPFAMinimumPolicy = 51;
+  public static final int kCGLPFAMaximumPolicy = 52;
+  public static final int kCGLPFAOffScreen = 53;
+  public static final int kCGLPFAFullScreen = 54;
+  public static final int kCGLPFASampleBuffers = 55;
+  public static final int kCGLPFASamples = 56;
+  public static final int kCGLPFAAuxDepthStencil = 57;
+  public static final int kCGLPFAColorFloat = 58;
+  public static final int kCGLPFAMultisample = 59;
+  public static final int kCGLPFASupersample = 60;
+  public static final int kCGLPFASampleAlpha = 61;
+  public static final int kCGLPFARendererID = 70;
+  public static final int kCGLPFASingleRenderer = 71;
+  public static final int kCGLPFANoRecovery = 72;
+  public static final int kCGLPFAAccelerated = 73;
+  public static final int kCGLPFAClosestPolicy = 74;
+  public static final int kCGLPFARobust = 75;
+  public static final int kCGLPFABackingStore = 76;
+  public static final int kCGLPFAMPSafe = 78;
+  public static final int kCGLPFAWindow = 80;
+  public static final int kCGLPFAMultiScreen = 81;
+  public static final int kCGLPFACompliant = 83;
+  public static final int kCGLPFADisplayMask = 84;
+  public static final int kCGLPFAPBuffer = 90;
+  public static final int kCGLPFARemotePBuffer = 91;
+  public static final int kCGLPFAAcceleratedCompute = 97;
+  public static final int kCGLPFAOpenGLProfile = 99;
+  public static final int kCGLPFAVirtualScreenCount = 128;
+  public static final int kCGLOGLPVersion_Legacy = 4096;
+  public static final int kCGLOGLPVersion_GL3_Core = 12800;
+  public static final int kCGLOGLPVersion_GL4_Core = 16640;
+  public static final int NSOpenGLPFAAllRenderers = 1;
+  public static final int NSOpenGLPFADoubleBuffer = 5;
+  public static final int NSOpenGLPFAStereo = 6;
+  public static final int NSOpenGLPFAAuxBuffers = 7;
+  public static final int NSOpenGLPFAColorSize = 8;
+  public static final int NSOpenGLPFAAlphaSize = 11;
+  public static final int NSOpenGLPFADepthSize = 12;
+  public static final int NSOpenGLPFAStencilSize = 13;
+  public static final int NSOpenGLPFAAccumSize = 14;
+  public static final int NSOpenGLPFAMinimumPolicy = 51;
+  public static final int NSOpenGLPFAMaximumPolicy = 52;
+  public static final int NSOpenGLPFAOffScreen = 53;
+  public static final int NSOpenGLPFAFullScreen = 54;
+  public static final int NSOpenGLPFASampleBuffers = 55;
+  public static final int NSOpenGLPFASamples = 56;
+  public static final int NSOpenGLPFAAuxDepthStencil = 57;
+  public static final int NSOpenGLPFAColorFloat = 58;
+  public static final int NSOpenGLPFAMultisample = 59;
+  public static final int NSOpenGLPFASupersample = 60;
+  public static final int NSOpenGLPFASampleAlpha = 61;
+  public static final int NSOpenGLPFARendererID = 70;
+  public static final int NSOpenGLPFASingleRenderer = 71;
+  public static final int NSOpenGLPFANoRecovery = 72;
+  public static final int NSOpenGLPFAAccelerated = 73;
+  public static final int NSOpenGLPFAClosestPolicy = 74;
+  public static final int NSOpenGLPFARobust = 75;
+  public static final int NSOpenGLPFABackingStore = 76;
+  public static final int NSOpenGLPFAMPSafe = 78;
+  public static final int NSOpenGLPFAWindow = 80;
+  public static final int NSOpenGLPFAMultiScreen = 81;
+  public static final int NSOpenGLPFACompliant = 83;
+  public static final int NSOpenGLPFAScreenMask = 84;
+  public static final int NSOpenGLPFAPixelBuffer = 90;
+  public static final int NSOpenGLPFAVirtualScreenCount = 128;
+  public static final int kCGLNoError = 0;
+  public static final int kCGLBadAttribute = 10000;
+  public static final int kCGLBadProperty = 10001;
+  public static final int kCGLBadPixelFormat = 10002;
+  public static final int kCGLBadRendererInfo = 10003;
+  public static final int kCGLBadContext = 10004;
+  public static final int kCGLBadDrawable = 10005;
+  public static final int kCGLBadDisplay = 10006;
+  public static final int kCGLBadState = 10007;
+  public static final int kCGLBadValue = 10008;
+  public static final int kCGLBadMatch = 10009;
+  public static final int kCGLBadEnumeration = 10010;
+  public static final int kCGLBadOffScreen = 10011;
+  public static final int kCGLBadFullScreen = 10012;
+  public static final int kCGLBadWindow = 10013;
+  public static final int kCGLBadAddress = 10014;
+  public static final int kCGLBadCodeModule = 10015;
+  public static final int kCGLBadAlloc = 10016;
+  public static final int kCGLBadConnection = 10017;
+  public static final int kCGLCPSwapRectangle = 200;
+  public static final int kCGLCPSwapInterval = 222;
+  public static final int kCGLCPDispatchTableSize = 224;
+  public static final int kCGLCPClientStorage = 226;
+  public static final int kCGLCPSurfaceTexture = 228;
+  public static final int kCGLCPSurfaceOrder = 235;
+  public static final int kCGLCPSurfaceOpacity = 236;
+  public static final int kCGLCPSurfaceBackingSize = 304;
+  public static final int kCGLCPSurfaceSurfaceVolatile = 306;
+  public static final int kCGLCPReclaimResources = 308;
+  public static final int kCGLCPCurrentRendererID = 309;
+  public static final int kCGLCPGPUVertexProcessing = 310;
+  public static final int kCGLCPGPUFragmentProcessing = 311;
+  public static final int kCGLCPHasDrawable = 314;
+  public static final int kCGLCPMPSwapsInFlight = 315;
+  
+  public CGL() {}
+  
+  public static int CGLChoosePixelFormat(IntBuffer paramIntBuffer1, PointerBuffer paramPointerBuffer, IntBuffer paramIntBuffer2)
+  {
+    if (!Buffers.isDirect(paramIntBuffer1))
+      throw new GLException("Argument \"attribs\" is not a direct buffer");
+    if (!Buffers.isDirect(paramPointerBuffer))
+      throw new GLException("Argument \"pix\" is not a direct buffer");
+    if (!Buffers.isDirect(paramIntBuffer2))
+      throw new GLException("Argument \"npix\" is not a direct buffer");
+    return CGLChoosePixelFormat0(paramIntBuffer1, Buffers.getDirectBufferByteOffset(paramIntBuffer1), paramPointerBuffer != null ? paramPointerBuffer.getBuffer() : null, Buffers.getDirectBufferByteOffset(paramPointerBuffer), paramIntBuffer2, Buffers.getDirectBufferByteOffset(paramIntBuffer2));
+  }
+  
+
+
+  private static native int CGLChoosePixelFormat0(Object paramObject1, int paramInt1, Object paramObject2, int paramInt2, Object paramObject3, int paramInt3);
+  
+
+
+  public static native int CGLDestroyPixelFormat(long paramLong);
+  
+
+
+  public static native long CGLGetPixelFormat(long paramLong);
+  
+
+
+  public static int CGLCreateContext(long paramLong1, long paramLong2, PointerBuffer paramPointerBuffer)
+  {
+    if (!Buffers.isDirect(paramPointerBuffer))
+      throw new GLException("Argument \"ctx\" is not a direct buffer");
+    return CGLCreateContext0(paramLong1, paramLong2, paramPointerBuffer != null ? paramPointerBuffer.getBuffer() : null, Buffers.getDirectBufferByteOffset(paramPointerBuffer));
+  }
+  
+
+
+  private static native int CGLCreateContext0(long paramLong1, long paramLong2, Object paramObject, int paramInt);
+  
+
+
+  public static native void CGLReleaseContext(long paramLong);
+  
+
+
+  public static native int CGLDestroyContext(long paramLong);
+  
+
+
+  public static native int CGLLockContext(long paramLong);
+  
+
+  public static native int CGLUnlockContext(long paramLong);
+  
+
+  public static native int CGLSetCurrentContext(long paramLong);
+  
+
+  public static native long CGLGetCurrentContext();
+  
+
+  public static native int CGLFlushDrawable(long paramLong);
+  
+
+  public static int CGLSetParameter(long paramLong, int paramInt, IntBuffer paramIntBuffer)
+  {
+    if (!Buffers.isDirect(paramIntBuffer))
+      throw new GLException("Argument \"params\" is not a direct buffer");
+    return CGLSetParameter0(paramLong, paramInt, paramIntBuffer, Buffers.getDirectBufferByteOffset(paramIntBuffer));
+  }
+  
+
+
+  private static native int CGLSetParameter0(long paramLong, int paramInt1, Object paramObject, int paramInt2);
+  
+
+
+  public static native int CGLCopyContext(long paramLong1, long paramLong2, int paramInt);
+  
+
+
+  public static native long CGLGetShareGroup(long paramLong);
+  
+
+
+  public static int CGLCreatePBuffer(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, PointerBuffer paramPointerBuffer)
+  {
+    if (!Buffers.isDirect(paramPointerBuffer))
+      throw new GLException("Argument \"pbuffer\" is not a direct buffer");
+    return CGLCreatePBuffer0(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramPointerBuffer != null ? paramPointerBuffer.getBuffer() : null, Buffers.getDirectBufferByteOffset(paramPointerBuffer));
+  }
+  
+
+
+  private static native int CGLCreatePBuffer0(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, Object paramObject, int paramInt6);
+  
+
+
+  public static native int CGLDestroyPBuffer(long paramLong);
+  
+
+
+  public static native int CGLSetPBuffer(long paramLong1, long paramLong2, int paramInt1, int paramInt2, int paramInt3);
+  
+
+  public static void CGLQueryPixelFormat(long paramLong, IntBuffer paramIntBuffer1, int paramInt, IntBuffer paramIntBuffer2)
+  {
+    if (!Buffers.isDirect(paramIntBuffer1))
+      throw new GLException("Argument \"iattrs\" is not a direct buffer");
+    if (!Buffers.isDirect(paramIntBuffer2))
+      throw new GLException("Argument \"ivalues\" is not a direct buffer");
+    CGLQueryPixelFormat0(paramLong, paramIntBuffer1, Buffers.getDirectBufferByteOffset(paramIntBuffer1), paramInt, paramIntBuffer2, Buffers.getDirectBufferByteOffset(paramIntBuffer2));
+  }
+  
+
+
+
+  private static native void CGLQueryPixelFormat0(long paramLong, Object paramObject1, int paramInt1, int paramInt2, Object paramObject2, int paramInt3);
+  
+
+
+
+  public static long createPixelFormat(IntBuffer paramIntBuffer1, int paramInt, IntBuffer paramIntBuffer2)
+  {
+    if (!Buffers.isDirect(paramIntBuffer1))
+      throw new GLException("Argument \"iattrs\" is not a direct buffer");
+    if (!Buffers.isDirect(paramIntBuffer2))
+      throw new GLException("Argument \"ivalues\" is not a direct buffer");
+    return createPixelFormat0(paramIntBuffer1, Buffers.getDirectBufferByteOffset(paramIntBuffer1), paramInt, paramIntBuffer2, Buffers.getDirectBufferByteOffset(paramIntBuffer2));
+  }
+  
+
+
+
+  private static native long createPixelFormat0(Object paramObject1, int paramInt1, int paramInt2, Object paramObject2, int paramInt3);
+  
+
+
+
+  public static void queryPixelFormat(long paramLong, IntBuffer paramIntBuffer1, int paramInt, IntBuffer paramIntBuffer2)
+  {
+    if (!Buffers.isDirect(paramIntBuffer1))
+      throw new GLException("Argument \"iattrs\" is not a direct buffer");
+    if (!Buffers.isDirect(paramIntBuffer2))
+      throw new GLException("Argument \"ivalues\" is not a direct buffer");
+    queryPixelFormat0(paramLong, paramIntBuffer1, Buffers.getDirectBufferByteOffset(paramIntBuffer1), paramInt, paramIntBuffer2, Buffers.getDirectBufferByteOffset(paramIntBuffer2));
+  }
+  
+
+
+  private static native void queryPixelFormat0(long paramLong, Object paramObject1, int paramInt1, int paramInt2, Object paramObject2, int paramInt3);
+  
+
+
+  public static native void deletePixelFormat(long paramLong);
+  
+
+
+  public static native long getCurrentContext();
+  
+
+  public static native long getCGLContext(long paramLong);
+  
+
+  public static native long getNSView(long paramLong);
+  
+
+  public static long createContext(long paramLong1, long paramLong2, boolean paramBoolean1, long paramLong3, boolean paramBoolean2, IntBuffer paramIntBuffer)
+  {
+    if (!Buffers.isDirect(paramIntBuffer))
+      throw new GLException("Argument \"viewNotReady\" is not a direct buffer");
+    return createContext0(paramLong1, paramLong2, paramBoolean1, paramLong3, paramBoolean2, paramIntBuffer, Buffers.getDirectBufferByteOffset(paramIntBuffer));
+  }
+  
+
+
+  private static native long createContext0(long paramLong1, long paramLong2, boolean paramBoolean1, long paramLong3, boolean paramBoolean2, Object paramObject, int paramInt);
+  
+
+
+  public static native void setContextView(long paramLong1, long paramLong2);
+  
+
+
+  public static native void clearDrawable(long paramLong);
+  
+
+
+  public static native boolean makeCurrentContext(long paramLong);
+  
+
+  public static native boolean clearCurrentContext(long paramLong);
+  
+
+  public static native boolean deleteContext(long paramLong, boolean paramBoolean);
+  
+
+  public static native boolean flushBuffer(long paramLong);
+  
+
+  public static native void setContextOpacity(long paramLong, int paramInt);
+  
+
+  public static native void updateContext(long paramLong);
+  
+
+  public static native void copyContext(long paramLong1, long paramLong2, int paramInt);
+  
+
+  public static native long updateContextRegister(long paramLong1, long paramLong2);
+  
+
+  public static native boolean updateContextNeedsUpdate(long paramLong);
+  
+
+  public static native void updateContextUnregister(long paramLong);
+  
+
+  public static native long createPBuffer(int paramInt1, int paramInt2, int paramInt3, int paramInt4);
+  
+
+  public static native boolean destroyPBuffer(long paramLong);
+  
+
+  public static native void setContextPBuffer(long paramLong1, long paramLong2);
+  
+
+  public static native void setContextTextureImageToPBuffer(long paramLong1, long paramLong2, int paramInt);
+  
+
+  public static native boolean isNSOpenGLPixelBuffer(long paramLong);
+  
+
+  private static native long createNSOpenGLLayerImpl(long paramLong1, int paramInt1, long paramLong2, long paramLong3, int paramInt2, boolean paramBoolean, int paramInt3, int paramInt4, int paramInt5, int paramInt6);
+  
+
+  private static native void setNSOpenGLLayerEnabledImpl(long paramLong, boolean paramBoolean);
+  
+
+  public static native void setNSOpenGLLayerSwapInterval(long paramLong, int paramInt);
+  
+
+  public static native void waitUntilNSOpenGLLayerIsReady(long paramLong1, long paramLong2);
+  
+
+  public static native void setNSOpenGLLayerNeedsDisplayFBO(long paramLong, int paramInt);
+  
+
+  public static native void setNSOpenGLLayerNeedsDisplayPBuffer(long paramLong1, long paramLong2);
+  
+
+  private static native void releaseNSOpenGLLayerImpl(long paramLong);
+  
+
+  public static native long getProcAddress(String paramString);
+  
+
+  public static native void setSwapInterval(long paramLong, int paramInt);
+  
+
+  public static boolean setGammaRamp(int paramInt, FloatBuffer paramFloatBuffer1, FloatBuffer paramFloatBuffer2, FloatBuffer paramFloatBuffer3)
+  {
+    if (!Buffers.isDirect(paramFloatBuffer1))
+      throw new GLException("Argument \"redRamp\" is not a direct buffer");
+    if (!Buffers.isDirect(paramFloatBuffer2))
+      throw new GLException("Argument \"greenRamp\" is not a direct buffer");
+    if (!Buffers.isDirect(paramFloatBuffer3))
+      throw new GLException("Argument \"blueRamp\" is not a direct buffer");
+    return setGammaRamp0(paramInt, paramFloatBuffer1, Buffers.getDirectBufferByteOffset(paramFloatBuffer1), paramFloatBuffer2, Buffers.getDirectBufferByteOffset(paramFloatBuffer2), paramFloatBuffer3, Buffers.getDirectBufferByteOffset(paramFloatBuffer3));
+  }
+  
+
+
+
+
+
+
+
+  private static native boolean setGammaRamp0(int paramInt1, Object paramObject1, int paramInt2, Object paramObject2, int paramInt3, Object paramObject3, int paramInt4);
+  
+
+
+
+
+
+
+
+  public static native void resetGammaRamp();
+  
+
+
+
+
+
+
+
+  public static long createNSOpenGLLayer(long paramLong1, int paramInt1, long paramLong2, long paramLong3, int paramInt2, boolean paramBoolean, int paramInt3, int paramInt4, int paramInt5, int paramInt6)
+  {
+    return createNSOpenGLLayerImpl(paramLong1, paramInt1, paramLong2, paramLong3, paramInt2, paramBoolean, paramInt3, paramInt4, paramInt5, paramInt6);
+  }
+  
+
+
+
+
+
+
+  public static void setNSOpenGLLayerEnabled(long paramLong, boolean paramBoolean)
+  {
+    setNSOpenGLLayerEnabledImpl(paramLong, paramBoolean);
+  }
+  
+
+
+  public static void releaseNSOpenGLLayer(long paramLong)
+  {
+    releaseNSOpenGLLayerImpl(paramLong);
+  }
+}

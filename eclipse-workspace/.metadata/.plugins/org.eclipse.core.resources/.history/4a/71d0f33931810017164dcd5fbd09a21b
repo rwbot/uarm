@@ -1,0 +1,1089 @@
+package com.jogamp.opengl.util.glsl;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.GLArrayData;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLUniformData;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Set;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ShaderState
+{
+  public static final boolean DEBUG = PropertyAccess.isPropertyDefined("jogl.debug.GLSLState", true);
+  
+
+  public ShaderState() {}
+  
+
+  public boolean verbose() { return verbose; }
+  
+  public void setVerbose(boolean paramBoolean) { verbose = ((DEBUG) || (paramBoolean)); }
+  
+
+
+  public final Object getAttachedObject(String paramString)
+  {
+    return attachedObjectsByString.get(paramString);
+  }
+  
+
+
+
+
+
+  public final Object attachObject(String paramString, Object paramObject)
+  {
+    return attachedObjectsByString.put(paramString, paramObject);
+  }
+  
+
+
+
+
+  public final Object detachObject(String paramString)
+  {
+    return attachedObjectsByString.remove(paramString);
+  }
+  
+
+
+
+
+
+  public synchronized void useProgram(GL2ES2 paramGL2ES2, boolean paramBoolean)
+    throws GLException
+  {
+    if (null == shaderProgram) throw new GLException("No program is attached");
+    if (paramBoolean) {
+      if (shaderProgram.linked()) {
+        shaderProgram.useProgram(paramGL2ES2, true);
+        if (resetAllShaderData) {
+          resetAllAttributes(paramGL2ES2);
+          resetAllUniforms(paramGL2ES2);
+        }
+      } else {
+        if (resetAllShaderData) {
+          setAllAttributes(paramGL2ES2);
+        }
+        if (!shaderProgram.link(paramGL2ES2, System.err)) {
+          throw new GLException("could not link program: " + shaderProgram);
+        }
+        shaderProgram.useProgram(paramGL2ES2, true);
+        if (resetAllShaderData) {
+          resetAllUniforms(paramGL2ES2);
+        }
+      }
+      resetAllShaderData = false;
+    } else {
+      shaderProgram.useProgram(paramGL2ES2, false);
+    }
+  }
+  
+  public boolean linked() {
+    return null != shaderProgram ? shaderProgram.linked() : false;
+  }
+  
+  public boolean inUse() {
+    return null != shaderProgram ? shaderProgram.inUse() : false;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public synchronized boolean attachShaderProgram(GL2ES2 paramGL2ES2, ShaderProgram paramShaderProgram, boolean paramBoolean)
+    throws GLException
+  {
+    if (verbose) {
+      int i = null != shaderProgram ? shaderProgram.id() : -1;
+      int j = null != paramShaderProgram ? paramShaderProgram.id() : -1;
+      System.err.println("ShaderState: attachShaderProgram: " + i + " -> " + j + " (enable: " + paramBoolean + ")\n\t" + shaderProgram + "\n\t" + paramShaderProgram);
+      if (DEBUG) {
+        ExceptionUtils.dumpStack(System.err);
+      }
+    }
+    if (null != shaderProgram) {
+      if (shaderProgram.equals(paramShaderProgram)) {
+        if (paramBoolean) {
+          useProgram(paramGL2ES2, true);
+        }
+        
+        if (verbose) {
+          System.err.println("ShaderState: attachShaderProgram: No switch, equal id: " + shaderProgram.id() + ", enabling " + paramBoolean);
+        }
+        return false;
+      }
+      if (shaderProgram.inUse()) {
+        if ((null != paramShaderProgram) && (paramBoolean)) {
+          shaderProgram.notifyNotInUse();
+        }
+        else {
+          useProgram(paramGL2ES2, false);
+        }
+      }
+      resetAllShaderData = true;
+    }
+    
+
+    shaderProgram = paramShaderProgram;
+    
+    if (null != shaderProgram)
+    {
+
+      if ((resetAllShaderData) || (paramBoolean)) {
+        useProgram(paramGL2ES2, true);
+        if (!paramBoolean) {
+          useProgram(paramGL2ES2, false);
+        }
+      }
+    }
+    if (DEBUG) {
+      System.err.println("Info: attachShaderProgram: END");
+    }
+    return true;
+  }
+  
+  public ShaderProgram shaderProgram() { return shaderProgram; }
+  
+
+
+
+
+
+
+  public synchronized void destroy(GL2ES2 paramGL2ES2)
+  {
+    release(paramGL2ES2, true, true, true);
+    attachedObjectsByString.clear();
+  }
+  
+
+
+
+
+
+
+  public synchronized void releaseAllData(GL2ES2 paramGL2ES2)
+  {
+    release(paramGL2ES2, false, false, false);
+  }
+  
+
+
+
+
+  public synchronized void release(GL2ES2 paramGL2ES2, boolean paramBoolean1, boolean paramBoolean2, boolean paramBoolean3)
+  {
+    if ((null != shaderProgram) && (shaderProgram.linked()))
+      shaderProgram.useProgram(paramGL2ES2, false);
+    Iterator localIterator;
+    if (paramBoolean1) {
+      for (localIterator = managedAttributes.iterator(); localIterator.hasNext();) {
+        ((GLArrayData)localIterator.next()).destroy(paramGL2ES2);
+      }
+    }
+    releaseAllAttributes(paramGL2ES2);
+    releaseAllUniforms(paramGL2ES2);
+    if ((null != shaderProgram) && (paramBoolean2)) {
+      shaderProgram.release(paramGL2ES2, paramBoolean3);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public int getCachedAttribLocation(String paramString)
+  {
+    Integer localInteger = (Integer)activeAttribLocationMap.get(paramString);
+    return null != localInteger ? localInteger.intValue() : -1;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public GLArrayData getAttribute(String paramString)
+  {
+    return (GLArrayData)activeAttribDataMap.get(paramString);
+  }
+  
+  public boolean isActiveAttribute(GLArrayData paramGLArrayData) {
+    return paramGLArrayData == activeAttribDataMap.get(paramGLArrayData.getName());
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void ownAttribute(GLArrayData paramGLArrayData, boolean paramBoolean)
+  {
+    if (paramBoolean) {
+      int i = getCachedAttribLocation(paramGLArrayData.getName());
+      if (0 <= i) {
+        paramGLArrayData.setLocation(i);
+      }
+      managedAttributes.add(managedAttributes.size(), paramGLArrayData);
+    } else {
+      managedAttributes.remove(paramGLArrayData);
+    }
+    paramGLArrayData.associate(this, paramBoolean);
+  }
+  
+  public boolean ownsAttribute(GLArrayData paramGLArrayData) {
+    return managedAttributes.contains(paramGLArrayData);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public void bindAttribLocation(GL2ES2 paramGL2ES2, int paramInt, String paramString)
+  {
+    if (null == shaderProgram) throw new GLException("No program is attached");
+    if (shaderProgram.linked()) throw new GLException("Program is already linked");
+    activeAttribLocationMap.put(paramString, Integer.valueOf(paramInt));
+    paramGL2ES2.glBindAttribLocation(shaderProgram.program(), paramInt, paramString);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void bindAttribLocation(GL2ES2 paramGL2ES2, int paramInt, GLArrayData paramGLArrayData)
+  {
+    if (null == shaderProgram) throw new GLException("No program is attached");
+    if (shaderProgram.linked()) throw new GLException("Program is already linked");
+    String str = paramGLArrayData.getName();
+    activeAttribLocationMap.put(str, Integer.valueOf(paramInt));
+    paramGLArrayData.setLocation(paramGL2ES2, shaderProgram.program(), paramInt);
+    activeAttribDataMap.put(paramGLArrayData.getName(), paramGLArrayData);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public int getAttribLocation(GL2ES2 paramGL2ES2, String paramString)
+  {
+    if (null == shaderProgram) throw new GLException("No program is attached");
+    int i = getCachedAttribLocation(paramString);
+    if (0 > i) {
+      if (!shaderProgram.linked()) throw new GLException("Program is not linked");
+      i = paramGL2ES2.glGetAttribLocation(shaderProgram.program(), paramString);
+      if (0 <= i) {
+        activeAttribLocationMap.put(paramString, Integer.valueOf(i));
+        if (DEBUG) {
+          System.err.println("ShaderState: glGetAttribLocation: " + paramString + ", loc: " + i);
+        }
+      } else if (verbose) {
+        System.err.println("ShaderState: glGetAttribLocation failed, no location for: " + paramString + ", loc: " + i);
+        if (DEBUG) {
+          ExceptionUtils.dumpStack(System.err);
+        }
+      }
+    }
+    return i;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public int getAttribLocation(GL2ES2 paramGL2ES2, GLArrayData paramGLArrayData)
+  {
+    if (null == shaderProgram) throw new GLException("No program is attached");
+    String str = paramGLArrayData.getName();
+    int i = getCachedAttribLocation(str);
+    if (0 <= i) {
+      paramGLArrayData.setLocation(i);
+    } else {
+      if (!shaderProgram.linked()) throw new GLException("Program is not linked");
+      i = paramGLArrayData.setLocation(paramGL2ES2, shaderProgram.program());
+      if (0 <= i) {
+        activeAttribLocationMap.put(str, Integer.valueOf(i));
+        if (DEBUG) {
+          System.err.println("ShaderState: glGetAttribLocation: " + str + ", loc: " + i);
+        }
+      } else if (verbose) {
+        System.err.println("ShaderState: glGetAttribLocation failed, no location for: " + str + ", loc: " + i);
+        if (DEBUG) {
+          ExceptionUtils.dumpStack(System.err);
+        }
+      }
+    }
+    activeAttribDataMap.put(paramGLArrayData.getName(), paramGLArrayData);
+    return i;
+  }
+  
+
+
+
+
+
+
+  public final boolean isVertexAttribArrayEnabled(String paramString)
+  {
+    Boolean localBoolean = (Boolean)activedAttribEnabledMap.get(paramString);
+    return (null != localBoolean) && (localBoolean.booleanValue());
+  }
+  
+
+
+  public final boolean isVertexAttribArrayEnabled(GLArrayData paramGLArrayData)
+  {
+    return isVertexAttribArrayEnabled(paramGLArrayData.getName());
+  }
+  
+  private boolean enableVertexAttribArray(GL2ES2 paramGL2ES2, String paramString, int paramInt) {
+    activedAttribEnabledMap.put(paramString, Boolean.TRUE);
+    if (0 > paramInt) {
+      paramInt = getAttribLocation(paramGL2ES2, paramString);
+      if (0 > paramInt) {
+        if (verbose) {
+          System.err.println("ShaderState: glEnableVertexAttribArray failed, no index for: " + paramString);
+          if (DEBUG) {
+            ExceptionUtils.dumpStack(System.err);
+          }
+        }
+        return false;
+      }
+    }
+    if (DEBUG) {
+      System.err.println("ShaderState: glEnableVertexAttribArray: " + paramString + ", loc: " + paramInt);
+    }
+    paramGL2ES2.glEnableVertexAttribArray(paramInt);
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean enableVertexAttribArray(GL2ES2 paramGL2ES2, String paramString)
+  {
+    return enableVertexAttribArray(paramGL2ES2, paramString, -1);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean enableVertexAttribArray(GL2ES2 paramGL2ES2, GLArrayData paramGLArrayData)
+  {
+    if (0 > paramGLArrayData.getLocation()) {
+      getAttribLocation(paramGL2ES2, paramGLArrayData);
+    }
+    else {
+      activeAttribDataMap.put(paramGLArrayData.getName(), paramGLArrayData);
+    }
+    return enableVertexAttribArray(paramGL2ES2, paramGLArrayData.getName(), paramGLArrayData.getLocation());
+  }
+  
+  private boolean disableVertexAttribArray(GL2ES2 paramGL2ES2, String paramString, int paramInt) {
+    activedAttribEnabledMap.put(paramString, Boolean.FALSE);
+    if (0 > paramInt) {
+      paramInt = getAttribLocation(paramGL2ES2, paramString);
+      if (0 > paramInt) {
+        if (verbose) {
+          System.err.println("ShaderState: glDisableVertexAttribArray failed, no index for: " + paramString);
+          if (DEBUG) {
+            ExceptionUtils.dumpStack(System.err);
+          }
+        }
+        return false;
+      }
+    }
+    if (DEBUG) {
+      System.err.println("ShaderState: glDisableVertexAttribArray: " + paramString);
+    }
+    paramGL2ES2.glDisableVertexAttribArray(paramInt);
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean disableVertexAttribArray(GL2ES2 paramGL2ES2, String paramString)
+  {
+    return disableVertexAttribArray(paramGL2ES2, paramString, -1);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean disableVertexAttribArray(GL2ES2 paramGL2ES2, GLArrayData paramGLArrayData)
+  {
+    if (0 > paramGLArrayData.getLocation()) {
+      getAttribLocation(paramGL2ES2, paramGLArrayData);
+    }
+    return disableVertexAttribArray(paramGL2ES2, paramGLArrayData.getName(), paramGLArrayData.getLocation());
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean vertexAttribPointer(GL2ES2 paramGL2ES2, GLArrayData paramGLArrayData)
+  {
+    int i = paramGLArrayData.getLocation();
+    if (0 > i) {
+      i = getAttribLocation(paramGL2ES2, paramGLArrayData);
+    }
+    if (0 <= i)
+    {
+      if (DEBUG) {
+        System.err.println("ShaderState: glVertexAttribPointer: " + paramGLArrayData);
+      }
+      paramGL2ES2.glVertexAttribPointer(paramGLArrayData);
+      return true;
+    }
+    return false;
+  }
+  
+
+
+
+
+
+
+  public void releaseAllAttributes(GL2ES2 paramGL2ES2)
+  {
+    Iterator localIterator;
+    
+
+
+
+
+    if (null != shaderProgram) {
+      for (localIterator = activeAttribDataMap.values().iterator(); localIterator.hasNext();) {
+        disableVertexAttribArray(paramGL2ES2, (GLArrayData)localIterator.next());
+      }
+      for (localIterator = activedAttribEnabledMap.keySet().iterator(); localIterator.hasNext();) {
+        disableVertexAttribArray(paramGL2ES2, (String)localIterator.next());
+      }
+    }
+    activeAttribDataMap.clear();
+    activedAttribEnabledMap.clear();
+    activeAttribLocationMap.clear();
+    managedAttributes.clear();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void disableAllVertexAttributeArrays(GL2ES2 paramGL2ES2, boolean paramBoolean)
+  {
+    for (Iterator localIterator = activedAttribEnabledMap.keySet().iterator(); localIterator.hasNext();) {
+      String str = (String)localIterator.next();
+      if (paramBoolean) {
+        activedAttribEnabledMap.remove(str);
+      }
+      int i = getAttribLocation(paramGL2ES2, str);
+      if (0 <= i) {
+        paramGL2ES2.glDisableVertexAttribArray(i);
+      }
+    }
+  }
+  
+  private final void relocateAttribute(GL2ES2 paramGL2ES2, GLArrayData paramGLArrayData)
+  {
+    String str = paramGLArrayData.getName();
+    int i = paramGLArrayData.setLocation(paramGL2ES2, shaderProgram.program());
+    if (0 <= i) {
+      activeAttribLocationMap.put(str, Integer.valueOf(i));
+      if (DEBUG) {
+        System.err.println("ShaderState: relocateAttribute: " + str + ", loc: " + i);
+      }
+      if (isVertexAttribArrayEnabled(str))
+      {
+        paramGL2ES2.glEnableVertexAttribArray(i);
+      }
+      
+      if (paramGLArrayData.isVBO()) {
+        paramGL2ES2.glBindBuffer(34962, paramGLArrayData.getVBOName());
+        paramGL2ES2.glVertexAttribPointer(paramGLArrayData);
+        paramGL2ES2.glBindBuffer(34962, 0);
+      } else {
+        paramGL2ES2.glVertexAttribPointer(paramGLArrayData);
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private final void resetAllAttributes(GL2ES2 paramGL2ES2)
+  {
+    if (!shaderProgram.linked()) throw new GLException("Program is not linked");
+    activeAttribLocationMap.clear();
+    
+    for (int i = 0; i < managedAttributes.size(); i++) {
+      ((GLArrayData)managedAttributes.get(i)).setLocation(-1);
+    }
+    for (Iterator localIterator = activeAttribDataMap.values().iterator(); localIterator.hasNext();) {
+      relocateAttribute(paramGL2ES2, (GLArrayData)localIterator.next());
+    }
+  }
+  
+  private final void setAttribute(GL2ES2 paramGL2ES2, GLArrayData paramGLArrayData)
+  {
+    String str = paramGLArrayData.getName();
+    int i = paramGLArrayData.getLocation();
+    
+    if (0 <= i) {
+      bindAttribLocation(paramGL2ES2, i, str);
+      
+      if (isVertexAttribArrayEnabled(str))
+      {
+        paramGL2ES2.glEnableVertexAttribArray(i);
+      }
+      
+      if (paramGLArrayData.isVBO()) {
+        paramGL2ES2.glBindBuffer(34962, paramGLArrayData.getVBOName());
+        paramGL2ES2.glVertexAttribPointer(paramGLArrayData);
+        paramGL2ES2.glBindBuffer(34962, 0);
+      } else {
+        paramGL2ES2.glVertexAttribPointer(paramGLArrayData);
+      }
+    }
+  }
+  
+
+
+  private final void setAllAttributes(GL2ES2 paramGL2ES2)
+  {
+    for (Iterator localIterator = activeAttribDataMap.values().iterator(); localIterator.hasNext();) {
+      setAttribute(paramGL2ES2, (GLArrayData)localIterator.next());
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final int getCachedUniformLocation(String paramString)
+  {
+    Integer localInteger = (Integer)activeUniformLocationMap.get(paramString);
+    return null != localInteger ? localInteger.intValue() : -1;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void ownUniform(GLUniformData paramGLUniformData)
+  {
+    int i = getCachedUniformLocation(paramGLUniformData.getName());
+    if (0 <= i) {
+      paramGLUniformData.setLocation(i);
+    }
+    activeUniformDataMap.put(paramGLUniformData.getName(), paramGLUniformData);
+    managedUniforms.add(paramGLUniformData);
+  }
+  
+  public boolean ownsUniform(GLUniformData paramGLUniformData) {
+    return managedUniforms.contains(paramGLUniformData);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final int getUniformLocation(GL2ES2 paramGL2ES2, String paramString)
+  {
+    if (!shaderProgram.inUse()) throw new GLException("Program is not in use");
+    int i = getCachedUniformLocation(paramString);
+    if (0 > i) {
+      if (!shaderProgram.linked()) throw new GLException("Program is not linked");
+      i = paramGL2ES2.glGetUniformLocation(shaderProgram.program(), paramString);
+      if (0 <= i) {
+        activeUniformLocationMap.put(paramString, Integer.valueOf(i));
+      } else if (verbose) {
+        System.err.println("ShaderState: glUniform failed, no location for: " + paramString + ", index: " + i);
+        if (DEBUG) {
+          ExceptionUtils.dumpStack(System.err);
+        }
+      }
+    }
+    return i;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public int getUniformLocation(GL2ES2 paramGL2ES2, GLUniformData paramGLUniformData)
+  {
+    if (!shaderProgram.inUse()) throw new GLException("Program is not in use");
+    String str = paramGLUniformData.getName();
+    int i = getCachedUniformLocation(str);
+    if (0 <= i) {
+      paramGLUniformData.setLocation(i);
+    } else {
+      if (!shaderProgram.linked()) throw new GLException("Program is not linked");
+      i = paramGLUniformData.setLocation(paramGL2ES2, shaderProgram.program());
+      if (0 <= i) {
+        activeUniformLocationMap.put(str, Integer.valueOf(i));
+      } else if (verbose) {
+        System.err.println("ShaderState: glUniform failed, no location for: " + str + ", index: " + i);
+        if (DEBUG) {
+          ExceptionUtils.dumpStack(System.err);
+        }
+      }
+    }
+    activeUniformDataMap.put(str, paramGLUniformData);
+    return i;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean uniform(GL2ES2 paramGL2ES2, GLUniformData paramGLUniformData)
+  {
+    if (!shaderProgram.inUse()) throw new GLException("Program is not in use");
+    int i = paramGLUniformData.getLocation();
+    if (0 > i) {
+      i = getUniformLocation(paramGL2ES2, paramGLUniformData);
+    }
+    if (0 <= i)
+    {
+      if (DEBUG) {
+        System.err.println("ShaderState: glUniform: " + paramGLUniformData);
+      }
+      paramGL2ES2.glUniform(paramGLUniformData);
+      return true;
+    }
+    return false;
+  }
+  
+
+
+
+
+  public GLUniformData getUniform(String paramString)
+  {
+    return (GLUniformData)activeUniformDataMap.get(paramString);
+  }
+  
+
+
+
+  public void releaseAllUniforms(GL2ES2 paramGL2ES2)
+  {
+    activeUniformDataMap.clear();
+    activeUniformLocationMap.clear();
+    managedUniforms.clear();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private final void resetAllUniforms(GL2ES2 paramGL2ES2)
+  {
+    if (!shaderProgram.inUse()) throw new GLException("Program is not in use");
+    activeUniformLocationMap.clear();
+    for (Iterator localIterator = managedUniforms.iterator(); localIterator.hasNext();) {
+      ((GLUniformData)localIterator.next()).setLocation(-1);
+    }
+    for (localIterator = activeUniformDataMap.values().iterator(); localIterator.hasNext();) {
+      GLUniformData localGLUniformData = (GLUniformData)localIterator.next();
+      int i = localGLUniformData.setLocation(paramGL2ES2, shaderProgram.program());
+      if (0 <= i)
+      {
+        activeUniformLocationMap.put(localGLUniformData.getName(), Integer.valueOf(i));
+        if (DEBUG) {
+          System.err.println("ShaderState: resetAllUniforms: " + localGLUniformData);
+        }
+        paramGL2ES2.glUniform(localGLUniformData);
+      }
+    }
+  }
+  
+  public StringBuilder toString(StringBuilder paramStringBuilder, boolean paramBoolean) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    
+    paramStringBuilder.append("ShaderState[ ");
+    
+    paramStringBuilder.append(Platform.getNewline()).append(" ");
+    if (null != shaderProgram) {
+      shaderProgram.toString(paramStringBuilder);
+    } else {
+      paramStringBuilder.append("ShaderProgram: null");
+    }
+    paramStringBuilder.append(Platform.getNewline()).append(" enabledAttributes [");
+    
+    Iterator localIterator = activedAttribEnabledMap.keySet().iterator();
+    Object localObject = activedAttribEnabledMap.values().iterator();
+    while (localIterator.hasNext()) {
+      paramStringBuilder.append(Platform.getNewline()).append("  ").append((String)localIterator.next()).append(": ").append(((Iterator)localObject).next());
+    }
+    
+    paramStringBuilder.append(Platform.getNewline()).append(" ],").append(" activeAttributes [");
+    for (localIterator = activeAttribDataMap.values().iterator(); localIterator.hasNext();) {
+      localObject = (GLArrayData)localIterator.next();
+      if ((paramBoolean) || (0 <= ((GLArrayData)localObject).getLocation())) {
+        paramStringBuilder.append(Platform.getNewline()).append("  ").append(localObject);
+      }
+    }
+    paramStringBuilder.append(Platform.getNewline()).append(" ],").append(" managedAttributes [");
+    for (localIterator = managedAttributes.iterator(); localIterator.hasNext();) {
+      localObject = (GLArrayData)localIterator.next();
+      if ((paramBoolean) || (0 <= ((GLArrayData)localObject).getLocation())) {
+        paramStringBuilder.append(Platform.getNewline()).append("  ").append(localObject);
+      }
+    }
+    paramStringBuilder.append(Platform.getNewline()).append(" ],").append(" activeUniforms [");
+    for (localIterator = activeUniformDataMap.values().iterator(); localIterator.hasNext();) {
+      localObject = (GLUniformData)localIterator.next();
+      if ((paramBoolean) || (0 <= ((GLUniformData)localObject).getLocation())) {
+        paramStringBuilder.append(Platform.getNewline()).append("  ").append(localObject);
+      }
+    }
+    paramStringBuilder.append(Platform.getNewline()).append(" ],").append(" managedUniforms [");
+    for (localIterator = managedUniforms.iterator(); localIterator.hasNext();) {
+      localObject = (GLUniformData)localIterator.next();
+      if ((paramBoolean) || (0 <= ((GLUniformData)localObject).getLocation())) {
+        paramStringBuilder.append(Platform.getNewline()).append("  ").append(localObject);
+      }
+    }
+    paramStringBuilder.append(Platform.getNewline()).append(" ]").append(Platform.getNewline()).append("]");
+    return paramStringBuilder;
+  }
+  
+  public String toString()
+  {
+    return toString(null, DEBUG).toString();
+  }
+  
+  private boolean verbose = DEBUG;
+  private ShaderProgram shaderProgram = null;
+  
+  private final HashMap<String, Boolean> activedAttribEnabledMap = new HashMap();
+  private final HashMap<String, Integer> activeAttribLocationMap = new HashMap();
+  private final HashMap<String, GLArrayData> activeAttribDataMap = new HashMap();
+  private final ArrayList<GLArrayData> managedAttributes = new ArrayList();
+  
+  private final HashMap<String, Integer> activeUniformLocationMap = new HashMap();
+  private final HashMap<String, GLUniformData> activeUniformDataMap = new HashMap();
+  private final ArrayList<GLUniformData> managedUniforms = new ArrayList();
+  
+  private final HashMap<String, Object> attachedObjectsByString = new HashMap();
+  private boolean resetAllShaderData = false;
+  
+  static {}
+}

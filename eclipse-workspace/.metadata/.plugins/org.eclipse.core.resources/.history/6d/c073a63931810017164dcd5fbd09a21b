@@ -1,0 +1,1260 @@
+package processing.data;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.io.Reader;
+import java.io.StringWriter;
+import java.io.Writer;
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+import processing.core.PApplet;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class JSONArray
+{
+  private final ArrayList<Object> myArrayList;
+  
+  public JSONArray()
+  {
+    myArrayList = new ArrayList();
+  }
+  
+
+
+
+  public JSONArray(Reader reader)
+  {
+    this(new JSONTokener(reader));
+  }
+  
+
+
+
+
+
+
+
+  protected JSONArray(JSONTokener x)
+  {
+    this();
+    if (x.nextClean() != '[') {
+      throw new RuntimeException("A JSONArray text must start with '['");
+    }
+    if (x.nextClean() != ']') {
+      x.back();
+      for (;;) {
+        if (x.nextClean() == ',') {
+          x.back();
+          myArrayList.add(JSONObject.NULL);
+        } else {
+          x.back();
+          myArrayList.add(x.nextValue());
+        }
+        switch (x.nextClean()) {
+        case ',': 
+        case ';': 
+          if (x.nextClean() == ']') {
+            return;
+          }
+          x.back();
+        }
+      }
+      return;
+      
+      throw new RuntimeException("Expected a ',' or ']'");
+    }
+  }
+  
+
+
+
+
+
+  public JSONArray(IntList list)
+  {
+    myArrayList = new ArrayList();
+    for (int item : list.values()) {
+      myArrayList.add(Integer.valueOf(item));
+    }
+  }
+  
+
+
+
+  public JSONArray(FloatList list)
+  {
+    myArrayList = new ArrayList();
+    for (float item : list.values()) {
+      myArrayList.add(new Float(item));
+    }
+  }
+  
+
+
+
+  public JSONArray(StringList list)
+  {
+    myArrayList = new ArrayList();
+    for (String item : list.values()) {
+      myArrayList.add(item);
+    }
+  }
+  
+
+
+
+
+
+
+  public static JSONArray parse(String source)
+  {
+    try
+    {
+      return new JSONArray(new JSONTokener(source));
+    } catch (Exception localException) {}
+    return null;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected JSONArray(Object array)
+  {
+    this();
+    if (array.getClass().isArray()) {
+      int length = Array.getLength(array);
+      for (int i = 0; i < length; i++) {
+        append(JSONObject.wrap(Array.get(array, i)));
+      }
+    } else {
+      throw new RuntimeException("JSONArray initial value should be a string or collection or array.");
+    }
+  }
+  
+
+
+
+
+
+
+  private Object opt(int index)
+  {
+    if ((index < 0) || (index >= size())) {
+      return null;
+    }
+    return myArrayList.get(index);
+  }
+  
+
+
+
+
+
+
+  private Object get(int index)
+  {
+    Object object = opt(index);
+    if (object == null) {
+      throw new RuntimeException("JSONArray[" + index + "] not found.");
+    }
+    return object;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public String getString(int index)
+  {
+    Object object = get(index);
+    if ((object instanceof String)) {
+      return (String)object;
+    }
+    throw new RuntimeException("JSONArray[" + index + "] not a string.");
+  }
+  
+
+
+
+
+
+
+
+
+  public String getString(int index, String defaultValue)
+  {
+    Object object = opt(index);
+    return JSONObject.NULL.equals(object) ? defaultValue : object.toString();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public int getInt(int index)
+  {
+    Object object = get(index);
+    try {
+      return (object instanceof Number) ? 
+        ((Number)object).intValue() : 
+        Integer.parseInt((String)object);
+    } catch (Exception localException) {
+      throw new RuntimeException("JSONArray[" + index + "] is not a number.");
+    }
+  }
+  
+
+
+
+
+
+
+
+  public int getInt(int index, int defaultValue)
+  {
+    try
+    {
+      return getInt(index);
+    } catch (Exception localException) {}
+    return defaultValue;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public long getLong(int index)
+  {
+    Object object = get(index);
+    try {
+      return (object instanceof Number) ? 
+        ((Number)object).longValue() : 
+        Long.parseLong((String)object);
+    } catch (Exception localException) {
+      throw new RuntimeException("JSONArray[" + index + "] is not a number.");
+    }
+  }
+  
+
+
+
+
+
+
+
+  public long getLong(int index, long defaultValue)
+  {
+    try
+    {
+      return getLong(index);
+    } catch (Exception localException) {}
+    return defaultValue;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public float getFloat(int index)
+  {
+    return (float)getDouble(index);
+  }
+  
+  public float getFloat(int index, float defaultValue)
+  {
+    try {
+      return getFloat(index);
+    } catch (Exception localException) {}
+    return defaultValue;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public double getDouble(int index)
+  {
+    Object object = get(index);
+    try {
+      return (object instanceof Number) ? 
+        ((Number)object).doubleValue() : 
+        Double.parseDouble((String)object);
+    } catch (Exception localException) {
+      throw new RuntimeException("JSONArray[" + index + "] is not a number.");
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public double getDouble(int index, double defaultValue)
+  {
+    try
+    {
+      return getDouble(index);
+    } catch (Exception localException) {}
+    return defaultValue;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean getBoolean(int index)
+  {
+    Object object = get(index);
+    if ((object.equals(Boolean.FALSE)) || (
+      ((object instanceof String)) && 
+      (((String)object).equalsIgnoreCase("false"))))
+      return false;
+    if ((object.equals(Boolean.TRUE)) || (
+      ((object instanceof String)) && 
+      (((String)object).equalsIgnoreCase("true")))) {
+      return true;
+    }
+    throw new RuntimeException("JSONArray[" + index + "] is not a boolean.");
+  }
+  
+
+
+
+
+
+
+
+
+  public boolean getBoolean(int index, boolean defaultValue)
+  {
+    try
+    {
+      return getBoolean(index);
+    } catch (Exception localException) {}
+    return defaultValue;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public JSONArray getJSONArray(int index)
+  {
+    Object object = get(index);
+    if ((object instanceof JSONArray)) {
+      return (JSONArray)object;
+    }
+    throw new RuntimeException("JSONArray[" + index + "] is not a JSONArray.");
+  }
+  
+  public JSONArray getJSONArray(int index, JSONArray defaultValue)
+  {
+    try {
+      return getJSONArray(index);
+    } catch (Exception localException) {}
+    return defaultValue;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public JSONObject getJSONObject(int index)
+  {
+    Object object = get(index);
+    if ((object instanceof JSONObject)) {
+      return (JSONObject)object;
+    }
+    throw new RuntimeException("JSONArray[" + index + "] is not a JSONObject.");
+  }
+  
+  public JSONObject getJSONObject(int index, JSONObject defaultValue)
+  {
+    try {
+      return getJSONObject(index);
+    } catch (Exception localException) {}
+    return defaultValue;
+  }
+  
+
+
+
+
+
+
+
+
+  public String[] getStringArray()
+  {
+    String[] outgoing = new String[size()];
+    for (int i = 0; i < size(); i++) {
+      outgoing[i] = getString(i);
+    }
+    return outgoing;
+  }
+  
+
+
+
+
+
+
+
+  public int[] getIntArray()
+  {
+    int[] outgoing = new int[size()];
+    for (int i = 0; i < size(); i++) {
+      outgoing[i] = getInt(i);
+    }
+    return outgoing;
+  }
+  
+
+  public long[] getLongArray()
+  {
+    long[] outgoing = new long[size()];
+    for (int i = 0; i < size(); i++) {
+      outgoing[i] = getLong(i);
+    }
+    return outgoing;
+  }
+  
+
+  public float[] getFloatArray()
+  {
+    float[] outgoing = new float[size()];
+    for (int i = 0; i < size(); i++) {
+      outgoing[i] = getFloat(i);
+    }
+    return outgoing;
+  }
+  
+
+  public double[] getDoubleArray()
+  {
+    double[] outgoing = new double[size()];
+    for (int i = 0; i < size(); i++) {
+      outgoing[i] = getDouble(i);
+    }
+    return outgoing;
+  }
+  
+
+  public boolean[] getBooleanArray()
+  {
+    boolean[] outgoing = new boolean[size()];
+    for (int i = 0; i < size(); i++) {
+      outgoing[i] = getBoolean(i);
+    }
+    return outgoing;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public JSONArray append(String value)
+  {
+    append(value);
+    return this;
+  }
+  
+
+
+
+
+
+
+  public JSONArray append(int value)
+  {
+    append(Integer.valueOf(value));
+    return this;
+  }
+  
+
+
+
+
+
+
+
+  public JSONArray append(long value)
+  {
+    append(Long.valueOf(value));
+    return this;
+  }
+  
+
+
+
+
+
+
+
+
+  public JSONArray append(float value)
+  {
+    return append(value);
+  }
+  
+
+
+
+
+
+
+
+
+  public JSONArray append(double value)
+  {
+    Double d = Double.valueOf(value);
+    JSONObject.testValidity(d);
+    append(d);
+    return this;
+  }
+  
+
+
+
+
+
+
+  public JSONArray append(boolean value)
+  {
+    append(value ? Boolean.TRUE : Boolean.FALSE);
+    return this;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public JSONArray append(JSONArray value)
+  {
+    myArrayList.add(value);
+    return this;
+  }
+  
+
+
+
+  public JSONArray append(JSONObject value)
+  {
+    myArrayList.add(value);
+    return this;
+  }
+  
+
+
+
+
+
+
+
+  protected JSONArray append(Object value)
+  {
+    myArrayList.add(value);
+    return this;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public JSONArray setString(int index, String value)
+  {
+    set(index, value);
+    return this;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public JSONArray setInt(int index, int value)
+  {
+    set(index, Integer.valueOf(value));
+    return this;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public JSONArray setLong(int index, long value)
+  {
+    return set(index, Long.valueOf(value));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public JSONArray setFloat(int index, float value)
+  {
+    return setDouble(index, value);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public JSONArray setDouble(int index, double value)
+  {
+    return set(index, Double.valueOf(value));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public JSONArray setBoolean(int index, boolean value)
+  {
+    return set(index, value ? Boolean.TRUE : Boolean.FALSE);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public JSONArray setJSONArray(int index, JSONArray value)
+  {
+    set(index, value);
+    return this;
+  }
+  
+
+
+
+
+
+
+
+
+  public JSONArray setJSONObject(int index, JSONObject value)
+  {
+    set(index, value);
+    return this;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  private JSONArray set(int index, Object value)
+  {
+    JSONObject.testValidity(value);
+    if (index < 0) {
+      throw new RuntimeException("JSONArray[" + index + "] not found.");
+    }
+    if (index < size()) {
+      myArrayList.set(index, value);
+    } else {
+      while (index != size()) {
+        append(JSONObject.NULL);
+      }
+      append(value);
+    }
+    return this;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public int size()
+  {
+    return myArrayList.size();
+  }
+  
+
+
+
+
+
+
+  public boolean isNull(int index)
+  {
+    return JSONObject.NULL.equals(opt(index));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public Object remove(int index)
+  {
+    Object o = opt(index);
+    myArrayList.remove(index);
+    return o;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean save(File file, String options)
+  {
+    PrintWriter writer = PApplet.createWriter(file);
+    boolean success = write(writer, options);
+    writer.close();
+    return success;
+  }
+  
+  public boolean write(PrintWriter output)
+  {
+    return write(output, null);
+  }
+  
+  public boolean write(PrintWriter output, String options)
+  {
+    int indentFactor = 2;
+    if (options != null) {
+      String[] opts = PApplet.split(options, ',');
+      for (String opt : opts) {
+        if (opt.equals("compact")) {
+          indentFactor = -1;
+        } else if (opt.startsWith("indent=")) {
+          indentFactor = PApplet.parseInt(opt.substring(7), -2);
+          if (indentFactor == -2) {
+            throw new IllegalArgumentException("Could not read a number from " + opt);
+          }
+        } else {
+          System.err.println("Ignoring " + opt);
+        }
+      }
+    }
+    output.print(format(indentFactor));
+    output.flush();
+    return true;
+  }
+  
+
+
+
+
+
+  public String toString()
+  {
+    try
+    {
+      return format(2);
+    } catch (Exception localException) {}
+    return null;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public String format(int indentFactor)
+  {
+    StringWriter sw = new StringWriter();
+    synchronized (sw.getBuffer()) {
+      return writeInternal(sw, indentFactor, 0).toString();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected Writer writeInternal(Writer writer, int indentFactor, int indent)
+  {
+    try
+    {
+      boolean commanate = false;
+      int length = size();
+      writer.write(91);
+      
+
+      int thisFactor = indentFactor == -1 ? 0 : indentFactor;
+      
+      if (length == 1) {
+        JSONObject.writeValue(writer, myArrayList.get(0), 
+          indentFactor, indent);
+      }
+      else if (length != 0) {
+        int newIndent = indent + thisFactor;
+        
+        for (int i = 0; i < length; i++) {
+          if (commanate) {
+            writer.write(44);
+          }
+          if (indentFactor != -1) {
+            writer.write(10);
+          }
+          JSONObject.indent(writer, newIndent);
+          
+
+          JSONObject.writeValue(writer, myArrayList.get(i), 
+            indentFactor, newIndent);
+          commanate = true;
+        }
+        if (indentFactor != -1) {
+          writer.write(10);
+        }
+        JSONObject.indent(writer, indent);
+      }
+      writer.write(93);
+      return writer;
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public String join(String separator)
+  {
+    int len = size();
+    StringBuilder sb = new StringBuilder();
+    
+    for (int i = 0; i < len; i++) {
+      if (i > 0) {
+        sb.append(separator);
+      }
+      sb.append(JSONObject.valueToString(myArrayList.get(i)));
+    }
+    return sb.toString();
+  }
+}

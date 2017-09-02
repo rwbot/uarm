@@ -1,0 +1,1603 @@
+package jogamp.opengl.glu.mipmap;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.ShortBuffer;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class BuildMipmap
+{
+  private static final boolean DEBUG = Debug.debug("BuildMipmap");
+  private static final boolean VERBOSE = Debug.verbose();
+  
+
+  private static final int TARGA_HEADER_SIZE = 18;
+  
+
+  public BuildMipmap() {}
+  
+
+  public static int gluBuild1DMipmapLevelsCore(GL paramGL, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, ByteBuffer paramByteBuffer)
+  {
+    Object localObject1 = null;
+    
+    Object localObject2 = null;
+    Object localObject3 = null;
+    
+
+
+    PixelStorageModes localPixelStorageModes = new PixelStorageModes();
+    
+    assert (Mipmap.checkMipmapArgs(paramInt2, paramInt5, paramInt6) == 0);
+    assert (paramInt3 >= 1);
+    
+    int i = paramInt4;
+    int k = Mipmap.computeLog(i);
+    
+    k += paramInt7;
+    
+    Mipmap.retrieveStoreModes(paramGL, localPixelStorageModes);
+    try
+    {
+      localObject1 = Buffers.newDirectByteBuffer(Mipmap.image_size(paramInt3, 1, paramInt5, 5123)).asShortBuffer();
+    } catch (OutOfMemoryError localOutOfMemoryError1) {
+      return 100902;
+    }
+    int m = paramInt3;
+    
+    Image.fill_image(localPixelStorageModes, paramInt3, 1, paramInt5, paramInt6, Mipmap.is_index(paramInt5), paramByteBuffer, (ShortBuffer)localObject1);
+    int i1 = Mipmap.elements_per_group(paramInt5, paramInt6);
+    paramGL.glPixelStorei(3317, 2);
+    paramGL.glPixelStorei(3315, 0);
+    paramGL.glPixelStorei(3316, 0);
+    paramGL.glPixelStorei(3314, 0);
+    
+
+    paramGL.glPixelStorei(3312, 0);
+    
+    for (int j = paramInt7; j <= k; j++) {
+      if (m == i)
+      {
+        if ((paramInt8 <= j) && (j <= paramInt9)) {
+          paramGL.getGL2().glTexImage1D(paramInt1, j, paramInt2, m, 0, paramInt5, 5123, (Buffer)localObject1);
+        }
+      }
+      else {
+        if (localObject2 == null) {
+          int n = Mipmap.image_size(i, 1, paramInt5, 5123);
+          try {
+            localObject2 = Buffers.newDirectByteBuffer(n).asShortBuffer();
+          } catch (OutOfMemoryError localOutOfMemoryError2) {
+            paramGL.glPixelStorei(3317, localPixelStorageModes.getUnpackAlignment());
+            paramGL.glPixelStorei(3315, localPixelStorageModes.getUnpackSkipRows());
+            paramGL.glPixelStorei(3316, localPixelStorageModes.getUnpackSkipPixels());
+            paramGL.glPixelStorei(3314, localPixelStorageModes.getUnpackRowLength());
+            paramGL.glPixelStorei(3312, localPixelStorageModes.getUnpackSwapBytes() ? 1 : 0);
+            return 100902;
+          }
+        }
+        ScaleInternal.scale_internal(i1, m, 1, (ShortBuffer)localObject1, i, 1, (ShortBuffer)localObject2);
+        
+        localObject3 = localObject2;
+        localObject2 = localObject1;
+        localObject1 = localObject3;
+        
+        m = i;
+        if ((paramInt8 <= j) && (j <= paramInt9)) {
+          paramGL.getGL2().glTexImage1D(paramInt1, j, paramInt2, m, 0, paramInt5, 5123, (Buffer)localObject1);
+        }
+      }
+      
+      if (i > 1) {
+        i /= 2;
+      }
+    }
+    paramGL.glPixelStorei(3317, localPixelStorageModes.getUnpackAlignment());
+    paramGL.glPixelStorei(3315, localPixelStorageModes.getUnpackSkipRows());
+    paramGL.glPixelStorei(3316, localPixelStorageModes.getUnpackSkipPixels());
+    paramGL.glPixelStorei(3314, localPixelStorageModes.getUnpackRowLength());
+    paramGL.glPixelStorei(3312, localPixelStorageModes.getUnpackSwapBytes() ? 1 : 0);
+    
+    return 0;
+  }
+  
+  public static int bitmapBuild2DMipmaps(GL paramGL, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, ByteBuffer paramByteBuffer)
+  {
+    int[] arrayOfInt1 = new int[1];
+    int[] arrayOfInt2 = new int[1];
+    
+    Object localObject1 = null;
+    
+
+    Object localObject2 = null;
+    Object localObject3 = null;
+    
+
+
+    PixelStorageModes localPixelStorageModes = new PixelStorageModes();
+    
+    Mipmap.retrieveStoreModes(paramGL, localPixelStorageModes);
+    
+    Mipmap.closestFit(paramGL, paramInt1, paramInt3, paramInt4, paramInt2, paramInt5, paramInt6, arrayOfInt1, arrayOfInt2);
+    
+    int j = Mipmap.computeLog(arrayOfInt1[0]);
+    int i = Mipmap.computeLog(arrayOfInt2[0]);
+    if (i > j) {
+      j = i;
+    }
+    
+    try
+    {
+      localObject1 = Buffers.newDirectByteBuffer(Mipmap.image_size(paramInt3, paramInt4, paramInt5, 5123)).asShortBuffer();
+    } catch (OutOfMemoryError localOutOfMemoryError1) {
+      return 100902;
+    }
+    int k = paramInt3;
+    int m = paramInt4;
+    
+    Image.fill_image(localPixelStorageModes, paramInt3, paramInt4, paramInt5, paramInt6, Mipmap.is_index(paramInt5), paramByteBuffer, (ShortBuffer)localObject1);
+    
+    int i1 = Mipmap.elements_per_group(paramInt5, paramInt6);
+    paramGL.glPixelStorei(3317, 2);
+    paramGL.glPixelStorei(3315, 0);
+    paramGL.glPixelStorei(3316, 0);
+    paramGL.glPixelStorei(3314, 0);
+    
+
+    paramGL.glPixelStorei(3312, 0);
+    
+    for (i = 0; i < j; i++) {
+      if ((k == arrayOfInt1[0]) && (m == arrayOfInt2[0])) {
+        ((ShortBuffer)localObject1).rewind();
+        paramGL.glTexImage2D(paramInt1, i, paramInt2, k, m, 0, paramInt5, 5123, (Buffer)localObject1);
+      }
+      else {
+        if (localObject2 == null) {
+          int n = Mipmap.image_size(arrayOfInt1[0], arrayOfInt2[0], paramInt5, 5123);
+          try {
+            localObject2 = Buffers.newDirectByteBuffer(n).asShortBuffer();
+          } catch (OutOfMemoryError localOutOfMemoryError2) {
+            paramGL.glPixelStorei(3317, localPixelStorageModes.getUnpackAlignment());
+            paramGL.glPixelStorei(3315, localPixelStorageModes.getUnpackSkipRows());
+            paramGL.glPixelStorei(3316, localPixelStorageModes.getUnpackSkipPixels());
+            paramGL.glPixelStorei(3314, localPixelStorageModes.getUnpackRowLength());
+            paramGL.glPixelStorei(3312, localPixelStorageModes.getUnpackSwapBytes() ? 1 : 0);
+            return 100902;
+          }
+        }
+        ScaleInternal.scale_internal(i1, k, m, (ShortBuffer)localObject1, arrayOfInt1[0], arrayOfInt2[0], (ShortBuffer)localObject2);
+        
+
+        localObject3 = localObject2;
+        localObject2 = localObject1;
+        localObject1 = localObject3;
+        
+        k = arrayOfInt1[0];
+        m = arrayOfInt2[0];
+        ((ShortBuffer)localObject1).rewind();
+        paramGL.glTexImage2D(paramInt1, i, paramInt2, k, m, 0, paramInt5, 5123, (Buffer)localObject1);
+      }
+      
+      if (arrayOfInt2[0] > 1) {
+        arrayOfInt1[0] /= 2;
+      }
+      if (arrayOfInt2[0] > 1) {
+        arrayOfInt2[0] /= 2;
+      }
+    }
+    paramGL.glPixelStorei(3317, localPixelStorageModes.getUnpackAlignment());
+    paramGL.glPixelStorei(3315, localPixelStorageModes.getUnpackSkipRows());
+    paramGL.glPixelStorei(3316, localPixelStorageModes.getUnpackSkipPixels());
+    paramGL.glPixelStorei(3314, localPixelStorageModes.getUnpackRowLength());
+    paramGL.glPixelStorei(3312, localPixelStorageModes.getUnpackSwapBytes() ? 1 : 0);
+    
+    return 0;
+  }
+  
+
+
+
+
+
+
+  public static int gluBuild2DMipmapLevelsCore(GL paramGL, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, int paramInt10, int paramInt11, ByteBuffer paramByteBuffer)
+  {
+    Object localObject1 = null;
+    Object localObject2 = null;
+    Object localObject3 = null;
+    
+
+    Object localObject4 = null;
+    
+
+
+    int i2 = -1;
+    
+
+
+
+    PixelStorageModes localPixelStorageModes = new PixelStorageModes();
+    
+    assert (Mipmap.checkMipmapArgs(paramInt2, paramInt7, paramInt8) == 0);
+    assert ((paramInt3 >= 1) && (paramInt4 >= 1));
+    
+    if (paramInt8 == 6656) {
+      return bitmapBuild2DMipmaps(paramGL, paramInt1, paramInt2, paramInt3, paramInt4, paramInt7, paramInt8, paramByteBuffer);
+    }
+    
+    int i = paramInt5;
+    int j = paramInt6;
+    int m = Mipmap.computeLog(i);
+    int k = Mipmap.computeLog(j);
+    if (k > m) {
+      m = k;
+    }
+    
+    m += paramInt9;
+    
+    Mipmap.retrieveStoreModes(paramGL, localPixelStorageModes);
+    boolean bool = localPixelStorageModes.getUnpackSwapBytes();
+    int i1 = Mipmap.elements_per_group(paramInt7, paramInt8);
+    int i3; if (localPixelStorageModes.getUnpackRowLength() > 0) {
+      i3 = localPixelStorageModes.getUnpackRowLength();
+    } else {
+      i3 = paramInt3;
+    }
+    
+    int i4 = Mipmap.bytes_per_element(paramInt8);
+    int i5 = i4 * i1;
+    if (i4 == 1) {
+      bool = false;
+    }
+    
+    int i6 = i3 * i5;
+    int i7 = i6 % localPixelStorageModes.getUnpackAlignment();
+    if (i7 != 0) {
+      i6 += localPixelStorageModes.getUnpackAlignment() - i7;
+    }
+    
+    i2 = localPixelStorageModes.getUnpackSkipRows() * i6 + localPixelStorageModes.getUnpackSkipPixels() * i5;
+    paramByteBuffer.position(i2);
+    
+    paramGL.glPixelStorei(3315, 0);
+    paramGL.glPixelStorei(3316, 0);
+    paramGL.glPixelStorei(3314, 0);
+    
+    k = paramInt9;
+    int i10;
+    int n;
+    int i9; if ((paramInt3 == i) && (paramInt4 == j))
+    {
+      if ((paramInt10 <= k) && (k <= paramInt11)) {
+        paramByteBuffer.rewind();
+        paramGL.glTexImage2D(paramInt1, k, paramInt2, paramInt3, paramInt4, 0, paramInt7, paramInt8, paramByteBuffer);
+      }
+      if (m == 0) {
+        paramGL.glPixelStorei(3317, localPixelStorageModes.getUnpackAlignment());
+        paramGL.glPixelStorei(3315, localPixelStorageModes.getUnpackSkipRows());
+        paramGL.glPixelStorei(3316, localPixelStorageModes.getUnpackSkipPixels());
+        paramGL.glPixelStorei(3314, localPixelStorageModes.getUnpackRowLength());
+        paramGL.glPixelStorei(3312, localPixelStorageModes.getUnpackSwapBytes() ? 1 : 0);
+        return 0;
+      }
+      int i8 = i / 2;
+      i10 = j / 2;
+      
+
+      if (i8 < 1) {
+        i8 = 1;
+      }
+      if (i10 < 1) {
+        i10 = 1;
+      }
+      n = Mipmap.image_size(i8, i10, paramInt7, paramInt8);
+      try
+      {
+        switch (paramInt8) {
+        case 5120: 
+        case 5121: 
+        case 5122: 
+        case 5123: 
+        case 5124: 
+        case 5125: 
+        case 5126: 
+        case 32818: 
+        case 32819: 
+        case 32820: 
+        case 32821: 
+        case 33634: 
+        case 33635: 
+        case 33636: 
+        case 33637: 
+        case 33638: 
+        case 33639: 
+        case 33640: 
+        case 36342: 
+          localObject2 = Buffers.newDirectByteBuffer(n);
+          break;
+        default: 
+          return 100900;
+        }
+      } catch (OutOfMemoryError localOutOfMemoryError2) {
+        paramGL.glPixelStorei(3317, localPixelStorageModes.getUnpackAlignment());
+        paramGL.glPixelStorei(3315, localPixelStorageModes.getUnpackSkipRows());
+        paramGL.glPixelStorei(3316, localPixelStorageModes.getUnpackSkipPixels());
+        paramGL.glPixelStorei(3314, localPixelStorageModes.getUnpackRowLength());
+        paramGL.glPixelStorei(3312, localPixelStorageModes.getUnpackSwapBytes() ? 1 : 0);
+        return 100902;
+      }
+      if (localObject2 != null) {
+        switch (paramInt8) {
+        case 5121: 
+          HalveImage.halveImage_ubyte(i1, paramInt3, paramInt4, paramByteBuffer, (ByteBuffer)localObject2, i4, i6, i5);
+          break;
+        case 5120: 
+          HalveImage.halveImage_byte(i1, paramInt3, paramInt4, paramByteBuffer, (ByteBuffer)localObject2, i4, i6, i5);
+          break;
+        case 5123: 
+          HalveImage.halveImage_ushort(i1, paramInt3, paramInt4, paramByteBuffer, ((ByteBuffer)localObject2).asShortBuffer(), i4, i6, i5, bool);
+          break;
+        case 5122: 
+          HalveImage.halveImage_short(i1, paramInt3, paramInt4, paramByteBuffer, ((ByteBuffer)localObject2).asShortBuffer(), i4, i6, i5, bool);
+          break;
+        case 5125: 
+          HalveImage.halveImage_uint(i1, paramInt3, paramInt4, paramByteBuffer, ((ByteBuffer)localObject2).asIntBuffer(), i4, i6, i5, bool);
+          break;
+        case 5124: 
+          HalveImage.halveImage_int(i1, paramInt3, paramInt4, paramByteBuffer, ((ByteBuffer)localObject2).asIntBuffer(), i4, i6, i5, bool);
+          break;
+        case 5126: 
+          HalveImage.halveImage_float(i1, paramInt3, paramInt4, paramByteBuffer, ((ByteBuffer)localObject2).asFloatBuffer(), i4, i6, i5, bool);
+          break;
+        case 32818: 
+          assert (paramInt7 == 6407);
+          HalveImage.halveImagePackedPixel(3, new Extract332(), paramInt3, paramInt4, paramByteBuffer, (ByteBuffer)localObject2, i4, i6, bool);
+          break;
+        case 33634: 
+          assert (paramInt7 == 6407);
+          HalveImage.halveImagePackedPixel(3, new Extract233rev(), paramInt3, paramInt4, paramByteBuffer, (ByteBuffer)localObject2, i4, i6, bool);
+          break;
+        case 33635: 
+          HalveImage.halveImagePackedPixel(3, new Extract565(), paramInt3, paramInt4, paramByteBuffer, (ByteBuffer)localObject2, i4, i6, bool);
+          break;
+        case 33636: 
+          HalveImage.halveImagePackedPixel(3, new Extract565rev(), paramInt3, paramInt4, paramByteBuffer, (ByteBuffer)localObject2, i4, i6, bool);
+          break;
+        case 32819: 
+          HalveImage.halveImagePackedPixel(4, new Extract4444(), paramInt3, paramInt4, paramByteBuffer, (ByteBuffer)localObject2, i4, i6, bool);
+          break;
+        case 33637: 
+          HalveImage.halveImagePackedPixel(4, new Extract4444rev(), paramInt3, paramInt4, paramByteBuffer, (ByteBuffer)localObject2, i4, i6, bool);
+          break;
+        case 32820: 
+          HalveImage.halveImagePackedPixel(4, new Extract5551(), paramInt3, paramInt4, paramByteBuffer, (ByteBuffer)localObject2, i4, i6, bool);
+          break;
+        case 33638: 
+          HalveImage.halveImagePackedPixel(4, new Extract1555rev(), paramInt3, paramInt4, paramByteBuffer, (ByteBuffer)localObject2, i4, i6, bool);
+          break;
+        case 32821: 
+          HalveImage.halveImagePackedPixel(4, new Extract8888(), paramInt3, paramInt4, paramByteBuffer, (ByteBuffer)localObject2, i4, i6, bool);
+          break;
+        case 33639: 
+          HalveImage.halveImagePackedPixel(4, new Extract8888rev(), paramInt3, paramInt4, paramByteBuffer, (ByteBuffer)localObject2, i4, i6, bool);
+          break;
+        case 36342: 
+          HalveImage.halveImagePackedPixel(4, new Extract1010102(), paramInt3, paramInt4, paramByteBuffer, (ByteBuffer)localObject2, i4, i6, bool);
+          break;
+        case 33640: 
+          HalveImage.halveImagePackedPixel(4, new Extract2101010rev(), paramInt3, paramInt4, paramByteBuffer, (ByteBuffer)localObject2, i4, i6, bool);
+          break;
+        default: 
+          if (!$assertionsDisabled) throw new AssertionError();
+          break;
+        }
+      }
+      i = paramInt3 / 2;
+      j = paramInt4 / 2;
+      
+      if (i < 1) {
+        i = 1;
+      }
+      if (j < 1) {
+        j = 1;
+      }
+      
+      bool = false;
+      i6 = i * i5;
+      n = Mipmap.image_size(i, j, paramInt7, paramInt8);
+      
+      localObject3 = localObject1;
+      localObject1 = localObject2;
+      localObject2 = localObject3;
+      try {
+        switch (paramInt8) {
+        case 5120: 
+        case 5121: 
+        case 5122: 
+        case 5123: 
+        case 5124: 
+        case 5125: 
+        case 5126: 
+        case 32818: 
+        case 32819: 
+        case 32820: 
+        case 32821: 
+        case 33634: 
+        case 33635: 
+        case 33636: 
+        case 33637: 
+        case 33638: 
+        case 33639: 
+        case 33640: 
+        case 36342: 
+          localObject2 = Buffers.newDirectByteBuffer(n);
+          break;
+        default: 
+          return 100900;
+        }
+      } catch (OutOfMemoryError localOutOfMemoryError3) {
+        paramGL.glPixelStorei(3317, localPixelStorageModes.getUnpackAlignment());
+        paramGL.glPixelStorei(3315, localPixelStorageModes.getUnpackSkipRows());
+        paramGL.glPixelStorei(3316, localPixelStorageModes.getUnpackSkipPixels());
+        paramGL.glPixelStorei(3314, localPixelStorageModes.getUnpackRowLength());
+        paramGL.glPixelStorei(3312, localPixelStorageModes.getUnpackSwapBytes() ? 1 : 0);
+        return 100902;
+      }
+      
+      k = paramInt9 + 1;
+    } else {
+      n = Mipmap.image_size(i, j, paramInt7, paramInt8);
+      try {
+        switch (paramInt8) {
+        case 5120: 
+        case 5121: 
+        case 5122: 
+        case 5123: 
+        case 5124: 
+        case 5125: 
+        case 5126: 
+        case 32818: 
+        case 32819: 
+        case 32820: 
+        case 32821: 
+        case 33634: 
+        case 33635: 
+        case 33636: 
+        case 33637: 
+        case 33638: 
+        case 33639: 
+        case 33640: 
+        case 36342: 
+          localObject2 = Buffers.newDirectByteBuffer(n);
+          break;
+        default: 
+          return 100900;
+        }
+      } catch (OutOfMemoryError localOutOfMemoryError1) {
+        paramGL.glPixelStorei(3317, localPixelStorageModes.getUnpackAlignment());
+        paramGL.glPixelStorei(3315, localPixelStorageModes.getUnpackSkipRows());
+        paramGL.glPixelStorei(3316, localPixelStorageModes.getUnpackSkipPixels());
+        paramGL.glPixelStorei(3314, localPixelStorageModes.getUnpackRowLength());
+        paramGL.glPixelStorei(3312, localPixelStorageModes.getUnpackSwapBytes() ? 1 : 0);
+        return 100902;
+      }
+      paramByteBuffer.position(i2);
+      switch (paramInt8) {
+      case 5121: 
+        ScaleInternal.scale_internal_ubyte(i1, paramInt3, paramInt4, paramByteBuffer, i, j, (ByteBuffer)localObject2, i4, i6, i5);
+        
+        break;
+      case 5120: 
+        ScaleInternal.scale_internal_byte(i1, paramInt3, paramInt4, paramByteBuffer, i, j, (ByteBuffer)localObject2, i4, i6, i5);
+        
+        break;
+      case 5123: 
+        ScaleInternal.scale_internal_ushort(i1, paramInt3, paramInt4, paramByteBuffer, i, j, ((ByteBuffer)localObject2)
+          .asShortBuffer(), i4, i6, i5, bool);
+        break;
+      case 5122: 
+        ScaleInternal.scale_internal_ushort(i1, paramInt3, paramInt4, paramByteBuffer, i, j, ((ByteBuffer)localObject2)
+          .asShortBuffer(), i4, i6, i5, bool);
+        break;
+      case 5125: 
+        ScaleInternal.scale_internal_uint(i1, paramInt3, paramInt4, paramByteBuffer, i, j, ((ByteBuffer)localObject2)
+          .asIntBuffer(), i4, i6, i5, bool);
+        break;
+      case 5124: 
+        ScaleInternal.scale_internal_int(i1, paramInt3, paramInt4, paramByteBuffer, i, j, ((ByteBuffer)localObject2)
+          .asIntBuffer(), i4, i6, i5, bool);
+        break;
+      case 5126: 
+        ScaleInternal.scale_internal_float(i1, paramInt3, paramInt4, paramByteBuffer, i, j, ((ByteBuffer)localObject2)
+          .asFloatBuffer(), i4, i6, i5, bool);
+        break;
+      case 32818: 
+        ScaleInternal.scaleInternalPackedPixel(3, new Extract332(), paramInt3, paramInt4, paramByteBuffer, i, j, (ByteBuffer)localObject2, i4, i6, bool);
+        
+        break;
+      case 33634: 
+        ScaleInternal.scaleInternalPackedPixel(3, new Extract233rev(), paramInt3, paramInt4, paramByteBuffer, i, j, (ByteBuffer)localObject2, i4, i6, bool);
+        
+        break;
+      case 33635: 
+        ScaleInternal.scaleInternalPackedPixel(3, new Extract565(), paramInt3, paramInt4, paramByteBuffer, i, j, (ByteBuffer)localObject2, i4, i6, bool);
+        
+        break;
+      case 33636: 
+        ScaleInternal.scaleInternalPackedPixel(3, new Extract565rev(), paramInt3, paramInt4, paramByteBuffer, i, j, (ByteBuffer)localObject2, i4, i6, bool);
+        
+        break;
+      case 32819: 
+        ScaleInternal.scaleInternalPackedPixel(4, new Extract4444(), paramInt3, paramInt4, paramByteBuffer, i, j, (ByteBuffer)localObject2, i4, i6, bool);
+        
+        break;
+      case 33637: 
+        ScaleInternal.scaleInternalPackedPixel(4, new Extract4444rev(), paramInt3, paramInt4, paramByteBuffer, i, j, (ByteBuffer)localObject2, i4, i6, bool);
+        
+        break;
+      case 32820: 
+        ScaleInternal.scaleInternalPackedPixel(4, new Extract5551(), paramInt3, paramInt4, paramByteBuffer, i, j, (ByteBuffer)localObject2, i4, i6, bool);
+        
+        break;
+      case 33638: 
+        ScaleInternal.scaleInternalPackedPixel(4, new Extract1555rev(), paramInt3, paramInt4, paramByteBuffer, i, j, (ByteBuffer)localObject2, i4, i6, bool);
+        
+        break;
+      case 32821: 
+        ScaleInternal.scaleInternalPackedPixel(4, new Extract8888(), paramInt3, paramInt4, paramByteBuffer, i, j, (ByteBuffer)localObject2, i4, i6, bool);
+        
+        break;
+      case 33639: 
+        ScaleInternal.scaleInternalPackedPixel(4, new Extract8888rev(), paramInt3, paramInt4, paramByteBuffer, i, j, (ByteBuffer)localObject2, i4, i6, bool);
+        
+        break;
+      case 36342: 
+        ScaleInternal.scaleInternalPackedPixel(4, new Extract1010102(), paramInt3, paramInt4, paramByteBuffer, i, j, (ByteBuffer)localObject2, i4, i6, bool);
+        
+        break;
+      case 33640: 
+        ScaleInternal.scaleInternalPackedPixel(4, new Extract2101010rev(), paramInt3, paramInt4, paramByteBuffer, i, j, (ByteBuffer)localObject2, i4, i6, bool);
+        
+        break;
+      default: 
+        if (!$assertionsDisabled) throw new AssertionError();
+        break;
+      }
+      bool = false;
+      i6 = i * i5;
+      
+      localObject3 = localObject1;
+      localObject1 = localObject2;
+      localObject2 = localObject3;
+      
+      if (m != 0) {
+        i9 = i / 2;
+        i10 = j / 2;
+        if (i9 < 1) {
+          i9 = 1;
+        }
+        if (i10 < 1) {
+          i10 = 1;
+        }
+        
+        n = Mipmap.image_size(i9, i10, paramInt7, paramInt8);
+        try {
+          switch (paramInt8) {
+          case 5120: 
+          case 5121: 
+          case 5122: 
+          case 5123: 
+          case 5124: 
+          case 5125: 
+          case 5126: 
+          case 32818: 
+          case 32819: 
+          case 32820: 
+          case 32821: 
+          case 33634: 
+          case 33635: 
+          case 33636: 
+          case 33637: 
+          case 33638: 
+          case 33639: 
+          case 33640: 
+          case 36342: 
+            localObject2 = Buffers.newDirectByteBuffer(n);
+            break;
+          default: 
+            return 100900;
+          }
+        } catch (OutOfMemoryError localOutOfMemoryError4) {
+          paramGL.glPixelStorei(3317, localPixelStorageModes.getUnpackAlignment());
+          paramGL.glPixelStorei(3315, localPixelStorageModes.getUnpackSkipRows());
+          paramGL.glPixelStorei(3316, localPixelStorageModes.getUnpackSkipPixels());
+          paramGL.glPixelStorei(3314, localPixelStorageModes.getUnpackRowLength());
+          paramGL.glPixelStorei(3312, localPixelStorageModes.getUnpackSwapBytes() ? 1 : 0);
+          return 100902;
+        }
+      }
+      
+      k = paramInt9;
+    }
+    
+    paramGL.glPixelStorei(3312, 0);
+    if ((paramInt10 <= k) && (k <= paramInt11)) {
+      localObject1.rewind();
+      paramGL.glTexImage2D(paramInt1, k, paramInt2, i, j, 0, paramInt7, paramInt8, localObject1);
+      if (DEBUG) {
+        System.err.println("GL Error(" + k + "): " + paramGL.glGetError());
+        if (VERBOSE) {
+          localObject1.limit(Mipmap.image_size(i, j, paramInt7, paramInt8));
+          writeTargaFile("glu2DMipmapJ" + k + ".tga", localObject1, i, j);
+          
+          localObject1.clear();
+        }
+      }
+    }
+    
+    k++;
+    for (; k <= m; k++) {
+      localObject1.rewind();
+      ((ByteBuffer)localObject2).rewind();
+      switch (paramInt8) {
+      case 5121: 
+        HalveImage.halveImage_ubyte(i1, i, j, localObject1, (ByteBuffer)localObject2, i4, i6, i5);
+        break;
+      case 5120: 
+        HalveImage.halveImage_byte(i1, i, j, localObject1, (ByteBuffer)localObject2, i4, i6, i5);
+        break;
+      case 5123: 
+        HalveImage.halveImage_ushort(i1, i, j, localObject1, ((ByteBuffer)localObject2).asShortBuffer(), i4, i6, i5, bool);
+        break;
+      case 5122: 
+        HalveImage.halveImage_short(i1, i, j, localObject1, ((ByteBuffer)localObject2).asShortBuffer(), i4, i6, i5, bool);
+        break;
+      case 5125: 
+        HalveImage.halveImage_uint(i1, i, j, localObject1, ((ByteBuffer)localObject2).asIntBuffer(), i4, i6, i5, bool);
+        break;
+      case 5124: 
+        HalveImage.halveImage_int(i1, i, j, localObject1, ((ByteBuffer)localObject2).asIntBuffer(), i4, i6, i5, bool);
+        break;
+      case 5126: 
+        HalveImage.halveImage_float(i1, i, j, localObject1, ((ByteBuffer)localObject2).asFloatBuffer(), i4, i6, i5, bool);
+        break;
+      case 32818: 
+        assert (paramInt7 == 6407);
+        HalveImage.halveImagePackedPixel(3, new Extract332(), i, j, localObject1, (ByteBuffer)localObject2, i4, i6, bool);
+        break;
+      case 33634: 
+        assert (paramInt7 == 6407);
+        HalveImage.halveImagePackedPixel(3, new Extract233rev(), i, j, localObject1, (ByteBuffer)localObject2, i4, i6, bool);
+        break;
+      case 33635: 
+        HalveImage.halveImagePackedPixel(3, new Extract565(), i, j, localObject1, (ByteBuffer)localObject2, i4, i6, bool);
+        break;
+      case 33636: 
+        HalveImage.halveImagePackedPixel(3, new Extract565rev(), i, j, localObject1, (ByteBuffer)localObject2, i4, i6, bool);
+        break;
+      case 32819: 
+        HalveImage.halveImagePackedPixel(4, new Extract4444(), i, j, localObject1, (ByteBuffer)localObject2, i4, i6, bool);
+        break;
+      case 33637: 
+        HalveImage.halveImagePackedPixel(4, new Extract4444rev(), i, j, localObject1, (ByteBuffer)localObject2, i4, i6, bool);
+        break;
+      case 32820: 
+        HalveImage.halveImagePackedPixel(4, new Extract5551(), i, j, localObject1, (ByteBuffer)localObject2, i4, i6, bool);
+        break;
+      case 33638: 
+        HalveImage.halveImagePackedPixel(4, new Extract1555rev(), i, j, localObject1, (ByteBuffer)localObject2, i4, i6, bool);
+        break;
+      case 32821: 
+        HalveImage.halveImagePackedPixel(4, new Extract8888(), i, j, localObject1, (ByteBuffer)localObject2, i4, i6, bool);
+        break;
+      case 33639: 
+        HalveImage.halveImagePackedPixel(4, new Extract8888rev(), i, j, localObject1, (ByteBuffer)localObject2, i4, i6, bool);
+        break;
+      case 36342: 
+        HalveImage.halveImagePackedPixel(4, new Extract1010102(), i, j, localObject1, (ByteBuffer)localObject2, i4, i6, bool);
+        break;
+      case 33640: 
+        HalveImage.halveImagePackedPixel(4, new Extract2101010rev(), i, j, localObject1, (ByteBuffer)localObject2, i4, i6, bool);
+        break;
+      default: 
+        if (!$assertionsDisabled) { throw new AssertionError();
+        }
+        break;
+      }
+      
+      localObject3 = localObject1;
+      localObject1 = localObject2;
+      localObject2 = localObject3;
+      
+      if (i > 1) {
+        i /= 2;
+        i6 /= 2;
+      }
+      if (j > 1) {
+        j /= 2;
+      }
+      
+      i9 = i6 % localPixelStorageModes.getUnpackAlignment();
+      
+
+      if (i9 == 0)
+      {
+        if ((paramInt10 <= k) && (k <= paramInt11)) {
+          localObject1.rewind();
+          paramGL.glTexImage2D(paramInt1, k, paramInt2, i, j, 0, paramInt7, paramInt8, localObject1);
+          if (DEBUG) {
+            System.err.println("GL Error(" + k + "): " + paramGL.glGetError());
+            if (VERBOSE) {
+              localObject1.limit(Mipmap.image_size(i, j, paramInt7, paramInt8));
+              writeTargaFile("glu2DMipmapJ" + k + ".tga", localObject1, i, j);
+              
+              localObject1.clear();
+            }
+          }
+        }
+      }
+      else {
+        i10 = i6 + localPixelStorageModes.getUnpackAlignment() - i9;
+        
+
+
+
+
+        ByteBuffer localByteBuffer = null;
+        try {
+          localByteBuffer = ByteBuffer.allocateDirect(i10 * j);
+        } catch (OutOfMemoryError localOutOfMemoryError5) {
+          paramGL.glPixelStorei(3317, localPixelStorageModes.getUnpackAlignment());
+          paramGL.glPixelStorei(3315, localPixelStorageModes.getUnpackSkipRows());
+          paramGL.glPixelStorei(3316, localPixelStorageModes.getUnpackSkipPixels());
+          paramGL.glPixelStorei(3314, localPixelStorageModes.getUnpackRowLength());
+          paramGL.glPixelStorei(3312, localPixelStorageModes.getUnpackSwapBytes() ? 1 : 0);
+          return 100902;
+        }
+        localObject1.rewind();
+        
+        for (int i11 = 0; i11 < j; i11++) {
+          localByteBuffer.position(i10 * i11);
+          for (int i12 = 0; i12 < i6; i12++) {
+            localByteBuffer.put(localObject1.get());
+          }
+        }
+        
+
+        if ((paramInt10 <= k) && (k <= paramInt11)) {
+          localByteBuffer.rewind();
+          paramGL.glTexImage2D(paramInt1, k, paramInt2, i, j, 0, paramInt7, paramInt8, localByteBuffer);
+          if (DEBUG) {
+            System.err.println("GL Error(" + k + " padded): " + paramGL.glGetError());
+            if (VERBOSE) {
+              writeTargaFile("glu2DMipmapJ" + k + ".tga", localByteBuffer, i, j);
+            }
+          }
+        }
+      }
+    }
+    
+    paramGL.glPixelStorei(3317, localPixelStorageModes.getUnpackAlignment());
+    paramGL.glPixelStorei(3315, localPixelStorageModes.getUnpackSkipRows());
+    paramGL.glPixelStorei(3316, localPixelStorageModes.getUnpackSkipPixels());
+    paramGL.glPixelStorei(3314, localPixelStorageModes.getUnpackRowLength());
+    paramGL.glPixelStorei(3312, localPixelStorageModes.getUnpackSwapBytes() ? 1 : 0);
+    
+    return 0;
+  }
+  
+  public static int fastBuild2DMipmaps(GL paramGL, PixelStorageModes paramPixelStorageModes, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, ByteBuffer paramByteBuffer)
+  {
+    int[] arrayOfInt1 = new int[1];
+    int[] arrayOfInt2 = new int[1];
+    
+
+
+
+
+
+
+
+
+
+    Mipmap.closestFit(paramGL, paramInt1, paramInt3, paramInt4, paramInt2, paramInt5, paramInt6, arrayOfInt1, arrayOfInt2);
+    
+
+    int j = Mipmap.computeLog(arrayOfInt1[0]);
+    int i = Mipmap.computeLog(arrayOfInt2[0]);
+    if (i > j) {
+      j = i;
+    }
+    
+    int i1 = Mipmap.elements_per_group(paramInt5, paramInt6);
+    
+    Object localObject2 = null;
+    Object localObject1;
+    int k;
+    int m;
+    if ((paramPixelStorageModes.getUnpackSkipRows() == 0) && (paramPixelStorageModes.getUnpackSkipPixels() == 0)) {
+      localObject1 = paramByteBuffer;
+      k = paramInt3;
+      m = paramInt4;
+
+
+    }
+    else
+    {
+
+
+      try
+      {
+
+        localObject1 = Buffers.newDirectByteBuffer(Mipmap.image_size(paramInt3, paramInt4, paramInt5, 5121));
+      } catch (OutOfMemoryError localOutOfMemoryError2) {
+        return 100902;
+      }
+      k = paramInt3;
+      m = paramInt4;
+      
+      int i3;
+      if (paramPixelStorageModes.getUnpackRowLength() > 0) {
+        i3 = paramPixelStorageModes.getUnpackRowLength();
+      } else {
+        i3 = paramInt3;
+      }
+      int i2 = i3 * i1;
+      int i4 = paramInt3 * i1;
+      int i5 = paramPixelStorageModes.getUnpackSkipRows() * i2 + paramPixelStorageModes.getUnpackSkipPixels() * i1;
+      
+      for (int i7 = 0; i7 < paramInt4; i7++) {
+        int i6 = i5;
+        paramByteBuffer.position(i6);
+        for (int i8 = 0; i8 < i4; i8++) {
+          ((ByteBuffer)localObject1).put(paramByteBuffer.get());
+        }
+        i5 += i2;
+      }
+    }
+    
+    paramGL.glPixelStorei(3317, 1);
+    paramGL.glPixelStorei(3315, 0);
+    paramGL.glPixelStorei(3316, 0);
+    paramGL.glPixelStorei(3314, 0);
+    paramGL.glPixelStorei(3312, 0);
+    
+    for (i = 0; i <= j; i++) {
+      if ((k == arrayOfInt1[0]) && (m == arrayOfInt2[0]))
+      {
+        ((ByteBuffer)localObject1).rewind();
+        paramGL.glTexImage2D(paramInt1, i, paramInt2, k, m, 0, paramInt5, 5121, (Buffer)localObject1);
+      }
+      else {
+        if (localObject2 == null) {
+          int n = Mipmap.image_size(arrayOfInt1[0], arrayOfInt2[0], paramInt5, 5121);
+          try {
+            localObject2 = Buffers.newDirectByteBuffer(n);
+          } catch (OutOfMemoryError localOutOfMemoryError1) {
+            paramGL.glPixelStorei(3317, paramPixelStorageModes.getUnpackAlignment());
+            paramGL.glPixelStorei(3315, paramPixelStorageModes.getUnpackSkipRows());
+            paramGL.glPixelStorei(3316, paramPixelStorageModes.getUnpackSkipPixels());
+            paramGL.glPixelStorei(3314, paramPixelStorageModes.getUnpackRowLength());
+            paramGL.glPixelStorei(3312, paramPixelStorageModes.getUnpackSwapBytes() ? 1 : 0);
+            return 100902;
+          }
+        }
+        
+        Object localObject3 = localObject2;
+        localObject2 = localObject1;
+        localObject1 = localObject3;
+        
+        k = arrayOfInt1[0];
+        m = arrayOfInt2[0];
+        ((ByteBuffer)localObject1).rewind();
+        paramGL.glTexImage2D(paramInt1, i, paramInt2, k, m, 0, paramInt5, 5121, (Buffer)localObject1);
+      }
+      
+      if (arrayOfInt1[0] > 1) {
+        arrayOfInt1[0] /= 2;
+      }
+      if (arrayOfInt2[0] > 1) {
+        arrayOfInt2[0] /= 2;
+      }
+    }
+    paramGL.glPixelStorei(3317, paramPixelStorageModes.getUnpackAlignment());
+    paramGL.glPixelStorei(3315, paramPixelStorageModes.getUnpackSkipRows());
+    paramGL.glPixelStorei(3316, paramPixelStorageModes.getUnpackSkipPixels());
+    paramGL.glPixelStorei(3314, paramPixelStorageModes.getUnpackRowLength());
+    paramGL.glPixelStorei(3312, paramPixelStorageModes.getUnpackSwapBytes() ? 1 : 0);
+    
+    return 0;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static int gluBuild3DMipmapLevelsCore(GL paramGL, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, int paramInt10, int paramInt11, int paramInt12, int paramInt13, ByteBuffer paramByteBuffer)
+  {
+    int i3 = -1;
+    
+
+
+
+
+    PixelStorageModes localPixelStorageModes = new PixelStorageModes();
+    
+    assert (Mipmap.checkMipmapArgs(paramInt2, paramInt9, paramInt10) == 0);
+    assert ((paramInt3 >= 1) && (paramInt4 >= 1) && (paramInt5 >= 1));
+    assert (paramInt10 != 6656);
+    Object localObject2;
+    Object localObject1 = localObject2 = null;
+    
+    int i = paramInt6;
+    int j = paramInt7;
+    int k = paramInt8;
+    int n = Mipmap.computeLog(i);
+    int m = Mipmap.computeLog(j);
+    if (m > n) {
+      n = m;
+    }
+    m = Mipmap.computeLog(k);
+    if (m > n) {
+      n = m;
+    }
+    
+    n += paramInt11;
+    
+    Mipmap.retrieveStoreModes3D(paramGL, localPixelStorageModes);
+    boolean bool = localPixelStorageModes.getUnpackSwapBytes();
+    int i2 = Mipmap.elements_per_group(paramInt9, paramInt10);
+    int i4; if (localPixelStorageModes.getUnpackRowLength() > 0) {
+      i4 = localPixelStorageModes.getUnpackRowLength();
+    } else {
+      i4 = paramInt3;
+    }
+    
+    int i5 = Mipmap.bytes_per_element(paramInt10);
+    int i6 = i5 * i2;
+    if (i5 == 1) {
+      bool = false;
+    }
+    
+    int i7;
+    if (localPixelStorageModes.getUnpackImageHeight() > 0) {
+      i7 = localPixelStorageModes.getUnpackImageHeight();
+    } else {
+      i7 = paramInt4;
+    }
+    
+    int i9 = i4 * i6;
+    int i10 = i9 % localPixelStorageModes.getUnpackAlignment();
+    if (i10 != 0) {
+      i9 += localPixelStorageModes.getUnpackAlignment() - i10;
+    }
+    
+    int i8 = i7 * i9;
+    
+    ByteBuffer localByteBuffer = ByteBuffer.wrap(paramByteBuffer.array());
+    
+
+    i3 = localPixelStorageModes.getUnpackSkipRows() * i9 + localPixelStorageModes.getUnpackSkipPixels() * i6 + localPixelStorageModes.getUnpackSkipImages() * i8;
+    localByteBuffer.position(i3);
+    
+    paramGL.glPixelStorei(3315, 0);
+    paramGL.glPixelStorei(3316, 0);
+    paramGL.glPixelStorei(3314, 0);
+    paramGL.glPixelStorei(32877, 0);
+    paramGL.glPixelStorei(32878, 0);
+    
+    m = paramInt11;
+    int i13;
+    int i14; int i1; Object localObject3; if ((paramInt3 == i) && (paramInt4 == j) && (paramInt5 == k))
+    {
+      if ((paramInt12 <= m) && (m <= paramInt13)) {
+        paramGL.getGL2().glTexImage3D(paramInt1, m, paramInt2, paramInt3, paramInt4, paramInt5, 0, paramInt9, paramInt10, localByteBuffer);
+      }
+      
+      if (n == 0) {
+        paramGL.glPixelStorei(3317, localPixelStorageModes.getUnpackAlignment());
+        paramGL.glPixelStorei(3315, localPixelStorageModes.getUnpackSkipRows());
+        paramGL.glPixelStorei(3316, localPixelStorageModes.getUnpackSkipPixels());
+        paramGL.glPixelStorei(3314, localPixelStorageModes.getUnpackRowLength());
+        paramGL.glPixelStorei(3312, localPixelStorageModes.getUnpackSwapBytes() ? 1 : 0);
+        paramGL.glPixelStorei(32877, localPixelStorageModes.getUnpackSkipImages());
+        paramGL.glPixelStorei(32878, localPixelStorageModes.getUnpackImageHeight());
+        return 0;
+      }
+      int i11 = i / 2;
+      i13 = j / 2;
+      i14 = k / 2;
+      
+
+      if (i11 < 1) {
+        i11 = 1;
+      }
+      if (i13 < 1) {
+        i13 = 1;
+      }
+      if (i14 < 1) {
+        i14 = 1;
+      }
+      i1 = Mipmap.imageSize3D(i11, i13, i14, paramInt9, paramInt10);
+      try {
+        switch (paramInt10) {
+        case 5120: 
+        case 5121: 
+        case 5122: 
+        case 5123: 
+        case 5124: 
+        case 5125: 
+        case 5126: 
+        case 32818: 
+        case 32819: 
+        case 32820: 
+        case 32821: 
+        case 33634: 
+        case 33635: 
+        case 33636: 
+        case 33637: 
+        case 33638: 
+        case 33639: 
+        case 33640: 
+        case 36342: 
+          localObject2 = Buffers.newDirectByteBuffer(i1);
+          break;
+        default: 
+          return 100900;
+        }
+      } catch (OutOfMemoryError localOutOfMemoryError2) {
+        paramGL.glPixelStorei(3317, localPixelStorageModes.getUnpackAlignment());
+        paramGL.glPixelStorei(3315, localPixelStorageModes.getUnpackSkipRows());
+        paramGL.glPixelStorei(3316, localPixelStorageModes.getUnpackSkipPixels());
+        paramGL.glPixelStorei(3314, localPixelStorageModes.getUnpackRowLength());
+        paramGL.glPixelStorei(3312, localPixelStorageModes.getUnpackSwapBytes() ? 1 : 0);
+        paramGL.glPixelStorei(32877, localPixelStorageModes.getUnpackSkipImages());
+        paramGL.glPixelStorei(32878, localPixelStorageModes.getUnpackImageHeight());
+        return 100902;
+      }
+      
+      if (localObject2 != null) {
+        switch (paramInt10) {
+        case 5121: 
+          if (paramInt5 > 1) {
+            HalveImage.halveImage3D(i2, new ExtractUByte(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i6, i9, i8, bool);
+          }
+          else
+          {
+            HalveImage.halveImage_ubyte(i2, paramInt3, paramInt4, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i6);
+          }
+          
+          break;
+        case 5120: 
+          if (paramInt5 > 1) {
+            HalveImage.halveImage3D(i2, new ExtractSByte(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i6, i9, i8, bool);
+          }
+          else
+          {
+            HalveImage.halveImage_byte(i2, paramInt3, paramInt4, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i6);
+          }
+          
+          break;
+        case 5123: 
+          if (paramInt5 > 1) {
+            HalveImage.halveImage3D(i2, new ExtractUShort(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i6, i9, i8, bool);
+          }
+          else
+          {
+            HalveImage.halveImage_ushort(i2, paramInt3, paramInt4, localByteBuffer, ((ByteBuffer)localObject2)
+              .asShortBuffer(), i5, i9, i6, bool);
+          }
+          break;
+        case 5122: 
+          if (paramInt5 > 1) {
+            HalveImage.halveImage3D(i2, new ExtractSShort(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i6, i9, i8, bool);
+          }
+          else
+          {
+            HalveImage.halveImage_short(i2, paramInt3, paramInt4, localByteBuffer, ((ByteBuffer)localObject2)
+              .asShortBuffer(), i5, i9, i6, bool);
+          }
+          break;
+        case 5125: 
+          if (paramInt5 > 1) {
+            HalveImage.halveImage3D(i2, new ExtractUInt(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i6, i9, i8, bool);
+          }
+          else
+          {
+            HalveImage.halveImage_uint(i2, paramInt3, paramInt4, localByteBuffer, ((ByteBuffer)localObject2)
+              .asIntBuffer(), i5, i9, i6, bool);
+          }
+          break;
+        case 5124: 
+          if (paramInt5 > 1) {
+            HalveImage.halveImage3D(i2, new ExtractSInt(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i6, i9, i8, bool);
+          }
+          else
+          {
+            HalveImage.halveImage_int(i2, paramInt3, paramInt4, localByteBuffer, ((ByteBuffer)localObject2)
+              .asIntBuffer(), i5, i9, i6, bool);
+          }
+          break;
+        case 5126: 
+          if (paramInt5 > 1) {
+            HalveImage.halveImage3D(i2, new ExtractFloat(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i6, i9, i8, bool);
+          }
+          else
+          {
+            HalveImage.halveImage_float(i2, paramInt3, paramInt4, localByteBuffer, ((ByteBuffer)localObject2)
+              .asFloatBuffer(), i5, i9, i6, bool);
+          }
+          break;
+        case 32818: 
+          assert (paramInt9 == 6407);
+          HalveImage.halveImagePackedPixel3D(3, new Extract332(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+          
+          break;
+        case 33634: 
+          assert (paramInt9 == 6407);
+          HalveImage.halveImagePackedPixel3D(3, new Extract233rev(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+          
+          break;
+        case 33635: 
+          HalveImage.halveImagePackedPixel3D(3, new Extract565(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+          
+          break;
+        case 33636: 
+          HalveImage.halveImagePackedPixel3D(3, new Extract565rev(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+          
+          break;
+        case 32819: 
+          HalveImage.halveImagePackedPixel3D(4, new Extract4444(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+          
+          break;
+        case 33637: 
+          HalveImage.halveImagePackedPixel3D(4, new Extract4444rev(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+          
+          break;
+        case 32820: 
+          HalveImage.halveImagePackedPixel3D(4, new Extract5551(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+          
+          break;
+        case 33638: 
+          HalveImage.halveImagePackedPixel3D(4, new Extract1555rev(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+          
+          break;
+        case 32821: 
+          HalveImage.halveImagePackedPixel3D(4, new Extract8888(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+          
+          break;
+        case 33639: 
+          HalveImage.halveImagePackedPixel3D(4, new Extract8888rev(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+          
+          break;
+        case 36342: 
+          HalveImage.halveImagePackedPixel3D(4, new Extract1010102(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+          
+          break;
+        case 33640: 
+          HalveImage.halveImagePackedPixel3D(4, new Extract2101010rev(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+          
+          break;
+        default: 
+          if (!$assertionsDisabled) throw new AssertionError();
+          break;
+        }
+      }
+      i = paramInt3 / 2;
+      j = paramInt4 / 2;
+      k = paramInt5 / 2;
+      
+      if (i < 1) {
+        i = 1;
+      }
+      if (j < 1) {
+        j = 1;
+      }
+      if (k < 1) {
+        k = 1;
+      }
+      
+      bool = false;
+      i9 = i * i6;
+      i8 = i9 * j;
+      i1 = Mipmap.imageSize3D(i, j, k, paramInt9, paramInt10);
+      
+      localObject3 = localObject1;
+      localObject1 = localObject2;
+      localObject2 = localObject3;
+      try {
+        switch (paramInt10) {
+        case 5120: 
+        case 5121: 
+        case 5122: 
+        case 5123: 
+        case 5124: 
+        case 5125: 
+        case 5126: 
+        case 32818: 
+        case 32819: 
+        case 32820: 
+        case 32821: 
+        case 33634: 
+        case 33635: 
+        case 33636: 
+        case 33637: 
+        case 33638: 
+        case 33639: 
+        case 33640: 
+        case 36342: 
+          localObject2 = Buffers.newDirectByteBuffer(i1);
+          break;
+        default: 
+          return 100900;
+        }
+      } catch (OutOfMemoryError localOutOfMemoryError3) {
+        paramGL.glPixelStorei(3317, localPixelStorageModes.getUnpackAlignment());
+        paramGL.glPixelStorei(3315, localPixelStorageModes.getUnpackSkipRows());
+        paramGL.glPixelStorei(3316, localPixelStorageModes.getUnpackSkipPixels());
+        paramGL.glPixelStorei(3314, localPixelStorageModes.getUnpackRowLength());
+        paramGL.glPixelStorei(3312, localPixelStorageModes.getUnpackSwapBytes() ? 1 : 0);
+        paramGL.glPixelStorei(32877, localPixelStorageModes.getUnpackSkipImages());
+        paramGL.glPixelStorei(32878, localPixelStorageModes.getUnpackImageHeight());
+        return 100902;
+      }
+      
+
+      m = paramInt11 + 1;
+    } else {
+      i1 = Mipmap.imageSize3D(i, j, k, paramInt9, paramInt10);
+      try {
+        switch (paramInt10) {
+        case 5120: 
+        case 5121: 
+        case 5122: 
+        case 5123: 
+        case 5124: 
+        case 5125: 
+        case 5126: 
+        case 32818: 
+        case 32819: 
+        case 32820: 
+        case 32821: 
+        case 33634: 
+        case 33635: 
+        case 33636: 
+        case 33637: 
+        case 33638: 
+        case 33639: 
+        case 33640: 
+        case 36342: 
+          localObject2 = Buffers.newDirectByteBuffer(i1);
+          break;
+        default: 
+          return 100900;
+        }
+      } catch (OutOfMemoryError localOutOfMemoryError1) {
+        paramGL.glPixelStorei(3317, localPixelStorageModes.getUnpackAlignment());
+        paramGL.glPixelStorei(3315, localPixelStorageModes.getUnpackSkipRows());
+        paramGL.glPixelStorei(3316, localPixelStorageModes.getUnpackSkipPixels());
+        paramGL.glPixelStorei(3314, localPixelStorageModes.getUnpackRowLength());
+        paramGL.glPixelStorei(3312, localPixelStorageModes.getUnpackSwapBytes() ? 1 : 0);
+        paramGL.glPixelStorei(32877, localPixelStorageModes.getUnpackSkipImages());
+        paramGL.glPixelStorei(32878, localPixelStorageModes.getUnpackImageHeight());
+        return 100902;
+      }
+      
+      ScaleInternal.gluScaleImage3D(paramGL, paramInt9, paramInt3, paramInt4, paramInt5, paramInt10, localByteBuffer, i, j, k, paramInt10, (ByteBuffer)localObject2);
+      
+
+      bool = false;
+      i9 = i * i6;
+      i8 = i9 * j;
+      
+      localObject3 = localObject1;
+      localObject1 = localObject2;
+      localObject2 = localObject3;
+      
+      if (n != 0) {
+        int i12 = i / 2;
+        i13 = j / 2;
+        i14 = k / 2;
+        if (i12 < 1) {
+          i12 = 1;
+        }
+        if (i13 < 1) {
+          i13 = 1;
+        }
+        if (i14 < 1) {
+          i14 = 1;
+        }
+        i1 = Mipmap.imageSize3D(i12, i13, i14, paramInt9, paramInt10);
+        try {
+          switch (paramInt10) {
+          case 5120: 
+          case 5121: 
+          case 5122: 
+          case 5123: 
+          case 5124: 
+          case 5125: 
+          case 5126: 
+          case 32818: 
+          case 32819: 
+          case 32820: 
+          case 32821: 
+          case 33634: 
+          case 33635: 
+          case 33636: 
+          case 33637: 
+          case 33638: 
+          case 33639: 
+          case 33640: 
+          case 36342: 
+            localObject2 = Buffers.newDirectByteBuffer(i1);
+            break;
+          default: 
+            return 100900;
+          }
+        } catch (OutOfMemoryError localOutOfMemoryError4) {
+          paramGL.glPixelStorei(3317, localPixelStorageModes.getUnpackAlignment());
+          paramGL.glPixelStorei(3315, localPixelStorageModes.getUnpackSkipRows());
+          paramGL.glPixelStorei(3316, localPixelStorageModes.getUnpackSkipPixels());
+          paramGL.glPixelStorei(3314, localPixelStorageModes.getUnpackRowLength());
+          paramGL.glPixelStorei(3312, localPixelStorageModes.getUnpackSwapBytes() ? 1 : 0);
+          paramGL.glPixelStorei(32877, localPixelStorageModes.getUnpackSkipImages());
+          paramGL.glPixelStorei(32878, localPixelStorageModes.getUnpackImageHeight());
+          return 100902;
+        }
+      }
+      
+      m = paramInt11;
+    }
+    
+    paramGL.glPixelStorei(3312, 0);
+    if ((paramInt12 <= m) && (m <= paramInt13)) {
+      localByteBuffer.position(i3);
+      paramGL.getGL2().glTexImage3D(paramInt1, m, paramInt2, paramInt3, paramInt4, paramInt5, 0, paramInt9, paramInt10, localByteBuffer);
+    }
+    
+    m++;
+    for (; m <= n; m++) {
+      switch (paramInt10) {
+      case 5121: 
+        if (paramInt5 > 1) {
+          HalveImage.halveImage3D(i2, new ExtractUByte(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i6, i9, i8, bool);
+        }
+        else
+        {
+          HalveImage.halveImage_ubyte(i2, paramInt3, paramInt4, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i6);
+        }
+        
+        break;
+      case 5120: 
+        if (paramInt5 > 1) {
+          HalveImage.halveImage3D(i2, new ExtractSByte(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i6, i9, i8, bool);
+        }
+        else
+        {
+          HalveImage.halveImage_byte(i2, paramInt3, paramInt4, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i6);
+        }
+        
+        break;
+      case 5123: 
+        if (paramInt5 > 1) {
+          HalveImage.halveImage3D(i2, new ExtractUShort(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i6, i9, i8, bool);
+        }
+        else
+        {
+          HalveImage.halveImage_ushort(i2, paramInt3, paramInt4, localByteBuffer, ((ByteBuffer)localObject2)
+            .asShortBuffer(), i5, i9, i6, bool);
+        }
+        break;
+      case 5122: 
+        if (paramInt5 > 1) {
+          HalveImage.halveImage3D(i2, new ExtractSShort(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i6, i9, i8, bool);
+        }
+        else
+        {
+          HalveImage.halveImage_short(i2, paramInt3, paramInt4, localByteBuffer, ((ByteBuffer)localObject2)
+            .asShortBuffer(), i5, i9, i6, bool);
+        }
+        break;
+      case 5125: 
+        if (paramInt5 > 1) {
+          HalveImage.halveImage3D(i2, new ExtractUInt(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i6, i9, i8, bool);
+        }
+        else
+        {
+          HalveImage.halveImage_uint(i2, paramInt3, paramInt4, localByteBuffer, ((ByteBuffer)localObject2)
+            .asIntBuffer(), i5, i9, i6, bool);
+        }
+        break;
+      case 5124: 
+        if (paramInt5 > 1) {
+          HalveImage.halveImage3D(i2, new ExtractSInt(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i6, i9, i8, bool);
+        }
+        else
+        {
+          HalveImage.halveImage_int(i2, paramInt3, paramInt4, localByteBuffer, ((ByteBuffer)localObject2)
+            .asIntBuffer(), i5, i9, i6, bool);
+        }
+        break;
+      case 5126: 
+        if (paramInt5 > 1) {
+          HalveImage.halveImage3D(i2, new ExtractFloat(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i6, i9, i8, bool);
+        }
+        else
+        {
+          HalveImage.halveImage_float(i2, paramInt3, paramInt4, localByteBuffer, ((ByteBuffer)localObject2)
+            .asFloatBuffer(), i5, i9, i6, bool);
+        }
+        break;
+      case 32818: 
+        HalveImage.halveImagePackedPixel3D(3, new Extract332(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+        
+        break;
+      case 33634: 
+        HalveImage.halveImagePackedPixel3D(3, new Extract233rev(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+        
+        break;
+      case 33635: 
+        HalveImage.halveImagePackedPixel3D(3, new Extract565(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+        
+        break;
+      case 33636: 
+        HalveImage.halveImagePackedPixel3D(3, new Extract565rev(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+        
+        break;
+      case 32819: 
+        HalveImage.halveImagePackedPixel3D(4, new Extract4444(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+        
+        break;
+      case 33637: 
+        HalveImage.halveImagePackedPixel3D(4, new Extract4444rev(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+        
+        break;
+      case 32820: 
+        HalveImage.halveImagePackedPixel3D(4, new Extract5551(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+        
+        break;
+      case 33638: 
+        HalveImage.halveImagePackedPixel3D(4, new Extract1555rev(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+        
+        break;
+      case 32821: 
+        HalveImage.halveImagePackedPixel3D(4, new Extract8888(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+        
+        break;
+      case 33639: 
+        HalveImage.halveImagePackedPixel3D(4, new Extract8888rev(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+        
+        break;
+      case 36342: 
+        HalveImage.halveImagePackedPixel3D(4, new Extract1010102(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+        
+        break;
+      case 33640: 
+        HalveImage.halveImagePackedPixel3D(4, new Extract2101010rev(), paramInt3, paramInt4, paramInt5, localByteBuffer, (ByteBuffer)localObject2, i5, i9, i8, bool);
+        
+        break;
+      default: 
+        if (!$assertionsDisabled) { throw new AssertionError();
+        }
+        break;
+      }
+      localObject3 = localObject1;
+      localObject1 = localObject2;
+      localObject2 = localObject3;
+      
+      if (i > 1) {
+        i /= 2;
+        i9 /= 2;
+      }
+      if (j > 1) {
+        j /= 2;
+        i8 = i9 * j;
+      }
+      if (k > 1) {
+        k /= 2;
+      }
+      if ((paramInt12 <= m) && (m <= paramInt13)) {
+        localByteBuffer.position(i3);
+        paramGL.getGL2().glTexImage3D(paramInt1, m, paramInt2, paramInt3, paramInt4, paramInt5, 0, paramInt9, paramInt10, localByteBuffer);
+      }
+    }
+    
+    paramGL.glPixelStorei(3317, localPixelStorageModes.getUnpackAlignment());
+    paramGL.glPixelStorei(3315, localPixelStorageModes.getUnpackSkipRows());
+    paramGL.glPixelStorei(3316, localPixelStorageModes.getUnpackSkipPixels());
+    paramGL.glPixelStorei(3314, localPixelStorageModes.getUnpackRowLength());
+    paramGL.glPixelStorei(3312, localPixelStorageModes.getUnpackSwapBytes() ? 1 : 0);
+    paramGL.glPixelStorei(32877, localPixelStorageModes.getUnpackSkipImages());
+    paramGL.glPixelStorei(32878, localPixelStorageModes.getUnpackImageHeight());
+    return 0;
+  }
+  
+  private static void writeTargaFile(String paramString, ByteBuffer paramByteBuffer, int paramInt1, int paramInt2)
+  {
+    try
+    {
+      FileOutputStream localFileOutputStream = new FileOutputStream(new File(paramString));
+      ByteBuffer localByteBuffer = ByteBuffer.allocateDirect(18);
+      localByteBuffer.put(0, (byte)0).put(1, (byte)0);
+      localByteBuffer.put(2, (byte)2);
+      localByteBuffer.put(12, (byte)(paramInt1 & 0xFF));
+      localByteBuffer.put(13, (byte)(paramInt1 >> 8));
+      localByteBuffer.put(14, (byte)(paramInt2 & 0xFF));
+      localByteBuffer.put(15, (byte)(paramInt2 >> 8));
+      localByteBuffer.put(16, (byte)24);
+      localFileOutputStream.write(localByteBuffer.array());
+      localFileOutputStream.write(paramByteBuffer.array());
+      paramByteBuffer.clear();
+      localFileOutputStream.close();
+    } catch (IOException localIOException) {
+      localIOException.printStackTrace();
+    }
+  }
+}

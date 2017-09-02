@@ -1,0 +1,626 @@
+package jogamp.nativewindow.x11;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.util.LongObjectHashMap;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.x11.X11GraphicsDevice;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import jogamp.nativewindow.Debug;
+import jogamp.nativewindow.NWJNILibLoader;
+import jogamp.nativewindow.ToolkitProperties;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class X11Util
+  implements ToolkitProperties
+{
+  public static final boolean DEBUG = Debug.debug("X11Util");
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final boolean ATI_HAS_XCLOSEDISPLAY_BUG = !Debug.isPropertyDefined("nativewindow.debug.X11Util.ATI_HAS_NO_XCLOSEDISPLAY_BUG", true);
+  
+
+  public static final boolean HAS_XCLOSEDISPLAY_BUG = Debug.isPropertyDefined("nativewindow.debug.X11Util.HAS_XCLOSEDISPLAY_BUG", true);
+  
+
+
+
+  public static final boolean ATI_HAS_MULTITHREADING_BUG = !Debug.isPropertyDefined("nativewindow.debug.X11Util.ATI_HAS_NO_MULTITHREADING_BUG", true);
+  
+  public static final boolean XSYNC_ENABLED = Debug.isPropertyDefined("nativewindow.debug.X11Util.XSync", true);
+  public static final boolean XERROR_STACKDUMP = (DEBUG) || (Debug.isPropertyDefined("nativewindow.debug.X11Util.XErrorStackDump", true));
+  private static final boolean TRACE_DISPLAY_LIFECYCLE = Debug.isPropertyDefined("nativewindow.debug.X11Util.TraceDisplayLifecycle", true);
+  private static String nullDisplayName = null;
+  private static volatile boolean isInit = false;
+  private static boolean markAllDisplaysUnclosable = false;
+  private static boolean hasThreadingIssues = false;
+  
+  private static final Object setX11ErrorHandlerLock = new Object();
+  
+  private static final String X11_EXTENSION_ATIFGLRXDRI = "ATIFGLRXDRI";
+  
+  private static final String X11_EXTENSION_ATIFGLEXTENSION = "ATIFGLEXTENSION";
+  
+
+  public static void initSingleton()
+  {
+    if (!isInit) {
+      synchronized (X11Util.class) {
+        if (!isInit) {
+          isInit = true;
+          if (DEBUG) {
+            System.out.println("X11Util.initSingleton()");
+          }
+          if (!NWJNILibLoader.loadNativeWindow("x11")) {
+            throw new NativeWindowException("NativeWindow X11 native library load error.");
+          }
+          
+          boolean bool1 = initialize0(XERROR_STACKDUMP);
+          
+
+          long l = X11Lib.XOpenDisplay(PropertyAccess.getProperty("nativewindow.x11.display.default", true));
+          boolean bool2; boolean bool3; if (0L != l) {
+            if (XSYNC_ENABLED) {
+              X11Lib.XSynchronize(l, true);
+            }
+            try {
+              nullDisplayName = X11Lib.XDisplayString(l);
+              bool2 = X11Lib.QueryExtension(l, "ATIFGLRXDRI");
+              bool3 = X11Lib.QueryExtension(l, "ATIFGLEXTENSION");
+            } finally {
+              X11Lib.XCloseDisplay(l);
+            }
+          } else {
+            nullDisplayName = "nil";
+            bool2 = false;
+            bool3 = false;
+          }
+          int i = (bool2) || (bool3) ? 1 : 0;
+          hasThreadingIssues = (ATI_HAS_MULTITHREADING_BUG) && (i != 0);
+          if (!markAllDisplaysUnclosable) {
+            markAllDisplaysUnclosable = ((ATI_HAS_XCLOSEDISPLAY_BUG) && (i != 0)) || (HAS_XCLOSEDISPLAY_BUG);
+          }
+          
+          if (DEBUG) {
+            System.err.println("X11Util.initSingleton(): OK " + bool1 + "]" + ",\n\t X11 Display(NULL) <" + nullDisplayName + ">" + ",\n\t XSynchronize Enabled: " + XSYNC_ENABLED + ",\n\t X11_EXTENSION_ATIFGLRXDRI " + bool2 + ",\n\t X11_EXTENSION_ATIFGLEXTENSION " + bool3 + ",\n\t requiresToolkitLock " + 
+            
+
+
+
+              requiresToolkitLock() + ",\n\t hasThreadingIssues " + 
+              hasThreadingIssues() + ",\n\t markAllDisplaysUnclosable " + 
+              getMarkAllDisplaysUnclosable());
+          }
+        }
+      }
+    }
+  }
+  
+
+
+
+
+  private static Object globalLock = new Object();
+  private static LongObjectHashMap openDisplayMap = new LongObjectHashMap();
+  private static List<NamedDisplay> openDisplayList = new ArrayList();
+  private static List<NamedDisplay> reusableDisplayList = new ArrayList();
+  private static List<NamedDisplay> pendingDisplayList = new ArrayList();
+  private static final HashMap<String, Boolean> displayXineramaEnabledMap = new HashMap();
+  
+
+
+
+
+
+
+  public static void shutdown()
+  {
+    if (isInit) {
+      synchronized (X11Util.class) {
+        if (isInit) {
+          boolean bool = NativeWindowFactory.isJVMShuttingDown();
+          if ((DEBUG) || (
+            ((openDisplayMap.size() > 0) || (reusableDisplayList.size() > 0) || (pendingDisplayList.size() > 0)) && (
+            (reusableDisplayList.size() != pendingDisplayList.size()) || (!markAllDisplaysUnclosable))))
+          {
+            System.err.println("X11Util.Display: Shutdown (JVM shutdown: " + bool + ", open (no close attempt): " + openDisplayMap
+              .size() + "/" + openDisplayList.size() + ", reusable (open, marked uncloseable): " + reusableDisplayList
+              .size() + ", pending (open in creation order): " + pendingDisplayList
+              .size() + ")");
+            
+            if (DEBUG) {
+              ExceptionUtils.dumpStack(System.err);
+            }
+            if (openDisplayList.size() > 0) {
+              dumpOpenDisplayConnections();
+            }
+            if ((DEBUG) && (
+              (reusableDisplayList.size() > 0) || (pendingDisplayList.size() > 0))) {
+              dumpPendingDisplayConnections();
+            }
+          }
+          
+
+
+
+          if (bool) {
+            synchronized (globalLock) {
+              isInit = false;
+              closePendingDisplayConnections();
+              openDisplayList.clear();
+              reusableDisplayList.clear();
+              pendingDisplayList.clear();
+              openDisplayMap.clear();
+              displayXineramaEnabledMap.clear();
+              shutdown0();
+            }
+          }
+        }
+      }
+    }
+  }
+  
+
+
+
+  public static final boolean requiresToolkitLock()
+  {
+    return true;
+  }
+  
+
+
+
+  public static final boolean hasThreadingIssues()
+  {
+    return hasThreadingIssues;
+  }
+  
+  public static void setX11ErrorHandler(boolean paramBoolean1, boolean paramBoolean2) {
+    synchronized (setX11ErrorHandlerLock) {
+      setX11ErrorHandler0(paramBoolean1, paramBoolean2);
+    }
+  }
+  
+  public static String getNullDisplayName() {
+    return nullDisplayName;
+  }
+  
+  public static void markAllDisplaysUnclosable() {
+    synchronized (globalLock) {
+      markAllDisplaysUnclosable = true;
+      for (int i = 0; i < openDisplayList.size(); i++) {
+        ((NamedDisplay)openDisplayList.get(i)).setUncloseable(true);
+      }
+      for (i = 0; i < reusableDisplayList.size(); i++) {
+        ((NamedDisplay)reusableDisplayList.get(i)).setUncloseable(true);
+      }
+      for (i = 0; i < pendingDisplayList.size(); i++) {
+        ((NamedDisplay)pendingDisplayList.get(i)).setUncloseable(true);
+      }
+    }
+  }
+  
+  public static boolean getMarkAllDisplaysUnclosable() {
+    return markAllDisplaysUnclosable;
+  }
+  
+  private X11Util() {}
+  
+  public static class NamedDisplay {
+    final String name;
+    final long handle;
+    final int hash32;
+    int refCount;
+    boolean unCloseable;
+    Throwable creationStack;
+    
+    protected NamedDisplay(String paramString, long paramLong) {
+      name = paramString;
+      handle = paramLong;
+      refCount = 0;
+      unCloseable = false;
+      
+
+      int i = 31 + (int)paramLong;
+      i = (i << 5) - i + (int)(paramLong >>> 32);
+      hash32 = i;
+      
+      if (X11Util.DEBUG) {
+        creationStack = new Throwable("NamedDisplay Created at:");
+      } else {
+        creationStack = null;
+      }
+    }
+    
+    public final int hashCode()
+    {
+      return hash32;
+    }
+    
+    public final boolean equals(Object paramObject)
+    {
+      if (this == paramObject) return true;
+      if ((paramObject instanceof NamedDisplay)) {
+        return handle == handle;
+      }
+      return false;
+    }
+    
+    public final void addRef() { refCount += 1; }
+    public final void removeRef() { refCount -= 1; }
+    
+    public final String getName() { return name; }
+    public final long getHandle() { return handle; }
+    public final int getRefCount() { return refCount; }
+    
+    public final void setUncloseable(boolean paramBoolean) { unCloseable = paramBoolean; }
+    public final boolean isUncloseable() { return unCloseable; }
+    public final Throwable getCreationStack() { return creationStack; }
+    
+    public String toString()
+    {
+      return "NamedX11Display[" + name + ", 0x" + Long.toHexString(handle) + ", refCount " + refCount + ", unCloseable " + unCloseable + "]";
+    }
+  }
+  
+
+
+
+
+  private static int closePendingDisplayConnections()
+  {
+    int i = 0;
+    synchronized (globalLock) {
+      if (getMarkAllDisplaysUnclosable()) {
+        for (int j = 0; j < pendingDisplayList.size(); j++) {
+          NamedDisplay localNamedDisplay = (NamedDisplay)pendingDisplayList.get(j);
+          if (DEBUG) {
+            boolean bool = !openDisplayMap.containsKey(localNamedDisplay.getHandle());
+            System.err.println("X11Util.closePendingDisplayConnections(): Closing [" + j + "]: " + localNamedDisplay + " - closeAttempted " + bool);
+          }
+          XCloseDisplay(localNamedDisplay.getHandle());
+          i++;
+        }
+        if (DEBUG) {
+          System.err.println("X11Util.closePendingDisplayConnections(): Closed " + i + " pending display connections");
+        }
+      }
+    }
+    return i;
+  }
+  
+  public static int getOpenDisplayConnectionNumber() {
+    synchronized (globalLock) {
+      return openDisplayList.size();
+    }
+  }
+  
+  public static void dumpOpenDisplayConnections() {
+    synchronized (globalLock) {
+      System.err.println("X11Util: Open X11 Display Connections: " + openDisplayList.size());
+      for (int i = 0; i < openDisplayList.size(); i++) {
+        NamedDisplay localNamedDisplay = (NamedDisplay)openDisplayList.get(i);
+        System.err.println("X11Util: Open[" + i + "]: " + localNamedDisplay);
+        if (null != localNamedDisplay) {
+          Throwable localThrowable = localNamedDisplay.getCreationStack();
+          if (null != localThrowable) {
+            localThrowable.printStackTrace();
+          }
+        }
+      }
+    }
+  }
+  
+  public static int getReusableDisplayConnectionNumber() {
+    synchronized (globalLock) {
+      return reusableDisplayList.size();
+    }
+  }
+  
+  public static int getPendingDisplayConnectionNumber() {
+    synchronized (globalLock) {
+      return pendingDisplayList.size();
+    }
+  }
+  
+  public static void dumpPendingDisplayConnections() {
+    synchronized (globalLock) {
+      System.err.println("X11Util: Reusable X11 Display Connections: " + reusableDisplayList.size());
+      NamedDisplay localNamedDisplay; Throwable localThrowable; for (int i = 0; i < reusableDisplayList.size(); i++) {
+        localNamedDisplay = (NamedDisplay)reusableDisplayList.get(i);
+        System.err.println("X11Util: Reusable[" + i + "]: " + localNamedDisplay);
+        if (null != localNamedDisplay) {
+          localThrowable = localNamedDisplay.getCreationStack();
+          if (null != localThrowable) {
+            localThrowable.printStackTrace();
+          }
+        }
+      }
+      System.err.println("X11Util: Pending X11 Display Connections (creation order): " + pendingDisplayList.size());
+      for (i = 0; i < pendingDisplayList.size(); i++) {
+        localNamedDisplay = (NamedDisplay)pendingDisplayList.get(i);
+        System.err.println("X11Util: Pending[" + i + "]: " + localNamedDisplay);
+        if (null != localNamedDisplay) {
+          localThrowable = localNamedDisplay.getCreationStack();
+          if (null != localThrowable) {
+            localThrowable.printStackTrace();
+          }
+        }
+      }
+    }
+  }
+  
+  public static boolean markDisplayUncloseable(long paramLong) {
+    NamedDisplay localNamedDisplay;
+    synchronized (globalLock) {
+      localNamedDisplay = (NamedDisplay)openDisplayMap.get(paramLong);
+    }
+    if (null != localNamedDisplay) {
+      localNamedDisplay.setUncloseable(true);
+      return true;
+    }
+    return false;
+  }
+  
+  public static long openDisplay(String paramString)
+  {
+    long l = 0L;
+    NamedDisplay localNamedDisplay = null;
+    paramString = validateDisplayName(paramString);
+    boolean bool = false;
+    
+    synchronized (globalLock) {
+      for (int i = 0; i < reusableDisplayList.size(); i++) {
+        if (((NamedDisplay)reusableDisplayList.get(i)).getName().equals(paramString)) {
+          localNamedDisplay = (NamedDisplay)reusableDisplayList.remove(i);
+          l = localNamedDisplay.getHandle();
+          bool = true;
+          break;
+        }
+      }
+      if (0L == l) {
+        l = XOpenDisplay(paramString);
+        if (0L == l) {
+          throw new NativeWindowException("X11Util.Display: Unable to create a display(" + paramString + ") connection. Thread " + Thread.currentThread().getName());
+        }
+        
+
+        localNamedDisplay = new NamedDisplay(paramString, l);
+        pendingDisplayList.add(localNamedDisplay);
+      }
+      localNamedDisplay.addRef();
+      openDisplayMap.put(l, localNamedDisplay);
+      openDisplayList.add(localNamedDisplay);
+      if (markAllDisplaysUnclosable) {
+        localNamedDisplay.setUncloseable(true);
+      }
+    }
+    if (DEBUG) {
+      System.err.println("X11Util.Display: openDisplay [reuse " + bool + "] " + localNamedDisplay + ". Thread " + Thread.currentThread().getName());
+    }
+    
+    return localNamedDisplay.getHandle();
+  }
+  
+  public static void closeDisplay(long paramLong) {
+    synchronized (globalLock) {
+      NamedDisplay localNamedDisplay = (NamedDisplay)openDisplayMap.remove(paramLong);
+      if (null == localNamedDisplay) {
+        dumpPendingDisplayConnections();
+        throw new RuntimeException("X11Util.Display: Display(0x" + Long.toHexString(paramLong) + ") with given handle is not mapped. Thread " + Thread.currentThread().getName());
+      }
+      if (localNamedDisplay.getHandle() != paramLong) {
+        dumpPendingDisplayConnections();
+        throw new RuntimeException("X11Util.Display: Display(0x" + Long.toHexString(paramLong) + ") Mapping error: " + localNamedDisplay + ". Thread " + Thread.currentThread().getName());
+      }
+      
+      localNamedDisplay.removeRef();
+      if (!openDisplayList.remove(localNamedDisplay)) { throw new RuntimeException("Internal: " + localNamedDisplay);
+      }
+      if (markAllDisplaysUnclosable)
+      {
+        localNamedDisplay.setUncloseable(true);
+      }
+      if (!localNamedDisplay.isUncloseable()) {
+        XCloseDisplay(localNamedDisplay.getHandle());
+        pendingDisplayList.remove(localNamedDisplay);
+      }
+      else {
+        X11Lib.XSync(localNamedDisplay.getHandle(), true);
+        reusableDisplayList.add(localNamedDisplay);
+      }
+      
+      if (DEBUG) {
+        System.err.println("X11Util.Display: Closed (real: " + (!localNamedDisplay.isUncloseable()) + ") " + localNamedDisplay + ". Thread " + Thread.currentThread().getName());
+      }
+    }
+  }
+  
+  public static NamedDisplay getNamedDisplay(long paramLong) {
+    synchronized (globalLock) {
+      return (NamedDisplay)openDisplayMap.get(paramLong);
+    }
+  }
+  
+
+
+  public static String validateDisplayName(String paramString)
+  {
+    return (null == paramString) || ("decon".equals(paramString)) ? getNullDisplayName() : paramString;
+  }
+  
+  public static String validateDisplayName(String paramString, long paramLong) {
+    if (((null == paramString) || ("decon".equals(paramString))) && (0L != paramLong)) {
+      paramString = X11Lib.XDisplayString(paramLong);
+    }
+    return validateDisplayName(paramString);
+  }
+  
+
+
+
+
+
+  public static long XOpenDisplay(String paramString)
+  {
+    long l = X11Lib.XOpenDisplay(paramString);
+    if ((XSYNC_ENABLED) && (0L != l)) {
+      X11Lib.XSynchronize(l, true);
+    }
+    if (TRACE_DISPLAY_LIFECYCLE) {
+      System.err.println(Thread.currentThread() + " - X11Util.XOpenDisplay(" + paramString + ") 0x" + Long.toHexString(l));
+    }
+    
+    return l;
+  }
+  
+  public static int XCloseDisplay(long paramLong) {
+    if (TRACE_DISPLAY_LIFECYCLE) {
+      System.err.println(Thread.currentThread() + " - X11Util.XCloseDisplay() 0x" + Long.toHexString(paramLong));
+    }
+    
+    int i = -1;
+    try {
+      i = X11Lib.XCloseDisplay(paramLong);
+    } catch (Exception localException) {
+      System.err.println("X11Util: Caught exception:");
+      localException.printStackTrace();
+    }
+    return i;
+  }
+  
+  static volatile boolean XineramaFetched = false;
+  static long XineramaLibHandle = 0L;
+  static long XineramaQueryFunc = 0L;
+  
+  public static boolean XineramaIsEnabled(X11GraphicsDevice paramX11GraphicsDevice) {
+    if (null == paramX11GraphicsDevice) {
+      throw new IllegalArgumentException("X11 Display device is NULL");
+    }
+    paramX11GraphicsDevice.lock();
+    try {
+      return XineramaIsEnabled(paramX11GraphicsDevice.getHandle());
+    } finally {
+      paramX11GraphicsDevice.unlock();
+    }
+  }
+  
+  public static boolean XineramaIsEnabled(long paramLong) {
+    if (0L == paramLong) {
+      throw new IllegalArgumentException("X11 Display handle is NULL");
+    }
+    String str = X11Lib.XDisplayString(paramLong);
+    synchronized (displayXineramaEnabledMap) {
+      Boolean localBoolean = (Boolean)displayXineramaEnabledMap.get(str);
+      if (null != localBoolean) {
+        return localBoolean.booleanValue();
+      }
+    }
+    
+    if (!XineramaFetched)
+      synchronized (X11Util.class) {
+        if (!XineramaFetched) {
+          XineramaLibHandle = X11Lib.XineramaGetLibHandle();
+          if (0L != XineramaLibHandle) {
+            XineramaQueryFunc = X11Lib.XineramaGetQueryFunc(XineramaLibHandle);
+          }
+          XineramaFetched = true;
+        }
+      }
+    boolean bool;
+    if (0L != XineramaQueryFunc) {
+      bool = X11Lib.XineramaIsEnabled(XineramaQueryFunc, paramLong);
+    } else {
+      if (DEBUG) {
+        System.err.println("XineramaIsEnabled: Couldn't bind to Xinerama - lib 0x" + Long.toHexString(XineramaLibHandle) + "query 0x" + 
+          Long.toHexString(XineramaQueryFunc));
+      }
+      bool = false;
+    }
+    synchronized (displayXineramaEnabledMap) {
+      if (DEBUG) {
+        System.err.println("XineramaIsEnabled Cache: Display " + str + " (0x" + Long.toHexString(paramLong) + ") -> " + bool);
+      }
+      displayXineramaEnabledMap.put(str, Boolean.valueOf(bool));
+    }
+    return bool;
+  }
+  
+  private static final String getCurrentThreadName() { return Thread.currentThread().getName(); }
+  private static final void dumpStack() { ExceptionUtils.dumpStack(System.err); }
+  
+  private static native boolean initialize0(boolean paramBoolean);
+  
+  private static native void shutdown0();
+  
+  private static native void setX11ErrorHandler0(boolean paramBoolean1, boolean paramBoolean2);
+}

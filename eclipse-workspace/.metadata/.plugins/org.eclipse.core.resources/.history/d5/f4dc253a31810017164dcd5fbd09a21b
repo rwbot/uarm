@@ -1,0 +1,1422 @@
+package jogamp.opengl.glu.mipmap;
+
+import java.nio.ByteBuffer;
+import java.nio.ShortBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Image
+{
+  public Image() {}
+  
+  public static short getShortFromByteArray(byte[] paramArrayOfByte, int paramInt)
+  {
+    short s = (short)(paramArrayOfByte[paramInt] << 8);
+    s = (short)(s | (short)(0xFF & paramArrayOfByte[(paramInt + 1)]));
+    return s;
+  }
+  
+  public static int getIntFromByteArray(byte[] paramArrayOfByte, int paramInt)
+  {
+    int i = paramArrayOfByte[paramInt] << 24 & 0xFF000000;
+    i |= paramArrayOfByte[(paramInt + 1)] << 16 & 0xFF0000;
+    i |= paramArrayOfByte[(paramInt + 2)] << 8 & 0xFF00;
+    i |= paramArrayOfByte[(paramInt + 3)] & 0xFF;
+    return i;
+  }
+  
+  public static float getFloatFromByteArray(byte[] paramArrayOfByte, int paramInt) {
+    int i = getIntFromByteArray(paramArrayOfByte, paramInt);
+    return Float.intBitsToFloat(i);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static void fill_image(PixelStorageModes paramPixelStorageModes, int paramInt1, int paramInt2, int paramInt3, int paramInt4, boolean paramBoolean, ByteBuffer paramByteBuffer, ShortBuffer paramShortBuffer)
+  {
+    int i4 = 0;
+    
+
+
+
+
+    Object localObject = null;
+    switch (paramInt4) {
+    case 32818: 
+      localObject = new Extract332();
+      break;
+    case 33634: 
+      localObject = new Extract233rev();
+      break;
+    case 33635: 
+      localObject = new Extract565();
+      break;
+    case 33636: 
+      localObject = new Extract565rev();
+      break;
+    case 32819: 
+      localObject = new Extract4444();
+      break;
+    case 33637: 
+      localObject = new Extract4444rev();
+      break;
+    case 32820: 
+      localObject = new Extract5551();
+      break;
+    case 33638: 
+      localObject = new Extract1555rev();
+      break;
+    case 32821: 
+      localObject = new Extract8888();
+      break;
+    case 33639: 
+      localObject = new Extract8888rev();
+      break;
+    case 36342: 
+      localObject = new Extract1010102();
+      break;
+    case 33640: 
+      localObject = new Extract2101010rev();
+    }
+    
+    
+    boolean bool = paramPixelStorageModes.getUnpackSwapBytes();
+    int i = Mipmap.elements_per_group(paramInt3, paramInt4);
+    int n; if (paramPixelStorageModes.getUnpackRowLength() > 0) {
+      n = paramPixelStorageModes.getUnpackRowLength();
+    } else
+      n = paramInt1;
+    int k;
+    int m;
+    int i3;
+    int i2; int i5; int i6; int i7; if (paramInt4 == 6656)
+    {
+
+
+      k = (n * i + 7) / 8;
+      m = k % paramPixelStorageModes.getUnpackAlignment();
+      if (m != 0) {
+        k += paramPixelStorageModes.getUnpackAlignment() - m;
+      }
+      i3 = paramPixelStorageModes.getUnpackSkipRows() * k + paramPixelStorageModes.getUnpackSkipPixels() * i / 8;
+      i2 = paramInt1 * i;
+      i5 = 0;
+      for (i6 = 0; i6 < paramInt2; i6++) {
+        i4 = i3;
+        paramByteBuffer.position(i4);
+        int i9 = paramPixelStorageModes.getUnpackSkipPixels() * i % 8;
+        for (i7 = 0; i7 < i2; i7++) {
+          int i10;
+          if (paramPixelStorageModes.getUnpackLsbFirst()) {
+            paramByteBuffer.position(i4);
+            i10 = paramByteBuffer.get() & 0xFF & 1 << i9;
+          } else {
+            i10 = paramByteBuffer.get() & 0xFF & 1 << 7 - i9;
+          }
+          if (i10 != 0) {
+            if (paramBoolean) {
+              paramShortBuffer.position(i5);
+              paramShortBuffer.put((short)1);
+            } else {
+              paramShortBuffer.position(i5);
+              paramShortBuffer.put((short)-1);
+            }
+          } else {
+            paramShortBuffer.position(i5);
+            paramShortBuffer.put((short)0);
+          }
+          i9++;
+          if (i9 == 8) {
+            i9 = 0;
+            i4++;
+          }
+          i5++;
+        }
+        i3 += k;
+      }
+    } else {
+      int j = Mipmap.bytes_per_element(paramInt4);
+      int i1 = j * i;
+      if (j == 1) {
+        bool = false;
+      }
+      
+      k = n * i1;
+      m = k % paramPixelStorageModes.getUnpackAlignment();
+      if (m != 0) {
+        k += paramPixelStorageModes.getUnpackAlignment() - m;
+      }
+      i3 = paramPixelStorageModes.getUnpackSkipRows() * k + paramPixelStorageModes.getUnpackSkipPixels() * i1;
+      i2 = paramInt1 * i;
+      
+      i5 = 0;
+      for (i6 = 0; i6 < paramInt2; i6++) {
+        i4 = i3;
+        paramByteBuffer.position(i4);
+        for (i7 = 0; i7 < i2; i7++) {
+          Type_Widget localType_Widget = new Type_Widget();
+          float[] arrayOfFloat = new float[4];
+          paramByteBuffer.position(i4);
+          int i8; switch (paramInt4) {
+          case 32818: 
+            ((Extract)localObject).extract(false, paramByteBuffer, arrayOfFloat);
+            for (i8 = 0; i8 < 3;) {
+              paramShortBuffer.put(i5++, (short)(int)(arrayOfFloat[i8] * 65535.0F));i8++; continue;
+              
+
+
+              ((Extract)localObject).extract(false, paramByteBuffer, arrayOfFloat);
+              for (i8 = 0; i8 < 3;) {
+                paramShortBuffer.put(i5++, (short)(int)(arrayOfFloat[i8] * 65535.0F));i8++; continue;
+                
+
+
+                if (paramBoolean) {
+                  paramShortBuffer.put(i5++, (short)(0xFF & paramByteBuffer.get()));
+                } else {
+                  paramShortBuffer.put(i5++, (short)(0xFF & paramByteBuffer.get() * 257));
+                  
+                  break;
+                  
+                  if (paramBoolean) {
+                    paramShortBuffer.put(i5++, (short)paramByteBuffer.get());
+                  } else {
+                    paramShortBuffer.put(i5++, (short)(paramByteBuffer.get() * 516));
+                    
+                    break;
+                    
+                    ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                    for (i8 = 0; i8 < 3;) {
+                      paramShortBuffer.put(i5++, (short)(int)(arrayOfFloat[i8] * 65535.0F));i8++; continue;
+                      
+
+
+                      ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                      for (i8 = 0; i8 < 3;) {
+                        paramShortBuffer.put(i5++, (short)(int)(arrayOfFloat[i8] * 65535.0F));i8++; continue;
+                        
+
+
+                        ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                        for (i8 = 0; i8 < 4;) {
+                          paramShortBuffer.put(i5++, (short)(int)(arrayOfFloat[i8] * 65535.0F));i8++; continue;
+                          
+
+
+                          ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                          for (i8 = 0; i8 < 4;) {
+                            paramShortBuffer.put(i5++, (short)(int)(arrayOfFloat[i8] * 65535.0F));i8++; continue;
+                            
+
+
+                            ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                            for (i8 = 0; i8 < 4;) {
+                              paramShortBuffer.put(i5++, (short)(int)(arrayOfFloat[i8] * 65535.0F));i8++; continue;
+                              
+
+
+                              ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                              for (i8 = 0; i8 < 4;) {
+                                paramShortBuffer.put(i5++, (short)(int)(arrayOfFloat[i8] * 65535.0F));i8++; continue;
+                                
+
+
+
+                                if (bool) {
+                                  localType_Widget.setUB1(paramByteBuffer.get());
+                                  localType_Widget.setUB0(paramByteBuffer.get());
+                                } else {
+                                  localType_Widget.setUB0(paramByteBuffer.get());
+                                  localType_Widget.setUB1(paramByteBuffer.get());
+                                }
+                                if (paramInt4 == 5122) {
+                                  if (paramBoolean) {
+                                    paramShortBuffer.put(i5++, localType_Widget.getS0());
+                                  } else {
+                                    paramShortBuffer.put(i5++, (short)(localType_Widget.getS0() * 2));
+                                  }
+                                } else {
+                                  paramShortBuffer.put(i5++, localType_Widget.getUS0());
+                                  
+                                  break;
+                                  
+                                  ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                                  for (i8 = 0; i8 < 4;) {
+                                    paramShortBuffer.put(i5++, (short)(int)(arrayOfFloat[i8] * 65535.0F));i8++; continue;
+                                    
+
+
+                                    ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                                    for (i8 = 0; i8 < 4;) {
+                                      paramShortBuffer.put(i5++, (short)(int)(arrayOfFloat[i8] * 65535.0F));i8++; continue;
+                                      
+
+
+                                      ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                                      for (i8 = 0; i8 < 4;) {
+                                        paramShortBuffer.put(i5++, (short)(int)(arrayOfFloat[i8] * 65535.0F));i8++; continue;
+                                        
+
+
+                                        ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                                        for (i8 = 0; i8 < 4;) {
+                                          paramShortBuffer.put(i5++, (short)(int)(arrayOfFloat[i8] * 65535.0F));i8++; continue;
+                                          
+
+
+
+
+                                          if (bool) {
+                                            localType_Widget.setUB3(paramByteBuffer.get());
+                                            localType_Widget.setUB2(paramByteBuffer.get());
+                                            localType_Widget.setUB1(paramByteBuffer.get());
+                                            localType_Widget.setUB0(paramByteBuffer.get());
+                                          } else {
+                                            localType_Widget.setUB0(paramByteBuffer.get());
+                                            localType_Widget.setUB1(paramByteBuffer.get());
+                                            localType_Widget.setUB2(paramByteBuffer.get());
+                                            localType_Widget.setUB3(paramByteBuffer.get());
+                                          }
+                                          if (paramInt4 == 5126) {
+                                            if (paramBoolean) {
+                                              paramShortBuffer.put(i5++, (short)(int)localType_Widget.getF());
+                                            } else {
+                                              paramShortBuffer.put(i5++, (short)(int)(localType_Widget.getF() * 65535.0F));
+                                            }
+                                          } else if (paramInt4 == 5125) {
+                                            if (paramBoolean) {
+                                              paramShortBuffer.put(i5++, (short)localType_Widget.getUI());
+                                            } else {
+                                              paramShortBuffer.put(i5++, (short)(localType_Widget.getUI() >> 16));
+                                            }
+                                          }
+                                          else if (paramBoolean) {
+                                            paramShortBuffer.put(i5++, (short)localType_Widget.getI());
+                                          } else
+                                            paramShortBuffer.put(i5++, (short)(localType_Widget.getI() >> 15));
+                                        }
+                                      }
+                                    }
+                                  } } } } } } } } } } } } }
+          i4 += j;
+        }
+        i3 += k;
+        
+        i4 = i3;
+      }
+      
+
+      if (!Mipmap.isTypePackedPixel(paramInt4)) {
+        if ((!$assertionsDisabled) && (i5 != paramInt1 * paramInt2 * i)) throw new AssertionError();
+      } else {
+        assert (i5 == paramInt1 * paramInt2 * Mipmap.elements_per_group(paramInt3, 0));
+      }
+      assert (i4 == k * paramInt2 + paramPixelStorageModes.getUnpackSkipRows() * k + paramPixelStorageModes.getUnpackSkipPixels() * i1);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static void empty_image(PixelStorageModes paramPixelStorageModes, int paramInt1, int paramInt2, int paramInt3, int paramInt4, boolean paramBoolean, ShortBuffer paramShortBuffer, ByteBuffer paramByteBuffer)
+  {
+    int i4 = 0;
+    
+
+
+
+
+    Object localObject = null;
+    switch (paramInt4) {
+    case 32818: 
+      localObject = new Extract332();
+      break;
+    case 33634: 
+      localObject = new Extract233rev();
+      break;
+    case 33635: 
+      localObject = new Extract565();
+      break;
+    case 33636: 
+      localObject = new Extract565rev();
+      break;
+    case 32819: 
+      localObject = new Extract4444();
+      break;
+    case 33637: 
+      localObject = new Extract4444rev();
+      break;
+    case 32820: 
+      localObject = new Extract5551();
+      break;
+    case 33638: 
+      localObject = new Extract1555rev();
+      break;
+    case 32821: 
+      localObject = new Extract8888();
+      break;
+    case 33639: 
+      localObject = new Extract8888rev();
+      break;
+    case 36342: 
+      localObject = new Extract1010102();
+      break;
+    case 33640: 
+      localObject = new Extract2101010rev();
+    }
+    
+    
+    boolean bool = paramPixelStorageModes.getPackSwapBytes();
+    int i = Mipmap.elements_per_group(paramInt3, paramInt4);
+    int n; if (paramPixelStorageModes.getPackRowLength() > 0) {
+      n = paramPixelStorageModes.getPackRowLength();
+    } else
+      n = paramInt1;
+    int k;
+    int m;
+    int i3;
+    int i2; int i5; int i6; int i7; if (paramInt4 == 6656)
+    {
+
+
+      k = (n * i + 7) / 8;
+      m = k % paramPixelStorageModes.getPackAlignment();
+      if (m != 0) {
+        k += paramPixelStorageModes.getPackAlignment() - m;
+      }
+      i3 = paramPixelStorageModes.getPackSkipRows() * k + paramPixelStorageModes.getPackSkipPixels() * i / 8;
+      i2 = paramInt1 * i;
+      i5 = 0;
+      for (i6 = 0; i6 < paramInt2; i6++) {
+        i4 = i3;
+        int i9 = paramPixelStorageModes.getPackSkipPixels() * i % 8;
+        for (i7 = 0; i7 < i2; i7++) { int i10;
+          if (paramBoolean) {
+            i10 = paramShortBuffer.get(i5) & 0x1;
+          }
+          else if (paramShortBuffer.get(i5) < 0) {
+            i10 = 1;
+          } else {
+            i10 = 0;
+          }
+          
+
+          if (i10 != 0) {
+            if (paramPixelStorageModes.getPackLsbFirst()) {
+              paramByteBuffer.put(i4, (byte)(paramByteBuffer.get(i4) | 1 << i9));
+            } else {
+              paramByteBuffer.put(i4, (byte)(paramByteBuffer.get(i4) | 7 - i9));
+            }
+          }
+          else if (paramPixelStorageModes.getPackLsbFirst())
+          {
+            paramByteBuffer.put(i4, (byte)(paramByteBuffer.get(i4) & (1 << i9 ^ 0xFFFFFFFF)));
+          }
+          else {
+            paramByteBuffer.put(i4, (byte)(paramByteBuffer.get(i4) & (7 - i9 ^ 0xFFFFFFFF)));
+          }
+          
+
+          i9++;
+          if (i9 == 8) {
+            i9 = 0;
+            i4++;
+          }
+          i5++;
+        }
+        i3 += k;
+      }
+    } else {
+      float[] arrayOfFloat = new float[4];
+      
+      int j = Mipmap.bytes_per_element(paramInt4);
+      int i1 = j * i;
+      if (j == 1) {
+        bool = false;
+      }
+      
+      k = n * i1;
+      m = k % paramPixelStorageModes.getPackAlignment();
+      if (m != 0) {
+        k += paramPixelStorageModes.getPackAlignment() - m;
+      }
+      i3 = paramPixelStorageModes.getPackSkipRows() * k + paramPixelStorageModes.getPackSkipPixels() * i1;
+      i2 = paramInt1 * i;
+      
+      i5 = 0;
+      for (i6 = 0; i6 < paramInt2; i6++) {
+        i4 = i3;
+        for (i7 = 0; i7 < i2; i7++) {
+          Type_Widget localType_Widget = new Type_Widget();
+          int i8;
+          switch (paramInt4) {
+          case 32818: 
+            for (i8 = 0; i8 < 3; i8++) {
+              arrayOfFloat[i8] = (paramShortBuffer.get(i5++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, paramByteBuffer);
+            break;
+          case 33634: 
+            for (i8 = 0; i8 < 3; i8++) {
+              arrayOfFloat[i8] = (paramShortBuffer.get(i5++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, paramByteBuffer);
+            break;
+          case 5121: 
+            if (paramBoolean)
+            {
+              paramByteBuffer.put(i4, (byte)paramShortBuffer.get(i5++));
+            }
+            else {
+              paramByteBuffer.put(i4, (byte)paramShortBuffer.get(i5++));
+            }
+            break;
+          case 5120: 
+            if (paramBoolean)
+            {
+              paramByteBuffer.put(i4, (byte)paramShortBuffer.get(i5++));
+            }
+            else {
+              paramByteBuffer.put(i4, (byte)paramShortBuffer.get(i5++));
+            }
+            break;
+          case 33635: 
+            for (i8 = 0; i8 < 3; i8++) {
+              arrayOfFloat[i8] = (paramShortBuffer.get(i5++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool)
+            {
+
+              paramByteBuffer.put(i4, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB0());
+            }
+            else
+            {
+              paramByteBuffer.put(i4, localType_Widget.getUB0());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB1());
+            }
+            break;
+          case 33636: 
+            for (i8 = 0; i8 < 3; i8++) {
+              arrayOfFloat[i8] = (paramShortBuffer.get(i5++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool)
+            {
+
+              paramByteBuffer.put(i4, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB0());
+            }
+            else
+            {
+              paramByteBuffer.put(i4, localType_Widget.getUB0());
+              paramByteBuffer.put(i4, localType_Widget.getUB1());
+            }
+            break;
+          case 32819: 
+            for (i8 = 0; i8 < 4; i8++) {
+              arrayOfFloat[i8] = (paramShortBuffer.get(i5++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool)
+            {
+
+              paramByteBuffer.put(i4, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB0());
+            }
+            else
+            {
+              paramByteBuffer.put(i4, localType_Widget.getUB0());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB1());
+            }
+            break;
+          case 33637: 
+            for (i8 = 0; i8 < 4; i8++) {
+              arrayOfFloat[i8] = (paramShortBuffer.get(i5++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool)
+            {
+
+              paramByteBuffer.put(i4, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB0());
+            }
+            else
+            {
+              paramByteBuffer.put(i4, localType_Widget.getUB0());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB1());
+            }
+            break;
+          case 32820: 
+            for (i8 = 0; i8 < 4; i8++) {
+              arrayOfFloat[i8] = (paramShortBuffer.get(i5++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool)
+            {
+
+              paramByteBuffer.put(i4, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB0());
+            }
+            else
+            {
+              paramByteBuffer.put(i4, localType_Widget.getUB0());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB1());
+            }
+            break;
+          case 33638: 
+            for (i8 = 0; i8 < 4; i8++) {
+              arrayOfFloat[i8] = (paramShortBuffer.get(i5++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool)
+            {
+
+              paramByteBuffer.put(i4, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB0());
+            }
+            else
+            {
+              paramByteBuffer.put(i4, localType_Widget.getUB0());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB1());
+            }
+            break;
+          case 5122: 
+          case 5123: 
+            if (paramInt4 == 5122) {
+              if (paramBoolean) {
+                localType_Widget.setS0(paramShortBuffer.get(i5++));
+              } else {
+                localType_Widget.setS0((short)(paramShortBuffer.get(i5++) >> 1));
+              }
+            } else {
+              localType_Widget.setUS0(paramShortBuffer.get(i5++));
+            }
+            if (bool)
+            {
+
+              paramByteBuffer.put(i4, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB0());
+            }
+            else
+            {
+              paramByteBuffer.put(i4, localType_Widget.getUB0());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB1());
+            }
+            break;
+          case 32821: 
+            for (i8 = 0; i8 < 4; i8++) {
+              arrayOfFloat[i8] = (paramShortBuffer.get(i5++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool)
+            {
+
+
+
+              paramByteBuffer.put(i4 + 3, localType_Widget.getUB0());
+              paramByteBuffer.put(i4 + 2, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB2());
+              paramByteBuffer.put(i4, localType_Widget.getUB3());
+            } else {
+              paramByteBuffer.putInt(i4, localType_Widget.getUI());
+            }
+            break;
+          case 33639: 
+            for (i8 = 0; i8 < 4; i8++) {
+              arrayOfFloat[i8] = (paramShortBuffer.get(i5++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool)
+            {
+
+
+
+              paramByteBuffer.put(i4 + 3, localType_Widget.getUB0());
+              paramByteBuffer.put(i4 + 2, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 2, localType_Widget.getUB2());
+              paramByteBuffer.put(i4, localType_Widget.getUB3());
+            } else {
+              paramByteBuffer.putInt(i4, localType_Widget.getUI());
+            }
+            break;
+          case 36342: 
+            for (i8 = 0; i8 < 4; i8++) {
+              arrayOfFloat[i8] = (paramShortBuffer.get(i5++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool)
+            {
+
+
+
+              paramByteBuffer.put(i4 + 3, localType_Widget.getUB0());
+              paramByteBuffer.put(i4 + 2, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB2());
+              paramByteBuffer.put(i4, localType_Widget.getUB3());
+            } else {
+              paramByteBuffer.putInt(i4, localType_Widget.getUI());
+            }
+            break;
+          case 33640: 
+            for (i8 = 0; i8 < 4; i8++) {
+              arrayOfFloat[i8] = (paramShortBuffer.get(i5++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool)
+            {
+
+
+
+              paramByteBuffer.put(i4 + 3, localType_Widget.getUB0());
+              paramByteBuffer.put(i4 + 2, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB2());
+              paramByteBuffer.put(i4, localType_Widget.getUB3());
+            } else {
+              paramByteBuffer.putInt(i4, localType_Widget.getUI());
+            }
+            break;
+          case 5124: 
+          case 5125: 
+          case 5126: 
+            if (paramInt4 == 5126) {
+              if (paramBoolean) {
+                localType_Widget.setF(paramShortBuffer.get(i5++));
+              } else {
+                localType_Widget.setF(paramShortBuffer.get(i5++) / 65535.0F);
+              }
+            } else if (paramInt4 == 5125) {
+              if (paramBoolean) {
+                localType_Widget.setUI(paramShortBuffer.get(i5++));
+              } else {
+                localType_Widget.setUI(paramShortBuffer.get(i5++) * 65537);
+              }
+            }
+            else if (paramBoolean) {
+              localType_Widget.setI(paramShortBuffer.get(i5++));
+            } else {
+              localType_Widget.setI(paramShortBuffer.get(i5++) * 65537 / 2);
+            }
+            
+            if (bool) {
+              paramByteBuffer.put(i4 + 3, localType_Widget.getUB0());
+              paramByteBuffer.put(i4 + 2, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB2());
+              paramByteBuffer.put(i4, localType_Widget.getUB3());
+            } else {
+              paramByteBuffer.put(i4, localType_Widget.getUB0());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 2, localType_Widget.getUB2());
+              paramByteBuffer.put(i4 + 3, localType_Widget.getUB3());
+            }
+            break;
+          }
+          i4 += j;
+        }
+        i3 += k;
+        
+        i4 = i3;
+      }
+      
+      if (!Mipmap.isTypePackedPixel(paramInt4)) {
+        if ((!$assertionsDisabled) && (i5 != paramInt1 * paramInt2 * i)) throw new AssertionError();
+      } else {
+        assert (i5 == paramInt1 * paramInt2 * Mipmap.elements_per_group(paramInt3, 0));
+      }
+      assert (i4 == k * paramInt2 + paramPixelStorageModes.getPackSkipRows() * k + paramPixelStorageModes.getPackSkipPixels() * i1);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public static void fillImage3D(PixelStorageModes paramPixelStorageModes, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, boolean paramBoolean, ByteBuffer paramByteBuffer, ShortBuffer paramShortBuffer)
+  {
+    int i7 = 0;
+    int i8 = 0;
+    
+    Type_Widget localType_Widget = new Type_Widget();
+    float[] arrayOfFloat = new float[4];
+    
+
+    Object localObject = null;
+    switch (paramInt5) {
+    case 32818: 
+      localObject = new Extract332();
+      break;
+    case 33634: 
+      localObject = new Extract233rev();
+      break;
+    case 33635: 
+      localObject = new Extract565();
+      break;
+    case 33636: 
+      localObject = new Extract565rev();
+      break;
+    case 32819: 
+      localObject = new Extract4444();
+      break;
+    case 33637: 
+      localObject = new Extract4444rev();
+      break;
+    case 32820: 
+      localObject = new Extract5551();
+      break;
+    case 33638: 
+      localObject = new Extract1555rev();
+      break;
+    case 32821: 
+      localObject = new Extract8888();
+      break;
+    case 33639: 
+      localObject = new Extract8888rev();
+      break;
+    case 36342: 
+      localObject = new Extract1010102();
+      break;
+    case 33640: 
+      localObject = new Extract2101010rev();
+    }
+    
+    
+    boolean bool = paramPixelStorageModes.getUnpackSwapBytes();
+    int i = Mipmap.elements_per_group(paramInt4, paramInt5);
+    int j; if (paramPixelStorageModes.getUnpackRowLength() > 0) {
+      j = paramPixelStorageModes.getUnpackRowLength();
+    } else {
+      j = paramInt1;
+    }
+    int k = Mipmap.bytes_per_element(paramInt5);
+    int m = k * i;
+    if (k == 1) {
+      bool = false;
+    }
+    
+    int i3;
+    if (paramPixelStorageModes.getUnpackImageHeight() > 0) {
+      i3 = paramPixelStorageModes.getUnpackImageHeight();
+    } else {
+      i3 = paramInt2;
+    }
+    
+
+    int n = j * m;
+    int i1 = n % paramPixelStorageModes.getUnpackAlignment();
+    if (i1 != 0) {
+      n += paramPixelStorageModes.getUnpackAlignment() - i1;
+    }
+    
+    int i4 = i3 * n;
+    
+
+
+    int i5 = paramPixelStorageModes.getUnpackSkipRows() * n + paramPixelStorageModes.getUnpackSkipPixels() * m + paramPixelStorageModes.getUnpackSkipImages() * i4;
+    int i2 = paramInt1 * i;
+    
+    i8 = 0;
+    for (int i11 = 0; i11 < paramInt3; i11++) {
+      int i6 = i5;
+      for (int i10 = 0; i10 < paramInt2; i10++) {
+        i7 = i6;
+        for (int i9 = 0; i9 < i2; i9++) {
+          int i12;
+          switch (paramInt5) {
+          case 5121: 
+            if (paramBoolean) {
+              paramShortBuffer.put(i8++, (short)(0xFF & paramByteBuffer.get(i7)));
+            } else {
+              paramShortBuffer.put(i8++, (short)((0xFF & paramByteBuffer.get(i7)) * 257));
+            }
+            break;
+          case 5120: 
+            if (paramBoolean) {
+              paramShortBuffer.put(i8++, (short)paramByteBuffer.get(i7));
+            } else {
+              paramShortBuffer.put(i8++, (short)(paramByteBuffer.get(i7) * 516));
+            }
+            break;
+          case 32818: 
+            paramByteBuffer.position(i7);
+            ((Extract)localObject).extract(false, paramByteBuffer, arrayOfFloat);
+            for (i12 = 0; i12 < 3;) {
+              paramShortBuffer.put(i8++, (short)(int)(arrayOfFloat[i12] * 65535.0F));i12++; continue;
+              
+
+
+              paramByteBuffer.position(i7);
+              ((Extract)localObject).extract(false, paramByteBuffer, arrayOfFloat);
+              for (i12 = 0; i12 < 3;) {
+                paramShortBuffer.put(i8++, (short)(int)(arrayOfFloat[i12] * 65535.0F));i12++; continue;
+                
+
+
+                paramByteBuffer.position(i7);
+                ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                for (i12 = 0; i12 < 4;) {
+                  paramShortBuffer.put(i8++, (short)(int)(arrayOfFloat[i12] * 65535.0F));i12++; continue;
+                  
+
+
+                  paramByteBuffer.position(i7);
+                  ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                  for (i12 = 0; i12 < 4;) {
+                    paramShortBuffer.put(i8++, (short)(int)(arrayOfFloat[i12] * 65535.0F));i12++; continue;
+                    
+
+
+                    paramByteBuffer.position(i7);
+                    ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                    for (i12 = 0; i12 < 4;) {
+                      paramShortBuffer.put(i8++, (short)(int)(arrayOfFloat[i12] * 65535.0F));i12++; continue;
+                      
+
+
+                      paramByteBuffer.position(i7);
+                      ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                      for (i12 = 0; i12 < 4;) {
+                        paramShortBuffer.put(i8++, (short)(int)(arrayOfFloat[i12] * 65535.0F));i12++; continue;
+                        
+
+
+                        paramByteBuffer.position(i7);
+                        ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                        for (i12 = 0; i12 < 4;) {
+                          paramShortBuffer.put(i8++, (short)(int)(arrayOfFloat[i12] * 65535.0F));i12++; continue;
+                          
+
+
+                          paramByteBuffer.position(i7);
+                          ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                          for (i12 = 0; i12 < 4;) {
+                            paramShortBuffer.put(i8++, (short)(int)(arrayOfFloat[i12] * 65535.0F));i12++; continue;
+                            
+
+
+
+                            if (bool) {
+                              localType_Widget.setUB0(paramByteBuffer.get(i7 + 1));
+                              localType_Widget.setUB1(paramByteBuffer.get(i7));
+                            } else {
+                              localType_Widget.setUB0(paramByteBuffer.get(i7));
+                              localType_Widget.setUB1(paramByteBuffer.get(i7 + 1));
+                            }
+                            if (paramInt5 == 5122) {
+                              if (paramBoolean) {
+                                paramShortBuffer.put(i8++, localType_Widget.getUS0());
+                              } else {
+                                paramShortBuffer.put(i8++, (short)(localType_Widget.getUS0() * 2));
+                              }
+                            } else {
+                              paramShortBuffer.put(i8++, localType_Widget.getUS0());
+                              
+                              break;
+                              
+                              paramByteBuffer.position(i7);
+                              ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                              for (i12 = 0; i12 < 4;) {
+                                paramShortBuffer.put(i8++, (short)(int)(arrayOfFloat[i12] * 65535.0F));i12++; continue;
+                                
+
+
+                                paramByteBuffer.position(i7);
+                                ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                                for (i12 = 0; i12 < 4;) {
+                                  paramShortBuffer.put(i8++, (short)(int)(arrayOfFloat[i12] * 65535.0F));i12++; continue;
+                                  
+
+
+                                  paramByteBuffer.position(i7);
+                                  ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                                  for (i12 = 0; i12 < 4;) {
+                                    paramShortBuffer.put(i8++, (short)(int)(arrayOfFloat[i12] * 65535.0F));i12++; continue;
+                                    
+
+
+                                    ((Extract)localObject).extract(bool, paramByteBuffer, arrayOfFloat);
+                                    for (i12 = 0; i12 < 4;) {
+                                      paramShortBuffer.put(i8++, (short)(int)(arrayOfFloat[i12] * 65535.0F));i12++; continue;
+                                      
+
+
+
+
+                                      if (bool) {
+                                        localType_Widget.setUB0(paramByteBuffer.get(i7 + 3));
+                                        localType_Widget.setUB1(paramByteBuffer.get(i7 + 2));
+                                        localType_Widget.setUB2(paramByteBuffer.get(i7 + 1));
+                                        localType_Widget.setUB3(paramByteBuffer.get(i7));
+                                      } else {
+                                        localType_Widget.setUB0(paramByteBuffer.get(i7));
+                                        localType_Widget.setUB1(paramByteBuffer.get(i7 + 1));
+                                        localType_Widget.setUB2(paramByteBuffer.get(i7 + 2));
+                                        localType_Widget.setUB3(paramByteBuffer.get(i7 + 3));
+                                      }
+                                      if (paramInt5 == 5126) {
+                                        if (paramBoolean) {
+                                          paramShortBuffer.put(i8++, (short)(int)localType_Widget.getF());
+                                        } else {
+                                          paramShortBuffer.put(i8++, (short)(int)(localType_Widget.getF() * 65535.0F));
+                                        }
+                                      } else if (paramInt5 == 5125) {
+                                        if (paramBoolean) {
+                                          paramShortBuffer.put(i8++, (short)localType_Widget.getUI());
+                                        } else {
+                                          paramShortBuffer.put(i8++, (short)(localType_Widget.getUI() >> 16));
+                                        }
+                                      }
+                                      else if (paramBoolean) {
+                                        paramShortBuffer.put(i8++, (short)localType_Widget.getI());
+                                      } else {
+                                        paramShortBuffer.put(i8++, (short)(localType_Widget.getI() >> 15));
+                                        
+
+                                        break;
+                                        
+                                        if (!$assertionsDisabled) throw new AssertionError();
+                                      } } } } } } } } } } } } } } }
+          i7 += k;
+        }
+        i6 += n;
+        i7 = i6;
+      }
+      i5 += i4;
+    }
+    
+
+    if (!Mipmap.isTypePackedPixel(paramInt5)) {
+      if ((!$assertionsDisabled) && (i8 != paramInt1 * paramInt2 * paramInt3 * i)) throw new AssertionError();
+    } else {
+      assert (i8 == paramInt1 * paramInt2 * paramInt3 * Mipmap.elements_per_group(paramInt4, 0));
+    }
+    if (!$assertionsDisabled)
+    {
+      if (i7 != n * paramInt2 * paramInt3 + paramPixelStorageModes.getUnpackSkipRows() * n + paramPixelStorageModes.getUnpackSkipPixels() * m + paramPixelStorageModes.getUnpackSkipImages() * i4) {
+        throw new AssertionError();
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static void emptyImage3D(PixelStorageModes paramPixelStorageModes, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, boolean paramBoolean, ShortBuffer paramShortBuffer, ByteBuffer paramByteBuffer)
+  {
+    Type_Widget localType_Widget = new Type_Widget();
+    float[] arrayOfFloat = new float[4];
+    
+
+    Object localObject = null;
+    switch (paramInt5) {
+    case 32818: 
+      localObject = new Extract332();
+      break;
+    case 33634: 
+      localObject = new Extract233rev();
+      break;
+    case 33635: 
+      localObject = new Extract565();
+      break;
+    case 33636: 
+      localObject = new Extract565rev();
+      break;
+    case 32819: 
+      localObject = new Extract4444();
+      break;
+    case 33637: 
+      localObject = new Extract4444rev();
+      break;
+    case 32820: 
+      localObject = new Extract5551();
+      break;
+    case 33638: 
+      localObject = new Extract1555rev();
+      break;
+    case 32821: 
+      localObject = new Extract8888();
+      break;
+    case 33639: 
+      localObject = new Extract8888rev();
+      break;
+    case 36342: 
+      localObject = new Extract1010102();
+      break;
+    case 33640: 
+      localObject = new Extract2101010rev();
+    }
+    
+    
+    int i4 = 0;
+    
+    boolean bool = paramPixelStorageModes.getPackSwapBytes();
+    int i = Mipmap.elements_per_group(paramInt4, paramInt5);
+    int j; if (paramPixelStorageModes.getPackRowLength() > 0) {
+      j = paramPixelStorageModes.getPackRowLength();
+    } else {
+      j = paramInt1;
+    }
+    
+    int k = Mipmap.bytes_per_element(paramInt5);
+    int m = k * i;
+    if (k == 1) {
+      bool = false;
+    }
+    
+    int i11;
+    if (paramPixelStorageModes.getPackImageHeight() > 0) {
+      i11 = paramPixelStorageModes.getPackImageHeight();
+    } else {
+      i11 = paramInt2;
+    }
+    
+
+
+    int n = j * m;
+    int i1 = n % paramPixelStorageModes.getPackAlignment();
+    if (i1 != 0) {
+      n += paramPixelStorageModes.getPackAlignment() - i1;
+    }
+    
+    int i12 = i11 * n;
+    
+
+
+    int i2 = paramPixelStorageModes.getPackSkipRows() * n + paramPixelStorageModes.getPackSkipPixels() * m + paramPixelStorageModes.getPackSkipImages() * i12;
+    int i5 = paramInt1 * i;
+    
+    int i6 = 0;
+    for (int i9 = 0; i9 < paramInt3; i9++) {
+      int i3 = i2;
+      
+      for (int i7 = 0; i7 < paramInt2; i7++) {
+        i4 = i3;
+        
+        for (int i8 = 0; i8 < i5; i8++) {
+          int i10;
+          switch (paramInt5) {
+          case 5121: 
+            if (paramBoolean) {
+              paramByteBuffer.put(i4, (byte)paramShortBuffer.get(i6++));
+            } else {
+              paramByteBuffer.put(i4, (byte)(paramShortBuffer.get(i6++) >> 8));
+            }
+            break;
+          case 5120: 
+            if (paramBoolean) {
+              paramByteBuffer.put(i4, (byte)paramShortBuffer.get(i6++));
+            } else {
+              paramByteBuffer.put(i4, (byte)(paramShortBuffer.get(i6++) >> 9));
+            }
+            break;
+          case 32818: 
+            for (i10 = 0; i10 < 3; i10++) {
+              arrayOfFloat[i10] = (paramShortBuffer.get(i6++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, paramByteBuffer);
+            break;
+          case 33634: 
+            for (i10 = 0; i10 < 3; i10++) {
+              arrayOfFloat[i10] = (paramShortBuffer.get(i6++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, paramByteBuffer);
+            break;
+          case 33635: 
+            for (i10 = 0; i10 < 4; i10++) {
+              arrayOfFloat[i10] = (paramShortBuffer.get(i6++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool) {
+              paramByteBuffer.putShort(i4, (short)localType_Widget.getUB1());
+              paramByteBuffer.putShort(i4 + 1, (short)localType_Widget.getUB0());
+            } else {
+              paramByteBuffer.putShort(i4, localType_Widget.getUS0());
+            }
+            break;
+          case 33636: 
+            for (i10 = 0; i10 < 4; i10++) {
+              arrayOfFloat[i10] = (paramShortBuffer.get(i6++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool) {
+              paramByteBuffer.put(i4, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB0());
+            } else {
+              paramByteBuffer.putShort(i4, localType_Widget.getUS0());
+            }
+            break;
+          case 32819: 
+            for (i10 = 0; i10 < 4; i10++) {
+              arrayOfFloat[i10] = (paramShortBuffer.get(i6++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool) {
+              paramByteBuffer.put(i4, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB0());
+            } else {
+              paramByteBuffer.putShort(i4, localType_Widget.getUS0());
+            }
+            break;
+          case 33637: 
+            for (i10 = 0; i10 < 4; i10++) {
+              arrayOfFloat[i10] = (paramShortBuffer.get(i6++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool) {
+              paramByteBuffer.put(i4, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB0());
+            } else {
+              paramByteBuffer.putShort(i4, localType_Widget.getUS0());
+            }
+            break;
+          case 32820: 
+            for (i10 = 0; i10 < 4; i10++) {
+              arrayOfFloat[i10] = (paramShortBuffer.get(i6++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool) {
+              paramByteBuffer.put(i4, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB0());
+            } else {
+              paramByteBuffer.putShort(i4, localType_Widget.getUS0());
+            }
+            break;
+          case 33638: 
+            for (i10 = 0; i10 < 4; i10++) {
+              arrayOfFloat[i10] = (paramShortBuffer.get(i6++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool) {
+              paramByteBuffer.put(i4, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB0());
+            } else {
+              paramByteBuffer.putShort(i4, localType_Widget.getUS0());
+            }
+            break;
+          case 5122: 
+          case 5123: 
+            if (paramInt5 == 5122) {
+              if (paramBoolean) {
+                localType_Widget.setS0(paramShortBuffer.get(i6++));
+              } else {
+                localType_Widget.setS0((short)(paramShortBuffer.get(i6++) >> 1));
+              }
+            } else {
+              localType_Widget.setUS0(paramShortBuffer.get(i6++));
+            }
+            if (bool) {
+              paramByteBuffer.put(i4, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB0());
+            } else {
+              paramByteBuffer.put(i4, localType_Widget.getUB0());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB1());
+            }
+            break;
+          case 32821: 
+            for (i10 = 0; i10 < 4; i10++) {
+              arrayOfFloat[i10] = (paramShortBuffer.get(i6++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool) {
+              paramByteBuffer.put(i4 + 3, localType_Widget.getUB0());
+              paramByteBuffer.put(i4 + 2, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB2());
+              paramByteBuffer.put(i4, localType_Widget.getUB3());
+            } else {
+              paramByteBuffer.putInt(i4, localType_Widget.getUI());
+            }
+            break;
+          case 33639: 
+            for (i10 = 0; i10 < 4; i10++) {
+              arrayOfFloat[i10] = (paramShortBuffer.get(i6++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool) {
+              paramByteBuffer.put(i4 + 3, localType_Widget.getUB0());
+              paramByteBuffer.put(i4 + 2, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB2());
+              paramByteBuffer.put(i4, localType_Widget.getUB3());
+            } else {
+              paramByteBuffer.putInt(i4, localType_Widget.getUI());
+            }
+            break;
+          case 36342: 
+            for (i10 = 0; i10 < 4; i10++) {
+              arrayOfFloat[i10] = (paramShortBuffer.get(i6++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool) {
+              paramByteBuffer.put(i4 + 3, localType_Widget.getUB0());
+              paramByteBuffer.put(i4 + 2, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB2());
+              paramByteBuffer.put(i4, localType_Widget.getUB3());
+            } else {
+              paramByteBuffer.putInt(i4, localType_Widget.getUI());
+            }
+            break;
+          case 33640: 
+            for (i10 = 0; i10 < 4; i10++) {
+              arrayOfFloat[i10] = (paramShortBuffer.get(i6++) / 65535.0F);
+            }
+            ((Extract)localObject).shove(arrayOfFloat, 0, localType_Widget.getBuffer());
+            if (bool) {
+              paramByteBuffer.put(i4 + 3, localType_Widget.getUB0());
+              paramByteBuffer.put(i4 + 2, localType_Widget.getUB2());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB1());
+              paramByteBuffer.put(i4, localType_Widget.getUB0());
+            } else {
+              paramByteBuffer.putInt(i4, localType_Widget.getUI());
+            }
+            break;
+          case 5124: 
+          case 5125: 
+          case 5126: 
+            if (paramInt5 == 5126) {
+              if (paramBoolean) {
+                localType_Widget.setF(paramShortBuffer.get(i6++));
+              } else {
+                localType_Widget.setF(paramShortBuffer.get(i6++) / 65535.0F);
+              }
+            } else if (paramInt5 == 5125) {
+              if (paramBoolean) {
+                localType_Widget.setUI(paramShortBuffer.get(i6++));
+              } else {
+                localType_Widget.setUI(paramShortBuffer.get(i6++) * 65537);
+              }
+            }
+            else if (paramBoolean) {
+              localType_Widget.setI(paramShortBuffer.get(i6++));
+            } else {
+              localType_Widget.setI(paramShortBuffer.get(i6++) * 65535 / 2);
+            }
+            
+            if (bool) {
+              paramByteBuffer.put(i4 + 3, localType_Widget.getUB0());
+              paramByteBuffer.put(i4 + 2, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB2());
+              paramByteBuffer.put(i4, localType_Widget.getUB3());
+            } else {
+              paramByteBuffer.put(i4, localType_Widget.getUB0());
+              paramByteBuffer.put(i4 + 1, localType_Widget.getUB1());
+              paramByteBuffer.put(i4 + 2, localType_Widget.getUB2());
+              paramByteBuffer.put(i4 + 3, localType_Widget.getUB3());
+            }
+            break;
+          default: 
+            if (!$assertionsDisabled) throw new AssertionError();
+            break;
+          }
+          i4 += k;
+        }
+        i3 += n;
+      }
+      i2 += i12;
+    }
+    
+    if (!Mipmap.isTypePackedPixel(paramInt5)) {
+      if ((!$assertionsDisabled) && (i6 != paramInt1 * paramInt2 * paramInt3 * i)) throw new AssertionError();
+    } else {
+      assert (i6 == paramInt1 * paramInt2 * paramInt3 * Mipmap.elements_per_group(paramInt4, 0));
+    }
+    if (!$assertionsDisabled)
+    {
+
+      if (i4 != n * paramInt2 * paramInt3 + paramPixelStorageModes.getUnpackSkipRows() * n + paramPixelStorageModes.getUnpackSkipPixels() * m + paramPixelStorageModes.getUnpackSkipImages() * i12) {
+        throw new AssertionError();
+      }
+    }
+  }
+}

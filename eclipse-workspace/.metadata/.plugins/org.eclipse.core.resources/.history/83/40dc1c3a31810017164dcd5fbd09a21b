@@ -1,0 +1,167 @@
+package jogamp.newt.driver.windows;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.util.IOUtil.ClassResources;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.PixelFormat;
+import com.jogamp.nativewindow.windows.WindowsGraphicsDevice;
+import com.jogamp.newt.NewtFactory;
+import com.jogamp.opengl.util.PNGPixelRect;
+import java.net.URLConnection;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import jogamp.nativewindow.windows.RegisteredClass;
+import jogamp.nativewindow.windows.RegisteredClassFactory;
+import jogamp.newt.DisplayImpl;
+import jogamp.newt.NEWTJNILibLoader;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class DisplayDriver
+  extends DisplayImpl
+{
+  private static final String newtClassBaseName = "_newt_clazz";
+  private static final long[] defaultIconHandles;
+  private static RegisteredClassFactory sharedClassFactory;
+  private RegisteredClass sharedClass;
+  
+  static
+  {
+    NEWTJNILibLoader.loadNEWT();
+    
+    long[] arrayOfLong = { 0L, 0L };
+    if (DisplayImpl.isPNGUtilAvailable()) {
+      try {
+        IOUtil.ClassResources localClassResources = NewtFactory.getWindowIcons();
+        
+        URLConnection localURLConnection = localClassResources.resolve(0);
+        PNGPixelRect localPNGPixelRect; if (null != localURLConnection) {
+          localPNGPixelRect = PNGPixelRect.read(localURLConnection.getInputStream(), PixelFormat.BGRA8888, false, 0, false);
+          arrayOfLong[0] = createBGRA8888Icon0(localPNGPixelRect.getPixels(), localPNGPixelRect.getSize().getWidth(), localPNGPixelRect.getSize().getHeight(), false, 0, 0);
+        }
+        
+
+        localURLConnection = localClassResources.resolve(localClassResources.resourceCount() - 1);
+        if (null != localURLConnection) {
+          localPNGPixelRect = PNGPixelRect.read(localURLConnection.getInputStream(), PixelFormat.BGRA8888, false, 0, false);
+          arrayOfLong[1] = createBGRA8888Icon0(localPNGPixelRect.getPixels(), localPNGPixelRect.getSize().getWidth(), localPNGPixelRect.getSize().getHeight(), false, 0, 0);
+        }
+      }
+      catch (Exception localException) {
+        localException.printStackTrace();
+      }
+    }
+    defaultIconHandles = arrayOfLong;
+    
+    sharedClassFactory = new RegisteredClassFactory("_newt_clazz", WindowDriver.getNewtWndProc0(), false, defaultIconHandles[0], defaultIconHandles[1]);
+    
+
+    if (!WindowDriver.initIDs0(RegisteredClassFactory.getHInstance())) {
+      throw new NativeWindowException("Failed to initialize WindowsWindow jmethodIDs");
+    }
+  }
+  
+
+
+
+  protected static long getHInstance()
+  {
+    return RegisteredClassFactory.getHInstance();
+  }
+  
+
+
+
+
+
+  protected void createNativeImpl()
+  {
+    sharedClass = sharedClassFactory.getSharedClass();
+    aDevice = new WindowsGraphicsDevice(0);
+  }
+  
+  protected void closeNativeImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    sharedClassFactory.releaseSharedClass();
+    paramAbstractGraphicsDevice.close();
+  }
+  
+
+
+
+
+  protected String getWindowClassName()
+  {
+    return sharedClass.getName();
+  }
+  
+  protected final long createPointerIconImpl(PixelFormat paramPixelFormat, int paramInt1, int paramInt2, ByteBuffer paramByteBuffer, int paramInt3, int paramInt4)
+  {
+    return createBGRA8888Icon0(paramByteBuffer, paramInt1, paramInt2, true, paramInt3, paramInt4);
+  }
+  
+  protected final void destroyPointerIconImpl(long paramLong1, long paramLong2)
+  {
+    destroyIcon0(paramLong2);
+  }
+  
+
+
+
+
+  static long createBGRA8888Icon0(Buffer paramBuffer, int paramInt1, int paramInt2, boolean paramBoolean, int paramInt3, int paramInt4)
+  {
+    if (null == paramBuffer) {
+      throw new IllegalArgumentException("data buffer/size");
+    }
+    boolean bool = Buffers.isDirect(paramBuffer);
+    return createBGRA8888Icon0(bool ? paramBuffer : 
+      Buffers.getArray(paramBuffer), bool ? 
+      Buffers.getDirectBufferByteOffset(paramBuffer) : Buffers.getIndirectBufferByteOffset(paramBuffer), bool, paramInt1, paramInt2, paramBoolean, paramInt3, paramInt4);
+  }
+  
+  public static void initSingleton() {}
+  
+  public DisplayDriver() {}
+  
+  protected void dispatchMessagesNative() {}
+  
+  private static native void DispatchMessages0();
+  
+  private static native long createBGRA8888Icon0(Object paramObject, int paramInt1, boolean paramBoolean1, int paramInt2, int paramInt3, boolean paramBoolean2, int paramInt4, int paramInt5);
+  
+  private static native void destroyIcon0(long paramLong);
+}

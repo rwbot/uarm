@@ -1,0 +1,106 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInputStream;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class LookupList
+{
+  private final int _lookupCount;
+  private final int[] _lookupOffsets;
+  private final Lookup[] _lookups;
+  
+  public LookupList(DataInputStream paramDataInputStream, int paramInt, LookupSubtableFactory paramLookupSubtableFactory)
+    throws IOException
+  {
+    paramDataInputStream.reset();
+    paramDataInputStream.skipBytes(paramInt);
+    
+
+    _lookupCount = paramDataInputStream.readUnsignedShort();
+    _lookupOffsets = new int[_lookupCount];
+    _lookups = new Lookup[_lookupCount];
+    for (int i = 0; i < _lookupCount; i++) {
+      _lookupOffsets[i] = paramDataInputStream.readUnsignedShort();
+    }
+    for (i = 0; i < _lookupCount; i++) {
+      _lookups[i] = new Lookup(paramLookupSubtableFactory, paramDataInputStream, paramInt + _lookupOffsets[i]);
+    }
+  }
+  
+  public int getLookupCount() {
+    return _lookupCount;
+  }
+  
+  public int getLookupOffset(int paramInt) {
+    return _lookupOffsets[paramInt];
+  }
+  
+  public Lookup getLookup(int paramInt) {
+    return _lookups[paramInt];
+  }
+  
+  public Lookup getLookup(Feature paramFeature, int paramInt) {
+    if (paramFeature.getLookupCount() > paramInt) {
+      int i = paramFeature.getLookupListIndex(paramInt);
+      return _lookups[i];
+    }
+    return null;
+  }
+}

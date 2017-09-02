@@ -1,0 +1,576 @@
+package com.jogamp.newt.event;
+
+import com.jogamp.common.util.Bitfield.Util;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class KeyEvent
+  extends InputEvent
+{
+  private final short keyCode;
+  private final short keySym;
+  private final char keyChar;
+  private final byte flags;
+  private static final byte F_MODIFIER_MASK = 1;
+  private static final byte F_ACTION_MASK = 2;
+  private static final byte F_PRINTABLE_MASK = 4;
+  public static final short EVENT_KEY_PRESSED = 300;
+  public static final short EVENT_KEY_RELEASED = 301;
+  public static final char NULL_CHAR = '\000';
+  
+  private KeyEvent(short paramShort1, Object paramObject, long paramLong, int paramInt1, short paramShort2, short paramShort3, int paramInt2, char paramChar)
+  {
+    super(paramShort1, paramObject, paramLong, paramInt1 | paramInt2);
+    keyCode = paramShort2;
+    keySym = paramShort3;
+    keyChar = paramChar;
+    
+    byte b = 0;
+    if ((isPrintableKey(paramShort3, false)) && (isPrintableKey((short)paramChar, true))) {
+      b = (byte)(b | 0x4);
+    }
+    else if (0 != paramInt2) {
+      b = (byte)(b | 0x1);
+    }
+    else {
+      b = (byte)(b | 0x2);
+    }
+    
+    flags = b;
+    
+
+
+
+    int i = flags & 0x7;
+    int j = Bitfield.Util.bitCount(i);
+    if (1 != j) {
+      throw new InternalError("Key must be either of type printable, modifier or action - but it is of " + j + " types: " + this);
+    }
+  }
+  
+  public static KeyEvent create(short paramShort1, Object paramObject, long paramLong, int paramInt, short paramShort2, short paramShort3, char paramChar)
+  {
+    return new KeyEvent(paramShort1, paramObject, paramLong, paramInt, paramShort2, paramShort3, getModifierMask(paramShort3), paramChar);
+  }
+  
+
+
+
+
+
+  public final char getKeyChar()
+  {
+    return keyChar;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final short getKeySymbol()
+  {
+    return keySym;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final short getKeyCode()
+  {
+    return keyCode;
+  }
+  
+  public final String toString()
+  {
+    return toString(null).toString();
+  }
+  
+  public final StringBuilder toString(StringBuilder paramStringBuilder)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    
+    paramStringBuilder.append("KeyEvent[").append(getEventTypeString(getEventType())).append(", code ").append(toHexString(keyCode)).append(", sym ").append(toHexString(keySym)).append(", char '").append(keyChar).append("' (").append(toHexString((short)keyChar)).append("), printable ").append(isPrintableKey()).append(", modifier ").append(isModifierKey()).append(", action ").append(isActionKey()).append(", ");
+    return super.toString(paramStringBuilder).append("]");
+  }
+  
+  public static String getEventTypeString(short paramShort) {
+    switch (paramShort) {
+    case 300:  return "EVENT_KEY_PRESSED";
+    case 301:  return "EVENT_KEY_RELEASED"; }
+    return "unknown (" + paramShort + ")";
+  }
+  
+
+
+
+
+
+  public static short utf16ToVKey(char paramChar)
+  {
+    if (('a' <= paramChar) && (paramChar <= 'z')) {
+      return (short)(paramChar - 'a' + 65);
+    }
+    return (short)paramChar;
+  }
+  
+
+
+
+
+
+  public static boolean isModifierKey(short paramShort)
+  {
+    switch (paramShort) {
+    case 15: 
+    case 17: 
+    case 18: 
+    case 19: 
+    case 155: 
+      return true;
+    }
+    return false;
+  }
+  
+
+
+
+
+  public static int getModifierMask(short paramShort)
+  {
+    switch (paramShort) {
+    case 15: 
+      return 1;
+    case 17: 
+      return 2;
+    case 18: 
+    case 19: 
+      return 8;
+    case 155: 
+      return 4;
+    }
+    return 0;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final boolean isModifierKey()
+  {
+    return 0 != (0x1 & flags);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final boolean isActionKey()
+  {
+    return 0 != (0x2 & flags);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static boolean isPrintableKey(short paramShort, boolean paramBoolean)
+  {
+    if ((8 == paramShort) || (9 == paramShort) || (13 == paramShort)) {
+      return true;
+    }
+    if (!paramBoolean) {
+      if (((nonPrintableKeys0min <= paramShort) && (paramShort <= nonPrintableKeys0max)) || ((nonPrintableKeys1min <= paramShort) && (paramShort <= nonPrintableKeys1max)) || ((nonPrintableKeys2min <= paramShort) && (paramShort <= nonPrintableKeys2max)) || ((nonPrintableKeys3min <= paramShort) && (paramShort <= nonPrintableKeys3max)))
+      {
+
+
+        return false;
+      }
+    }
+    else if (((nonPrintableKeys0inclKeyChar) && (nonPrintableKeys0min <= paramShort) && (paramShort <= nonPrintableKeys0max)) || ((nonPrintableKeys1inclKeyChar) && (nonPrintableKeys1min <= paramShort) && (paramShort <= nonPrintableKeys1max)) || ((nonPrintableKeys2inclKeyChar) && (nonPrintableKeys2min <= paramShort) && (paramShort <= nonPrintableKeys2max)) || ((nonPrintableKeys3inclKeyChar) && (nonPrintableKeys3min <= paramShort) && (paramShort <= nonPrintableKeys3max)))
+    {
+
+
+      return false;
+    }
+    
+    return 0 != paramShort;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final boolean isPrintableKey()
+  {
+    return 0 != (0x4 & flags);
+  }
+  
+
+
+
+
+
+  public static class NonPrintableRange
+  {
+    public short min;
+    
+
+
+
+
+    public short max;
+    
+
+
+
+
+    public final boolean inclKeyChar;
+    
+
+
+
+
+
+    private NonPrintableRange(short paramShort1, short paramShort2, boolean paramBoolean)
+    {
+      min = paramShort1;
+      max = paramShort2;
+      inclKeyChar = paramBoolean;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static final NonPrintableRange[] nonPrintableKeys = { new NonPrintableRange(0, 31, true, null), new NonPrintableRange(97, 120, false, null), new NonPrintableRange(143, 159, true, null), new NonPrintableRange(57344, 63743, true, null) };
+  public static final short VK_UNDEFINED = 0;
+  static final short VK_FREE01 = 1;
+  public static final short VK_HOME = 2;
+  public static final short VK_END = 3;
+  public static final short VK_FINAL = 4;
+  public static final short VK_PRINTSCREEN = 5;
+  static final short VK_FREE06 = 6;
+  static final short VK_FREE07 = 7;
+  public static final short VK_BACK_SPACE = 8;
+  public static final short VK_TAB = 9;
+  static final short VK_FREE0A = 10;
+  public static final short VK_PAGE_DOWN = 11;
+  public static final short VK_CLEAR = 12;
+  public static final short VK_ENTER = 13;
+  static final short VK_FREE0E = 14;
+  public static final short VK_SHIFT = 15;
+  public static final short VK_PAGE_UP = 16;
+  public static final short VK_CONTROL = 17;
+  public static final short VK_ALT = 18;
+  public static final short VK_ALT_GRAPH = 19;
+  public static final short VK_CAPS_LOCK = 20;
+  static final short VK_FREE15 = 21;
+  public static final short VK_PAUSE = 22;
+  public static final short VK_SCROLL_LOCK = 23;
+  public static final short VK_CANCEL = 24;
+  static final short VK_FREE19 = 25;
+  public static final short VK_INSERT = 26;
+  public static final short VK_ESCAPE = 27;
+  public static final short VK_CONVERT = 28;
+  public static final short VK_NONCONVERT = 29;
+  public static final short VK_ACCEPT = 30;
+  public static final short VK_MODECHANGE = 31;
+  public static final short VK_SPACE = 32;
+  public static final short VK_EXCLAMATION_MARK = 33;
+  public static final short VK_QUOTEDBL = 34;
+  public static final short VK_NUMBER_SIGN = 35;
+  public static final short VK_DOLLAR = 36;
+  public static final short VK_PERCENT = 37;
+  public static final short VK_AMPERSAND = 38;
+  public static final short VK_QUOTE = 39;
+  public static final short VK_LEFT_PARENTHESIS = 40;
+  public static final short VK_RIGHT_PARENTHESIS = 41;
+  public static final short VK_ASTERISK = 42;
+  public static final short VK_PLUS = 43;
+  public static final short VK_COMMA = 44;
+  public static final short VK_MINUS = 45;
+  public static final short VK_PERIOD = 46;
+  public static final short VK_SLASH = 47;
+  public static final short VK_0 = 48;
+  public static final short VK_1 = 49;
+  public static final short VK_2 = 50;
+  public static final short VK_3 = 51;
+  public static final short VK_4 = 52;
+  public static final short VK_5 = 53;
+  public static final short VK_6 = 54;
+  public static final short VK_7 = 55;
+  public static final short VK_8 = 56;
+  public static final short VK_9 = 57;
+  public static final short VK_COLON = 58;
+  public static final short VK_SEMICOLON = 59;
+  public static final short VK_LESS = 60;
+  public static final short VK_EQUALS = 61;
+  public static final short VK_GREATER = 62;
+  public static final short VK_QUESTIONMARK = 63;
+  public static final short VK_AT = 64;
+  public static final short VK_A = 65;
+  public static final short VK_B = 66;
+  public static final short VK_C = 67;
+  public static final short VK_D = 68;
+  public static final short VK_E = 69;
+  public static final short VK_F = 70;
+  public static final short VK_G = 71;
+  public static final short VK_H = 72;
+  public static final short VK_I = 73;
+  public static final short VK_J = 74;
+  public static final short VK_K = 75;
+  public static final short VK_L = 76;
+  public static final short VK_M = 77;
+  public static final short VK_N = 78;
+  public static final short VK_O = 79;
+  public static final short VK_P = 80;
+  public static final short VK_Q = 81;
+  public static final short VK_R = 82;
+  public static final short VK_S = 83;
+  public static final short VK_T = 84;
+  public static final short VK_U = 85;
+  public static final short VK_V = 86;
+  public static final short VK_W = 87;
+  public static final short VK_X = 88;
+  public static final short VK_Y = 89;
+  public static final short VK_Z = 90;
+  public static final short VK_OPEN_BRACKET = 91;
+  public static final short VK_BACK_SLASH = 92;
+  public static final short VK_CLOSE_BRACKET = 93;
+  public static final short VK_CIRCUMFLEX = 94;
+  public static final short VK_UNDERSCORE = 95;
+  public static final short VK_BACK_QUOTE = 96;
+  public static final short VK_F1 = 97;
+  public static final short VK_F2 = 98;
+  public static final short VK_F3 = 99;
+  public static final short VK_F4 = 100;
+  public static final short VK_F5 = 101;
+  public static final short VK_F6 = 102;
+  public static final short VK_F7 = 103;
+  public static final short VK_F8 = 104;
+  public static final short VK_F9 = 105;
+  public static final short VK_F10 = 106;
+  public static final short VK_F11 = 107;
+  public static final short VK_F12 = 108;
+  public static final short VK_F13 = 109;
+  public static final short VK_F14 = 110;
+  public static final short VK_F15 = 111;
+  public static final short VK_F16 = 112;
+  public static final short VK_F17 = 113;
+  public static final short VK_F18 = 114;
+  public static final short VK_F19 = 115;
+  public static final short VK_F20 = 116;
+  public static final short VK_F21 = 117;
+  public static final short VK_F22 = 118;
+  public static final short VK_F23 = 119;
+  public static final short VK_F24 = 120;
+  public static final short VK_LEFT_BRACE = 123;
+  public static final short VK_PIPE = 124;
+  public static final short VK_RIGHT_BRACE = 125;
+  public static final short VK_TILDE = 126;
+  public static final short VK_SEPARATOR = 127;
+  public static final short VK_NUMPAD0 = 128;
+  public static final short VK_NUMPAD1 = 129;
+  public static final short VK_NUMPAD2 = 130;
+  public static final short VK_NUMPAD3 = 131;
+  public static final short VK_NUMPAD4 = 132;
+  public static final short VK_NUMPAD5 = 133;
+  public static final short VK_NUMPAD6 = 134;
+  public static final short VK_NUMPAD7 = 135;
+  public static final short VK_NUMPAD8 = 136;
+  public static final short VK_NUMPAD9 = 137;
+  public static final short VK_DECIMAL = 138;
+  public static final short VK_ADD = 139;
+  public static final short VK_SUBTRACT = 140;
+  public static final short VK_MULTIPLY = 141;
+  public static final short VK_DIVIDE = 142;
+  public static final short VK_DELETE = 147;
+  public static final short VK_NUM_LOCK = 148;
+  public static final short VK_LEFT = 149;
+  public static final short VK_UP = 150;
+  public static final short VK_RIGHT = 151;
+  public static final short VK_DOWN = 152;
+  public static final short VK_CONTEXT_MENU = 153;
+  public static final short VK_WINDOWS = 154;
+  public static final short VK_META = 155;
+  public static final short VK_HELP = 156;
+  public static final short VK_COMPOSE = 157;
+  public static final short VK_BEGIN = 158;
+  public static final short VK_STOP = 159;
+  public static final short VK_INVERTED_EXCLAMATION_MARK = 161;
+  public static final short VK_EURO_SIGN = 8364;
+  public static final short VK_CUT = -1927;
+  public static final short VK_COPY = -1926;
+  public static final short VK_PASTE = -1925;
+  public static final short VK_UNDO = -1924;
+  public static final short VK_AGAIN = -1923;
+  public static final short VK_FIND = -1922;
+  public static final short VK_PROPS = -1921;
+  public static final short VK_INPUT_METHOD_ON_OFF = -1904;
+  public static final short VK_CODE_INPUT = -1903;
+  public static final short VK_ROMAN_CHARACTERS = -1902;
+  public static final short VK_ALL_CANDIDATES = -1901;
+  public static final short VK_PREVIOUS_CANDIDATE = -1900;
+  public static final short VK_ALPHANUMERIC = -1899;
+  public static final short VK_KATAKANA = -1898;
+  public static final short VK_HIRAGANA = -1897;
+  public static final short VK_FULL_WIDTH = -1896;
+  public static final short VK_HALF_WIDTH = -1894;
+  public static final short VK_JAPANESE_KATAKANA = -1893;
+  public static final short VK_JAPANESE_HIRAGANA = -1892;
+  public static final short VK_JAPANESE_ROMAN = -1891;
+  public static final short VK_KANA_LOCK = -1889;
+  public static final short VK_KEYBOARD_INVISIBLE = -1793;
+}

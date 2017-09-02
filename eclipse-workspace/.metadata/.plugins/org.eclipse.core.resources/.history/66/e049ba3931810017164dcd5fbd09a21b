@@ -1,0 +1,212 @@
+package g4p_controls;
+
+import processing.core.PApplet;
+import processing.core.PImage;
+import processing.event.MouseEvent;
+
+public class GImageButton
+  extends GAbstractControl
+{
+  private static PImage[] errImage = null;
+  protected PImage[] bimage = null;
+  protected PImage mask = null;
+  protected int status;
+  protected boolean reportAllButtonEvents = false;
+  
+  public GImageButton(PApplet paramPApplet, float paramFloat1, float paramFloat2, String[] paramArrayOfString)
+  {
+    this(paramPApplet, paramFloat1, paramFloat2, paramArrayOfString, null);
+  }
+  
+  public GImageButton(PApplet paramPApplet, float paramFloat1, float paramFloat2, String[] paramArrayOfString, String paramString)
+  {
+    super(paramPApplet, paramFloat1, paramFloat2);
+    if (errImage == null) {
+      errImage = ImageManager.loadImage(winApp, new String[] { "err0.png", "err1.png", "err2.png" });
+    }
+    if ((paramArrayOfString == null) || (paramArrayOfString.length == 0)) {
+      paramArrayOfString = new String[] { "err0.png", "err1.png", "err2.png" };
+    }
+    bimage = ImageManager.loadImage(winApp, paramArrayOfString);
+    if (bimage.length != 3)
+    {
+      PImage[] arrayOfPImage = new PImage[3];
+      for (int j = 0; j < 3; j++) {
+        arrayOfPImage[j] = bimage[Math.min(j, bimage.length - 1)];
+      }
+      bimage = arrayOfPImage;
+    }
+    if (paramString != null) {
+      mask = winApp.loadImage(paramString);
+    }
+    if ((width > 0.0F) && (height > 0.0F))
+    {
+      for (int i = 0; i < bimage.length; i++) {
+        if ((bimage[i].width != width) || (bimage[i].height != height)) {
+          bimage[i].resize((int)width, (int)height);
+        }
+      }
+      if ((mask != null) && ((mask.width != width) || (mask.height != height))) {
+        mask.resize((int)width, (int)height);
+      }
+    }
+    else
+    {
+      resize(bimage[0].width, bimage[0].height);
+    }
+    if (mask != null) {
+      hotspots = new HotSpot[] { new HotSpot.HSmask(1, mask) };
+    } else {
+      hotspots = new HotSpot[] { new HotSpot.HSalpha(1, 0.0F, 0.0F, bimage[0], 0) };
+    }
+    z = 24;
+    createEventHandler(G4P.sketchWindow, "handleButtonEvents", new Class[] { GImageButton.class, GEvent.class }, new String[] { "button", "event" });
+    registeredMethods = 3;
+    cursorOver = 12;
+    G4P.registerControl(this);
+  }
+  
+  public GImageButton(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, String[] paramArrayOfString)
+  {
+    this(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramArrayOfString, null);
+  }
+  
+  public GImageButton(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, String[] paramArrayOfString, String paramString)
+  {
+    super(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+    if (errImage == null) {
+      errImage = ImageManager.loadImage(winApp, new String[] { "err0.png", "err1.png", "err2.png" });
+    }
+    if ((paramArrayOfString == null) || (paramArrayOfString.length == 0)) {
+      paramArrayOfString = new String[] { "err0.png", "err1.png", "err2.png" };
+    }
+    bimage = ImageManager.loadImage(winApp, paramArrayOfString);
+    if (bimage.length != 3)
+    {
+      PImage[] arrayOfPImage = new PImage[3];
+      for (int j = 0; j < 3; j++) {
+        arrayOfPImage[j] = bimage[Math.min(j, bimage.length - 1)];
+      }
+      bimage = arrayOfPImage;
+    }
+    if (paramString != null) {
+      mask = winApp.loadImage(paramString);
+    }
+    if ((width > 0.0F) && (height > 0.0F))
+    {
+      for (int i = 0; i < bimage.length; i++) {
+        if ((bimage[i].width != width) || (bimage[i].height != height)) {
+          bimage[i].resize((int)width, (int)height);
+        }
+      }
+      if ((mask != null) && ((mask.width != width) || (mask.height != height))) {
+        mask.resize((int)width, (int)height);
+      }
+    }
+    else
+    {
+      resize(bimage[0].width, bimage[0].height);
+    }
+    if (mask != null) {
+      hotspots = new HotSpot[] { new HotSpot.HSmask(1, mask) };
+    } else {
+      hotspots = new HotSpot[] { new HotSpot.HSalpha(1, 0.0F, 0.0F, bimage[0], 0) };
+    }
+    z = 24;
+    createEventHandler(G4P.sketchWindow, "handleButtonEvents", new Class[] { GImageButton.class, GEvent.class }, new String[] { "button", "event" });
+    registeredMethods = 3;
+    cursorOver = 12;
+    G4P.registerControl(this);
+  }
+  
+  public void draw()
+  {
+    if (!visible) {
+      return;
+    }
+    winApp.pushStyle();
+    winApp.pushMatrix();
+    winApp.translate(cx, cy);
+    winApp.rotate(rotAngle);
+    winApp.translate(-halfWidth, -halfHeight);
+    winApp.imageMode(0);
+    if (alphaLevel < 255) {
+      winApp.tint(255, alphaLevel);
+    }
+    winApp.image(bimage[status], 0.0F, 0.0F);
+    winApp.popMatrix();
+    winApp.popStyle();
+  }
+  
+  public void mouseEvent(MouseEvent paramMouseEvent)
+  {
+    if ((!visible) || (!enabled) || (!available)) {
+      return;
+    }
+    calcTransformedOrigin(winApp.mouseX, winApp.mouseY);
+    currSpot = whichHotSpot(ox, oy);
+    if ((currSpot >= 0) || (focusIsWith == this)) {
+      cursorIsOver = this;
+    } else if (cursorIsOver == this) {
+      cursorIsOver = null;
+    }
+    switch (paramMouseEvent.getAction())
+    {
+    case 1: 
+      if ((focusIsWith != this) && (currSpot >= 0) && (z > focusObjectZ()))
+      {
+        dragging = false;
+        status = 2;
+        takeFocus();
+        if (reportAllButtonEvents) {
+          fireEvent(new Object[] { this, GEvent.PRESSED });
+        }
+      }
+      break;
+    case 3: 
+      if (focusIsWith == this)
+      {
+        status = 0;
+        loseFocus(null);
+        dragging = false;
+        fireEvent(new Object[] { this, GEvent.CLICKED });
+      }
+      break;
+    case 2: 
+      if ((focusIsWith == this) && (dragging))
+      {
+        if (currSpot >= 0) {
+          fireEvent(new Object[] { this, GEvent.CLICKED });
+        } else if (reportAllButtonEvents) {
+          fireEvent(new Object[] { this, GEvent.RELEASED });
+        }
+        dragging = false;
+        loseFocus(null);
+        status = 0;
+      }
+      break;
+    case 5: 
+      if (currSpot >= 0) {
+        status = 1;
+      } else {
+        status = 0;
+      }
+      break;
+    case 4: 
+      dragging = (focusIsWith == this);
+    }
+  }
+  
+  public void fireAllEvents(boolean paramBoolean)
+  {
+    reportAllButtonEvents = paramBoolean;
+  }
+  
+  public void setEnabled(boolean paramBoolean)
+  {
+    super.setEnabled(paramBoolean);
+    if (!paramBoolean) {
+      status = 0;
+    }
+  }
+}

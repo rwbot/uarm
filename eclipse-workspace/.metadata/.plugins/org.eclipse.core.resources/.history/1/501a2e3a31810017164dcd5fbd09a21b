@@ -1,0 +1,298 @@
+package jogamp.opengl.util.pngj.chunks;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.zip.Deflater;
+import java.util.zip.DeflaterOutputStream;
+import java.util.zip.Inflater;
+import java.util.zip.InflaterInputStream;
+import jogamp.opengl.util.pngj.PngHelperInternal;
+import jogamp.opengl.util.pngj.PngjException;
+
+
+
+
+
+
+public class ChunkHelper
+{
+  public static final String IHDR = "IHDR";
+  public static final String PLTE = "PLTE";
+  public static final String IDAT = "IDAT";
+  public static final String IEND = "IEND";
+  public static final byte[] b_IHDR = toBytes("IHDR");
+  public static final byte[] b_PLTE = toBytes("PLTE");
+  public static final byte[] b_IDAT = toBytes("IDAT");
+  public static final byte[] b_IEND = toBytes("IEND");
+  
+  public static final String cHRM = "cHRM";
+  
+  public static final String gAMA = "gAMA";
+  public static final String iCCP = "iCCP";
+  public static final String sBIT = "sBIT";
+  public static final String sRGB = "sRGB";
+  public static final String bKGD = "bKGD";
+  public static final String hIST = "hIST";
+  public static final String tRNS = "tRNS";
+  public static final String pHYs = "pHYs";
+  public static final String sPLT = "sPLT";
+  public static final String tIME = "tIME";
+  public static final String iTXt = "iTXt";
+  public static final String tEXt = "tEXt";
+  public static final String zTXt = "zTXt";
+  private static final ThreadLocal<Inflater> inflaterProvider = new ThreadLocal()
+  {
+    protected Inflater initialValue() {
+      return new Inflater();
+    }
+  };
+  
+  private static final ThreadLocal<Deflater> deflaterProvider = new ThreadLocal()
+  {
+    protected Deflater initialValue() {
+      return new Deflater();
+    }
+  };
+  
+
+
+
+  private static byte[] tmpbuffer = new byte['က'];
+  
+  public ChunkHelper() {}
+  
+  public static byte[] toBytes(String paramString)
+  {
+    return paramString.getBytes(PngHelperInternal.charsetLatin1);
+  }
+  
+
+
+  public static String toString(byte[] paramArrayOfByte)
+  {
+    return new String(paramArrayOfByte, PngHelperInternal.charsetLatin1);
+  }
+  
+
+
+  public static String toString(byte[] paramArrayOfByte, int paramInt1, int paramInt2)
+  {
+    return new String(paramArrayOfByte, paramInt1, paramInt2, PngHelperInternal.charsetLatin1);
+  }
+  
+
+
+  public static byte[] toBytesUTF8(String paramString)
+  {
+    return paramString.getBytes(PngHelperInternal.charsetUTF8);
+  }
+  
+
+
+  public static String toStringUTF8(byte[] paramArrayOfByte)
+  {
+    return new String(paramArrayOfByte, PngHelperInternal.charsetUTF8);
+  }
+  
+
+
+  public static String toStringUTF8(byte[] paramArrayOfByte, int paramInt1, int paramInt2)
+  {
+    return new String(paramArrayOfByte, paramInt1, paramInt2, PngHelperInternal.charsetUTF8);
+  }
+  
+
+
+  public static boolean isCritical(String paramString)
+  {
+    return Character.isUpperCase(paramString.charAt(0));
+  }
+  
+
+
+  public static boolean isPublic(String paramString)
+  {
+    return Character.isUpperCase(paramString.charAt(1));
+  }
+  
+
+
+  public static boolean isSafeToCopy(String paramString)
+  {
+    return !Character.isUpperCase(paramString.charAt(3));
+  }
+  
+
+
+
+  public static boolean isUnknown(PngChunk paramPngChunk)
+  {
+    return paramPngChunk instanceof PngChunkUNKNOWN;
+  }
+  
+
+
+
+
+
+  public static int posNullByte(byte[] paramArrayOfByte)
+  {
+    for (int i = 0; i < paramArrayOfByte.length; i++)
+      if (paramArrayOfByte[i] == 0)
+        return i;
+    return -1;
+  }
+  
+
+
+
+
+
+
+  public static boolean shouldLoad(String paramString, ChunkLoadBehaviour paramChunkLoadBehaviour)
+  {
+    if (isCritical(paramString))
+      return true;
+    boolean bool = PngChunk.isKnown(paramString);
+    switch (3.$SwitchMap$jogamp$opengl$util$pngj$chunks$ChunkLoadBehaviour[paramChunkLoadBehaviour.ordinal()]) {
+    case 1: 
+      return true;
+    case 2: 
+      return (bool) || (isSafeToCopy(paramString));
+    case 3: 
+      return bool;
+    case 4: 
+      return false;
+    }
+    return false;
+  }
+  
+  public static final byte[] compressBytes(byte[] paramArrayOfByte, boolean paramBoolean) {
+    return compressBytes(paramArrayOfByte, 0, paramArrayOfByte.length, paramBoolean);
+  }
+  
+  public static byte[] compressBytes(byte[] paramArrayOfByte, int paramInt1, int paramInt2, boolean paramBoolean) {
+    try {
+      ByteArrayInputStream localByteArrayInputStream = new ByteArrayInputStream(paramArrayOfByte, paramInt1, paramInt2);
+      InflaterInputStream localInflaterInputStream = paramBoolean ? localByteArrayInputStream : new InflaterInputStream(localByteArrayInputStream, getInflater());
+      ByteArrayOutputStream localByteArrayOutputStream1 = new ByteArrayOutputStream();
+      ByteArrayOutputStream localByteArrayOutputStream2 = paramBoolean ? new DeflaterOutputStream(localByteArrayOutputStream1) : localByteArrayOutputStream1;
+      shovelInToOut(localInflaterInputStream, localByteArrayOutputStream2);
+      localInflaterInputStream.close();
+      localByteArrayOutputStream2.close();
+      return localByteArrayOutputStream1.toByteArray();
+    } catch (Exception localException) {
+      throw new PngjException(localException);
+    }
+  }
+  
+
+  private static void shovelInToOut(InputStream paramInputStream, OutputStream paramOutputStream)
+    throws IOException
+  {
+    synchronized (tmpbuffer) {
+      int i;
+      while ((i = paramInputStream.read(tmpbuffer)) > 0) {
+        paramOutputStream.write(tmpbuffer, 0, i);
+      }
+    }
+  }
+  
+  public static boolean maskMatch(int paramInt1, int paramInt2) {
+    return (paramInt1 & paramInt2) != 0;
+  }
+  
+
+
+
+
+  public static List<PngChunk> filterList(List<PngChunk> paramList, ChunkPredicate paramChunkPredicate)
+  {
+    ArrayList localArrayList = new ArrayList();
+    for (PngChunk localPngChunk : paramList) {
+      if (paramChunkPredicate.match(localPngChunk)) {
+        localArrayList.add(localPngChunk);
+      }
+    }
+    return localArrayList;
+  }
+  
+
+
+
+
+  public static int trimList(List<PngChunk> paramList, ChunkPredicate paramChunkPredicate)
+  {
+    Iterator localIterator = paramList.iterator();
+    int i = 0;
+    while (localIterator.hasNext()) {
+      PngChunk localPngChunk = (PngChunk)localIterator.next();
+      if (paramChunkPredicate.match(localPngChunk)) {
+        localIterator.remove();
+        i++;
+      }
+    }
+    return i;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static final boolean equivalent(PngChunk paramPngChunk1, PngChunk paramPngChunk2)
+  {
+    if (paramPngChunk1 == paramPngChunk2)
+      return true;
+    if ((paramPngChunk1 == null) || (paramPngChunk2 == null) || (!id.equals(id))) {
+      return false;
+    }
+    if (paramPngChunk1.getClass() != paramPngChunk2.getClass())
+      return false;
+    if (!paramPngChunk2.allowsMultiple())
+      return true;
+    if ((paramPngChunk1 instanceof PngChunkTextVar)) {
+      return ((PngChunkTextVar)paramPngChunk1).getKey().equals(((PngChunkTextVar)paramPngChunk2).getKey());
+    }
+    if ((paramPngChunk1 instanceof PngChunkSPLT)) {
+      return ((PngChunkSPLT)paramPngChunk1).getPalName().equals(((PngChunkSPLT)paramPngChunk2).getPalName());
+    }
+    
+    return false;
+  }
+  
+  public static boolean isText(PngChunk paramPngChunk) {
+    return paramPngChunk instanceof PngChunkTextVar;
+  }
+  
+
+
+
+  public static Inflater getInflater()
+  {
+    Inflater localInflater = (Inflater)inflaterProvider.get();
+    localInflater.reset();
+    return localInflater;
+  }
+  
+
+
+
+  public static Deflater getDeflater()
+  {
+    Deflater localDeflater = (Deflater)deflaterProvider.get();
+    localDeflater.reset();
+    return localDeflater;
+  }
+}

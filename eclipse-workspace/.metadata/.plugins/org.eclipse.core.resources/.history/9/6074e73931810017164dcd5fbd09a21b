@@ -1,0 +1,252 @@
+package com.jogamp.newt.event;
+
+import com.jogamp.nativewindow.NativeSurface;
+import java.io.PrintStream;
+import jogamp.newt.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class PinchToZoomGesture
+  implements GestureHandler
+{
+  public static final boolean DEBUG = Debug.debug("Window.MouseEvent");
+  private final NativeSurface surface;
+  private final boolean allowMorePointer;
+  private float zoom;
+  private int zoomLastEdgeDist;
+  private boolean zoomFirstTouch;
+  private boolean zoomMode;
+  private ZoomEvent zoomEvent;
+  
+  public static class ZoomEvent extends GestureHandler.GestureEvent {
+    public ZoomEvent(Object paramObject, long paramLong, int paramInt, GestureHandler paramGestureHandler, MouseEvent paramMouseEvent, float paramFloat1, float paramFloat2, float paramFloat3) { super(paramLong, paramInt, paramGestureHandler, paramMouseEvent);
+      zoom = paramFloat1;
+      delta = paramFloat2;
+      scale = paramFloat3;
+    }
+    
+    public final float getZoom() { return zoom; }
+    
+    public final float getDelta() { return delta; }
+    
+
+
+    private final float zoom;
+    
+
+    private final float delta;
+    
+
+    private final float scale;
+    
+
+    public final float getScale()
+    {
+      return scale;
+    }
+    
+    public final String toString() { return "ZoomEvent[zoom " + zoom + ", delta " + delta + ", scale " + scale + ", trigger " + getTrigger() + ", handler " + getHandler() + "]"; }
+  }
+  
+
+
+
+
+
+
+
+
+  private final short[] pIds = { -1, -1 };
+  
+
+
+
+  public PinchToZoomGesture(NativeSurface paramNativeSurface, boolean paramBoolean)
+  {
+    clear(true);
+    surface = paramNativeSurface;
+    allowMorePointer = paramBoolean;
+    zoom = 1.0F;
+  }
+  
+  public String toString()
+  {
+    return "PinchZoom[1stTouch " + zoomFirstTouch + ", in " + isWithinGesture() + ", has " + (null != zoomEvent) + ", zoom " + zoom + "]";
+  }
+  
+  private int gesturePointers(MouseEvent paramMouseEvent, int paramInt) {
+    int i = 0;
+    for (int j = paramMouseEvent.getPointerCount() - 1; j >= 0; j--) {
+      if (paramInt != j) {
+        int k = paramMouseEvent.getPointerId(j);
+        if ((pIds[0] == k) || (pIds[1] == k)) {
+          i++;
+        }
+      }
+    }
+    return i;
+  }
+  
+  public void clear(boolean paramBoolean)
+  {
+    zoomEvent = null;
+    if (paramBoolean) {
+      zoomLastEdgeDist = 0;
+      zoomFirstTouch = true;
+      zoomMode = false;
+      pIds[0] = -1;
+      pIds[1] = -1;
+    }
+  }
+  
+  public boolean isWithinGesture()
+  {
+    return zoomMode;
+  }
+  
+  public boolean hasGesture()
+  {
+    return null != zoomEvent;
+  }
+  
+  public InputEvent getGestureEvent()
+  {
+    return zoomEvent;
+  }
+  
+  public final float getZoom()
+  {
+    return zoom;
+  }
+  
+  public final void setZoom(float paramFloat) {
+    zoom = paramFloat;
+  }
+  
+  public boolean process(InputEvent paramInputEvent)
+  {
+    if ((null != zoomEvent) || (!(paramInputEvent instanceof MouseEvent))) {
+      return true;
+    }
+    MouseEvent localMouseEvent = (MouseEvent)paramInputEvent;
+    int i = localMouseEvent.getPointerCount();
+    
+    if ((localMouseEvent.getPointerType(0).getPointerClass() != MouseEvent.PointerClass.Onscreen) || ((!allowMorePointer) && (i > 2)))
+    {
+      return false;
+    }
+    
+    int j = localMouseEvent.getEventType();
+    int k = surface.getSurfaceWidth() >= surface.getSurfaceHeight() ? 1 : 0;
+    int m; switch (j) {
+    case 203: 
+      if (1 == i) {
+        pIds[0] = localMouseEvent.getPointerId(0);
+        pIds[1] = -1;
+      } else if (2 <= i) {
+        pIds[0] = localMouseEvent.getPointerId(0);
+        pIds[1] = localMouseEvent.getPointerId(1);
+      }
+      if (DEBUG) {
+        System.err.println("XXX1: id0 " + pIds[0] + " -> idx0 " + 0 + ", id1 " + pIds[1] + " -> idx1 " + 1);
+        System.err.println(this + ".pressed: down " + i + ", gPtr " + gesturePointers(localMouseEvent, -1) + ", event " + localMouseEvent);
+      }
+      
+      break;
+    case 204: 
+      m = gesturePointers(localMouseEvent, 0);
+      if (1 == m) {
+        zoomFirstTouch = true;
+        zoomMode = false;
+      } else if (0 == m)
+      {
+        clear(true);
+      }
+      if (DEBUG) {
+        System.err.println(this + ".released: down " + i + ", gPtr " + m + ", event " + localMouseEvent);
+      }
+      break;
+    
+    case 206: 
+      if (2 <= i) {
+        m = gesturePointers(localMouseEvent, -1);
+        if (2 == m)
+        {
+          int n = localMouseEvent.getPointerIdx(pIds[0]);
+          int i1 = localMouseEvent.getPointerIdx(pIds[1]);
+          if ((0 <= n) && (0 <= i1)) {
+            int i2 = k != 0 ? localMouseEvent.getY(n) : localMouseEvent.getX(n);
+            int i3 = k != 0 ? localMouseEvent.getY(i1) : localMouseEvent.getX(i1);
+            
+            if (zoomFirstTouch) {
+              zoomLastEdgeDist = Math.abs(i2 - i3);
+              zoomFirstTouch = false;
+              zoomMode = true;
+            } else if (zoomMode) {
+              int i4 = Math.abs(i2 - i3);
+              int i5 = i4 - zoomLastEdgeDist;
+              float f1 = k != 0 ? surface.getSurfaceHeight() : surface.getSurfaceWidth();
+              float f2 = i5 / f1;
+              if (DEBUG) {
+                System.err.println("XXX2: id0 " + pIds[0] + " -> idx0 " + n + ", id1 " + pIds[1] + " -> idx1 " + i1);
+                System.err.println("XXX3: d " + i4 + ", ld " + zoomLastEdgeDist + ", dd " + i5 + ", screen " + f1 + " -> incr " + f2 + ", zoom " + zoom + " -> " + (zoom + f2));
+              }
+              zoom += f2;
+              
+              if (2.0F < zoom) {
+                zoom = 2.0F;
+              } else if (0.0F > zoom) {
+                zoom = 0.0F;
+              }
+              zoomLastEdgeDist = i4;
+              zoomEvent = new ZoomEvent(localMouseEvent.getSource(), localMouseEvent.getWhen(), localMouseEvent.getModifiers(), this, localMouseEvent, zoom, f2, f1);
+            }
+          }
+        }
+        if (DEBUG)
+          System.err.println(this + ".dragged: down " + i + ", gPtr " + m + ", event " + localMouseEvent);
+      }
+      break;
+    }
+    
+    
+
+    return null != zoomEvent;
+  }
+}

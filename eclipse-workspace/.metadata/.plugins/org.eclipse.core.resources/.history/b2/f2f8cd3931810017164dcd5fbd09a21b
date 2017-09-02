@@ -1,0 +1,316 @@
+package com.jogamp.common.nio;
+
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class StructAccessor
+{
+  private final ByteBuffer bb;
+  
+  public StructAccessor(ByteBuffer paramByteBuffer)
+  {
+    bb = paramByteBuffer.order(ByteOrder.nativeOrder());
+  }
+  
+  public final ByteBuffer getBuffer() {
+    return bb;
+  }
+  
+
+
+
+
+
+  public final ByteBuffer slice(int paramInt1, int paramInt2)
+  {
+    bb.position(paramInt1);
+    bb.limit(paramInt1 + paramInt2);
+    ByteBuffer localByteBuffer = bb.slice().order(bb.order());
+    bb.position(0);
+    bb.limit(bb.capacity());
+    return localByteBuffer;
+  }
+  
+  public final byte getByteAt(int paramInt)
+  {
+    return bb.get(paramInt);
+  }
+  
+  public final void setByteAt(int paramInt, byte paramByte)
+  {
+    bb.put(paramInt, paramByte);
+  }
+  
+  public final boolean getBooleanAt(int paramInt)
+  {
+    return 0 != bb.get(paramInt);
+  }
+  
+  public final void setBooleanAt(int paramInt, boolean paramBoolean)
+  {
+    bb.put(paramInt, (byte)(paramBoolean ? 1 : 0));
+  }
+  
+  public final char getCharAt(int paramInt)
+  {
+    return bb.getChar(paramInt);
+  }
+  
+  public final void setCharAt(int paramInt, char paramChar)
+  {
+    bb.putChar(paramInt, paramChar);
+  }
+  
+  public final short getShortAt(int paramInt)
+  {
+    return bb.getShort(paramInt);
+  }
+  
+  public final void setShortAt(int paramInt, short paramShort)
+  {
+    bb.putShort(paramInt, paramShort);
+  }
+  
+  public final int getIntAt(int paramInt)
+  {
+    return bb.getInt(paramInt);
+  }
+  
+  public final void setIntAt(int paramInt1, int paramInt2)
+  {
+    bb.putInt(paramInt1, paramInt2);
+  }
+  
+  public final int getIntAt(int paramInt1, int paramInt2)
+  {
+    switch (paramInt2) {
+    case 2: 
+      return bb.getShort(paramInt1) & 0xFFFF;
+    case 4: 
+      return bb.getInt(paramInt1);
+    case 8: 
+      return (int)(bb.getLong(paramInt1) & 0xFFFFFFFF);
+    }
+    throw new InternalError("invalid nativeSizeInBytes " + paramInt2);
+  }
+  
+
+  public final void setIntAt(int paramInt1, int paramInt2, int paramInt3)
+  {
+    switch (paramInt3) {
+    case 2: 
+      bb.putShort(paramInt1, (short)(paramInt2 & 0xFFFF));
+      break;
+    case 4: 
+      bb.putInt(paramInt1, paramInt2);
+      break;
+    case 8: 
+      bb.putLong(paramInt1, paramInt2 & 0xFFFFFFFF);
+      break;
+    default: 
+      throw new InternalError("invalid nativeSizeInBytes " + paramInt3);
+    }
+  }
+  
+  public final float getFloatAt(int paramInt)
+  {
+    return bb.getFloat(paramInt);
+  }
+  
+  public final void setFloatAt(int paramInt, float paramFloat)
+  {
+    bb.putFloat(paramInt, paramFloat);
+  }
+  
+  public final double getDoubleAt(int paramInt)
+  {
+    return bb.getDouble(paramInt);
+  }
+  
+  public final void setDoubleAt(int paramInt, double paramDouble)
+  {
+    bb.putDouble(paramInt, paramDouble);
+  }
+  
+  public final long getLongAt(int paramInt)
+  {
+    return bb.getLong(paramInt);
+  }
+  
+  public final void setLongAt(int paramInt, long paramLong)
+  {
+    bb.putLong(paramInt, paramLong);
+  }
+  
+  public final long getLongAt(int paramInt1, int paramInt2)
+  {
+    switch (paramInt2) {
+    case 4: 
+      return bb.getInt(paramInt1) & 0xFFFFFFFF;
+    case 8: 
+      return bb.getLong(paramInt1);
+    }
+    throw new InternalError("invalid nativeSizeInBytes " + paramInt2);
+  }
+  
+
+  public final void setLongAt(int paramInt1, long paramLong, int paramInt2)
+  {
+    switch (paramInt2) {
+    case 4: 
+      bb.putInt(paramInt1, (int)(paramLong & 0xFFFFFFFF));
+      break;
+    case 8: 
+      bb.putLong(paramInt1, paramLong);
+      break;
+    default: 
+      throw new InternalError("invalid nativeSizeInBytes " + paramInt2);
+    }
+  }
+  
+  public final void setBytesAt(int paramInt, byte[] paramArrayOfByte) {
+    for (int i = 0; i < paramArrayOfByte.length; i++) {
+      bb.put(paramInt++, paramArrayOfByte[i]);
+    }
+  }
+  
+  public final byte[] getBytesAt(int paramInt, byte[] paramArrayOfByte) {
+    for (int i = 0; i < paramArrayOfByte.length; i++) {
+      paramArrayOfByte[i] = bb.get(paramInt++);
+    }
+    return paramArrayOfByte;
+  }
+  
+  public final void setBooleansAt(int paramInt, boolean[] paramArrayOfBoolean) {
+    for (int i = 0; i < paramArrayOfBoolean.length; i++) {
+      bb.put(paramInt++, (byte)(paramArrayOfBoolean[i] != 0 ? 1 : 0));
+    }
+  }
+  
+  public final boolean[] getBooleansAt(int paramInt, boolean[] paramArrayOfBoolean) {
+    for (int i = 0; i < paramArrayOfBoolean.length; i++) {
+      paramArrayOfBoolean[i] = (0 != bb.get(paramInt++) ? 1 : false);
+    }
+    return paramArrayOfBoolean;
+  }
+  
+  public final void setCharsAt(int paramInt, char[] paramArrayOfChar) {
+    for (int i = 0; i < paramArrayOfChar.length; paramInt += 2) {
+      bb.putChar(paramInt, paramArrayOfChar[i]);i++;
+    }
+  }
+  
+  public final char[] getCharsAt(int paramInt, char[] paramArrayOfChar) {
+    for (int i = 0; i < paramArrayOfChar.length; paramInt += 2) {
+      paramArrayOfChar[i] = bb.getChar(paramInt);i++;
+    }
+    return paramArrayOfChar;
+  }
+  
+  public final void setShortsAt(int paramInt, short[] paramArrayOfShort) {
+    for (int i = 0; i < paramArrayOfShort.length; paramInt += 2) {
+      bb.putShort(paramInt, paramArrayOfShort[i]);i++;
+    }
+  }
+  
+  public final short[] getShortsAt(int paramInt, short[] paramArrayOfShort) {
+    for (int i = 0; i < paramArrayOfShort.length; paramInt += 2) {
+      paramArrayOfShort[i] = bb.getShort(paramInt);i++;
+    }
+    return paramArrayOfShort;
+  }
+  
+  public final void setIntsAt(int paramInt, int[] paramArrayOfInt) {
+    for (int i = 0; i < paramArrayOfInt.length; paramInt += 4) {
+      bb.putInt(paramInt, paramArrayOfInt[i]);i++;
+    }
+  }
+  
+  public final int[] getIntsAt(int paramInt, int[] paramArrayOfInt) {
+    for (int i = 0; i < paramArrayOfInt.length; paramInt += 4) {
+      paramArrayOfInt[i] = bb.getInt(paramInt);i++;
+    }
+    return paramArrayOfInt;
+  }
+  
+  public final void setFloatsAt(int paramInt, float[] paramArrayOfFloat) {
+    for (int i = 0; i < paramArrayOfFloat.length; paramInt += 4) {
+      bb.putFloat(paramInt, paramArrayOfFloat[i]);i++;
+    }
+  }
+  
+  public final float[] getFloatsAt(int paramInt, float[] paramArrayOfFloat) {
+    for (int i = 0; i < paramArrayOfFloat.length; paramInt += 4) {
+      paramArrayOfFloat[i] = bb.getFloat(paramInt);i++;
+    }
+    return paramArrayOfFloat;
+  }
+  
+  public final void setDoublesAt(int paramInt, double[] paramArrayOfDouble) {
+    for (int i = 0; i < paramArrayOfDouble.length; paramInt += 8) {
+      bb.putDouble(paramInt, paramArrayOfDouble[i]);i++;
+    }
+  }
+  
+  public final double[] getDoublesAt(int paramInt, double[] paramArrayOfDouble) {
+    for (int i = 0; i < paramArrayOfDouble.length; paramInt += 8) {
+      paramArrayOfDouble[i] = bb.getDouble(paramInt);i++;
+    }
+    return paramArrayOfDouble;
+  }
+  
+  public final void setLongsAt(int paramInt, long[] paramArrayOfLong) {
+    for (int i = 0; i < paramArrayOfLong.length; paramInt += 8) {
+      bb.putLong(paramInt, paramArrayOfLong[i]);i++;
+    }
+  }
+  
+  public final long[] getLongsAt(int paramInt, long[] paramArrayOfLong) {
+    for (int i = 0; i < paramArrayOfLong.length; paramInt += 8) {
+      paramArrayOfLong[i] = bb.getLong(paramInt);i++;
+    }
+    return paramArrayOfLong;
+  }
+}

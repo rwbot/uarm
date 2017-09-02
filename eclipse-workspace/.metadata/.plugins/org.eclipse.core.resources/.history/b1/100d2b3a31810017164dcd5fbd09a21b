@@ -1,0 +1,886 @@
+package jogamp.opengl.util.av.impl;
+
+import com.jogamp.common.net.Uri.Encoded;
+import com.jogamp.common.util.IOUtil;
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.gluegen.runtime.ProcAddressTable;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.util.GLPixelStorageModes;
+import com.jogamp.opengl.util.av.AudioSink;
+import com.jogamp.opengl.util.av.AudioSink.AudioFormat;
+import com.jogamp.opengl.util.av.AudioSinkFactory;
+import com.jogamp.opengl.util.av.GLMediaPlayer.State;
+import com.jogamp.opengl.util.texture.Texture;
+import com.jogamp.opengl.util.texture.TextureSequence.TextureFrame;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.ByteBuffer;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.Map;
+import jogamp.opengl.GLContextImpl;
+import jogamp.opengl.util.av.AudioSampleFormat;
+import jogamp.opengl.util.av.GLMediaPlayerImpl;
+import jogamp.opengl.util.av.VideoPixelFormat;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class FFMPEGMediaPlayer
+  extends GLMediaPlayerImpl
+{
+  private static final int ENOSYS = 38;
+  private static final FFMPEGNatives natives;
+  private static final int avUtilMajorVersionCC;
+  private static final int avFormatMajorVersionCC;
+  private static final int avCodecMajorVersionCC;
+  private static final int avResampleMajorVersionCC;
+  private static final int swResampleMajorVersionCC;
+  private static final boolean available;
+  private static final boolean enableAvResample;
+  private static final boolean enableSwResample;
+  
+  static
+  {
+    boolean bool1 = FFMPEGDynamicLibraryBundleInfo.initSingleton();
+    int i;
+    if (FFMPEGDynamicLibraryBundleInfo.libsLoaded()) {
+      natives = FFMPEGDynamicLibraryBundleInfo.getNatives();
+      if (null != natives) {
+        avCodecMajorVersionCC = natives.getAvCodecMajorVersionCC0();
+        avFormatMajorVersionCC = natives.getAvFormatMajorVersionCC0();
+        avUtilMajorVersionCC = natives.getAvUtilMajorVersionCC0();
+        avResampleMajorVersionCC = natives.getAvResampleMajorVersionCC0();
+        swResampleMajorVersionCC = natives.getSwResampleMajorVersionCC0();
+      } else {
+        avUtilMajorVersionCC = 0;
+        avFormatMajorVersionCC = 0;
+        avCodecMajorVersionCC = 0;
+        avResampleMajorVersionCC = 0;
+        swResampleMajorVersionCC = 0;
+      }
+      VersionNumber localVersionNumber1 = FFMPEGDynamicLibraryBundleInfo.avCodecVersion;
+      VersionNumber localVersionNumber2 = FFMPEGDynamicLibraryBundleInfo.avFormatVersion;
+      VersionNumber localVersionNumber3 = FFMPEGDynamicLibraryBundleInfo.avUtilVersion;
+      VersionNumber localVersionNumber4 = FFMPEGDynamicLibraryBundleInfo.avResampleVersion;
+      boolean bool2 = FFMPEGDynamicLibraryBundleInfo.avResampleLoaded();
+      VersionNumber localVersionNumber5 = FFMPEGDynamicLibraryBundleInfo.swResampleVersion;
+      boolean bool3 = FFMPEGDynamicLibraryBundleInfo.swResampleLoaded();
+      if (DEBUG) {
+        System.err.println("LIB_AV Codec   : " + localVersionNumber1 + " [cc " + avCodecMajorVersionCC + "]");
+        System.err.println("LIB_AV Format  : " + localVersionNumber2 + " [cc " + avFormatMajorVersionCC + "]");
+        System.err.println("LIB_AV Util    : " + localVersionNumber3 + " [cc " + avUtilMajorVersionCC + "]");
+        System.err.println("LIB_AV Resample: " + localVersionNumber4 + " [cc " + avResampleMajorVersionCC + ", loaded " + bool2 + "]");
+        System.err.println("LIB_SW Resample: " + localVersionNumber5 + " [cc " + swResampleMajorVersionCC + ", loaded " + bool3 + "]");
+        System.err.println("LIB_AV Device  : [loaded " + FFMPEGDynamicLibraryBundleInfo.avDeviceLoaded() + "]");
+        System.err.println("LIB_AV Class   : " + (null != natives ? natives.getClass().getSimpleName() : "n/a"));
+      }
+      int j = localVersionNumber1.getMajor();
+      int k = localVersionNumber2.getMajor();
+      int m = localVersionNumber3.getMajor();
+      i = (avCodecMajorVersionCC == j) && (avFormatMajorVersionCC == k) && ((avUtilMajorVersionCC == m) || ((55 == avCodecMajorVersionCC) && (53 == avUtilMajorVersionCC) && (52 == m))) ? 1 : 0;
+      
+
+
+
+      enableAvResample = (bool2) && (avResampleMajorVersionCC == localVersionNumber4.getMajor());
+      enableSwResample = (bool3) && (swResampleMajorVersionCC == localVersionNumber5.getMajor());
+      if (DEBUG) {
+        System.err.println("LIB_AV Resample: enabled " + enableAvResample);
+        System.err.println("LIB_SW Resample: enabled " + enableSwResample);
+      }
+      if (i == 0) {
+        System.err.println("LIB_AV Not Matching Compile-Time / Runtime Major-Version");
+      }
+    } else {
+      natives = null;
+      avUtilMajorVersionCC = 0;
+      avFormatMajorVersionCC = 0;
+      avCodecMajorVersionCC = 0;
+      avResampleMajorVersionCC = 0;
+      swResampleMajorVersionCC = 0;
+      i = 0;
+      enableAvResample = false;
+      enableSwResample = false;
+    }
+    available = (bool1) && (i != 0) && (null != natives);
+  }
+  
+  public static final boolean isAvailable() { return available; }
+  
+
+
+
+
+  private long moviePtr = 0L;
+  
+
+
+
+
+  private String texLookupFuncName = "ffmpegTexture2D";
+  private boolean usesTexLookupShader = false;
+  private VideoPixelFormat vPixelFmt = null;
+  private int vPlanes = 0;
+  private int vBitsPerPixel = 0;
+  private int vBytesPerPixelPerPlane = 0;
+  private int texWidth;
+  private int texHeight; private String singleTexComp = "r";
+  
+
+  private final GLPixelStorageModes psm;
+  
+
+  private AudioSink.AudioFormat avChosenAudioFormat;
+  
+  private int audioSamplesPerFrameAndChannel = 0;
+  public static final String dev_video_linux = "/dev/video";
+  
+  public FFMPEGMediaPlayer() { if (!available) {
+      throw new RuntimeException("FFMPEGMediaPlayer not available");
+    }
+    moviePtr = natives.createInstance0(this, enableAvResample, enableSwResample, DEBUG_NATIVE);
+    if (0L == moviePtr) {
+      throw new GLException("Couldn't create FFMPEGInstance");
+    }
+    psm = new GLPixelStorageModes();
+    audioSink = null;
+  }
+  
+  protected final void destroyImpl(GL paramGL)
+  {
+    if (moviePtr != 0L) {
+      natives.destroyInstance0(moviePtr);
+      moviePtr = 0L;
+    }
+    destroyAudioSink();
+  }
+  
+  private final void destroyAudioSink() { AudioSink localAudioSink = audioSink;
+    if (null != localAudioSink) {
+      audioSink = null;
+      localAudioSink.destroy();
+    }
+  }
+  
+
+  protected final void initStreamImpl(int paramInt1, int paramInt2)
+    throws IOException
+  {
+    if (0L == moviePtr) {
+      throw new GLException("FFMPEG native instance null");
+    }
+    if (DEBUG) {
+      System.err.println("initStream: p1 " + this);
+    }
+    
+    String str1 = IOUtil.getUriFilePathOrASCII(getUri());
+    destroyAudioSink();
+    if (-2 == paramInt2) {
+      audioSink = AudioSinkFactory.createNull();
+    } else {
+      audioSink = AudioSinkFactory.createDefault();
+    }
+    AudioSink.AudioFormat localAudioFormat = audioSink.getPreferredFormat();
+    if (DEBUG) {
+      System.err.println("initStream: p2 preferred " + localAudioFormat + ", " + this);
+    }
+    
+    boolean bool = null != cameraPath;
+    
+
+    int i = -1;int j = -1;int k = -1;
+    String str3 = null;
+    String str2; if (bool) {
+      switch (2.$SwitchMap$com$jogamp$common$os$Platform$OSType[jogamp.common.os.PlatformPropsImpl.OS_TYPE.ordinal()])
+      {
+      case 1: 
+      case 2: 
+      case 3: 
+      case 4: 
+      case 5: 
+        str2 = "/dev/video" + cameraPath.decode();
+        break;
+      case 6: 
+      case 7: 
+      case 8: 
+      default: 
+        str2 = cameraPath.decode();
+      }
+      
+      if (null != cameraProps) {
+        str3 = (String)cameraProps.get("size");
+        m = getPropIntVal(cameraProps, "width");
+        if (m > 0) i = m;
+        m = getPropIntVal(cameraProps, "height");
+        if (m > 0) j = m;
+        m = getPropIntVal(cameraProps, "rate");
+        if (m > 0) k = m;
+      }
+    } else {
+      str2 = str1;
+    }
+    int m = audioSink.getMaxSupportedChannels();
+    int n = sampleRate;
+    
+    if (DEBUG) {
+      System.err.println("initStream: p3 cameraPath " + cameraPath + ", isCameraInput " + bool);
+      System.err.println("initStream: p3 stream " + getUri() + " -> " + str1 + " -> " + str2);
+      System.err.println("initStream: p3 vid " + paramInt1 + ", sizes " + str3 + ", reqVideo " + i + "x" + j + "@" + k + ", aid " + paramInt2 + ", aMaxChannelCount " + m + ", aPrefSampleRate " + n);
+    }
+    natives.setStream0(moviePtr, str2, bool, paramInt1, str3, i, j, k, paramInt2, m, n);
+  }
+  
+  protected final void initGLImpl(GL paramGL) throws IOException, GLException
+  {
+    if (0L == moviePtr) {
+      throw new GLException("FFMPEG native instance null");
+    }
+    if (null == audioSink) {
+      throw new GLException("AudioSink null");
+    }
+    int i;
+    if ((null != paramGL) && (-2 != getVID())) {
+      final GLContextImpl localGLContextImpl = (GLContextImpl)paramGL.getContext();
+      AccessController.doPrivileged(new PrivilegedAction()
+      {
+        public Object run() {
+          ProcAddressTable localProcAddressTable = localGLContextImpl.getGLProcAddressTable();
+          long l1 = localProcAddressTable.getAddressFor("glTexSubImage2D");
+          long l2 = localProcAddressTable.getAddressFor("glGetError");
+          long l3 = localProcAddressTable.getAddressFor("glFlush");
+          long l4 = localProcAddressTable.getAddressFor("glFinish");
+          FFMPEGMediaPlayer.natives.setGLFuncs0(moviePtr, l1, l2, l3, l4);
+          return null;
+        } });
+      i = 3072;
+    } else {
+      i = 1024;
+    }
+    if (DEBUG) {
+      System.err.println("initGL: p3 avChosen " + avChosenAudioFormat);
+    }
+    
+    if (-2 == getAID()) {
+      audioSink.destroy();
+      audioSink = AudioSinkFactory.createNull();
+      audioSink.init(AudioSink.DefaultFormat, 0.0F, 512, 512, i);
+    } else {
+      float f;
+      if (audioSamplesPerFrameAndChannel > 0) {
+        f = avChosenAudioFormat.getSamplesDuration(audioSamplesPerFrameAndChannel);
+      } else {
+        f = 32.0F;
+      }
+      boolean bool = audioSink.init(avChosenAudioFormat, f, 512, 512, i);
+      if (!bool) {
+        System.err.println("AudioSink " + audioSink.getClass().getName() + " does not support " + avChosenAudioFormat + ", using Null");
+        audioSink.destroy();
+        audioSink = AudioSinkFactory.createNull();
+        audioSink.init(avChosenAudioFormat, 0.0F, 512, 512, i);
+      }
+    }
+    if (DEBUG) {
+      System.err.println("initGL: p4 chosen " + avChosenAudioFormat);
+      System.err.println("initGL: p4 chosen " + audioSink);
+    }
+    
+    if ((null != paramGL) && (-2 != getVID())) {
+      int k = 6408;
+      int j;
+      switch (vBytesPerPixelPerPlane) {
+      case 1: 
+        if (paramGL.isGL3ES3())
+        {
+          j = 6403;k = 6403;singleTexComp = "r";
+        }
+        else {
+          j = 6406;k = 6406;singleTexComp = "a";
+        }
+        break;
+      case 2: 
+        if ((vPixelFmt == VideoPixelFormat.YUYV422) || (vPixelFmt == VideoPixelFormat.UYVY422))
+        {
+
+
+          j = 6408;k = 6408;
+        } else {
+          j = 33319;k = 33319;
+        }
+        break; case 3:  j = 6407;k = 6407; break;
+      case 4:  if (vPixelFmt == VideoPixelFormat.BGRA) {
+          j = 32993;k = 6408;
+        } else {
+          j = 6408;k = 6408;
+        }
+        break; default:  throw new RuntimeException("Unsupported bytes-per-pixel / plane " + vBytesPerPixelPerPlane);
+      }
+      setTextureFormat(k, j);
+      setTextureType(5121);
+      if (DEBUG) {
+        System.err.println("initGL: p5: video " + vPixelFmt + ", planes " + vPlanes + ", bpp " + vBitsPerPixel + "/" + vBytesPerPixelPerPlane + ", tex " + texWidth + "x" + texHeight + ", usesTexLookupShader " + usesTexLookupShader);
+      }
+    }
+  }
+  
+  protected final TextureSequence.TextureFrame createTexImage(GL paramGL, int paramInt)
+  {
+    return new TextureSequence.TextureFrame(createTexImageImpl(paramGL, paramInt, texWidth, texHeight));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  final boolean isAudioFormatSupported(int paramInt1, int paramInt2, int paramInt3)
+  {
+    AudioSampleFormat localAudioSampleFormat = AudioSampleFormat.valueOf(paramInt1);
+    AudioSink.AudioFormat localAudioFormat = avAudioFormat2Local(localAudioSampleFormat, paramInt2, paramInt3);
+    boolean bool = audioSink.isSupported(localAudioFormat);
+    if (DEBUG) {
+      System.err.println("AudioSink.isSupported: " + bool + ": av[fmt " + localAudioSampleFormat + ", rate " + paramInt2 + ", chan " + paramInt3 + "] -> " + localAudioFormat);
+    }
+    return bool;
+  }
+  
+
+
+
+
+
+
+  private final AudioSink.AudioFormat avAudioFormat2Local(AudioSampleFormat paramAudioSampleFormat, int paramInt1, int paramInt2)
+  {
+    boolean bool1 = true;
+    boolean bool2 = true;
+    int i;
+    boolean bool3; switch (2.$SwitchMap$jogamp$opengl$util$av$AudioSampleFormat[paramAudioSampleFormat.ordinal()]) {
+    case 1: 
+      bool1 = false;
+    case 2: 
+      i = 32;
+      bool3 = true;
+      break;
+    case 3: 
+      bool1 = false;
+    case 4: 
+      i = 16;
+      bool3 = true;
+      break;
+    case 5: 
+      bool1 = false;
+    case 6: 
+      i = 8;
+      bool3 = false;
+      break;
+    case 7: 
+      bool1 = false;
+    case 8: 
+      i = 64;
+      bool3 = true;
+      bool2 = false;
+      break;
+    case 9: 
+      bool1 = false;
+    case 10: 
+      i = 32;
+      bool3 = true;
+      bool2 = false;
+      break;
+    default: 
+      throw new IllegalArgumentException("Unsupported sampleformat: " + paramAudioSampleFormat);
+    }
+    return new AudioSink.AudioFormat(paramInt1, i, paramInt2, bool3, bool2, bool1, true);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  void setupFFAttributes(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, int paramInt10, int paramInt11, int paramInt12, int paramInt13, int paramInt14, int paramInt15)
+  {
+    vPixelFmt = null;
+    vPlanes = 0;
+    vBitsPerPixel = 0;
+    vBytesPerPixelPerPlane = 0;
+    usesTexLookupShader = false;
+    texWidth = 0;texHeight = 0;
+    
+    int[] arrayOfInt = { 0, 0, 0 };
+    
+    if (-2 != paramInt1) {
+      vPixelFmt = VideoPixelFormat.valueOf(paramInt2);
+      vPlanes = paramInt3;
+      vBitsPerPixel = paramInt4;
+      vBytesPerPixelPerPlane = paramInt5;
+      arrayOfInt[0] = paramInt6;arrayOfInt[1] = paramInt7;arrayOfInt[2] = paramInt8;
+      
+      switch (2.$SwitchMap$jogamp$opengl$util$av$VideoPixelFormat[vPixelFmt.ordinal()]) {
+      case 1: 
+      case 2: 
+        usesTexLookupShader = true;
+        
+
+
+
+
+
+
+
+
+        texWidth = (arrayOfInt[0] + arrayOfInt[1]);texHeight = paramInt10;
+        break;
+      case 3: 
+      case 4: 
+        usesTexLookupShader = true;
+        
+
+
+
+
+
+        texWidth = (arrayOfInt[0] + arrayOfInt[1] + arrayOfInt[2]);texHeight = paramInt10;
+        break;
+      case 5: 
+      case 6: 
+      case 7: 
+        usesTexLookupShader = true;
+        texWidth = arrayOfInt[0];texHeight = paramInt10;
+        break;
+      
+      case 8: 
+      case 9: 
+      case 10: 
+      case 11: 
+      case 12: 
+        usesTexLookupShader = false;
+        texWidth = arrayOfInt[0];texHeight = paramInt10;
+        break;
+      default: 
+        throw new RuntimeException("Unsupported pixelformat: " + vPixelFmt);
+      }
+      
+    }
+    
+
+    avChosenAudioFormat = null;
+    audioSamplesPerFrameAndChannel = 0;
+    AudioSampleFormat localAudioSampleFormat;
+    if (-2 != paramInt11) {
+      localAudioSampleFormat = AudioSampleFormat.valueOf(paramInt12);
+      avChosenAudioFormat = avAudioFormat2Local(localAudioSampleFormat, paramInt13, paramInt14);
+      audioSamplesPerFrameAndChannel = paramInt15;
+    } else {
+      localAudioSampleFormat = null;
+    }
+    
+    if (DEBUG) {
+      System.err.println("audio: id " + paramInt11 + ", fmt " + localAudioSampleFormat + ", " + avChosenAudioFormat + ", aFrameSize/fc " + paramInt15);
+      System.err.println("video: id " + paramInt1 + ", fmt " + paramInt9 + "x" + paramInt10 + ", " + vPixelFmt + ", planes " + vPlanes + ", bpp " + vBitsPerPixel + "/" + vBytesPerPixelPerPlane + ", usesTexLookupShader " + usesTexLookupShader);
+      for (int i = 0; i < 3; i++) {
+        System.err.println("video: p[" + i + "]: " + arrayOfInt[i]);
+      }
+      System.err.println("video: total tex " + texWidth + "x" + texHeight);
+      System.err.println(toString());
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final String getTextureLookupFunctionName(String paramString)
+    throws IllegalStateException
+  {
+    if (GLMediaPlayer.State.Uninitialized == getState()) {
+      throw new IllegalStateException("Instance not initialized: " + this);
+    }
+    if (usesTexLookupShader) {
+      if ((null != paramString) && (paramString.length() > 0)) {
+        texLookupFuncName = paramString;
+      }
+      return texLookupFuncName;
+    }
+    return super.getTextureLookupFunctionName(paramString);
+  }
+  
+
+
+
+
+
+  public final String getTextureLookupFragmentShaderImpl()
+    throws IllegalStateException
+  {
+    if (GLMediaPlayer.State.Uninitialized == getState()) {
+      throw new IllegalStateException("Instance not initialized: " + this);
+    }
+    if (!usesTexLookupShader) {
+      return super.getTextureLookupFragmentShaderImpl();
+    }
+    float f = getWidth() / texWidth;
+    switch (2.$SwitchMap$jogamp$opengl$util$av$VideoPixelFormat[vPixelFmt.ordinal()])
+    {
+    case 1: 
+    case 2: 
+      return "vec4 " + texLookupFuncName + "(in " + getTextureSampler2DType() + " image, in vec2 texCoord) {\n" + "  const vec2 u_off = vec2(" + f + ", 0.0);\n" + "  const vec2 v_off = vec2(" + f + ", 0.5);\n" + "  vec2 tc_half = texCoord*0.5;\n" + "  float y,u,v,r,g,b;\n" + "  y = texture2D(image, texCoord)." + singleTexComp + ";\n" + "  u = texture2D(image, u_off+tc_half)." + singleTexComp + ";\n" + "  v = texture2D(image, v_off+tc_half)." + singleTexComp + ";\n" + "  y = 1.1643*(y-0.0625);\n" + "  u = u-0.5;\n" + "  v = v-0.5;\n" + "  r = y+1.5958*v;\n" + "  g = y-0.39173*u-0.81290*v;\n" + "  b = y+2.017*u;\n" + "  return vec4(r, g, b, 1);\n" + "}\n";
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    case 3: 
+    case 4: 
+      return "vec4 " + texLookupFuncName + "(in " + getTextureSampler2DType() + " image, in vec2 texCoord) {\n" + "  const vec2 u_off = vec2(" + f + "      , 0.0);\n" + "  const vec2 v_off = vec2(" + f + " * 1.5, 0.0);\n" + "  vec2 tc_halfw = vec2(texCoord.x*0.5, texCoord.y);\n" + "  float y,u,v,r,g,b;\n" + "  y = texture2D(image, texCoord)." + singleTexComp + ";\n" + "  u = texture2D(image, u_off+tc_halfw)." + singleTexComp + ";\n" + "  v = texture2D(image, v_off+tc_halfw)." + singleTexComp + ";\n" + "  y = 1.1643*(y-0.0625);\n" + "  u = u-0.5;\n" + "  v = v-0.5;\n" + "  r = y+1.5958*v;\n" + "  g = y-0.39173*u-0.81290*v;\n" + "  b = y+2.017*u;\n" + "  return vec4(r, g, b, 1);\n" + "}\n";
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    case 5: 
+      return "vec4 " + texLookupFuncName + "(in " + getTextureSampler2DType() + " image, in vec2 texCoord) {\n" + "  " + "  float y1,u,y2,v,y,r,g,b;\n" + "  vec2 tc_halfw = vec2(texCoord.x*0.5, texCoord.y);\n" + "  vec4 yuyv = texture2D(image, tc_halfw).rgba;\n" + "  y1 = yuyv.r;\n" + "  u  = yuyv.g;\n" + "  y2 = yuyv.b;\n" + "  v  = yuyv.a;\n" + "  y = mix( y1, y2, mod(gl_FragCoord.x, 2) ); /* avoid branching! */\n" + "  y = 1.1643*(y-0.0625);\n" + "  u = u-0.5;\n" + "  v = v-0.5;\n" + "  r = y+1.5958*v;\n" + "  g = y-0.39173*u-0.81290*v;\n" + "  b = y+2.017*u;\n" + "  return vec4(r, g, b, 1);\n" + "}\n";
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    case 6: 
+      return "vec4 " + texLookupFuncName + "(in " + getTextureSampler2DType() + " image, in vec2 texCoord) {\n" + "  " + "  float y1,u,y2,v,y,r,g,b;\n" + "  vec2 tc_halfw = vec2(texCoord.x*0.5, texCoord.y);\n" + "  vec4 uyvy = texture2D(image, tc_halfw).rgba;\n" + "  u  = uyvy.r;\n" + "  y1 = uyvy.g;\n" + "  v  = uyvy.b;\n" + "  y2 = uyvy.a;\n" + "  y = mix( y1, y2, mod(gl_FragCoord.x, 2) ); /* avoid branching! */\n" + "  y = 1.1643*(y-0.0625);\n" + "  u = u-0.5;\n" + "  v = v-0.5;\n" + "  r = y+1.5958*v;\n" + "  g = y-0.39173*u-0.81290*v;\n" + "  b = y+2.017*u;\n" + "  return vec4(r, g, b, 1);\n" + "}\n";
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    case 7: 
+      return "vec4 " + texLookupFuncName + "(in " + getTextureSampler2DType() + " image, in vec2 texCoord) {\n" + "  " + "  vec3 bgr = texture2D(image, texCoord).rgb;\n" + "  return vec4(bgr.b, bgr.g, bgr.r, 1);\n" + "}\n";
+    }
+    
+    
+
+
+
+
+    throw new InternalError("Add proper mapping of: vPixelFmt " + vPixelFmt + ", usesTexLookupShader " + usesTexLookupShader);
+  }
+  
+
+  public final boolean playImpl()
+  {
+    if (0L == moviePtr) {
+      return false;
+    }
+    int i = natives.play0(moviePtr);
+    if ((DEBUG_NATIVE) && (i != 0) && (i != -38)) {
+      System.err.println("libav play err: " + i);
+    }
+    return true;
+  }
+  
+  public final boolean pauseImpl()
+  {
+    if (0L == moviePtr) {
+      return false;
+    }
+    int i = natives.pause0(moviePtr);
+    if ((DEBUG_NATIVE) && (i != 0) && (i != -38)) {
+      System.err.println("libav pause err: " + i);
+    }
+    return true;
+  }
+  
+  protected final synchronized int seekImpl(int paramInt)
+  {
+    if (0L == moviePtr) {
+      throw new GLException("FFMPEG native instance null");
+    }
+    return natives.seek0(moviePtr, paramInt);
+  }
+  
+  protected void preNextTextureImpl(GL paramGL)
+  {
+    psm.setUnpackAlignment(paramGL, 1);
+    paramGL.glActiveTexture(33984 + getTextureUnit());
+  }
+  
+  protected void postNextTextureImpl(GL paramGL)
+  {
+    psm.restore(paramGL);
+  }
+  
+  protected final int getNextTextureImpl(GL paramGL, TextureSequence.TextureFrame paramTextureFrame)
+  {
+    if (0L == moviePtr) {
+      throw new GLException("FFMPEG native instance null");
+    }
+    int i = Integer.MIN_VALUE;
+    if (null != paramGL) {
+      Texture localTexture = paramTextureFrame.getTexture();
+      localTexture.enable(paramGL);
+      localTexture.bind(paramGL);
+    }
+    
+
+    for (int j = 0; (Integer.MIN_VALUE == i) && (10 > j); j++) {
+      i = natives.readNextPacket0(moviePtr, getTextureTarget(), getTextureFormat(), getTextureType());
+    }
+    if (null != paramTextureFrame) {
+      paramTextureFrame.setPTS(i);
+    }
+    return i;
+  }
+  
+  final void pushSound(ByteBuffer paramByteBuffer, int paramInt1, int paramInt2) {
+    setFirstAudioPTS2SCR(paramInt2);
+    if ((1.0F == getPlaySpeed()) || (audioSinkPlaySpeedSet)) {
+      audioSink.enqueueData(paramInt2, paramByteBuffer, paramInt1);
+    }
+  }
+  
+  void updateVidAttributes(boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9) {}
+}

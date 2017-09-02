@@ -1,0 +1,132 @@
+package jogamp.nativewindow.jawt;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.StructAccessor;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import java.nio.ByteBuffer;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import jogamp.common.os.MachineDataInfoRuntime;
+
+
+
+
+
+
+
+
+public class JAWT
+{
+  StructAccessor accessor;
+  private static final int mdIdx = MachineDataInfoRuntime.getStatic().ordinal();
+  
+  private final MachineDataInfo md;
+  private static final int[] JAWT_size = { 24, 24, 24, 24, 24, 24, 48, 48 };
+  private static final int[] version_offset = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  
+  public static int size()
+  {
+    return JAWT_size[mdIdx];
+  }
+  
+  public static JAWT create() {
+    return create(Buffers.newDirectByteBuffer(size()));
+  }
+  
+  public static JAWT create(ByteBuffer paramByteBuffer) {
+    return new JAWT(paramByteBuffer);
+  }
+  
+  JAWT(ByteBuffer paramByteBuffer) {
+    md = valuesmdIdxmd;
+    accessor = new StructAccessor(paramByteBuffer);
+  }
+  
+  public ByteBuffer getBuffer() {
+    return accessor.getBuffer();
+  }
+  
+  public JAWT setVersion(int paramInt)
+  {
+    accessor.setIntAt(version_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getVersion()
+  {
+    return accessor.getIntAt(version_offset[mdIdx]);
+  }
+  
+
+
+  public JAWT_DrawingSurface GetDrawingSurface(Object paramObject)
+  {
+    ByteBuffer localByteBuffer = GetDrawingSurface0(getBuffer(), paramObject);
+    if (localByteBuffer == null) return null;
+    return JAWT_DrawingSurface.create(Buffers.nativeOrder(localByteBuffer));
+  }
+  
+
+  private native ByteBuffer GetDrawingSurface0(ByteBuffer paramByteBuffer, Object paramObject);
+  
+  public void FreeDrawingSurface(JAWT_DrawingSurface paramJAWT_DrawingSurface)
+  {
+    FreeDrawingSurface0(getBuffer(), paramJAWT_DrawingSurface == null ? null : paramJAWT_DrawingSurface.getBuffer());
+  }
+  
+
+  private native void FreeDrawingSurface0(ByteBuffer paramByteBuffer1, ByteBuffer paramByteBuffer2);
+  
+  public void Lock()
+  {
+    Lock0(getBuffer());
+  }
+  
+
+  private native void Lock0(ByteBuffer paramByteBuffer);
+  
+  public void Unlock()
+  {
+    Unlock0(getBuffer());
+  }
+  
+
+  private native void Unlock0(ByteBuffer paramByteBuffer);
+  
+  private int jawt_version_cached = 0;
+  
+  public final int getCachedVersion() {
+    return jawt_version_cached; }
+  
+  protected static boolean getJAWT(JAWT paramJAWT, final int paramInt)
+  {
+    JAWTUtil.initSingleton();
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    ((Boolean)AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public Boolean run()
+      {
+        val$jawt.setVersion(paramInt);
+        if (JAWTFactory.JAWT_GetAWT(val$jawt)) {
+          val$jawt.jawt_version_cached = val$jawt.getVersion();
+          return new Boolean(true);
+        }
+        val$jawt.jawt_version_cached = 0;
+        return new Boolean(false);
+      }
+    })).booleanValue();
+  }
+}

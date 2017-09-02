@@ -1,0 +1,594 @@
+package jogamp.graph.geom.plane;
+
+import com.jogamp.graph.geom.Vertex;
+import com.jogamp.opengl.math.FloatUtil;
+import com.jogamp.opengl.math.geom.AABBox;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AffineTransform
+  implements Cloneable
+{
+  static final String determinantIsZero = "Determinant is zero";
+  public static final int TYPE_IDENTITY = 0;
+  public static final int TYPE_TRANSLATION = 1;
+  public static final int TYPE_UNIFORM_SCALE = 2;
+  public static final int TYPE_GENERAL_SCALE = 4;
+  public static final int TYPE_QUADRANT_ROTATION = 8;
+  public static final int TYPE_GENERAL_ROTATION = 16;
+  public static final int TYPE_GENERAL_TRANSFORM = 32;
+  public static final int TYPE_FLIP = 64;
+  public static final int TYPE_MASK_SCALE = 6;
+  public static final int TYPE_MASK_ROTATION = 24;
+  static final int TYPE_UNKNOWN = -1;
+  static final float ZERO = 1.0E-10F;
+  float m00;
+  float m10;
+  float m01;
+  float m11;
+  float m02;
+  float m12;
+  transient int type;
+  
+  public AffineTransform()
+  {
+    setToIdentity();
+  }
+  
+  public AffineTransform(AffineTransform paramAffineTransform) {
+    type = type;
+    m00 = m00;
+    m10 = m10;
+    m01 = m01;
+    m11 = m11;
+    m02 = m02;
+    m12 = m12;
+  }
+  
+  public AffineTransform(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6) {
+    type = -1;
+    m00 = paramFloat1;
+    m10 = paramFloat2;
+    m01 = paramFloat3;
+    m11 = paramFloat4;
+    m02 = paramFloat5;
+    m12 = paramFloat6;
+  }
+  
+  public AffineTransform(float[] paramArrayOfFloat) {
+    type = -1;
+    m00 = paramArrayOfFloat[0];
+    m10 = paramArrayOfFloat[1];
+    m01 = paramArrayOfFloat[2];
+    m11 = paramArrayOfFloat[3];
+    if (paramArrayOfFloat.length > 4) {
+      m02 = paramArrayOfFloat[4];
+      m12 = paramArrayOfFloat[5];
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public int getType()
+  {
+    if (type != -1) {
+      return type;
+    }
+    
+    int i = 0;
+    
+    if (m00 * m01 + m10 * m11 != 0.0D) {
+      i |= 0x20;
+      return i;
+    }
+    
+    if ((m02 != 0.0D) || (m12 != 0.0D)) {
+      i |= 0x1;
+    }
+    else if ((m00 == 1.0D) && (m11 == 1.0D) && (m01 == 0.0D) && (m10 == 0.0D)) {
+      i = 0;
+      return i;
+    }
+    
+    if (m00 * m11 - m01 * m10 < 0.0D) {
+      i |= 0x40;
+    }
+    
+    float f1 = m00 * m00 + m10 * m10;
+    float f2 = m01 * m01 + m11 * m11;
+    if (f1 != f2) {
+      i |= 0x4;
+    }
+    else if (f1 != 1.0D) {
+      i |= 0x2;
+    }
+    
+    if (((m00 == 0.0D) && (m11 == 0.0D)) || ((m10 == 0.0D) && (m01 == 0.0D) && ((m00 < 0.0D) || (m11 < 0.0D))))
+    {
+
+      i |= 0x8;
+    }
+    else if ((m01 != 0.0D) || (m10 != 0.0D)) {
+      i |= 0x10;
+    }
+    
+    return i;
+  }
+  
+  public final float getScaleX() {
+    return m00;
+  }
+  
+  public final float getScaleY() {
+    return m11;
+  }
+  
+  public final float getShearX() {
+    return m01;
+  }
+  
+  public final float getShearY() {
+    return m10;
+  }
+  
+  public final float getTranslateX() {
+    return m02;
+  }
+  
+  public final float getTranslateY() {
+    return m12;
+  }
+  
+  public final boolean isIdentity() {
+    return getType() == 0;
+  }
+  
+  public final void getMatrix(float[] paramArrayOfFloat) {
+    paramArrayOfFloat[0] = m00;
+    paramArrayOfFloat[1] = m10;
+    paramArrayOfFloat[2] = m01;
+    paramArrayOfFloat[3] = m11;
+    if (paramArrayOfFloat.length > 4) {
+      paramArrayOfFloat[4] = m02;
+      paramArrayOfFloat[5] = m12;
+    }
+  }
+  
+  public final float getDeterminant() {
+    return m00 * m11 - m01 * m10;
+  }
+  
+  public final AffineTransform setTransform(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6) {
+    type = -1;
+    m00 = paramFloat1;
+    m10 = paramFloat2;
+    m01 = paramFloat3;
+    m11 = paramFloat4;
+    m02 = paramFloat5;
+    m12 = paramFloat6;
+    return this;
+  }
+  
+  public final AffineTransform setTransform(AffineTransform paramAffineTransform) {
+    type = type;
+    setTransform(m00, m10, m01, m11, m02, m12);
+    return this;
+  }
+  
+  public final AffineTransform setToIdentity() {
+    type = 0;
+    m00 = (this.m11 = 1.0F);
+    m10 = (this.m01 = this.m02 = this.m12 = 0.0F);
+    return this;
+  }
+  
+  public final AffineTransform setToTranslation(float paramFloat1, float paramFloat2) {
+    m00 = (this.m11 = 1.0F);
+    m01 = (this.m10 = 0.0F);
+    m02 = paramFloat1;
+    m12 = paramFloat2;
+    if ((paramFloat1 == 0.0F) && (paramFloat2 == 0.0F)) {
+      type = 0;
+    } else {
+      type = 1;
+    }
+    return this;
+  }
+  
+  public final AffineTransform setToScale(float paramFloat1, float paramFloat2) {
+    m00 = paramFloat1;
+    m11 = paramFloat2;
+    m10 = (this.m01 = this.m02 = this.m12 = 0.0F);
+    if ((paramFloat1 != 1.0F) || (paramFloat2 != 1.0F)) {
+      type = -1;
+    } else {
+      type = 0;
+    }
+    return this;
+  }
+  
+  public final AffineTransform setToShear(float paramFloat1, float paramFloat2) {
+    m00 = (this.m11 = 1.0F);
+    m02 = (this.m12 = 0.0F);
+    m01 = paramFloat1;
+    m10 = paramFloat2;
+    if ((paramFloat1 != 0.0F) || (paramFloat2 != 0.0F)) {
+      type = -1;
+    } else {
+      type = 0;
+    }
+    return this;
+  }
+  
+  public final AffineTransform setToRotation(float paramFloat) {
+    float f1 = FloatUtil.sin(paramFloat);
+    float f2 = FloatUtil.cos(paramFloat);
+    if (FloatUtil.abs(f2) < 1.0E-10F) {
+      f2 = 0.0F;
+      f1 = f1 > 0.0F ? 1.0F : -1.0F;
+    }
+    else if (FloatUtil.abs(f1) < 1.0E-10F) {
+      f1 = 0.0F;
+      f2 = f2 > 0.0F ? 1.0F : -1.0F;
+    }
+    m00 = (this.m11 = f2);
+    m01 = (-f1);
+    m10 = f1;
+    m02 = (this.m12 = 0.0F);
+    type = -1;
+    return this;
+  }
+  
+  public final AffineTransform setToRotation(float paramFloat1, float paramFloat2, float paramFloat3) {
+    setToRotation(paramFloat1);
+    m02 = (paramFloat2 * (1.0F - m00) + paramFloat3 * m10);
+    m12 = (paramFloat3 * (1.0F - m00) - paramFloat2 * m10);
+    type = -1;
+    return this;
+  }
+  
+  public final AffineTransform translate(float paramFloat1, float paramFloat2, AffineTransform paramAffineTransform) {
+    return concatenate(paramAffineTransform.setToTranslation(paramFloat1, paramFloat2));
+  }
+  
+  public final AffineTransform scale(float paramFloat1, float paramFloat2, AffineTransform paramAffineTransform) {
+    return concatenate(paramAffineTransform.setToScale(paramFloat1, paramFloat2));
+  }
+  
+  public final AffineTransform shear(float paramFloat1, float paramFloat2, AffineTransform paramAffineTransform) {
+    return concatenate(paramAffineTransform.setToShear(paramFloat1, paramFloat2));
+  }
+  
+  public final AffineTransform rotate(float paramFloat, AffineTransform paramAffineTransform) {
+    return concatenate(paramAffineTransform.setToRotation(paramFloat));
+  }
+  
+  public final AffineTransform rotate(float paramFloat1, float paramFloat2, float paramFloat3, AffineTransform paramAffineTransform) {
+    return concatenate(paramAffineTransform.setToRotation(paramFloat1, paramFloat2, paramFloat3));
+  }
+  
+
+
+
+
+
+
+  public static final AffineTransform multiply(AffineTransform paramAffineTransform1, AffineTransform paramAffineTransform2)
+  {
+    return new AffineTransform(m00 * m00 + m10 * m01, m00 * m10 + m10 * m11, m01 * m00 + m11 * m01, m01 * m10 + m11 * m11, m02 * m00 + m12 * m01 + m02, m02 * m10 + m12 * m11 + m12);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final AffineTransform concatenate(AffineTransform paramAffineTransform)
+  {
+    type = -1;
+    setTransform(m00 * m00 + m10 * m01, m00 * m10 + m10 * m11, m01 * m00 + m11 * m01, m01 * m10 + m11 * m11, m02 * m00 + m12 * m01 + m02, m02 * m10 + m12 * m11 + m12);
+    
+
+
+
+
+
+    return this;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public final AffineTransform preConcatenate(AffineTransform paramAffineTransform)
+  {
+    type = -1;
+    setTransform(m00 * m00 + m10 * m01, m00 * m10 + m10 * m11, m01 * m00 + m11 * m01, m01 * m10 + m11 * m11, m02 * m00 + m12 * m01 + m02, m02 * m10 + m12 * m11 + m12);
+    
+
+
+
+
+
+    return this;
+  }
+  
+  public final AffineTransform createInverse() throws NoninvertibleTransformException {
+    float f = getDeterminant();
+    if (FloatUtil.abs(f) < 1.0E-10F) {
+      throw new NoninvertibleTransformException("Determinant is zero");
+    }
+    return new AffineTransform(m11 / f, -m10 / f, -m01 / f, m00 / f, (m01 * m12 - m11 * m02) / f, (m10 * m02 - m00 * m12) / f);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public final AABBox transform(AABBox paramAABBox1, AABBox paramAABBox2)
+  {
+    float[] arrayOfFloat1 = paramAABBox1.getLow();
+    float[] arrayOfFloat2 = paramAABBox1.getHigh();
+    paramAABBox2.setSize(arrayOfFloat1[0] * m00 + arrayOfFloat1[1] * m01 + m02, arrayOfFloat1[0] * m10 + arrayOfFloat1[1] * m11 + m12, arrayOfFloat1[2], arrayOfFloat2[0] * m00 + arrayOfFloat2[1] * m01 + m02, arrayOfFloat2[0] * m10 + arrayOfFloat2[1] * m11 + m12, arrayOfFloat2[2]);
+    
+    return paramAABBox2;
+  }
+  
+
+
+
+
+  public final Vertex transform(Vertex paramVertex1, Vertex paramVertex2)
+  {
+    float f1 = paramVertex1.getX();
+    float f2 = paramVertex1.getY();
+    paramVertex2.setCoord(f1 * m00 + f2 * m01 + m02, f1 * m10 + f2 * m11 + m12, paramVertex1.getZ());
+    return paramVertex2;
+  }
+  
+  public final void transform(Vertex[] paramArrayOfVertex1, int paramInt1, Vertex[] paramArrayOfVertex2, int paramInt2, int paramInt3) { for (;;) { 
+      if (paramInt3 < 0) break;
+      Vertex localVertex1 = paramArrayOfVertex1[(paramInt1++)];
+      Vertex localVertex2 = paramArrayOfVertex2[paramInt2];
+      if (localVertex2 == null) {
+        throw new IllegalArgumentException("dst[" + paramInt2 + "] is null");
+      }
+      float f1 = localVertex1.getX();
+      float f2 = localVertex1.getY();
+      localVertex2.setCoord(f1 * m00 + f2 * m01 + m02, f1 * m10 + f2 * m11 + m12, localVertex1.getZ());
+      paramArrayOfVertex2[(paramInt2++)] = localVertex2;
+    }
+  }
+  
+
+
+
+
+  public final float[] transform(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2)
+  {
+    float f1 = paramArrayOfFloat1[0];
+    float f2 = paramArrayOfFloat1[1];
+    paramArrayOfFloat2[0] = (f1 * m00 + f2 * m01 + m02);
+    paramArrayOfFloat2[1] = (f1 * m10 + f2 * m11 + m12);
+    return paramArrayOfFloat2;
+  }
+  
+  public final void transform(float[] paramArrayOfFloat1, int paramInt1, float[] paramArrayOfFloat2, int paramInt2) {
+    float f1 = paramArrayOfFloat1[(paramInt1 + 0)];
+    float f2 = paramArrayOfFloat1[(paramInt1 + 1)];
+    paramArrayOfFloat2[(paramInt2 + 0)] = (f1 * m00 + f2 * m01 + m02);
+    paramArrayOfFloat2[(paramInt2 + 1)] = (f1 * m10 + f2 * m11 + m12);
+  }
+  
+  public final void transform(float[] paramArrayOfFloat1, int paramInt1, float[] paramArrayOfFloat2, int paramInt2, int paramInt3) {
+    int i = 2;
+    if ((paramArrayOfFloat1 == paramArrayOfFloat2) && (paramInt1 < paramInt2) && (paramInt2 < paramInt1 + paramInt3 * 2)) {
+      paramInt1 = paramInt1 + paramInt3 * 2 - 2;
+      paramInt2 = paramInt2 + paramInt3 * 2 - 2;
+      i = -2;
+    }
+    for (;;) { paramInt3--; if (paramInt3 < 0) break;
+      float f1 = paramArrayOfFloat1[(paramInt1 + 0)];
+      float f2 = paramArrayOfFloat1[(paramInt1 + 1)];
+      paramArrayOfFloat2[(paramInt2 + 0)] = (f1 * m00 + f2 * m01 + m02);
+      paramArrayOfFloat2[(paramInt2 + 1)] = (f1 * m10 + f2 * m11 + m12);
+      paramInt1 += i;
+      paramInt2 += i;
+    }
+  }
+  
+
+
+
+
+
+  public final Vertex deltaTransform(Vertex paramVertex1, Vertex paramVertex2)
+  {
+    float f1 = paramVertex1.getX();
+    float f2 = paramVertex1.getY();
+    paramVertex2.setCoord(f1 * m00 + f2 * m01, f1 * m10 + f2 * m11, paramVertex1.getZ());
+    return paramVertex2;
+  }
+  
+  public final void deltaTransform(float[] paramArrayOfFloat1, int paramInt1, float[] paramArrayOfFloat2, int paramInt2, int paramInt3) { for (;;) { 
+      if (paramInt3 < 0) break;
+      float f1 = paramArrayOfFloat1[(paramInt1++)];
+      float f2 = paramArrayOfFloat1[(paramInt1++)];
+      paramArrayOfFloat2[(paramInt2++)] = (f1 * m00 + f2 * m01);
+      paramArrayOfFloat2[(paramInt2++)] = (f1 * m10 + f2 * m11);
+    }
+  }
+  
+
+
+
+
+
+  public final Vertex inverseTransform(Vertex paramVertex1, Vertex paramVertex2)
+    throws NoninvertibleTransformException
+  {
+    float f1 = getDeterminant();
+    if (FloatUtil.abs(f1) < 1.0E-10F) {
+      throw new NoninvertibleTransformException("Determinant is zero");
+    }
+    float f2 = paramVertex1.getX() - m02;
+    float f3 = paramVertex1.getY() - m12;
+    paramVertex2.setCoord((f2 * m11 - f3 * m01) / f1, (f3 * m00 - f2 * m10) / f1, paramVertex1.getZ());
+    return paramVertex2;
+  }
+  
+  public final void inverseTransform(float[] paramArrayOfFloat1, int paramInt1, float[] paramArrayOfFloat2, int paramInt2, int paramInt3)
+    throws NoninvertibleTransformException
+  {
+    float f1 = getDeterminant();
+    if (FloatUtil.abs(f1) < 1.0E-10F) {
+      throw new NoninvertibleTransformException("Determinant is zero");
+    }
+    for (;;) {
+      paramInt3--; if (paramInt3 < 0) break;
+      float f2 = paramArrayOfFloat1[(paramInt1++)] - m02;
+      float f3 = paramArrayOfFloat1[(paramInt1++)] - m12;
+      paramArrayOfFloat2[(paramInt2++)] = ((f2 * m11 - f3 * m01) / f1);
+      paramArrayOfFloat2[(paramInt2++)] = ((f3 * m00 - f2 * m10) / f1);
+    }
+  }
+  
+  public final Path2D createTransformedShape(Path2D paramPath2D) {
+    if (paramPath2D == null) {
+      return null;
+    }
+    return paramPath2D.createTransformedShape(this);
+  }
+  
+
+
+
+
+
+
+
+
+  public final String toString()
+  {
+    return getClass().getName() + "[[" + m00 + ", " + m01 + ", " + m02 + "], [" + m10 + ", " + m11 + ", " + m12 + "]]";
+  }
+  
+
+  public final AffineTransform clone()
+  {
+    try
+    {
+      return (AffineTransform)super.clone();
+    } catch (CloneNotSupportedException localCloneNotSupportedException) {
+      throw new InternalError();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean equals(Object paramObject)
+  {
+    if (paramObject == this) {
+      return true;
+    }
+    if ((paramObject instanceof AffineTransform)) {
+      AffineTransform localAffineTransform = (AffineTransform)paramObject;
+      return (m00 == m00) && (m01 == m01) && (m02 == m02) && (m10 == m10) && (m11 == m11) && (m12 == m12);
+    }
+    
+
+
+    return false;
+  }
+  
+  public final int hashCode() {
+    throw new InternalError("hashCode not designed");
+  }
+}

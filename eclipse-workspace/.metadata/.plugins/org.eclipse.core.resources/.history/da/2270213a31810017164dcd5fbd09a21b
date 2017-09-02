@@ -1,0 +1,285 @@
+package jogamp.opengl;
+
+import com.jogamp.common.JogampRuntimeException;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.common.util.ReflectionUtil;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.Threading.Mode;
+import java.io.PrintStream;
+import java.lang.reflect.InvocationTargetException;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ThreadingImpl
+{
+  protected static final boolean DEBUG = Debug.debug("Threading");
+  
+
+  private static boolean singleThreaded;
+  
+
+  private static Threading.Mode mode;
+  
+
+  private static boolean hasAWT;
+  
+  private static boolean _isX11;
+  
+  private static final ToolkitThreadingPlugin threadingPlugin = (ToolkitThreadingPlugin)AccessController.doPrivileged(new PrivilegedAction()
+  {
+
+    public ToolkitThreadingPlugin run()
+    {
+
+      Object localObject1 = PropertyAccess.getProperty("jogl.1thread", true);
+      String str = null != localObject1 ? ((String)localObject1).toLowerCase() : null;
+      
+      localObject1 = ThreadingImpl.class.getClassLoader();
+      
+
+
+
+
+
+
+
+      ThreadingImpl.access$002(GLProfile.isAWTAvailable());
+      
+      ThreadingImpl.access$102(NativeWindowFactory.TYPE_X11 == NativeWindowFactory.getNativeWindowType(false));
+      
+      if (str != null) {
+        if ((str.equals("true")) || 
+          (str.equals("auto"))) {
+          ThreadingImpl.access$202(ThreadingImpl.hasAWT ? Threading.Mode.ST_AWT : Threading.Mode.MT);
+        } else if (str.equals("worker")) {
+          ThreadingImpl.access$202(Threading.Mode.ST_WORKER);
+        } else if ((ThreadingImpl.hasAWT) && (str.equals("awt"))) {
+          ThreadingImpl.access$202(Threading.Mode.ST_AWT);
+        } else if (str.equals("false")) {
+          ThreadingImpl.access$202(Threading.Mode.MT);
+        } else {
+          throw new RuntimeException("Unsupported value for property jogl.1thread: " + str + ", should be [true/auto, worker, awt or false]");
+        }
+      } else {
+        ThreadingImpl.access$202(ThreadingImpl.hasAWT ? Threading.Mode.ST_AWT : Threading.Mode.MT);
+      }
+      ThreadingImpl.access$302(Threading.Mode.MT != ThreadingImpl.mode);
+      
+      ToolkitThreadingPlugin localToolkitThreadingPlugin = null;
+      if (ThreadingImpl.hasAWT)
+      {
+        Object localObject2 = null;
+        try {
+          localToolkitThreadingPlugin = (ToolkitThreadingPlugin)ReflectionUtil.createInstance("jogamp.opengl.awt.AWTThreadingPlugin", (ClassLoader)localObject1);
+        } catch (JogampRuntimeException localJogampRuntimeException) { localObject2 = localJogampRuntimeException; }
+        if ((Threading.Mode.ST_AWT == ThreadingImpl.mode) && (null == localToolkitThreadingPlugin)) {
+          throw new GLException("Mode is AWT, but class 'jogamp.opengl.awt.AWTThreadingPlugin' is not available", localObject2);
+        }
+      }
+      if (ThreadingImpl.DEBUG) {
+        System.err.println("Threading: jogl.1thread " + str + ", singleThreaded " + ThreadingImpl.singleThreaded + ", hasAWT " + ThreadingImpl.hasAWT + ", mode " + ThreadingImpl.mode + ", plugin " + localToolkitThreadingPlugin);
+      }
+      return localToolkitThreadingPlugin;
+    }
+  });
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private ThreadingImpl() {}
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static boolean isX11() { return _isX11; }
+  public static Threading.Mode getMode() { return mode; }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final void disableSingleThreading()
+  {
+    if (Threading.Mode.MT != mode) {
+      singleThreaded = false;
+      if (Debug.verbose()) {
+        System.err.println("Application forced disabling of single-threading of com.jogamp.opengl implementation");
+      }
+    }
+  }
+  
+
+  public static final boolean isSingleThreaded()
+  {
+    return singleThreaded;
+  }
+  
+
+
+
+
+
+
+  public static final boolean isOpenGLThread()
+    throws GLException
+  {
+    if ((Threading.Mode.MT == mode) || (!singleThreaded))
+      return true;
+    if (null != threadingPlugin) {
+      return threadingPlugin.isOpenGLThread();
+    }
+    switch (2.$SwitchMap$com$jogamp$opengl$Threading$Mode[mode.ordinal()]) {
+    case 1: 
+      throw new InternalError();
+    case 2: 
+      return GLWorkerThread.isWorkerThread();
+    }
+    throw new InternalError("Illegal single-threading mode " + mode);
+  }
+  
+  public static final boolean isToolkitThread()
+    throws GLException
+  {
+    if (null != threadingPlugin) {
+      return threadingPlugin.isToolkitThread();
+    }
+    return false;
+  }
+  
+
+
+
+
+
+
+
+  public static final void invokeOnOpenGLThread(boolean paramBoolean, Runnable paramRunnable)
+    throws GLException
+  {
+    if (null != threadingPlugin) {
+      threadingPlugin.invokeOnOpenGLThread(paramBoolean, paramRunnable);
+      return;
+    }
+    
+    switch (2.$SwitchMap$com$jogamp$opengl$Threading$Mode[mode.ordinal()]) {
+    case 2: 
+      invokeOnWorkerThread(paramBoolean, paramRunnable);
+      break;
+    
+    case 3: 
+      paramRunnable.run();
+      break;
+    
+    default: 
+      throw new InternalError("Illegal single-threading mode " + mode);
+    }
+  }
+  
+  public static final void invokeOnWorkerThread(boolean paramBoolean, Runnable paramRunnable) throws GLException {
+    
+    try {
+      GLWorkerThread.invoke(paramBoolean, paramRunnable);
+    } catch (InvocationTargetException localInvocationTargetException) {
+      throw new GLException(localInvocationTargetException.getTargetException());
+    } catch (InterruptedException localInterruptedException) {
+      throw new GLException(localInterruptedException);
+    }
+  }
+}

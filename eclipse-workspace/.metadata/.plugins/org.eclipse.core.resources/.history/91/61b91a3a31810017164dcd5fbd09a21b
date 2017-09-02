@@ -1,0 +1,189 @@
+package jogamp.newt.awt.event;
+
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.NativeWindow;
+import com.jogamp.newt.Window;
+import com.jogamp.newt.event.awt.AWTAdapter;
+import com.jogamp.newt.event.awt.AWTWindowAdapter;
+import java.awt.Component;
+import java.awt.KeyboardFocusManager;
+import java.awt.event.ComponentEvent;
+import java.awt.event.FocusEvent;
+import java.awt.event.HierarchyEvent;
+import java.awt.event.HierarchyListener;
+import java.awt.event.WindowEvent;
+import java.io.PrintStream;
+import jogamp.newt.driver.DriverUpdatePosition;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AWTParentWindowAdapter
+  extends AWTWindowAdapter
+  implements HierarchyListener
+{
+  NativeWindow downstreamParent;
+  
+  public AWTParentWindowAdapter(NativeWindow paramNativeWindow, Window paramWindow)
+  {
+    super(paramWindow);
+    downstreamParent = paramNativeWindow;
+  }
+  
+  public AWTParentWindowAdapter() {}
+  
+  public AWTParentWindowAdapter setDownstream(NativeWindow paramNativeWindow, Window paramWindow) {
+    setDownstream(paramWindow);
+    downstreamParent = paramNativeWindow;
+    return this;
+  }
+  
+  public synchronized AWTAdapter clear()
+  {
+    super.clear();
+    downstreamParent = null;
+    return this;
+  }
+  
+  public synchronized AWTAdapter addTo(Component paramComponent)
+  {
+    paramComponent.addHierarchyListener(this);
+    return super.addTo(paramComponent);
+  }
+  
+  public synchronized AWTAdapter removeFrom(Component paramComponent)
+  {
+    paramComponent.removeHierarchyListener(this);
+    return super.removeFrom(paramComponent);
+  }
+  
+  public synchronized void focusGained(FocusEvent paramFocusEvent)
+  {
+    if (!isSetup) { return;
+    }
+    Window localWindow = getNewtWindow();
+    if (null != localWindow) {
+      boolean bool1 = (localWindow.isNativeValid()) && (localWindow.getGraphicsConfiguration().getChosenCapabilities().isOnscreen());
+      boolean bool2 = downstreamParent == localWindow.getParent();
+      boolean bool3 = localWindow.isFullscreen();
+      if (DEBUG_IMPLEMENTATION) {
+        System.err.println("AWT: focusGained: onscreen " + bool1 + ", " + paramFocusEvent + ", isParent: " + bool2 + ", isFS " + bool3);
+      }
+      if (bool2) {
+        if ((bool1) && (!bool3)) {
+          KeyboardFocusManager.getCurrentKeyboardFocusManager().clearGlobalFocusOwner();
+        }
+        localWindow.requestFocus(false);
+      }
+    }
+  }
+  
+  public synchronized void focusLost(FocusEvent paramFocusEvent)
+  {
+    if (!isSetup) return;
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("AWT: focusLost: " + paramFocusEvent);
+    }
+  }
+  
+  public synchronized void componentResized(ComponentEvent paramComponentEvent)
+  {
+    if (!isSetup) { return;
+    }
+    
+    final Component localComponent = paramComponentEvent.getComponent();
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("AWT: componentResized: " + localComponent);
+    }
+    final Window localWindow = getNewtWindow();
+    if (null != localWindow) {
+      localWindow.runOnEDTIfAvail(false, new Runnable()
+      {
+        public void run() {
+          int i = localComponent.getWidth();
+          int j = localComponent.getHeight();
+          if ((0 < i) && (0 < j)) {
+            if ((localWindow.getWidth() != i) || (localWindow.getHeight() != j)) {
+              localWindow.setSize(i, j);
+              boolean bool = localComponent.isShowing();
+              if (bool != localWindow.isVisible()) {
+                localWindow.setVisible(bool);
+              }
+            }
+          } else if (localWindow.isVisible()) {
+            localWindow.setVisible(false);
+          }
+        }
+      });
+    }
+  }
+  
+  public synchronized void componentMoved(ComponentEvent paramComponentEvent) {
+    if (!isSetup) return;
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("AWT: componentMoved: " + paramComponentEvent);
+    }
+    Window localWindow = getNewtWindow();
+    if ((null != localWindow) && ((localWindow.getDelegatedWindow() instanceof DriverUpdatePosition))) {
+      ((DriverUpdatePosition)localWindow.getDelegatedWindow()).updatePosition(0, 0);
+    }
+  }
+  
+
+
+  public synchronized void windowActivated(WindowEvent paramWindowEvent) {}
+  
+
+
+  public synchronized void windowDeactivated(WindowEvent paramWindowEvent) {}
+  
+
+
+  public synchronized void hierarchyChanged(HierarchyEvent paramHierarchyEvent)
+  {
+    if (!isSetup) return;
+    final Window localWindow = getNewtWindow();
+    if ((null != localWindow) && (null == getNewtEventListener())) {
+      long l = paramHierarchyEvent.getChangeFlags();
+      Component localComponent = paramHierarchyEvent.getComponent();
+      if (0L != (0x4 & l)) {
+        final boolean bool = localComponent.isShowing();
+        if (DEBUG_IMPLEMENTATION) {
+          System.err.println("AWT: hierarchyChanged SHOWING_CHANGED: showing " + bool + ", comp " + localComponent + ", changed " + paramHierarchyEvent.getChanged());
+        }
+        localWindow.runOnEDTIfAvail(false, new Runnable()
+        {
+          public void run() {
+            if (localWindow.isVisible() != bool)
+              localWindow.setVisible(bool);
+          }
+        });
+      }
+      if ((DEBUG_IMPLEMENTATION) && 
+        (0L != (0x2 & l))) {
+        System.err.println("AWT: hierarchyChanged DISPLAYABILITY_CHANGED: " + paramHierarchyEvent.getChanged());
+      }
+    }
+  }
+}

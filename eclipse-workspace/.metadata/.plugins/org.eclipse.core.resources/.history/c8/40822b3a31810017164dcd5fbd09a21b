@@ -1,0 +1,233 @@
+package jogamp.opengl.util.av.impl;
+
+import com.jogamp.common.net.Uri;
+import com.jogamp.common.net.Uri.Encoded;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.egl.EGL;
+import com.jogamp.opengl.util.texture.TextureSequence.TextureFrame;
+import java.io.IOException;
+import java.io.PrintStream;
+import jogamp.opengl.util.av.EGLMediaPlayerImpl;
+import jogamp.opengl.util.av.EGLMediaPlayerImpl.EGLTextureFrame;
+import jogamp.opengl.util.av.EGLMediaPlayerImpl.TextureType;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class OMXGLMediaPlayer
+  extends EGLMediaPlayerImpl
+{
+  static final boolean available = false;
+  
+
+
+
+
+
+  public static final boolean isAvailable() { return available; }
+  
+  protected long moviePtr = 0L;
+  
+  public OMXGLMediaPlayer() {
+    super(EGLMediaPlayerImpl.TextureType.KHRImage, true);
+    if (!available) {
+      throw new RuntimeException("OMXGLMediaPlayer not available");
+    }
+    initOMX();
+  }
+  
+  protected void initOMX() {
+    moviePtr = _createInstance();
+    if (0L == moviePtr) {
+      throw new GLException("Couldn't create OMXInstance");
+    }
+  }
+  
+  protected TextureSequence.TextureFrame createTexImage(GL paramGL, int paramInt)
+  {
+    EGLMediaPlayerImpl.EGLTextureFrame localEGLTextureFrame = (EGLMediaPlayerImpl.EGLTextureFrame)super.createTexImage(paramGL, paramInt);
+    _setStreamEGLImageTexture2D(moviePtr, paramInt, localEGLTextureFrame.getImage(), localEGLTextureFrame.getSync());
+    return localEGLTextureFrame;
+  }
+  
+  protected void destroyTexFrame(GL paramGL, TextureSequence.TextureFrame paramTextureFrame)
+  {
+    super.destroyTexFrame(paramGL, paramTextureFrame);
+  }
+  
+  protected void destroyImpl(GL paramGL)
+  {
+    if (moviePtr != 0L) {
+      _stop(moviePtr);
+      _detachVideoRenderer(moviePtr);
+      _destroyInstance(moviePtr);
+      moviePtr = 0L;
+    }
+  }
+  
+  protected void initStreamImpl(int paramInt1, int paramInt2) throws IOException
+  {
+    if (0L == moviePtr) {
+      throw new GLException("OMX native instance null");
+    }
+    if (!getUri().isFileScheme()) {
+      throw new IOException("Only file schemes are allowed: " + getUri());
+    }
+    String str = getUripath.decode();
+    if (DEBUG) {
+      System.out.println("initGLStream: clean path " + str);
+    }
+    
+    if (DEBUG) {
+      System.out.println("initGLStream: p1 " + this);
+    }
+    _setStream(moviePtr, getTextureCount(), str);
+    if (DEBUG) {
+      System.out.println("initGLStream: p2 " + this);
+    }
+  }
+  
+  protected final void initGLImpl(GL paramGL) throws IOException, GLException
+  {
+    setIsGLOriented(true);
+  }
+  
+  protected int getAudioPTSImpl()
+  {
+    return 0L != moviePtr ? _getCurrentPosition(moviePtr) : 0;
+  }
+  
+  protected boolean setPlaySpeedImpl(float paramFloat)
+  {
+    if (0L == moviePtr) {
+      throw new GLException("OMX native instance null");
+    }
+    _setPlaySpeed(moviePtr, paramFloat);
+    return true;
+  }
+  
+  public synchronized boolean playImpl()
+  {
+    if (0L == moviePtr) {
+      return false;
+    }
+    _play(moviePtr);
+    return true;
+  }
+  
+
+  public synchronized boolean pauseImpl()
+  {
+    if (0L == moviePtr) {
+      return false;
+    }
+    _pause(moviePtr);
+    return true;
+  }
+  
+
+  protected int seekImpl(int paramInt)
+  {
+    if (0L == moviePtr) {
+      throw new GLException("OMX native instance null");
+    }
+    return _seek(moviePtr, paramInt);
+  }
+  
+  protected int getNextTextureImpl(GL paramGL, TextureSequence.TextureFrame paramTextureFrame)
+  {
+    if (0L == moviePtr) {
+      throw new GLException("OMX native instance null");
+    }
+    int i = _getNextTextureID(moviePtr, true);
+    if (0 < i) {}
+    
+
+
+
+
+
+
+
+    return 0;
+  }
+  
+  private String replaceAll(String paramString1, String paramString2, String paramString3) {
+    StringBuilder localStringBuilder = new StringBuilder();
+    
+    int i = 0;
+    int j; while ((j = paramString1.indexOf(paramString2, i)) >= 0) {
+      localStringBuilder.append(paramString1.substring(i, j));
+      localStringBuilder.append(paramString3);
+      i = j + 1;
+    }
+    return paramString1.substring(i, paramString1.length());
+  }
+  
+  private void errorCheckEGL(String paramString) {
+    int i;
+    if ((i = EGL.eglGetError()) != 12288) {
+      System.out.println("EGL Error: (" + paramString + "): 0x" + Integer.toHexString(i));
+    }
+  }
+  
+  private static native boolean initIDs0();
+  
+  private native long _createInstance();
+  
+  private native void _destroyInstance(long paramLong);
+  
+  private native void _detachVideoRenderer(long paramLong);
+  
+  private native void _attachVideoRenderer(long paramLong);
+  
+  private native void _setStream(long paramLong, int paramInt, String paramString);
+  
+  private native void _activateStream(long paramLong);
+  
+  private native void _setStreamEGLImageTexture2D(long paramLong1, int paramInt, long paramLong2, long paramLong3);
+  
+  private native int _seek(long paramLong, int paramInt);
+  
+  private native void _setPlaySpeed(long paramLong, float paramFloat);
+  
+  private native void _play(long paramLong);
+  
+  private native void _pause(long paramLong);
+  
+  private native void _stop(long paramLong);
+  
+  private native int _getNextTextureID(long paramLong, boolean paramBoolean);
+  
+  private native int _getCurrentPosition(long paramLong);
+}

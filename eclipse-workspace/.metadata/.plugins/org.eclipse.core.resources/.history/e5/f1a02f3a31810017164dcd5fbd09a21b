@@ -1,0 +1,85 @@
+package jogamp.opengl.util.pngj.chunks;
+
+import jogamp.opengl.util.pngj.ImageInfo;
+import jogamp.opengl.util.pngj.PngHelperInternal;
+import jogamp.opengl.util.pngj.PngjException;
+
+
+
+
+
+public class PngChunkICCP
+  extends PngChunkSingle
+{
+  public static final String ID = "iCCP";
+  private String profileName;
+  private byte[] compressedProfile;
+  
+  public PngChunkICCP(ImageInfo paramImageInfo)
+  {
+    super("iCCP", paramImageInfo);
+  }
+  
+  public PngChunk.ChunkOrderingConstraint getOrderingConstraint()
+  {
+    return PngChunk.ChunkOrderingConstraint.BEFORE_PLTE_AND_IDAT;
+  }
+  
+  public ChunkRaw createRawChunk()
+  {
+    ChunkRaw localChunkRaw = createEmptyChunk(profileName.length() + compressedProfile.length + 2, true);
+    System.arraycopy(ChunkHelper.toBytes(profileName), 0, data, 0, profileName.length());
+    data[profileName.length()] = 0;
+    data[(profileName.length() + 1)] = 0;
+    System.arraycopy(compressedProfile, 0, data, profileName.length() + 2, compressedProfile.length);
+    return localChunkRaw;
+  }
+  
+  public void parseFromRaw(ChunkRaw paramChunkRaw)
+  {
+    int i = ChunkHelper.posNullByte(data);
+    profileName = new String(data, 0, i, PngHelperInternal.charsetLatin1);
+    int j = data[(i + 1)] & 0xFF;
+    if (j != 0)
+      throw new PngjException("bad compression for ChunkTypeICCP");
+    int k = data.length - (i + 2);
+    compressedProfile = new byte[k];
+    System.arraycopy(data, i + 2, compressedProfile, 0, k);
+  }
+  
+  public void cloneDataFromRead(PngChunk paramPngChunk)
+  {
+    PngChunkICCP localPngChunkICCP = (PngChunkICCP)paramPngChunk;
+    profileName = profileName;
+    compressedProfile = new byte[compressedProfile.length];
+    System.arraycopy(compressedProfile, 0, compressedProfile, 0, compressedProfile.length);
+  }
+  
+
+
+
+  public void setProfileNameAndContent(String paramString, byte[] paramArrayOfByte)
+  {
+    profileName = paramString;
+    compressedProfile = ChunkHelper.compressBytes(paramArrayOfByte, true);
+  }
+  
+  public void setProfileNameAndContent(String paramString1, String paramString2) {
+    setProfileNameAndContent(paramString1, paramString2.getBytes(PngHelperInternal.charsetLatin1));
+  }
+  
+  public String getProfileName() {
+    return profileName;
+  }
+  
+
+
+  public byte[] getProfile()
+  {
+    return ChunkHelper.compressBytes(compressedProfile, false);
+  }
+  
+  public String getProfileAsString() {
+    return new String(getProfile(), PngHelperInternal.charsetLatin1);
+  }
+}

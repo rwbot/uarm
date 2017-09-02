@@ -1,0 +1,300 @@
+package jogamp.opengl;
+
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLException;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLContextShareSet
+{
+  private static final boolean DEBUG = GLContextImpl.DEBUG;
+  
+
+
+
+  private static final Map<GLContext, ShareSet> shareMap = new IdentityHashMap();
+  public GLContextShareSet() {}
+  
+  private static class ShareSet { private final Map<GLContext, GLContext> createdShares = new IdentityHashMap();
+    private final Map<GLContext, GLContext> destroyedShares = new IdentityHashMap();
+    
+    private ShareSet() {}
+    
+    public final void addNew(GLContext paramGLContext1, GLContext paramGLContext2) { GLContext localGLContext; if (paramGLContext1.isCreated()) {
+        localGLContext = (GLContext)createdShares.put(paramGLContext1, paramGLContext2);
+      } else {
+        localGLContext = (GLContext)destroyedShares.put(paramGLContext1, paramGLContext2);
+      }
+      if (null != localGLContext)
+      {
+        throw new InternalError("State of ShareSet corrupted: Slave " + GLContextShareSet.toHexString(paramGLContext1.hashCode()) + " is not new w/ master " + GLContextShareSet.toHexString(localGLContext.hashCode())); }
+    }
+    
+    public final void addIfNew(GLContext paramGLContext1, GLContext paramGLContext2) {
+      GLContext localGLContext = getMaster(paramGLContext2);
+      if (null == localGLContext) {
+        addNew(paramGLContext1, paramGLContext2);
+      }
+    }
+    
+    public final GLContext getMaster(GLContext paramGLContext) {
+      GLContext localGLContext = (GLContext)createdShares.get(paramGLContext);
+      return null != localGLContext ? localGLContext : (GLContext)destroyedShares.get(paramGLContext);
+    }
+    
+    public Set<GLContext> getCreatedShares() {
+      return createdShares.keySet();
+    }
+    
+    public Set<GLContext> getDestroyedShares() {
+      return destroyedShares.keySet();
+    }
+    
+    public void contextCreated(GLContext paramGLContext) {
+      GLContext localGLContext1 = (GLContext)destroyedShares.remove(paramGLContext);
+      if (null == localGLContext1) {
+        throw new InternalError("State of ShareSet corrupted: Context " + GLContextShareSet.toHexString(paramGLContext.hashCode()) + " should have been in destroyed-set");
+      }
+      
+      GLContext localGLContext2 = (GLContext)createdShares.put(paramGLContext, localGLContext1);
+      if (null != localGLContext2) {
+        throw new InternalError("State of ShareSet corrupted: Context " + GLContextShareSet.toHexString(paramGLContext.hashCode()) + " shouldn't have been in created-set");
+      }
+    }
+    
+    public void contextDestroyed(GLContext paramGLContext)
+    {
+      GLContext localGLContext1 = (GLContext)createdShares.remove(paramGLContext);
+      if (null == localGLContext1) {
+        throw new InternalError("State of ShareSet corrupted: Context " + GLContextShareSet.toHexString(paramGLContext.hashCode()) + " should have been in created-set");
+      }
+      
+      GLContext localGLContext2 = (GLContext)destroyedShares.put(paramGLContext, localGLContext1);
+      if (null != localGLContext2) {
+        throw new InternalError("State of ShareSet corrupted: Context " + GLContextShareSet.toHexString(paramGLContext.hashCode()) + " shouldn't have been in destroyed-set");
+      }
+    }
+  }
+  
+
+
+
+  public static synchronized void registerSharing(GLContext paramGLContext1, GLContext paramGLContext2)
+  {
+    if ((paramGLContext1 == null) || (paramGLContext2 == null)) {
+      throw new IllegalArgumentException("Both slave and master must be non-null");
+    }
+    ShareSet localShareSet = entryFor(paramGLContext1);
+    if (null == localShareSet) {
+      localShareSet = entryFor(paramGLContext2);
+    }
+    if (null == localShareSet) {
+      localShareSet = new ShareSet(null);
+    }
+    localShareSet.addNew(paramGLContext1, paramGLContext2);
+    localShareSet.addIfNew(paramGLContext2, paramGLContext2);
+    addEntry(paramGLContext1, localShareSet);
+    addEntry(paramGLContext2, localShareSet);
+    if (DEBUG) {
+      System.err.println("GLContextShareSet: registereSharing: 1: " + 
+        toHexString(paramGLContext1.hashCode()) + ", 2: " + toHexString(paramGLContext2.hashCode()));
+    }
+  }
+  
+  public static synchronized void unregisterSharing(GLContext paramGLContext) {
+    if (paramGLContext == null) {
+      throw new IllegalArgumentException("Last context is null");
+    }
+    ShareSet localShareSet = entryFor(paramGLContext);
+    if (localShareSet == null) {
+      throw new GLException("Last context is unknown: " + paramGLContext);
+    }
+    Set localSet = localShareSet.getCreatedShares();
+    if (localSet.size() > 0) {
+      throw new GLException("Last context's share set contains " + localSet.size() + " non destroyed context");
+    }
+    localSet = localShareSet.getDestroyedShares();
+    if (localSet.size() == 0) {
+      throw new GLException("Last context's share set contains no destroyed context");
+    }
+    if (DEBUG) {
+      System.err.println("GLContextShareSet: unregisterSharing: " + 
+        toHexString(paramGLContext.hashCode()) + ", entries: " + localSet.size());
+    }
+    for (Iterator localIterator = localSet.iterator(); localIterator.hasNext();) {
+      GLContext localGLContext = (GLContext)localIterator.next();
+      if (null == removeEntry(localGLContext)) {
+        throw new GLException("Removal of shareSet for context failed");
+      }
+    }
+  }
+  
+  public static synchronized boolean isShared(GLContext paramGLContext)
+  {
+    if (paramGLContext == null) {
+      throw new IllegalArgumentException("context is null");
+    }
+    ShareSet localShareSet = entryFor(paramGLContext);
+    return localShareSet != null;
+  }
+  
+
+
+
+
+
+  public static synchronized GLContext getSharedMaster(GLContext paramGLContext)
+  {
+    ShareSet localShareSet = entryFor(paramGLContext);
+    if (localShareSet == null) {
+      return null;
+    }
+    return localShareSet.getMaster(paramGLContext);
+  }
+  
+  private static synchronized Set<GLContext> getCreatedSharesImpl(GLContext paramGLContext) {
+    if (paramGLContext == null) {
+      throw new IllegalArgumentException("context is null");
+    }
+    ShareSet localShareSet = entryFor(paramGLContext);
+    if (localShareSet != null) {
+      return localShareSet.getCreatedShares();
+    }
+    return null;
+  }
+  
+  private static synchronized Set<GLContext> getDestroyedSharesImpl(GLContext paramGLContext) { if (paramGLContext == null) {
+      throw new IllegalArgumentException("context is null");
+    }
+    ShareSet localShareSet = entryFor(paramGLContext);
+    if (localShareSet != null) {
+      return localShareSet.getDestroyedShares();
+    }
+    return null;
+  }
+  
+  public static synchronized boolean hasCreatedSharedLeft(GLContext paramGLContext)
+  {
+    Set localSet = getCreatedSharesImpl(paramGLContext);
+    return (null != localSet) && (localSet.size() > 0);
+  }
+  
+  public static synchronized ArrayList<GLContext> getCreatedShares(GLContext paramGLContext)
+  {
+    ArrayList localArrayList = new ArrayList();
+    Set localSet = getCreatedSharesImpl(paramGLContext);
+    Iterator localIterator; if (null != localSet) {
+      for (localIterator = localSet.iterator(); localIterator.hasNext();) {
+        GLContext localGLContext = (GLContext)localIterator.next();
+        if (localGLContext != paramGLContext) {
+          localArrayList.add(localGLContext);
+        }
+      }
+    }
+    return localArrayList;
+  }
+  
+  public static synchronized ArrayList<GLContext> getDestroyedShares(GLContext paramGLContext)
+  {
+    ArrayList localArrayList = new ArrayList();
+    Set localSet = getDestroyedSharesImpl(paramGLContext);
+    Iterator localIterator; if (null != localSet) {
+      for (localIterator = localSet.iterator(); localIterator.hasNext();) {
+        GLContext localGLContext = (GLContext)localIterator.next();
+        if (localGLContext != paramGLContext) {
+          localArrayList.add(localGLContext);
+        }
+      }
+    }
+    return localArrayList;
+  }
+  
+  public static synchronized boolean contextCreated(GLContext paramGLContext)
+  {
+    ShareSet localShareSet = entryFor(paramGLContext);
+    if (localShareSet != null) {
+      localShareSet.contextCreated(paramGLContext);
+      return true;
+    }
+    return false;
+  }
+  
+  public static synchronized boolean contextDestroyed(GLContext paramGLContext)
+  {
+    ShareSet localShareSet = entryFor(paramGLContext);
+    if (localShareSet != null) {
+      localShareSet.contextDestroyed(paramGLContext);
+      return true;
+    }
+    return false;
+  }
+  
+
+
+
+  private static ShareSet entryFor(GLContext paramGLContext)
+  {
+    return (ShareSet)shareMap.get(paramGLContext);
+  }
+  
+  private static void addEntry(GLContext paramGLContext, ShareSet paramShareSet) {
+    if (shareMap.get(paramGLContext) == null)
+      shareMap.put(paramGLContext, paramShareSet);
+  }
+  
+  private static ShareSet removeEntry(GLContext paramGLContext) {
+    return (ShareSet)shareMap.remove(paramGLContext);
+  }
+  
+  private static String toHexString(long paramLong) {
+    return "0x" + Long.toHexString(paramLong);
+  }
+}

@@ -1,0 +1,344 @@
+package jogamp.common.util.locks;
+
+import com.jogamp.common.util.locks.RecursiveLock;
+import java.io.PrintStream;
+import java.util.List;
+import java.util.concurrent.locks.AbstractOwnableSynchronizer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class RecursiveLockImpl01Unfairish
+  implements RecursiveLock
+{
+  protected final Sync sync;
+  
+  static class SingleThreadSync
+    extends AbstractOwnableSynchronizer
+    implements RecursiveLockImpl01Unfairish.Sync
+  {
+    SingleThreadSync() {}
+    
+    public final Thread getOwner()
+    {
+      return getExclusiveOwnerThread();
+    }
+    
+    public boolean isOwner(Thread paramThread) {
+      return getExclusiveOwnerThread() == paramThread;
+    }
+    
+    public final void setOwner(Thread paramThread) {
+      setExclusiveOwnerThread(paramThread);
+    }
+    
+    public final Throwable getLockedStack() {
+      return lockedStack;
+    }
+    
+    public final void setLockedStack(Throwable paramThrowable) {
+      List localList = LockDebugUtil.getRecursiveLockTrace();
+      if (paramThrowable == null) {
+        localList.remove(lockedStack);
+      } else {
+        localList.add(paramThrowable);
+      }
+      lockedStack = paramThrowable;
+    }
+    
+    public final int getHoldCount() { return holdCount; }
+    
+    public void incrHoldCount(Thread paramThread) { holdCount += 1; }
+    
+    public void decrHoldCount(Thread paramThread) { holdCount -= 1; }
+    
+
+    public final int getQSz() { return qsz; }
+    
+    public final void incrQSz() { qsz += 1; }
+    
+    public final void decrQSz() { qsz -= 1; }
+    
+
+    private int holdCount = 0;
+    
+    private int qsz = 0;
+    
+    private Throwable lockedStack = null;
+  }
+  
+
+  public RecursiveLockImpl01Unfairish(Sync paramSync)
+  {
+    sync = paramSync;
+  }
+  
+  public RecursiveLockImpl01Unfairish() {
+    this(new SingleThreadSync());
+  }
+  
+
+
+
+
+  public final Throwable getLockedStack()
+  {
+    synchronized (sync) {
+      return sync.getLockedStack();
+    }
+  }
+  
+  public final Thread getOwner()
+  {
+    synchronized (sync) {
+      return sync.getOwner();
+    }
+  }
+  
+  public final boolean isOwner(Thread paramThread)
+  {
+    synchronized (sync) {
+      return sync.isOwner(paramThread);
+    }
+  }
+  
+  public final boolean isLocked()
+  {
+    synchronized (sync) {
+      return null != sync.getOwner();
+    }
+  }
+  
+  public final boolean isLockedByOtherThread()
+  {
+    synchronized (sync) {
+      Thread localThread = sync.getOwner();
+      return (null != localThread) && (Thread.currentThread() != localThread);
+    }
+  }
+  
+  public final int getHoldCount()
+  {
+    synchronized (sync) {
+      return sync.getHoldCount();
+    }
+  }
+  
+  public final void validateLocked() throws RuntimeException
+  {
+    synchronized (sync) {
+      if (!sync.isOwner(Thread.currentThread())) {
+        if (null == sync.getOwner()) {
+          throw new RuntimeException(threadName(Thread.currentThread()) + ": Not locked: " + toString());
+        }
+        if (null != sync.getLockedStack()) {
+          sync.getLockedStack().printStackTrace();
+        }
+        throw new RuntimeException(Thread.currentThread() + ": Not owner: " + toString());
+      }
+    }
+  }
+  
+  public final void lock()
+  {
+    synchronized (sync) {
+      try {
+        if (!tryLock(TIMEOUT)) {
+          if (null != sync.getLockedStack()) {
+            sync.getLockedStack().printStackTrace();
+          }
+          throw new RuntimeException("Waited " + TIMEOUT + "ms for: " + toString() + " - " + threadName(Thread.currentThread()));
+        }
+      } catch (InterruptedException localInterruptedException) {
+        throw new RuntimeException("Interrupted", localInterruptedException);
+      }
+    }
+  }
+  
+  public final boolean tryLock(long paramLong) throws InterruptedException
+  {
+    synchronized (sync) {
+      Thread localThread = Thread.currentThread();
+      if (TRACE_LOCK) {
+        System.err.println("+++ LOCK 0 " + toString() + ", timeout " + paramLong + " ms, cur " + threadName(localThread));
+      }
+      if (sync.isOwner(localThread)) {
+        sync.incrHoldCount(localThread);
+        if (TRACE_LOCK) {
+          System.err.println("+++ LOCK XR " + toString() + ", cur " + threadName(localThread));
+        }
+        return true;
+      }
+      
+      if ((sync.getOwner() != null) || ((0L < paramLong) && (0 < sync.getQSz())))
+      {
+        if (0L >= paramLong)
+        {
+          if (TRACE_LOCK) {
+            System.err.println("+++ LOCK XY " + toString() + ", cur " + threadName(localThread) + ", left " + paramLong + " ms");
+          }
+          return false;
+        }
+        
+        sync.incrQSz();
+        do {
+          long l = System.currentTimeMillis();
+          sync.wait(paramLong);
+          paramLong -= System.currentTimeMillis() - l;
+        } while ((null != sync.getOwner()) && (0L < paramLong));
+        sync.decrQSz();
+        
+        if ((0L >= paramLong) && (sync.getOwner() != null))
+        {
+          if (TRACE_LOCK) {
+            System.err.println("+++ LOCK XX " + toString() + ", cur " + threadName(localThread) + ", left " + paramLong + " ms");
+          }
+          return false;
+        }
+        
+        if (TRACE_LOCK) {
+          System.err.println("+++ LOCK X1 " + toString() + ", cur " + threadName(localThread) + ", left " + paramLong + " ms");
+        }
+      } else if (TRACE_LOCK) {
+        System.err.println("+++ LOCK X0 " + toString() + ", cur " + threadName(localThread));
+      }
+      
+      sync.setOwner(localThread);
+      sync.incrHoldCount(localThread);
+      
+      if (DEBUG) {
+        sync.setLockedStack(new Throwable("Previously locked by " + toString()));
+      }
+      return true;
+    }
+  }
+  
+
+  public final void unlock()
+  {
+    synchronized (sync) {
+      unlock(null);
+    }
+  }
+  
+  public void unlock(Runnable paramRunnable)
+  {
+    synchronized (sync) {
+      validateLocked();
+      Thread localThread = Thread.currentThread();
+      
+      sync.decrHoldCount(localThread);
+      
+      if (sync.getHoldCount() > 0) {
+        if (TRACE_LOCK) {
+          System.err.println("--- LOCK XR " + toString() + ", cur " + threadName(localThread));
+        }
+        return;
+      }
+      
+      sync.setOwner(null);
+      if (DEBUG) {
+        sync.setLockedStack(null);
+      }
+      if (null != paramRunnable) {
+        paramRunnable.run();
+      }
+      
+      if (TRACE_LOCK) {
+        System.err.println("--- LOCK X0 " + toString() + ", cur " + threadName(localThread) + ", signal any");
+      }
+      sync.notify();
+    }
+  }
+  
+  public final int getQueueLength()
+  {
+    synchronized (sync) {
+      return sync.getQSz();
+    }
+  }
+  
+
+  public String toString()
+  {
+    return syncName() + "[count " + sync.getHoldCount() + ", qsz " + sync.getQSz() + ", owner " + threadName(sync.getOwner()) + "]";
+  }
+  
+
+  final String syncName() { return "<" + Integer.toHexString(hashCode()) + ", " + Integer.toHexString(sync.hashCode()) + ">"; }
+  
+  final String threadName(Thread paramThread) { return null != paramThread ? "<" + paramThread.getName() + ">" : "<NULL>"; }
+  
+  static abstract interface Sync
+  {
+    public abstract Thread getOwner();
+    
+    public abstract boolean isOwner(Thread paramThread);
+    
+    public abstract void setOwner(Thread paramThread);
+    
+    public abstract Throwable getLockedStack();
+    
+    public abstract void setLockedStack(Throwable paramThrowable);
+    
+    public abstract int getHoldCount();
+    
+    public abstract void incrHoldCount(Thread paramThread);
+    
+    public abstract void decrHoldCount(Thread paramThread);
+    
+    public abstract int getQSz();
+    
+    public abstract void incrQSz();
+    
+    public abstract void decrQSz();
+  }
+}

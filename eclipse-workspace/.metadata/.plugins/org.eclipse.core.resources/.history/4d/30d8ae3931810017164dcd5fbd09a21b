@@ -1,0 +1,52 @@
+package de.voidplus.leapmotion;
+
+import com.leapmotion.leap.Pointable;
+import com.leapmotion.leap.Vector;
+import processing.core.PApplet;
+import processing.core.PVector;
+
+public class KeyTapGesture
+  extends Gesture
+  implements RawAccess<com.leapmotion.leap.KeyTapGesture>
+{
+  private com.leapmotion.leap.KeyTapGesture _keyTap;
+  
+  public KeyTapGesture(PApplet paramPApplet, LeapMotion paramLeapMotion, com.leapmotion.leap.Gesture paramGesture)
+  {
+    super(paramPApplet, paramLeapMotion, paramGesture);
+    _keyTap = new com.leapmotion.leap.KeyTapGesture(paramGesture);
+  }
+  
+  public com.leapmotion.leap.KeyTapGesture getRaw()
+  {
+    return _keyTap;
+  }
+  
+  public PVector getPosition()
+  {
+    return leap.map(_keyTap.position());
+  }
+  
+  public PVector getRawPosition()
+  {
+    return leap.convert(_keyTap.position());
+  }
+  
+  public PVector getDirection()
+  {
+    return new PVector(PApplet.degrees(_keyTap.direction().roll()), PApplet.degrees(_keyTap.direction().pitch()), PApplet.degrees(_keyTap.direction().yaw()));
+  }
+  
+  public PVector getRawDirection()
+  {
+    return leap.convert(_keyTap.direction());
+  }
+  
+  public Finger getFinger()
+  {
+    if (_keyTap.pointable().isFinger()) {
+      return new Finger(parent, leap, new com.leapmotion.leap.Finger(_keyTap.pointable()));
+    }
+    return null;
+  }
+}

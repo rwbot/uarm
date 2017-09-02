@@ -1,0 +1,169 @@
+package jogamp.opengl.macosx.cgl;
+
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import java.io.PrintStream;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.List;
+import jogamp.opengl.GLDrawableImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class MacOSXCGLDrawable
+  extends GLDrawableImpl
+{
+  public static enum GLBackendType
+  {
+    NSOPENGL(0), 
+    
+    CGL(1);
+    
+
+    public final int id;
+    
+    private GLBackendType(int paramInt) { id = paramInt; }
+  }
+  
+  List<WeakReference<MacOSXCGLContext>> createdContexts = new ArrayList();
+  
+  private boolean haveSetOpenGLMode = false;
+  private GLBackendType openGLMode = GLBackendType.NSOPENGL;
+  
+  public MacOSXCGLDrawable(GLDrawableFactory paramGLDrawableFactory, NativeSurface paramNativeSurface, boolean paramBoolean) {
+    super(paramGLDrawableFactory, paramNativeSurface, paramBoolean);
+    initOpenGLImpl(getOpenGLMode());
+  }
+  
+
+
+  protected void setRealizedImpl() {}
+  
+
+  protected void associateContext(GLContext paramGLContext, boolean paramBoolean)
+  {
+    int i;
+    
+    synchronized (createdContexts) {
+      if (paramBoolean) {
+        MacOSXCGLContext localMacOSXCGLContext1 = (MacOSXCGLContext)paramGLContext;
+        createdContexts.add(new WeakReference(localMacOSXCGLContext1));
+      } else {
+        for (i = 0; i < createdContexts.size();) {
+          MacOSXCGLContext localMacOSXCGLContext2 = (MacOSXCGLContext)((WeakReference)createdContexts.get(i)).get();
+          if ((localMacOSXCGLContext2 == null) || (localMacOSXCGLContext2 == paramGLContext)) {
+            createdContexts.remove(i);
+          } else {
+            i++;
+          }
+        }
+      }
+    }
+  }
+  
+  protected final void swapBuffersImpl(boolean paramBoolean)
+  {
+    if (paramBoolean) { int i;
+      synchronized (createdContexts) {
+        for (i = 0; i < createdContexts.size();) {
+          MacOSXCGLContext localMacOSXCGLContext = (MacOSXCGLContext)((WeakReference)createdContexts.get(i)).get();
+          if (localMacOSXCGLContext != null) {
+            localMacOSXCGLContext.swapBuffers();
+            i++;
+          } else {
+            createdContexts.remove(i);
+          }
+        }
+      }
+    }
+  }
+  
+  public void setOpenGLMode(GLBackendType paramGLBackendType)
+  {
+    if (paramGLBackendType == openGLMode) {
+      return;
+    }
+    if (haveSetOpenGLMode) {
+      throw new GLException("Can't switch between using NSOpenGLPixelBuffer and CGLPBufferObj more than once");
+    }
+    setRealized(false);
+    if (DEBUG) {
+      System.err.println("MacOSXCGLDrawable: Switching context mode " + openGLMode + " -> " + paramGLBackendType);
+    }
+    initOpenGLImpl(paramGLBackendType);
+    openGLMode = paramGLBackendType;
+    haveSetOpenGLMode = true; }
+  
+  public final GLBackendType getOpenGLMode() { return openGLMode; }
+  
+  protected void initOpenGLImpl(GLBackendType paramGLBackendType) {}
+}

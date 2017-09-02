@@ -1,0 +1,86 @@
+package jogamp.nativewindow.jawt;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.StructAccessor;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import java.nio.ByteBuffer;
+import jogamp.common.os.MachineDataInfoRuntime;
+
+
+
+
+
+
+
+
+
+
+public class JAWT_DrawingSurface
+{
+  StructAccessor accessor;
+  private static final int mdIdx = MachineDataInfoRuntime.getStatic().ordinal();
+  
+  private final MachineDataInfo md;
+  private static final int[] JAWT_DrawingSurface_size = { 24, 24, 24, 24, 24, 24, 48, 48 };
+  private static final int[] env_offset = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  
+  public static int size()
+  {
+    return JAWT_DrawingSurface_size[mdIdx];
+  }
+  
+  public static JAWT_DrawingSurface create() {
+    return create(Buffers.newDirectByteBuffer(size()));
+  }
+  
+  public static JAWT_DrawingSurface create(ByteBuffer paramByteBuffer) {
+    return new JAWT_DrawingSurface(paramByteBuffer);
+  }
+  
+  JAWT_DrawingSurface(ByteBuffer paramByteBuffer) {
+    md = valuesmdIdxmd;
+    accessor = new StructAccessor(paramByteBuffer);
+  }
+  
+  public ByteBuffer getBuffer() {
+    return accessor.getBuffer();
+  }
+  
+
+
+
+  public int Lock()
+  {
+    return Lock0(getBuffer());
+  }
+  
+
+  private native int Lock0(ByteBuffer paramByteBuffer);
+  
+
+  public JAWT_DrawingSurfaceInfo GetDrawingSurfaceInfo()
+  {
+    ByteBuffer localByteBuffer = GetDrawingSurfaceInfo0(getBuffer());
+    if (localByteBuffer == null) return null;
+    return JAWT_DrawingSurfaceInfo.create(Buffers.nativeOrder(localByteBuffer));
+  }
+  
+
+  private native ByteBuffer GetDrawingSurfaceInfo0(ByteBuffer paramByteBuffer);
+  
+  public void FreeDrawingSurfaceInfo(JAWT_DrawingSurfaceInfo paramJAWT_DrawingSurfaceInfo)
+  {
+    FreeDrawingSurfaceInfo0(getBuffer(), paramJAWT_DrawingSurfaceInfo == null ? null : paramJAWT_DrawingSurfaceInfo.getBuffer());
+  }
+  
+
+  private native void FreeDrawingSurfaceInfo0(ByteBuffer paramByteBuffer1, ByteBuffer paramByteBuffer2);
+  
+  public void Unlock()
+  {
+    Unlock0(getBuffer());
+  }
+  
+  private native void Unlock0(ByteBuffer paramByteBuffer);
+}

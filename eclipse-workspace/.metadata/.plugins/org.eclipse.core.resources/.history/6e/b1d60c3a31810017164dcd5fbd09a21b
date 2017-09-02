@@ -1,0 +1,55 @@
+package jogamp.nativewindow.macosx;
+
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.ProxySurface;
+import com.jogamp.nativewindow.UpstreamSurfaceHookMutableSize;
+
+
+
+
+
+
+
+
+
+public class OSXDummyUpstreamSurfaceHook
+  extends UpstreamSurfaceHookMutableSize
+{
+  long nsWindow;
+  
+  public OSXDummyUpstreamSurfaceHook(int paramInt1, int paramInt2)
+  {
+    super(paramInt1, paramInt2);
+    nsWindow = 0L;
+  }
+  
+  public final void create(ProxySurface paramProxySurface)
+  {
+    if ((0L == nsWindow) && (0L == paramProxySurface.getSurfaceHandle())) {
+      nsWindow = OSXUtil.CreateNSWindow(0, 0, 64, 64);
+      if (0L == nsWindow) {
+        throw new NativeWindowException("Error NS window 0");
+      }
+      long l = OSXUtil.GetNSView(nsWindow);
+      if (0L == l) {
+        throw new NativeWindowException("Error NS view 0");
+      }
+      paramProxySurface.setSurfaceHandle(l);
+      paramProxySurface.addUpstreamOptionBits(64);
+    }
+    paramProxySurface.addUpstreamOptionBits(256);
+  }
+  
+  public final void destroy(ProxySurface paramProxySurface)
+  {
+    if (paramProxySurface.containsUpstreamOptionBits(64)) {
+      if ((0L == nsWindow) || (0L == paramProxySurface.getSurfaceHandle())) {
+        throw new InternalError("Owns upstream surface, but no OSX view/window: " + paramProxySurface + ", nsWindow 0x" + Long.toHexString(nsWindow));
+      }
+      OSXUtil.DestroyNSWindow(nsWindow);
+      nsWindow = 0L;
+      paramProxySurface.setSurfaceHandle(0L);
+      paramProxySurface.clearUpstreamOptionBits(64);
+    }
+  }
+}

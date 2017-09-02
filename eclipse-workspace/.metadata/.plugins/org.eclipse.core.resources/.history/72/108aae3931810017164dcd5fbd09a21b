@@ -1,0 +1,80 @@
+package de.voidplus.leapmotion;
+
+import processing.core.PApplet;
+import processing.core.PVector;
+
+public class Tool
+  extends Pointable
+  implements RawAccess<com.leapmotion.leap.Tool>
+{
+  private com.leapmotion.leap.Tool _tool;
+  
+  public Tool(PApplet paramPApplet, LeapMotion paramLeapMotion, com.leapmotion.leap.Tool paramTool)
+  {
+    super(paramPApplet, paramLeapMotion, paramTool);
+    _tool = paramTool;
+  }
+  
+  public Tool(PApplet paramPApplet, LeapMotion paramLeapMotion, com.leapmotion.leap.Pointable paramPointable)
+  {
+    super(paramPApplet, paramLeapMotion, paramPointable);
+  }
+  
+  public boolean isValid()
+  {
+    return _tool.isValid();
+  }
+  
+  public com.leapmotion.leap.Tool getRaw()
+  {
+    return _tool;
+  }
+  
+  public PVector getTipPosition()
+  {
+    return leap.map(_tool.tipPosition());
+  }
+  
+  public PVector getRawTipPosition()
+  {
+    return leap.convert(_tool.tipPosition());
+  }
+  
+  public void draw(float paramFloat)
+  {
+    PVector localPVector1 = getPosition();
+    PVector localPVector2 = getTipPosition();
+    parent.noStroke();
+    parent.fill(0);
+    if (leap.is2D) {
+      parent.line(x, y, x, y);
+    } else {
+      parent.line(x, y, z, x, y, z);
+    }
+    parent.stroke(paramFloat);
+    parent.noFill();
+    if (leap.is2D)
+    {
+      parent.ellipseMode(3);
+      parent.ellipse(x, y, paramFloat, paramFloat);
+      parent.ellipse(x, y, paramFloat, paramFloat);
+    }
+    else
+    {
+      parent.sphereDetail(20);
+      parent.pushMatrix();
+      parent.translate(x, y, z);
+      parent.sphere(paramFloat);
+      parent.popMatrix();
+      parent.pushMatrix();
+      parent.translate(x, y, z);
+      parent.sphere(paramFloat);
+      parent.popMatrix();
+    }
+  }
+  
+  public void draw()
+  {
+    draw(5.0F);
+  }
+}

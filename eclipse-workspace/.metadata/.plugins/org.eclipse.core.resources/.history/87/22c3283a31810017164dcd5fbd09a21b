@@ -1,0 +1,294 @@
+package jogamp.opengl.glu.tessellator;
+
+
+
+
+
+
+
+class PriorityQSort
+  extends PriorityQ
+{
+  PriorityQHeap heap;
+  
+
+
+
+
+
+  Object[] keys;
+  
+
+
+
+
+
+  int[] order;
+  
+
+
+
+
+
+  int size;
+  
+
+
+
+
+
+  int max;
+  
+
+
+
+
+
+  boolean initialized;
+  
+
+
+
+
+
+  PriorityQ.Leq leq;
+  
+
+
+
+
+
+  public PriorityQSort(PriorityQ.Leq paramLeq)
+  {
+    heap = new PriorityQHeap(paramLeq);
+    
+    keys = new Object[32];
+    
+    size = 0;
+    max = 32;
+    initialized = false;
+    leq = paramLeq;
+  }
+  
+
+  void pqDeletePriorityQ()
+  {
+    if (heap != null) heap.pqDeletePriorityQ();
+    order = null;
+    keys = null;
+  }
+  
+  private static boolean LT(PriorityQ.Leq paramLeq, Object paramObject1, Object paramObject2) {
+    return !PriorityQ.LEQ(paramLeq, paramObject2, paramObject1);
+  }
+  
+  private static boolean GT(PriorityQ.Leq paramLeq, Object paramObject1, Object paramObject2) {
+    return !PriorityQ.LEQ(paramLeq, paramObject1, paramObject2);
+  }
+  
+  private static void Swap(int[] paramArrayOfInt, int paramInt1, int paramInt2)
+  {
+    int i = paramArrayOfInt[paramInt1];
+    paramArrayOfInt[paramInt1] = paramArrayOfInt[paramInt2];
+    paramArrayOfInt[paramInt2] = i;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  boolean pqInit()
+  {
+    Stack[] arrayOfStack = new Stack[50];
+    for (int i1 = 0; i1 < arrayOfStack.length; i1++) {
+      arrayOfStack[i1] = new Stack(null);
+    }
+    i1 = 0;
+    
+    int i2 = 2016473283;
+    
+
+
+
+    order = new int[size + 1];
+    
+
+
+
+    int i = 0;
+    int j = size - 1;
+    int n = 0; for (int k = i; k <= j; k++)
+    {
+      order[k] = n;n++;
+    }
+    
+
+
+
+    p = i;
+    r = j;
+    i1++;
+    for (;;) { i1--; if (i1 < 0) break;
+      i = p;
+      j = r;
+      int m; while (j > i + 10) {
+        i2 = Math.abs(i2 * 1539415821 + 1);
+        k = i + i2 % (j - i + 1);
+        n = order[k];
+        order[k] = order[i];
+        order[i] = n;
+        k = i - 1;
+        m = j + 1;
+        do {
+          do {
+            k++;
+          } while (GT(leq, keys[order[k]], keys[n]));
+          do {
+            m--;
+          } while (LT(leq, keys[order[m]], keys[n]));
+          Swap(order, k, m);
+        } while (k < m);
+        Swap(order, k, m);
+        if (k - i < j - m) {
+          p = (m + 1);
+          r = j;
+          i1++;
+          j = k - 1;
+        } else {
+          p = i;
+          r = (k - 1);
+          i1++;
+          i = m + 1;
+        }
+      }
+      
+      for (k = i + 1; k <= j; k++) {
+        n = order[k];
+        for (m = k; (m > i) && (LT(leq, keys[order[(m - 1)]], keys[n])); m--) {
+          order[m] = order[(m - 1)];
+        }
+        order[m] = n;
+      }
+    }
+    max = size;
+    initialized = true;
+    heap.pqInit();
+    
+
+
+
+
+
+
+
+
+    return true;
+  }
+  
+
+
+
+
+  int pqInsert(Object paramObject)
+  {
+    if (initialized) {
+      return heap.pqInsert(paramObject);
+    }
+    int i = size;
+    if (++size >= max)
+    {
+
+
+      max <<= 1;
+      
+      Object[] arrayOfObject = new Object[max];
+      System.arraycopy(keys, 0, arrayOfObject, 0, keys.length);
+      keys = arrayOfObject;
+    }
+    
+
+
+
+
+    assert (i != Integer.MAX_VALUE);
+    keys[i] = paramObject;
+    
+
+    return -(i + 1);
+  }
+  
+
+
+
+  Object pqExtractMin()
+  {
+    if (size == 0) {
+      return heap.pqExtractMin();
+    }
+    Object localObject1 = keys[order[(size - 1)]];
+    if (!heap.pqIsEmpty()) {
+      Object localObject2 = heap.pqMinimum();
+      if (LEQ(leq, localObject2, localObject1)) {
+        return heap.pqExtractMin();
+      }
+    }
+    do {
+      size -= 1;
+    } while ((size > 0) && (keys[order[(size - 1)]] == null));
+    return localObject1;
+  }
+  
+
+
+
+  Object pqMinimum()
+  {
+    if (size == 0) {
+      return heap.pqMinimum();
+    }
+    Object localObject1 = keys[order[(size - 1)]];
+    if (!heap.pqIsEmpty()) {
+      Object localObject2 = heap.pqMinimum();
+      if (PriorityQ.LEQ(leq, localObject2, localObject1)) {
+        return localObject2;
+      }
+    }
+    return localObject1;
+  }
+  
+
+  boolean pqIsEmpty()
+  {
+    return (size == 0) && (heap.pqIsEmpty());
+  }
+  
+
+  void pqDelete(int paramInt)
+  {
+    if (paramInt >= 0) {
+      heap.pqDelete(paramInt);
+      return;
+    }
+    paramInt = -(paramInt + 1);
+    assert ((paramInt < max) && (keys[paramInt] != null));
+    
+    keys[paramInt] = null;
+    while ((size > 0) && (keys[order[(size - 1)]] == null)) {
+      size -= 1;
+    }
+  }
+  
+  private static class Stack
+  {
+    int p;
+    int r;
+    
+    private Stack() {}
+  }
+}

@@ -1,0 +1,151 @@
+package com.jogamp.common.util.locks;
+
+import java.io.File;
+import java.io.PrintStream;
+import jogamp.common.util.locks.SingletonInstanceFileLock;
+import jogamp.common.util.locks.SingletonInstanceServerSocket;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class SingletonInstance
+  implements Lock
+{
+  protected static final boolean DEBUG = true;
+  private final long poll_ms;
+  
+  public static SingletonInstance createFileLock(long paramLong, String paramString)
+  {
+    return new SingletonInstanceFileLock(paramLong, paramString);
+  }
+  
+  public static SingletonInstance createFileLock(long paramLong, File paramFile) {
+    return new SingletonInstanceFileLock(paramLong, paramFile);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public static SingletonInstance createServerSocket(long paramLong, int paramInt)
+  {
+    return new SingletonInstanceServerSocket(paramLong, paramInt);
+  }
+  
+  protected SingletonInstance(long paramLong) {
+    poll_ms = Math.max(10L, paramLong);
+  }
+  
+  public final long getPollPeriod() { return poll_ms; }
+  
+  public abstract String getName();
+  public final String toString() { return getName(); }
+  
+  public synchronized void lock() throws RuntimeException
+  {
+    try
+    {
+      while (!tryLock(TIMEOUT)) {}
+      return;
+    }
+    catch (RuntimeException localRuntimeException)
+    {
+      throw new RuntimeException(localRuntimeException);
+    }
+  }
+  
+  public synchronized boolean tryLock(long paramLong) throws RuntimeException
+  {
+    if (locked) {
+      return true;
+    }
+    long l1 = System.currentTimeMillis();
+    int i = 0;
+    try {
+      do {
+        long l2 = System.currentTimeMillis();
+        locked = tryLockImpl();
+        if (locked)
+        {
+          long l5 = System.currentTimeMillis();
+          System.err.println(infoPrefix(l5) + " +++ " + getName() + " - Locked within " + (l5 - l1) + " ms, " + (i + 1) + " attempts");
+          
+          return true;
+        }
+        if (0 == i) {
+          System.err.println(infoPrefix(System.currentTimeMillis()) + " III " + getName() + " - Wait for lock");
+        }
+        Thread.sleep(poll_ms);
+        paramLong -= System.currentTimeMillis() - l2;
+        i++;
+      } while (0L < paramLong);
+    } catch (InterruptedException localInterruptedException) {
+      long l4 = System.currentTimeMillis();
+      throw new RuntimeException(infoPrefix(l4) + " EEE (1) " + getName() + " - couldn't get lock within " + (l4 - l1) + " ms, " + i + " attempts", localInterruptedException);
+    }
+    
+    long l3 = System.currentTimeMillis();
+    System.err.println(infoPrefix(l3) + " +++ EEE (2) " + getName() + " - couldn't get lock within " + (l3 - l1) + " ms, " + i + " attempts");
+    
+    return false;
+  }
+  
+  protected abstract boolean tryLockImpl();
+  
+  public void unlock() throws RuntimeException {
+    long l1 = System.currentTimeMillis();
+    if (locked) {
+      locked = (!unlockImpl());
+      
+      long l2 = System.currentTimeMillis();
+      System.err.println(infoPrefix(l2) + " --- " + getName() + " - Unlock " + (locked ? "failed" : "ok") + " within " + (l2 - l1) + " ms");
+    }
+  }
+  
+  protected abstract boolean unlockImpl();
+  
+  public synchronized boolean isLocked()
+  {
+    return locked;
+  }
+  
+  protected String infoPrefix(long paramLong) {
+    return "SLOCK [T " + Thread.currentThread().getName() + " @ " + paramLong + " ms";
+  }
+  
+  protected String infoPrefix() { return infoPrefix(System.currentTimeMillis()); }
+  
+
+
+  private boolean locked = false;
+}

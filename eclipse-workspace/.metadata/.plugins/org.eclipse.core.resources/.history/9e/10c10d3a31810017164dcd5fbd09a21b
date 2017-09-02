@@ -1,0 +1,70 @@
+package jogamp.nativewindow.x11;
+
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.ProxySurface;
+import com.jogamp.nativewindow.UpstreamSurfaceHookMutableSize;
+import com.jogamp.nativewindow.x11.X11GraphicsConfiguration;
+import com.jogamp.nativewindow.x11.X11GraphicsDevice;
+import com.jogamp.nativewindow.x11.X11GraphicsScreen;
+
+
+
+
+
+
+
+
+
+public class X11DummyUpstreamSurfaceHook
+  extends UpstreamSurfaceHookMutableSize
+{
+  public X11DummyUpstreamSurfaceHook(int paramInt1, int paramInt2)
+  {
+    super(paramInt1, paramInt2);
+  }
+  
+  public final void create(ProxySurface paramProxySurface)
+  {
+    X11GraphicsConfiguration localX11GraphicsConfiguration = (X11GraphicsConfiguration)paramProxySurface.getGraphicsConfiguration();
+    X11GraphicsScreen localX11GraphicsScreen = (X11GraphicsScreen)localX11GraphicsConfiguration.getScreen();
+    X11GraphicsDevice localX11GraphicsDevice = (X11GraphicsDevice)localX11GraphicsScreen.getDevice();
+    localX11GraphicsDevice.lock();
+    try {
+      if (0L == localX11GraphicsDevice.getHandle()) {
+        localX11GraphicsDevice.open();
+        paramProxySurface.addUpstreamOptionBits(128);
+      }
+      if (0L == paramProxySurface.getSurfaceHandle()) {
+        long l = X11Lib.CreateWindow(0L, localX11GraphicsDevice.getHandle(), localX11GraphicsScreen.getIndex(), localX11GraphicsConfiguration.getXVisualID(), 64, 64, false, false);
+        if (0L == l) {
+          throw new NativeWindowException("Creating dummy window failed w/ " + localX11GraphicsConfiguration);
+        }
+        paramProxySurface.setSurfaceHandle(l);
+        paramProxySurface.addUpstreamOptionBits(64);
+      }
+      paramProxySurface.addUpstreamOptionBits(256);
+    } finally {
+      localX11GraphicsDevice.unlock();
+    }
+  }
+  
+  public final void destroy(ProxySurface paramProxySurface)
+  {
+    if (paramProxySurface.containsUpstreamOptionBits(64)) {
+      X11GraphicsDevice localX11GraphicsDevice = (X11GraphicsDevice)paramProxySurface.getGraphicsConfiguration().getScreen().getDevice();
+      if (0L == paramProxySurface.getSurfaceHandle()) {
+        throw new InternalError("Owns upstream surface, but no X11 window: " + paramProxySurface);
+      }
+      localX11GraphicsDevice.lock();
+      try {
+        X11Lib.DestroyWindow(localX11GraphicsDevice.getHandle(), paramProxySurface.getSurfaceHandle());
+        paramProxySurface.setSurfaceHandle(0L);
+        paramProxySurface.clearUpstreamOptionBits(64);
+        
+        localX11GraphicsDevice.unlock(); } finally { localX11GraphicsDevice.unlock();
+      }
+    }
+  }
+}

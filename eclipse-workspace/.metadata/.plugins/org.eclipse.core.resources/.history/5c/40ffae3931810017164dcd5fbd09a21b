@@ -1,0 +1,250 @@
+package de.voidplus.leapmotion;
+
+import com.leapmotion.leap.Bone.Type;
+import com.leapmotion.leap.Finger.Joint;
+import com.leapmotion.leap.Finger.Type;
+import processing.core.PApplet;
+import processing.core.PVector;
+
+public class Finger
+  extends Pointable
+  implements RawAccess<com.leapmotion.leap.Finger>
+{
+  private com.leapmotion.leap.Finger _finger;
+  
+  public Finger(PApplet paramPApplet, LeapMotion paramLeapMotion, com.leapmotion.leap.Finger paramFinger)
+  {
+    super(paramPApplet, paramLeapMotion, paramFinger);
+    _finger = paramFinger;
+  }
+  
+  public boolean isValid()
+  {
+    return _finger.isValid();
+  }
+  
+  public com.leapmotion.leap.Finger getRaw()
+  {
+    return _finger;
+  }
+  
+  public boolean isExtended()
+  {
+    return _finger.isExtended();
+  }
+  
+  public PVector getPositionOfJointTip()
+  {
+    return leap.map(_finger.jointPosition(Finger.Joint.JOINT_TIP));
+  }
+  
+  public PVector getPositionOfJointMcp()
+  {
+    return leap.map(_finger.jointPosition(Finger.Joint.JOINT_MCP));
+  }
+  
+  public PVector getPositionOfJointPip()
+  {
+    return leap.map(_finger.jointPosition(Finger.Joint.JOINT_PIP));
+  }
+  
+  public PVector getPositionOfJointDip()
+  {
+    return leap.map(_finger.jointPosition(Finger.Joint.JOINT_DIP));
+  }
+  
+  public PVector getRawPositionOfJointTip()
+  {
+    return leap.convert(_finger.jointPosition(Finger.Joint.JOINT_TIP));
+  }
+  
+  public PVector getRawPositionOfJointMcp()
+  {
+    return leap.convert(_finger.jointPosition(Finger.Joint.JOINT_MCP));
+  }
+  
+  public PVector getRawPositionOfJointPip()
+  {
+    return leap.convert(_finger.jointPosition(Finger.Joint.JOINT_PIP));
+  }
+  
+  public PVector getRawPositionOfJointDip()
+  {
+    return leap.convert(_finger.jointPosition(Finger.Joint.JOINT_DIP));
+  }
+  
+  public int getType()
+  {
+    Finger.Type localType = _finger.type();
+    switch (1.$SwitchMap$com$leapmotion$leap$Finger$Type[localType.ordinal()])
+    {
+    case 1: 
+      return 0;
+    case 2: 
+      return 1;
+    case 3: 
+      return 2;
+    case 4: 
+      return 3;
+    case 5: 
+      return 4;
+    }
+    return -1;
+  }
+  
+  public String getTypeName()
+  {
+    Finger.Type localType = _finger.type();
+    switch (1.$SwitchMap$com$leapmotion$leap$Finger$Type[localType.ordinal()])
+    {
+    case 1: 
+      return "thumb";
+    case 2: 
+      return "index";
+    case 3: 
+      return "middle";
+    case 4: 
+      return "ring";
+    case 5: 
+      return "pinky";
+    }
+    return "";
+  }
+  
+  public Bone getBone(String paramString)
+  {
+    paramString = paramString.toLowerCase();
+    if (paramString.equals("distal")) {
+      return new Bone(parent, leap, _finger.bone(Bone.Type.TYPE_DISTAL));
+    }
+    if (paramString.equals("intermediate")) {
+      return new Bone(parent, leap, _finger.bone(Bone.Type.TYPE_INTERMEDIATE));
+    }
+    if (paramString.equals("proximal")) {
+      return new Bone(parent, leap, _finger.bone(Bone.Type.TYPE_PROXIMAL));
+    }
+    if (paramString.equals("metacarpal")) {
+      return new Bone(parent, leap, _finger.bone(Bone.Type.TYPE_METACARPAL));
+    }
+    return null;
+  }
+  
+  public Bone getBone(int paramInt)
+  {
+    switch (paramInt)
+    {
+    case 0: 
+      return new Bone(parent, leap, _finger.bone(Bone.Type.TYPE_DISTAL));
+    case 1: 
+      return new Bone(parent, leap, _finger.bone(Bone.Type.TYPE_INTERMEDIATE));
+    case 2: 
+      return new Bone(parent, leap, _finger.bone(Bone.Type.TYPE_PROXIMAL));
+    case 3: 
+      return new Bone(parent, leap, _finger.bone(Bone.Type.TYPE_METACARPAL));
+    }
+    return null;
+  }
+  
+  public Bone getDistalBone()
+  {
+    return new Bone(parent, leap, _finger.bone(Bone.Type.TYPE_DISTAL));
+  }
+  
+  public Bone getIntermediateBone()
+  {
+    return new Bone(parent, leap, _finger.bone(Bone.Type.TYPE_INTERMEDIATE));
+  }
+  
+  public Bone getMetacarpalBone()
+  {
+    return new Bone(parent, leap, _finger.bone(Bone.Type.TYPE_METACARPAL));
+  }
+  
+  public Bone getProximalBone()
+  {
+    return new Bone(parent, leap, _finger.bone(Bone.Type.TYPE_PROXIMAL));
+  }
+  
+  public void drawBones()
+  {
+    parent.stroke(0, isExtended() ? 170.0F : 35.0F);
+    getBone(0).draw();
+    getBone(1).draw();
+    getBone(2).draw();
+    if (getType() != 0) {
+      getBone(3).draw();
+    }
+  }
+  
+  public void drawJoints(float paramFloat)
+  {
+    parent.noStroke();
+    parent.fill(0);
+    PVector localPVector1 = getPositionOfJointTip();
+    PVector localPVector2 = getPositionOfJointMcp();
+    PVector localPVector3 = getPositionOfJointPip();
+    PVector localPVector4 = getPositionOfJointDip();
+    if (leap.is2D)
+    {
+      parent.ellipseMode(3);
+      parent.ellipse(x, y, paramFloat, paramFloat);
+      parent.ellipse(x, y, paramFloat, paramFloat);
+      parent.ellipse(x, y, paramFloat, paramFloat);
+      if (getType() != 0) {
+        parent.ellipse(x, y, paramFloat, paramFloat);
+      }
+    }
+    else
+    {
+      parent.sphereDetail(20);
+      parent.pushMatrix();
+      parent.translate(x, y, z);
+      parent.sphere(paramFloat);
+      parent.popMatrix();
+      parent.pushMatrix();
+      parent.translate(x, y, z);
+      parent.sphere(paramFloat);
+      parent.popMatrix();
+      parent.pushMatrix();
+      parent.translate(x, y, z);
+      parent.sphere(paramFloat);
+      parent.popMatrix();
+      if (getType() != 0)
+      {
+        parent.pushMatrix();
+        parent.translate(x, y, z);
+        parent.sphere(paramFloat);
+        parent.popMatrix();
+      }
+    }
+  }
+  
+  public void drawJoints()
+  {
+    drawJoints(3.0F);
+  }
+  
+  public void drawName(int paramInt1, int paramInt2, int paramInt3)
+  {
+    PVector localPVector = getPosition();
+    parent.fill(0);
+    parent.text(getTypeName(), x + paramInt1, y + paramInt2, z + paramInt3);
+  }
+  
+  public void drawName()
+  {
+    drawName(-15, -15, 0);
+  }
+  
+  public void draw(float paramFloat)
+  {
+    drawBones();
+    drawJoints(paramFloat);
+    drawName();
+  }
+  
+  public void draw()
+  {
+    draw(3.0F);
+  }
+}

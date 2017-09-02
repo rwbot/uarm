@@ -1,0 +1,114 @@
+package jogamp.nativewindow.jawt;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.StructAccessor;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.os.Platform.OSType;
+import java.lang.reflect.Method;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import jogamp.common.os.MachineDataInfoRuntime;
+
+
+
+
+
+
+public class JAWT_DrawingSurfaceInfo
+{
+  StructAccessor accessor;
+  private static final int mdIdx = MachineDataInfoRuntime.getStatic().ordinal();
+  
+  private final MachineDataInfo md;
+  private static final int[] JAWT_DrawingSurfaceInfo_size = { 32, 32, 32, 32, 32, 32, 48, 48 };
+  private static final int[] ds_offset = { 4, 4, 4, 4, 4, 4, 8, 8 };
+  
+  private static final int[] bounds_offset = { 8, 8, 8, 8, 8, 8, 16, 16 };
+  private static final int[] bounds_size = { 16, 16, 16, 16, 16, 16, 16, 16 };
+  private static final int[] clipSize_offset = { 24, 24, 24, 24, 24, 24, 32, 32 };
+  
+  private static final int[] clip_offset = { 28, 28, 28, 28, 28, 28, 40, 40 };
+  private static Method platformInfoFactoryMethod;
+  
+  public static int size() {
+    return JAWT_DrawingSurfaceInfo_size[mdIdx];
+  }
+  
+  public static JAWT_DrawingSurfaceInfo create() {
+    return create(Buffers.newDirectByteBuffer(size()));
+  }
+  
+  public static JAWT_DrawingSurfaceInfo create(ByteBuffer paramByteBuffer) {
+    return new JAWT_DrawingSurfaceInfo(paramByteBuffer);
+  }
+  
+  JAWT_DrawingSurfaceInfo(ByteBuffer paramByteBuffer) {
+    md = valuesmdIdxmd;
+    accessor = new StructAccessor(paramByteBuffer);
+  }
+  
+  public ByteBuffer getBuffer() {
+    return accessor.getBuffer();
+  }
+  
+
+
+  public JAWT_Rectangle getBounds()
+  {
+    return JAWT_Rectangle.create(accessor.slice(bounds_offset[mdIdx], bounds_size[mdIdx]));
+  }
+  
+  public JAWT_DrawingSurfaceInfo setClipSize(int paramInt)
+  {
+    accessor.setIntAt(clipSize_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getClipSize()
+  {
+    return accessor.getIntAt(clipSize_offset[mdIdx]);
+  }
+  
+
+
+  public JAWT_PlatformInfo platformInfo(JAWT paramJAWT)
+  {
+    return newPlatformInfo(paramJAWT, platformInfo0(getBuffer()));
+  }
+  
+
+  private native ByteBuffer platformInfo0(Buffer paramBuffer);
+  
+  private static JAWT_PlatformInfo newPlatformInfo(JAWT paramJAWT, ByteBuffer paramByteBuffer)
+  {
+    if (platformInfoFactoryMethod == null) {
+      try {
+        Class localClass;
+        if (Platform.OS_TYPE == Platform.OSType.WINDOWS) {
+          localClass = Class.forName("jogamp.nativewindow.jawt.windows.JAWT_Win32DrawingSurfaceInfo");
+        } else if (Platform.OS_TYPE == Platform.OSType.MACOS) {
+          if (0 != (paramJAWT.getCachedVersion() & 0x80000000)) {
+            localClass = Class.forName("jogamp.nativewindow.jawt.macosx.JAWT_SurfaceLayers");
+          } else {
+            localClass = Class.forName("jogamp.nativewindow.jawt.macosx.JAWT_MacOSXDrawingSurfaceInfo");
+          }
+        }
+        else {
+          localClass = Class.forName("jogamp.nativewindow.jawt.x11.JAWT_X11DrawingSurfaceInfo");
+        }
+        platformInfoFactoryMethod = localClass.getMethod("create", new Class[] { ByteBuffer.class });
+      }
+      catch (Exception localException1) {
+        throw new RuntimeException(localException1);
+      }
+    }
+    try
+    {
+      return (JAWT_PlatformInfo)platformInfoFactoryMethod.invoke(null, new Object[] { paramByteBuffer });
+    } catch (Exception localException2) {
+      throw new RuntimeException(localException2);
+    }
+  }
+}

@@ -1,0 +1,51 @@
+package g4p_controls;
+
+final class KeySpeedMeasurer
+{
+  KeyLog[] kts;
+  int next = 0;
+  
+  KeySpeedMeasurer(int paramInt)
+  {
+    kts = new KeyLog[paramInt];
+    next = 0;
+    long l = System.currentTimeMillis() - paramInt * 1000;
+    for (int i = 0; i < paramInt + 2; i++) {
+      logKey(1, l + i * 1004);
+    }
+  }
+  
+  void logKey(int paramInt)
+  {
+    kts[(next++)] = new KeyLog(paramInt, System.currentTimeMillis());
+    next %= kts.length;
+  }
+  
+  void logKey(int paramInt, long paramLong)
+  {
+    kts[(next++)] = new KeyLog(paramInt, paramLong);
+    next %= kts.length;
+  }
+  
+  float calcCPS()
+  {
+    long l1 = System.currentTimeMillis();
+    int i = (next + 1) % kts.length;
+    int j = 0;
+    long l2 = 0L;
+    while (i != next)
+    {
+      if (l1 - kts[i].timeTyped < 1000L)
+      {
+        int k = (i - 1 + kts.length) % kts.length;
+        l2 += kts[i].timeTyped - kts[k].timeTyped;
+        j += kts[i].nbrTyped;
+      }
+      i = (i + 1) % kts.length;
+    }
+    if (l2 > 0L) {
+      return j * 1000.0F / (float)l2;
+    }
+    return 0.0F;
+  }
+}

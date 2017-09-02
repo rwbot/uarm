@@ -1,0 +1,852 @@
+package com.jogamp.newt;
+
+import com.jogamp.nativewindow.CapabilitiesChooser;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.NativeWindow;
+import com.jogamp.nativewindow.ScalableSurface;
+import com.jogamp.nativewindow.WindowClosingProtocol;
+import com.jogamp.nativewindow.util.Rectangle;
+import com.jogamp.newt.event.GestureHandler;
+import com.jogamp.newt.event.GestureHandler.GestureListener;
+import com.jogamp.newt.event.KeyListener;
+import com.jogamp.newt.event.MouseListener;
+import com.jogamp.newt.event.NEWTEvent;
+import com.jogamp.newt.event.WindowListener;
+import java.util.List;
+import jogamp.newt.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract interface Window
+  extends NativeWindow, WindowClosingProtocol, ScalableSurface
+{
+  public static final boolean DEBUG_MOUSE_EVENT = Debug.debug("Window.MouseEvent");
+  public static final boolean DEBUG_KEY_EVENT = Debug.debug("Window.KeyEvent");
+  public static final boolean DEBUG_IMPLEMENTATION = Debug.debug("Window");
+  
+
+
+
+
+  public static final long TIMEOUT_NATIVEWINDOW = 1000L;
+  
+
+
+
+
+  public static final int STATE_BIT_VISIBLE = 0;
+  
+
+
+
+
+  public static final int STATE_BIT_AUTOPOSITION = 1;
+  
+
+
+
+
+  public static final int STATE_BIT_CHILDWIN = 2;
+  
+
+
+
+
+  public static final int STATE_BIT_FOCUSED = 3;
+  
+
+
+
+
+  public static final int STATE_BIT_UNDECORATED = 4;
+  
+
+
+
+
+  public static final int STATE_BIT_ALWAYSONTOP = 5;
+  
+
+
+
+
+  public static final int STATE_BIT_ALWAYSONBOTTOM = 6;
+  
+
+
+
+
+  public static final int STATE_BIT_STICKY = 7;
+  
+
+
+
+
+  public static final int STATE_BIT_RESIZABLE = 8;
+  
+
+
+
+
+  public static final int STATE_BIT_MAXIMIZED_VERT = 9;
+  
+
+
+
+
+  public static final int STATE_BIT_MAXIMIZED_HORZ = 10;
+  
+
+
+
+
+  public static final int STATE_BIT_FULLSCREEN = 11;
+  
+
+
+
+
+  public static final int STATE_BIT_POINTERVISIBLE = 12;
+  
+
+
+
+
+  public static final int STATE_BIT_POINTERCONFINED = 13;
+  
+
+
+
+
+  public static final int STATE_MASK_VISIBLE = 1;
+  
+
+
+
+
+  public static final int STATE_MASK_AUTOPOSITION = 2;
+  
+
+
+
+
+  public static final int STATE_MASK_CHILDWIN = 4;
+  
+
+
+
+
+  public static final int STATE_MASK_FOCUSED = 8;
+  
+
+
+
+
+  public static final int STATE_MASK_UNDECORATED = 16;
+  
+
+
+
+
+  public static final int STATE_MASK_ALWAYSONTOP = 32;
+  
+
+
+
+
+  public static final int STATE_MASK_ALWAYSONBOTTOM = 64;
+  
+
+
+
+  public static final int STATE_MASK_STICKY = 128;
+  
+
+
+
+  public static final int STATE_MASK_RESIZABLE = 256;
+  
+
+
+
+  public static final int STATE_MASK_MAXIMIZED_VERT = 512;
+  
+
+
+
+  public static final int STATE_MASK_MAXIMIZED_HORZ = 1024;
+  
+
+
+
+  public static final int STATE_MASK_FULLSCREEN = 2048;
+  
+
+
+
+  public static final int STATE_MASK_POINTERVISIBLE = 4096;
+  
+
+
+
+  public static final int STATE_MASK_POINTERCONFINED = 8192;
+  
+
+
+
+  public static final int REPARENT_HINT_FORCE_RECREATION = 1;
+  
+
+
+
+  public static final int REPARENT_HINT_BECOMES_VISIBLE = 2;
+  
+
+
+
+
+  public abstract int getStatePublicBitCount();
+  
+
+
+
+
+  public abstract int getStatePublicBitmask();
+  
+
+
+
+
+  public abstract int getStateMask();
+  
+
+
+
+
+  public abstract String getStateMaskString();
+  
+
+
+
+
+  public abstract int getSupportedStateMask();
+  
+
+
+
+
+  public abstract String getSupportedStateMaskString();
+  
+
+
+
+
+  public abstract boolean isNativeValid();
+  
+
+
+
+
+  public abstract Screen getScreen();
+  
+
+
+
+
+  public abstract MonitorDevice getMainMonitor();
+  
+
+
+
+
+  public abstract CapabilitiesChooser setCapabilitiesChooser(CapabilitiesChooser paramCapabilitiesChooser);
+  
+
+
+
+
+  public abstract CapabilitiesImmutable getRequestedCapabilities();
+  
+
+
+
+
+  public abstract CapabilitiesImmutable getChosenCapabilities();
+  
+
+
+
+
+  public abstract void destroy();
+  
+
+
+
+
+  public abstract void setWindowDestroyNotifyAction(Runnable paramRunnable);
+  
+
+
+
+
+  public abstract void setVisible(boolean paramBoolean);
+  
+
+
+
+
+  public abstract void setVisible(boolean paramBoolean1, boolean paramBoolean2);
+  
+
+
+
+
+  public abstract boolean isVisible();
+  
+
+
+
+
+  public abstract Window getDelegatedWindow();
+  
+
+
+
+
+  public abstract boolean addChild(NativeWindow paramNativeWindow);
+  
+
+
+
+
+  public abstract boolean removeChild(NativeWindow paramNativeWindow);
+  
+
+
+
+
+  public abstract Rectangle getBounds();
+  
+
+
+
+
+  public abstract float[] getPixelsPerMM(float[] paramArrayOfFloat);
+  
+
+
+
+
+  public abstract void setSize(int paramInt1, int paramInt2);
+  
+
+
+
+
+  public abstract void setSurfaceSize(int paramInt1, int paramInt2);
+  
+
+
+
+
+  public abstract void setTopLevelSize(int paramInt1, int paramInt2);
+  
+
+
+
+
+  public abstract void setPosition(int paramInt1, int paramInt2);
+  
+
+
+
+
+  public abstract void setTopLevelPosition(int paramInt1, int paramInt2);
+  
+
+
+
+
+  public abstract void setUndecorated(boolean paramBoolean);
+  
+
+
+
+
+  public abstract boolean isUndecorated();
+  
+
+
+
+
+  public abstract void setAlwaysOnTop(boolean paramBoolean);
+  
+
+
+
+
+  public abstract boolean isAlwaysOnTop();
+  
+
+
+
+
+  public abstract void setAlwaysOnBottom(boolean paramBoolean);
+  
+
+
+
+
+  public abstract boolean isAlwaysOnBottom();
+  
+
+
+
+
+  public abstract void setResizable(boolean paramBoolean);
+  
+
+
+
+
+  public abstract boolean isResizable();
+  
+
+
+
+
+  public abstract void setSticky(boolean paramBoolean);
+  
+
+
+
+
+  public abstract boolean isSticky();
+  
+
+
+
+
+  public abstract void setMaximized(boolean paramBoolean1, boolean paramBoolean2);
+  
+
+
+
+
+  public abstract boolean isMaximizedVert();
+  
+
+
+
+
+  public abstract boolean isMaximizedHorz();
+  
+
+
+
+
+  public abstract void setTitle(String paramString);
+  
+
+
+
+
+  public abstract String getTitle();
+  
+
+
+
+
+  public abstract boolean isPointerVisible();
+  
+
+
+
+
+  public abstract void setPointerVisible(boolean paramBoolean);
+  
+
+
+
+
+  public abstract Display.PointerIcon getPointerIcon();
+  
+
+
+
+
+  public abstract void setPointerIcon(Display.PointerIcon paramPointerIcon);
+  
+
+
+
+
+  public abstract boolean isPointerConfined();
+  
+
+
+
+
+  public abstract void confinePointer(boolean paramBoolean);
+  
+
+
+
+
+  public abstract void warpPointer(int paramInt1, int paramInt2);
+  
+
+
+
+
+  public abstract ReparentOperation reparentWindow(NativeWindow paramNativeWindow, int paramInt1, int paramInt2, int paramInt3);
+  
+
+
+
+
+  public abstract boolean isChildWindow();
+  
+
+
+
+
+  public abstract boolean setFullscreen(boolean paramBoolean);
+  
+
+
+
+
+  public abstract boolean setFullscreen(List<MonitorDevice> paramList);
+  
+
+
+
+
+  public abstract boolean isFullscreen();
+  
+
+
+
+
+  public abstract void setFocusAction(FocusRunnable paramFocusRunnable);
+  
+
+
+
+
+  public abstract void setKeyboardFocusHandler(KeyListener paramKeyListener);
+  
+
+
+
+
+  public abstract void requestFocus();
+  
+
+
+
+
+  public abstract void requestFocus(boolean paramBoolean);
+  
+
+
+
+
+  public abstract void windowRepaint(int paramInt1, int paramInt2, int paramInt3, int paramInt4);
+  
+
+
+
+
+  public abstract void enqueueEvent(boolean paramBoolean, NEWTEvent paramNEWTEvent);
+  
+
+
+
+
+  public abstract void runOnEDTIfAvail(boolean paramBoolean, Runnable paramRunnable);
+  
+
+
+
+
+  public abstract void sendWindowEvent(int paramInt);
+  
+
+
+
+
+  public abstract void addWindowListener(WindowListener paramWindowListener);
+  
+
+
+
+
+  public abstract void addWindowListener(int paramInt, WindowListener paramWindowListener)
+    throws IndexOutOfBoundsException;
+  
+
+
+
+
+  public abstract void removeWindowListener(WindowListener paramWindowListener);
+  
+
+
+
+
+  public abstract WindowListener getWindowListener(int paramInt);
+  
+
+
+
+
+  public abstract WindowListener[] getWindowListeners();
+  
+
+
+
+
+  public abstract void setKeyboardVisible(boolean paramBoolean);
+  
+
+
+
+
+  public abstract boolean isKeyboardVisible();
+  
+
+
+
+
+  public abstract void addKeyListener(KeyListener paramKeyListener);
+  
+
+
+
+
+  public abstract void addKeyListener(int paramInt, KeyListener paramKeyListener);
+  
+
+
+
+
+  public abstract void removeKeyListener(KeyListener paramKeyListener);
+  
+
+
+
+
+  public abstract KeyListener getKeyListener(int paramInt);
+  
+
+
+
+
+  public abstract KeyListener[] getKeyListeners();
+  
+
+
+
+
+  public abstract void addMouseListener(MouseListener paramMouseListener);
+  
+
+
+
+
+  public abstract void addMouseListener(int paramInt, MouseListener paramMouseListener);
+  
+
+
+
+
+  public abstract void removeMouseListener(MouseListener paramMouseListener);
+  
+
+
+
+
+  public abstract MouseListener getMouseListener(int paramInt);
+  
+
+
+
+
+  public abstract MouseListener[] getMouseListeners();
+  
+
+
+
+
+  public abstract void setDefaultGesturesEnabled(boolean paramBoolean);
+  
+
+
+
+
+  public abstract boolean areDefaultGesturesEnabled();
+  
+
+
+
+
+  public abstract void addGestureHandler(GestureHandler paramGestureHandler);
+  
+
+
+
+
+  public abstract void addGestureHandler(int paramInt, GestureHandler paramGestureHandler);
+  
+
+
+
+
+  public abstract void removeGestureHandler(GestureHandler paramGestureHandler);
+  
+
+
+
+
+  public abstract void addGestureListener(GestureHandler.GestureListener paramGestureListener);
+  
+
+
+
+
+  public abstract void addGestureListener(int paramInt, GestureHandler.GestureListener paramGestureListener);
+  
+
+
+
+
+  public abstract void removeGestureListener(GestureHandler.GestureListener paramGestureListener);
+  
+
+
+
+
+  public static abstract interface FocusRunnable
+  {
+    public abstract boolean run();
+  }
+  
+
+
+
+
+  public static enum ReparentOperation
+  {
+    ACTION_INVALID, 
+    
+
+    ACTION_NOP, 
+    
+
+    ACTION_NATIVE_REPARENTING, 
+    
+
+    ACTION_NATIVE_CREATION, 
+    
+
+    ACTION_NATIVE_CREATION_PENDING;
+    
+    private ReparentOperation() {}
+  }
+}

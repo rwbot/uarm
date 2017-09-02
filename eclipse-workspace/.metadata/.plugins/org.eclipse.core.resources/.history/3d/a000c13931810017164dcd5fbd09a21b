@@ -1,0 +1,766 @@
+package g4p_controls;
+
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.NoninvertibleTransformException;
+import java.lang.reflect.Method;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.LinkedList;
+import processing.awt.PGraphicsJava2D;
+import processing.core.PApplet;
+import processing.core.PConstants;
+import processing.core.PGraphics;
+import processing.event.KeyEvent;
+import processing.event.MouseEvent;
+
+public abstract class GAbstractControl
+  implements PConstants, GConstants, GConstantsInternal
+{
+  static GAbstractControl focusIsWith = null;
+  static GAbstractControl controlToTakeFocus = null;
+  static GAbstractControl cursorIsOver;
+  protected PApplet winApp;
+  protected int z = 0;
+  protected boolean dragging = false;
+  protected static float epsilon = 0.001F;
+  protected GAbstractControl parent = null;
+  protected LinkedList<GAbstractControl> children = null;
+  protected int localColorScheme = G4P.globalColorScheme;
+  protected Color[] palette = null;
+  protected int alphaLevel = G4P.globalAlpha;
+  protected float x;
+  protected float y;
+  protected float width;
+  protected float height;
+  protected float halfWidth;
+  protected float halfHeight;
+  protected float cx;
+  protected float cy;
+  protected float rotAngle;
+  protected double[] temp = new double[2];
+  protected PGraphicsJava2D buffer = null;
+  protected boolean bufferInvalid = true;
+  protected boolean opaque = false;
+  protected int cursorOver = 12;
+  protected float ox;
+  protected float oy;
+  public String tag = "";
+  public int tagNo;
+  boolean visible = true;
+  boolean enabled = true;
+  boolean available = true;
+  protected Object eventHandlerObject = null;
+  protected Method eventHandlerMethod = null;
+  protected String eventHandlerMethodName;
+  protected int registeredMethods = 0;
+  protected HotSpot[] hotspots = null;
+  protected int currSpot = -1;
+  
+  public GAbstractControl(PApplet paramPApplet)
+  {
+    G4P.registerSketch(paramPApplet);
+    winApp = paramPApplet;
+    GCScheme.makeColorSchemes(winApp);
+    rotAngle = 0.0F;
+    z = 0;
+    palette = GCScheme.getJavaColor(localColorScheme);
+  }
+  
+  public GAbstractControl(PApplet paramPApplet, float paramFloat1, float paramFloat2)
+  {
+    this(paramPApplet);
+    switch (1.$SwitchMap$g4p_controls$GControlMode[G4P.control_mode.ordinal()])
+    {
+    case 1: 
+    case 2: 
+      x = paramFloat1;
+      y = paramFloat2;
+      break;
+    case 3: 
+      cx = paramFloat1;
+      cy = paramFloat2;
+    }
+  }
+  
+  public GAbstractControl(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    this(paramPApplet);
+    setPositionAndSize(paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+    buffer = ((PGraphicsJava2D)winApp.createGraphics((int)width, (int)height, "processing.awt.PGraphicsJava2D"));
+    buffer.rectMode(0);
+    buffer.beginDraw();
+    buffer.endDraw();
+  }
+  
+  protected void setTextRenderingHints(Graphics2D paramGraphics2D)
+  {
+    paramGraphics2D.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
+  }
+  
+  private void setPositionAndSize(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    switch (1.$SwitchMap$g4p_controls$GControlMode[G4P.control_mode.ordinal()])
+    {
+    case 1: 
+      x = paramFloat1;
+      y = paramFloat2;
+      width = paramFloat3;
+      height = paramFloat4;
+      halfWidth = (width / 2.0F);
+      halfHeight = (height / 2.0F);
+      cx = (x + halfWidth);
+      cy = (y + halfHeight);
+      break;
+    case 2: 
+      x = paramFloat1;
+      y = paramFloat2;
+      width = (paramFloat3 - paramFloat1);
+      height = (paramFloat4 - paramFloat2);
+      halfWidth = (width / 2.0F);
+      halfHeight = (height / 2.0F);
+      cx = (x + halfWidth);
+      cy = (y + halfHeight);
+      break;
+    case 3: 
+      cx = paramFloat1;
+      cy = paramFloat2;
+      width = paramFloat3;
+      height = paramFloat4;
+      halfWidth = (width / 2.0F);
+      halfHeight = (height / 2.0F);
+      x = (cx - halfWidth);
+      y = (cy - halfHeight);
+    }
+  }
+  
+  protected void resize(int paramInt1, int paramInt2)
+  {
+    width = paramInt1;
+    height = paramInt2;
+    halfWidth = (width / 2.0F);
+    halfHeight = (height / 2.0F);
+    switch (1.$SwitchMap$g4p_controls$GControlMode[G4P.control_mode.ordinal()])
+    {
+    case 1: 
+    case 2: 
+      cx = (x + halfWidth);
+      cy = (y + halfHeight);
+      break;
+    case 3: 
+      x = (cx - halfWidth);
+      y = (cy - halfHeight);
+    }
+    buffer = ((PGraphicsJava2D)winApp.createGraphics(paramInt1, paramInt2, "processing.awt.PGraphicsJava2D"));
+    buffer.rectMode(0);
+  }
+  
+  protected boolean isSuitableForGroupControl(GAbstractControl paramGAbstractControl)
+  {
+    return (0xB & registeredMethods) != 0;
+  }
+  
+  public void draw() {}
+  
+  public void mouseEvent(MouseEvent paramMouseEvent) {}
+  
+  public void keyEvent(KeyEvent paramKeyEvent) {}
+  
+  public void pre() {}
+  
+  public void post() {}
+  
+  public void dispose()
+  {
+    G4P.removeControl(this);
+  }
+  
+  public void forceBufferUpdate()
+  {
+    bufferInvalid = true;
+  }
+  
+  protected int whichHotSpot(float paramFloat1, float paramFloat2)
+  {
+    if (hotspots == null) {
+      return -1;
+    }
+    int i = -1;
+    for (int j = 0; j < hotspots.length; j++) {
+      if (hotspots[j].contains(paramFloat1, paramFloat2))
+      {
+        i = hotspots[j].id.intValue();
+        break;
+      }
+    }
+    return i;
+  }
+  
+  protected int getCurrHotSpot()
+  {
+    return currSpot;
+  }
+  
+  public boolean isOver(float paramFloat1, float paramFloat2)
+  {
+    calcTransformedOrigin(winApp.mouseX, winApp.mouseY);
+    currSpot = whichHotSpot(ox, oy);
+    return currSpot >= 0;
+  }
+  
+  public void setLocalColor(int paramInt1, int paramInt2)
+  {
+    if (localColorScheme >= 0)
+    {
+      int[] arrayOfInt = GCScheme.getPalette(localColorScheme);
+      palette = new Color[16];
+      for (int i = 0; i < 16; i++) {
+        palette[i] = new Color(arrayOfInt[i], true);
+      }
+      localColorScheme = -1;
+    }
+    paramInt1 = Math.abs(paramInt1) % 16;
+    palette[paramInt1] = new Color(paramInt2, true);
+    bufferInvalid = true;
+  }
+  
+  public void setLocalColorScheme(int paramInt)
+  {
+    setLocalColorScheme(paramInt, false);
+  }
+  
+  public void setLocalColorScheme(int paramInt, boolean paramBoolean)
+  {
+    paramInt = Math.abs(paramInt) % 16;
+    if ((localColorScheme != paramInt) || (palette == null))
+    {
+      localColorScheme = paramInt;
+      palette = GCScheme.getJavaColor(localColorScheme);
+      bufferInvalid = true;
+      if ((paramBoolean) && (children != null))
+      {
+        Iterator localIterator = children.iterator();
+        while (localIterator.hasNext())
+        {
+          GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+          localGAbstractControl.setLocalColorScheme(paramInt, true);
+        }
+      }
+    }
+  }
+  
+  public int getLocalColorScheme()
+  {
+    return localColorScheme;
+  }
+  
+  public void setAlpha(int paramInt)
+  {
+    paramInt = Math.abs(paramInt) % 256;
+    if (alphaLevel != paramInt)
+    {
+      alphaLevel = paramInt;
+      available = (alphaLevel >= 128);
+      bufferInvalid = true;
+    }
+  }
+  
+  public void setAlpha(int paramInt, boolean paramBoolean)
+  {
+    setAlpha(paramInt);
+    if ((paramBoolean) && (children != null))
+    {
+      Iterator localIterator = children.iterator();
+      while (localIterator.hasNext())
+      {
+        GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+        localGAbstractControl.setAlpha(paramInt, true);
+      }
+    }
+  }
+  
+  public GAbstractControl getParent()
+  {
+    return parent;
+  }
+  
+  public PApplet getPApplet()
+  {
+    return winApp;
+  }
+  
+  protected PGraphics getBuffer()
+  {
+    return buffer;
+  }
+  
+  protected boolean isDisplayable(int paramInt)
+  {
+    return (paramInt >= 32) && (paramInt != 127);
+  }
+  
+  public PGraphics getSnapshot()
+  {
+    if (buffer != null)
+    {
+      updateBuffer();
+      PGraphics localPGraphics = winApp.createGraphics(buffer.width, buffer.height, "processing.awt.PGraphicsJava2D");
+      localPGraphics.beginDraw();
+      localPGraphics.image(buffer, 0.0F, 0.0F);
+      localPGraphics.endDraw();
+      return localPGraphics;
+    }
+    return null;
+  }
+  
+  public boolean saveSnapshot()
+  {
+    String str = getClass().getSimpleName().toLowerCase() + "_" + System.currentTimeMillis() + ".png";
+    return saveSnapshot(str);
+  }
+  
+  public boolean saveSnapshot(String paramString)
+  {
+    PGraphics localPGraphics = getSnapshot();
+    if (localPGraphics != null)
+    {
+      localPGraphics.save(paramString);
+      return true;
+    }
+    return false;
+  }
+  
+  protected void updateBuffer() {}
+  
+  protected void createEventHandler(Object paramObject, String paramString, Class[] paramArrayOfClass, String[] paramArrayOfString)
+  {
+    try
+    {
+      eventHandlerMethod = paramObject.getClass().getMethod(paramString, paramArrayOfClass);
+      eventHandlerObject = paramObject;
+      eventHandlerMethodName = paramString;
+    }
+    catch (Exception localException)
+    {
+      GMessenger.message(Integer.valueOf(-16777215), new Object[] { this, paramString, paramArrayOfClass, paramArrayOfString });
+      eventHandlerObject = null;
+    }
+  }
+  
+  public void addEventHandler(Object paramObject, String paramString)
+  {
+    try
+    {
+      eventHandlerObject = paramObject;
+      eventHandlerMethodName = paramString;
+      eventHandlerMethod = paramObject.getClass().getMethod(paramString, new Class[] { getClass(), GEvent.class });
+    }
+    catch (Exception localException)
+    {
+      GMessenger.message(Integer.valueOf(-16777214), new Object[] { this, paramString, { getClass(), GEvent.class } });
+      eventHandlerObject = null;
+      eventHandlerMethodName = "";
+    }
+  }
+  
+  protected void fireEvent(Object... paramVarArgs)
+  {
+    if (eventHandlerMethod != null) {
+      try
+      {
+        eventHandlerMethod.invoke(eventHandlerObject, paramVarArgs);
+      }
+      catch (Exception localException)
+      {
+        GMessenger.message(Integer.valueOf(-16777211), new Object[] { eventHandlerObject, eventHandlerMethodName, localException });
+      }
+    }
+  }
+  
+  public void setRotation(float paramFloat)
+  {
+    setRotation(paramFloat, G4P.control_mode);
+  }
+  
+  public void setRotation(float paramFloat, GControlMode paramGControlMode)
+  {
+    rotAngle = paramFloat;
+    AffineTransform localAffineTransform = new AffineTransform();
+    localAffineTransform.setToRotation(paramFloat);
+    switch (1.$SwitchMap$g4p_controls$GControlMode[paramGControlMode.ordinal()])
+    {
+    case 1: 
+    case 2: 
+      temp[0] = halfWidth;
+      temp[1] = halfHeight;
+      localAffineTransform.transform(temp, 0, temp, 0, 1);
+      cx = ((float)temp[0] + x);
+      cy = ((float)temp[1] + y);
+      break;
+    case 3: 
+    default: 
+      temp[0] = (-halfWidth);
+      temp[1] = (-halfHeight);
+      localAffineTransform.transform(temp, 0, temp, 0, 1);
+      x = (cx + (float)temp[0]);
+      y = (cy + (float)temp[1]);
+    }
+  }
+  
+  public void moveTo(float paramFloat1, float paramFloat2)
+  {
+    moveTo(paramFloat1, paramFloat2, G4P.control_mode);
+  }
+  
+  public void moveTo(float paramFloat1, float paramFloat2, GControlMode paramGControlMode)
+  {
+    GAbstractControl localGAbstractControl = parent;
+    if (localGAbstractControl != null)
+    {
+      paramFloat1 -= width / 2.0F;
+      paramFloat2 -= height / 2.0F;
+    }
+    switch (1.$SwitchMap$g4p_controls$GControlMode[paramGControlMode.ordinal()])
+    {
+    case 1: 
+    case 2: 
+      cx += paramFloat1 - x;
+      cy += paramFloat2 - y;
+      x = (cx - width / 2.0F);
+      y = (cy - height / 2.0F);
+      break;
+    case 3: 
+      cx = paramFloat1;
+      cy = paramFloat2;
+      x = (cx - width / 2.0F);
+      y = (cy - height / 2.0F);
+    }
+  }
+  
+  public float getX()
+  {
+    if (parent != null) {
+      return x + parent.width / 2.0F;
+    }
+    return x;
+  }
+  
+  public float getY()
+  {
+    if (parent != null) {
+      return y + parent.height / 2.0F;
+    }
+    return y;
+  }
+  
+  public float getCX()
+  {
+    if (parent != null) {
+      return x + (parent.width + width) / 2.0F;
+    }
+    return cx;
+  }
+  
+  public float getCY()
+  {
+    if (parent != null) {
+      return x + (parent.width + width) / 2.0F;
+    }
+    return cy;
+  }
+  
+  public float getWidth()
+  {
+    return width;
+  }
+  
+  public float getHeight()
+  {
+    return height;
+  }
+  
+  public void setVisible(boolean paramBoolean)
+  {
+    if ((!paramBoolean) && (focusIsWith == this)) {
+      loseFocus(null);
+    }
+    visible = paramBoolean;
+    if (paramBoolean) {
+      available = (alphaLevel > 128);
+    } else {
+      available = false;
+    }
+    if (children != null)
+    {
+      Iterator localIterator = children.iterator();
+      while (localIterator.hasNext())
+      {
+        GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+        localGAbstractControl.setAvailable(visible);
+      }
+    }
+  }
+  
+  public boolean isVisible()
+  {
+    return visible;
+  }
+  
+  protected void setAvailable(boolean paramBoolean)
+  {
+    available = paramBoolean;
+    if (children != null)
+    {
+      Iterator localIterator = children.iterator();
+      while (localIterator.hasNext())
+      {
+        GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+        localGAbstractControl.setAvailable(paramBoolean);
+      }
+    }
+  }
+  
+  protected boolean isAvailable()
+  {
+    return available;
+  }
+  
+  public void setOpaque(boolean paramBoolean)
+  {
+    bufferInvalid |= paramBoolean != opaque;
+    opaque = paramBoolean;
+  }
+  
+  public boolean isOpaque()
+  {
+    return opaque;
+  }
+  
+  public boolean isDragging()
+  {
+    return dragging;
+  }
+  
+  public void setEnabled(boolean paramBoolean)
+  {
+    enabled = paramBoolean;
+    if (children != null)
+    {
+      Iterator localIterator = children.iterator();
+      while (localIterator.hasNext())
+      {
+        GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+        localGAbstractControl.setEnabled(paramBoolean);
+      }
+    }
+  }
+  
+  public boolean isEnabled()
+  {
+    return enabled;
+  }
+  
+  protected void takeFocus()
+  {
+    if ((focusIsWith != null) && (focusIsWith != this)) {
+      focusIsWith.loseFocus(this);
+    }
+    focusIsWith = this;
+  }
+  
+  protected void loseFocus(GAbstractControl paramGAbstractControl)
+  {
+    if (cursorIsOver == this) {
+      cursorIsOver = null;
+    }
+    focusIsWith = paramGAbstractControl;
+    bufferInvalid = true;
+  }
+  
+  public void setFocus(boolean paramBoolean)
+  {
+    if (paramBoolean) {
+      takeFocus();
+    } else {
+      loseFocus(null);
+    }
+  }
+  
+  public boolean hasFocus()
+  {
+    return this == focusIsWith;
+  }
+  
+  protected static int focusObjectZ()
+  {
+    return focusIsWith == null ? -1 : focusIsWithz;
+  }
+  
+  public void addControl(GAbstractControl paramGAbstractControl, float paramFloat1, float paramFloat2, float paramFloat3)
+  {
+    if (children == null) {
+      return;
+    }
+    rotAngle = paramFloat3;
+    AffineTransform localAffineTransform = new AffineTransform();
+    localAffineTransform.setToRotation(paramFloat3);
+    switch (1.$SwitchMap$g4p_controls$GControlMode[G4P.control_mode.ordinal()])
+    {
+    case 1: 
+    case 2: 
+      x = paramFloat1;
+      y = paramFloat2;
+      temp[0] = halfWidth;
+      temp[1] = halfHeight;
+      localAffineTransform.transform(temp, 0, temp, 0, 1);
+      cx = ((float)temp[0] + paramFloat1 - halfWidth);
+      cy = ((float)temp[1] + paramFloat2 - halfHeight);
+      x = (cx - halfWidth);
+      y = (cy - halfHeight);
+      break;
+    case 3: 
+      cx = paramFloat1;
+      cy = paramFloat2;
+      temp[0] = (-halfWidth);
+      temp[1] = (-halfHeight);
+      localAffineTransform.transform(temp, 0, temp, 0, 1);
+      x = (cx + (float)temp[0] - halfWidth);
+      y = (cy - (float)temp[1] - halfHeight);
+      cx -= halfWidth;
+      cy -= halfHeight;
+    }
+    rotAngle = paramFloat3;
+    parent = this;
+    paramGAbstractControl.setZ(z);
+    registeredMethods &= 0x1E;
+    if (children == null) {
+      children = new LinkedList();
+    }
+    children.addLast(paramGAbstractControl);
+    Collections.sort(children, new Z_Order());
+    paramGAbstractControl.addToParent(this);
+  }
+  
+  public void addControl(GAbstractControl paramGAbstractControl, float paramFloat1, float paramFloat2)
+  {
+    if (children == null) {
+      return;
+    }
+    addControl(paramGAbstractControl, paramFloat1, paramFloat2, 0.0F);
+  }
+  
+  public void addControl(GAbstractControl paramGAbstractControl)
+  {
+    if (children == null) {
+      return;
+    }
+    switch (1.$SwitchMap$g4p_controls$GControlMode[G4P.control_mode.ordinal()])
+    {
+    case 1: 
+    case 2: 
+      addControl(paramGAbstractControl, x, y, rotAngle);
+      break;
+    case 3: 
+      addControl(paramGAbstractControl, cx, cy, rotAngle);
+    }
+  }
+  
+  public void addControls(GAbstractControl... paramVarArgs)
+  {
+    if (children == null) {
+      return;
+    }
+    for (GAbstractControl localGAbstractControl : paramVarArgs) {
+      switch (1.$SwitchMap$g4p_controls$GControlMode[G4P.control_mode.ordinal()])
+      {
+      case 1: 
+      case 2: 
+        addControl(localGAbstractControl, x, y, rotAngle);
+        break;
+      case 3: 
+        addControl(localGAbstractControl, cx, cy, rotAngle);
+      }
+    }
+  }
+  
+  protected void addToParent(GAbstractControl paramGAbstractControl) {}
+  
+  public int getCursorOver()
+  {
+    return cursorOver;
+  }
+  
+  public void setCursorOver(int paramInt)
+  {
+    cursorOver = paramInt;
+  }
+  
+  protected AffineTransform getTransform(AffineTransform paramAffineTransform)
+  {
+    if (parent != null) {
+      paramAffineTransform = parent.getTransform(paramAffineTransform);
+    }
+    paramAffineTransform.translate(cx, cy);
+    paramAffineTransform.rotate(rotAngle);
+    return paramAffineTransform;
+  }
+  
+  protected void calcTransformedOrigin(float paramFloat1, float paramFloat2)
+  {
+    AffineTransform localAffineTransform = new AffineTransform();
+    localAffineTransform = getTransform(localAffineTransform);
+    temp[0] = paramFloat1;
+    temp[1] = paramFloat2;
+    try
+    {
+      localAffineTransform.inverseTransform(temp, 0, temp, 0, 1);
+      ox = ((float)temp[0] + halfWidth);
+      oy = ((float)temp[1] + halfHeight);
+    }
+    catch (NoninvertibleTransformException localNoninvertibleTransformException) {}
+  }
+  
+  protected void setZ(int paramInt)
+  {
+    z += paramInt;
+    if (children != null)
+    {
+      Iterator localIterator = children.iterator();
+      while (localIterator.hasNext())
+      {
+        GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+        localGAbstractControl.setZ(paramInt);
+      }
+    }
+  }
+  
+  public void markForDisposal()
+  {
+    G4P.removeControl(this);
+  }
+  
+  public String toString()
+  {
+    if (tag == null) {
+      return getClass().getSimpleName();
+    }
+    return tag;
+  }
+  
+  public static class Z_Order
+    implements Comparator<GAbstractControl>
+  {
+    public Z_Order() {}
+    
+    public int compare(GAbstractControl paramGAbstractControl1, GAbstractControl paramGAbstractControl2)
+    {
+      if (z != z) {
+        return new Integer(z).compareTo(new Integer(z));
+      }
+      return new Integer((int)-y).compareTo(new Integer((int)-y));
+    }
+  }
+}

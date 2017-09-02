@@ -1,0 +1,905 @@
+package jogamp.newt.driver.macosx;
+
+import com.jogamp.common.util.InterruptSource.Thread;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.GraphicsConfigurationFactory;
+import com.jogamp.nativewindow.MutableSurface;
+import com.jogamp.nativewindow.NativeWindow;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.ScalableSurface;
+import com.jogamp.nativewindow.util.Point;
+import com.jogamp.nativewindow.util.PointImmutable;
+import com.jogamp.newt.Display;
+import com.jogamp.newt.Screen;
+import com.jogamp.newt.Window;
+import com.jogamp.newt.event.KeyEvent;
+import com.jogamp.newt.event.MonitorEvent;
+import com.jogamp.opengl.math.FloatUtil;
+import java.io.PrintStream;
+import jogamp.nativewindow.SurfaceScaleUtils;
+import jogamp.nativewindow.macosx.OSXUtil;
+import jogamp.newt.PointerIconImpl;
+import jogamp.newt.ScreenImpl;
+import jogamp.newt.WindowImpl;
+import jogamp.newt.driver.DriverClearFocus;
+import jogamp.newt.driver.DriverUpdatePosition;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class WindowDriver
+  extends WindowImpl
+  implements MutableSurface, DriverClearFocus, DriverUpdatePosition
+{
+  private static final int NSBorderlessWindowMask = 0;
+  private static final int NSTitledWindowMask = 1;
+  private static final int NSClosableWindowMask = 2;
+  private static final int NSMiniaturizableWindowMask = 4;
+  private static final int NSResizableWindowMask = 8;
+  private static final int NSBackingStoreRetained = 0;
+  private static final int NSBackingStoreNonretained = 1;
+  private static final int NSBackingStoreBuffered = 2;
+  
+  public WindowDriver() {}
+  
+  private boolean updatePixelScale(boolean paramBoolean1, boolean paramBoolean2, boolean paramBoolean3, float paramFloat1, float paramFloat2)
+  {
+    float[] arrayOfFloat = new float[2];
+    
+    float f1 = FloatUtil.isZero(paramFloat1, 1.1920929E-7F) ? 1.0F : paramFloat1;
+    arrayOfFloat[0] = f1;
+    arrayOfFloat[1] = f1;
+    float f2 = FloatUtil.isZero(paramFloat2, 1.1920929E-7F) ? 1.0F : paramFloat2;
+    maxPixelScale[0] = f2;
+    maxPixelScale[1] = f2;
+    
+
+
+    if (SurfaceScaleUtils.setNewPixelScale(hasPixelScale, hasPixelScale, arrayOfFloat, minPixelScale, maxPixelScale, DEBUG_IMPLEMENTATION ? getClass().getName() : null)) {
+      if (paramBoolean1) {
+        if (paramBoolean3) {
+          superSizeChangedOffThread(paramBoolean2, getWidth(), getHeight(), true);
+        } else {
+          super.sizeChanged(paramBoolean2, getWidth(), getHeight(), true);
+        }
+      } else {
+        defineSize(getWidth(), getHeight());
+      }
+      return true;
+    }
+    return false;
+  }
+  
+  private boolean updatePixelScaleByDisplayID(boolean paramBoolean)
+  {
+    float f = (float)OSXUtil.GetPixelScaleByDisplayID(getDisplayID());
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("WindowDriver.updatePixelScale.1: " + hasPixelScale[0] + ", " + f + " (max)");
+    }
+    return updatePixelScale(paramBoolean, true, false, f, f);
+  }
+  
+  private boolean updatePixelScaleByWindowHandle(boolean paramBoolean) {
+    long l = getWindowHandle();
+    if (0L != l) {
+      float f = (float)OSXUtil.GetPixelScale(l);
+      if (DEBUG_IMPLEMENTATION) {
+        System.err.println("WindowDriver.updatePixelScale.2: " + hasPixelScale[0] + ", " + f + " (max)");
+      }
+      return updatePixelScale(paramBoolean, true, false, f, f);
+    }
+    return false;
+  }
+  
+
+  protected void updatePixelScale(boolean paramBoolean, float paramFloat1, float paramFloat2)
+  {
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("WindowDriver.updatePixelScale.3: " + hasPixelScale[0] + " (has) -> " + paramFloat1 + " (new), " + paramFloat2 + " (max), drop " + (!isNativeValid()));
+    }
+    if (isNativeValid()) {
+      updatePixelScale(true, paramBoolean, true, paramFloat1, paramFloat2);
+    }
+  }
+  
+  protected final void instantiationFinishedImpl()
+  {
+    updatePixelScaleByDisplayID(false);
+  }
+  
+  protected void setScreen(ScreenImpl paramScreenImpl)
+  {
+    super.setScreen(paramScreenImpl);
+    updatePixelScaleByDisplayID(false);
+  }
+  
+  protected void monitorModeChanged(MonitorEvent paramMonitorEvent, boolean paramBoolean)
+  {
+    updatePixelScaleByWindowHandle(false);
+  }
+  
+  public final boolean setSurfaceScale(float[] paramArrayOfFloat)
+  {
+    super.setSurfaceScale(paramArrayOfFloat);
+    
+    boolean bool = false;
+    if (isNativeValid()) { Object localObject;
+      if (isOffscreenInstance) {
+        localObject = getParent();
+        if ((localObject instanceof ScalableSurface)) {
+          ScalableSurface localScalableSurface = (ScalableSurface)localObject;
+          localScalableSurface.setSurfaceScale(reqPixelScale);
+          localScalableSurface.getMaximumSurfaceScale(maxPixelScale);
+          localScalableSurface.getMinimumSurfaceScale(minPixelScale);
+          float[] arrayOfFloat = localScalableSurface.getCurrentSurfaceScale(new float[2]);
+          bool = updatePixelScale(true, true, true, arrayOfFloat[0], maxPixelScale[0]);
+        }
+        else {
+          bool = updatePixelScale(true, true, true, reqPixelScale[0], maxPixelScale[0]);
+        }
+      }
+      else
+      {
+        localObject = new float[2];
+        System.arraycopy(hasPixelScale, 0, localObject, 0, 2);
+        if (SurfaceScaleUtils.setNewPixelScale((float[])localObject, (float[])localObject, reqPixelScale, minPixelScale, maxPixelScale, DEBUG_IMPLEMENTATION ? getClass().getName() : null)) {
+          OSXUtil.RunOnMainThread(true, false, new Runnable()
+          {
+            public void run() {
+              WindowDriver.this.setPixelScale0(getWindowHandle(), surfaceHandle, val$_hasPixelScale[0]);
+            }
+          });
+          bool = true;
+        }
+      }
+    }
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("WindowDriver.setPixelScale: min[" + minPixelScale[0] + ", " + minPixelScale[1] + "], max[" + maxPixelScale[0] + ", " + maxPixelScale[1] + "], req[" + reqPixelScale[0] + ", " + reqPixelScale[1] + "] -> result[" + hasPixelScale[0] + ", " + hasPixelScale[1] + "] - changed " + bool + ", realized " + 
+      
+
+        isNativeValid());
+    }
+    return bool;
+  }
+  
+  protected void createNativeImpl()
+  {
+    AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = GraphicsConfigurationFactory.getFactory(getScreen().getDisplay().getGraphicsDevice(), capsRequested).chooseGraphicsConfiguration(capsRequested, capsRequested, capabilitiesChooser, 
+      getScreen().getGraphicsScreen(), 0);
+    if (null == localAbstractGraphicsConfiguration) {
+      throw new NativeWindowException("Error choosing GraphicsConfiguration creating window: " + this);
+    }
+    setGraphicsConfiguration(localAbstractGraphicsConfiguration);
+    reconfigureWindowImpl(getX(), getY(), getWidth(), getHeight(), getReconfigureMask(Integer.MIN_VALUE, true));
+    if (!isNativeValid()) {
+      throw new NativeWindowException("Error creating window");
+    }
+  }
+  
+  protected void closeNativeImpl()
+  {
+    try {
+      if (DEBUG_IMPLEMENTATION) System.err.println("MacWindow.CloseAction " + Thread.currentThread().getName());
+      final long l = getWindowHandle();
+      visibleChanged(true, false);
+      setWindowHandle(0L);
+      surfaceHandle = 0L;
+      sscSurfaceHandle = 0L;
+      isOffscreenInstance = false;
+      if (0L != l)
+        OSXUtil.RunOnMainThread(false, true, new Runnable()
+        {
+          public void run() {
+            WindowDriver.this.close0(l);
+          }
+        });
+    } catch (Throwable localThrowable) {
+      if (DEBUG_IMPLEMENTATION) {
+        Exception localException = new Exception("Warning: closeNative failed - " + Thread.currentThread().getName(), localThrowable);
+        localException.printStackTrace();
+      }
+    }
+  }
+  
+
+
+
+
+
+  protected int lockSurfaceImpl()
+  {
+    long l1 = getWindowHandle();
+    long l2 = surfaceHandle;
+    if ((0L != l2) && (0L != l1)) {
+      return lockSurface0(l1, l2) ? 3 : 1;
+    }
+    return 1;
+  }
+  
+
+
+
+
+
+  protected void unlockSurfaceImpl()
+  {
+    long l1 = getWindowHandle();
+    long l2 = surfaceHandle;
+    if ((0L != l1) && (0L != l2) && 
+      (!unlockSurface0(l1, l2))) {
+      throw new NativeWindowException("Failed to unlock surface, probably not locked!");
+    }
+  }
+  
+
+  public final long getSurfaceHandle()
+  {
+    return 0L != sscSurfaceHandle ? sscSurfaceHandle : surfaceHandle;
+  }
+  
+  public void setSurfaceHandle(long paramLong)
+  {
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("MacWindow.setSurfaceHandle(): 0x" + Long.toHexString(paramLong));
+    }
+    sscSurfaceHandle = paramLong;
+    if ((isNativeValid()) && 
+      (0L != sscSurfaceHandle)) {
+      OSXUtil.RunOnMainThread(false, false, new Runnable()
+      {
+        public void run() {
+          WindowDriver.this.orderOut0(0L != getParentWindowHandle() ? getParentWindowHandle() : getWindowHandle());
+        }
+      });
+    }
+  }
+  
+
+
+
+
+
+
+  protected void setTitleImpl(final String paramString)
+  {
+    OSXUtil.RunOnMainThread(false, false, new Runnable()
+    {
+      public void run() {
+        WindowDriver.this.setTitle0(getWindowHandle(), paramString);
+      }
+    });
+  }
+  
+  protected void requestFocusImpl(final boolean paramBoolean) {
+    final boolean bool1 = isFullscreen();
+    boolean bool2 = isOffscreenInstance;
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("MacWindow: requestFocusImpl(), isOffscreenInstance " + bool2 + ", isFullscreen " + bool1);
+    }
+    if (!bool2) {
+      OSXUtil.RunOnMainThread(false, false, new Runnable()
+      {
+        public void run() {
+          WindowDriver.this.requestFocus0(getWindowHandle(), paramBoolean);
+          if (bool1)
+          {
+            focusChanged(false, true); }
+        }
+      });
+    } else {
+      focusChanged(false, true);
+    }
+  }
+  
+  public final void clearFocus()
+  {
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("MacWindow: clearFocus(), isOffscreenInstance " + isOffscreenInstance);
+    }
+    if (!isOffscreenInstance)
+      OSXUtil.RunOnMainThread(false, false, new Runnable()
+      {
+        public void run() {
+          WindowDriver.this.resignFocus0(getWindowHandle());
+        }
+      }); else
+      focusChanged(false, false);
+  }
+  
+  private boolean useParent(NativeWindow paramNativeWindow) {
+    return (null != paramNativeWindow) && (0L != paramNativeWindow.getWindowHandle());
+  }
+  
+  public void updatePosition(int paramInt1, int paramInt2) {
+    long l = getWindowHandle();
+    if ((0L != l) && (!isOffscreenInstance)) {
+      NativeWindow localNativeWindow = getParent();
+      boolean bool = useParent(localNativeWindow);
+      final Point localPoint;
+      if (bool) {
+        localPoint = getLocationOnScreenByParent(paramInt1, paramInt2, localNativeWindow);
+      } else {
+        localPoint = (Point)getLocationOnScreen0(l, paramInt1, paramInt2);
+      }
+      if (DEBUG_IMPLEMENTATION) {
+        int i = localNativeWindow.getX();int j = localNativeWindow.getY();
+        System.err.println("MacWindow: updatePosition() parent[" + bool + " " + i + "/" + j + "] " + paramInt1 + "/" + paramInt2 + " ->  " + paramInt1 + "/" + paramInt2 + " rel-client-pos, " + localPoint + " screen-client-pos");
+      }
+      OSXUtil.RunOnMainThread(false, false, new Runnable()
+      {
+        public void run() {
+          WindowDriver.this.setWindowClientTopLeftPoint0(getWindowHandle(), localPoint.getX(), localPoint.getY(), isVisible());
+        }
+      });
+      positionChanged(true, paramInt1, paramInt2);
+    }
+  }
+  
+  protected final int getSupportedReconfigMaskImpl()
+  {
+    return 16381;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  protected boolean reconfigureWindowImpl(int paramInt1, int paramInt2, int paramInt3, int paramInt4, final int paramInt5)
+  {
+    boolean bool1 = isOffscreenInstance(this, getParent());
+    isOffscreenInstance = ((0L != sscSurfaceHandle) || (bool1));
+    Point localPoint;
+    if (isOffscreenInstance) {
+      paramInt1 = 0;paramInt2 = 0;
+      localPoint = new Point(0, 0);
+    } else {
+      NativeWindow localNativeWindow1 = getParent();
+      if (useParent(localNativeWindow1)) {
+        localPoint = getLocationOnScreenByParent(paramInt1, paramInt2, localNativeWindow1);
+      } else {
+        if (0 != (0xC00000 & paramInt5)) {
+          int[] arrayOfInt = { paramInt1, paramInt2, paramInt3, paramInt4 };
+          reconfigMaximizedManual(paramInt5, arrayOfInt, getInsets());
+          paramInt1 = arrayOfInt[0];
+          paramInt2 = arrayOfInt[1];
+          paramInt3 = arrayOfInt[2];
+          paramInt4 = arrayOfInt[3];
+        }
+        localPoint = new Point(paramInt1, paramInt2);
+      }
+    }
+    int i = paramInt1;int j = paramInt2;
+    final int k = paramInt3;final int m = paramInt4;
+    
+    boolean bool2 = hasFocus();
+    
+    if (DEBUG_IMPLEMENTATION) {
+      AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = getGraphicsConfiguration();
+      NativeWindow localNativeWindow2 = getParent();
+      Object localObject = null != localNativeWindow2 ? localNativeWindow2.getGraphicsConfiguration() : null;
+      System.err.println("MacWindow reconfig.0: " + i + "/" + j + " -> clientPosOnScreen " + localPoint + " - " + k + "x" + m + ", " + 
+        getReconfigStateMaskString(paramInt5) + ",\n\t parent type " + (null != localNativeWindow2 ? localNativeWindow2
+        .getClass().getName() : null) + ",\n\t   this-chosenCaps " + (null != localAbstractGraphicsConfiguration ? localAbstractGraphicsConfiguration
+        .getChosenCapabilities() : null) + ",\n\t parent-chosenCaps " + (null != localObject ? localObject
+        .getChosenCapabilities() : null) + ", isOffscreenInstance(sscSurfaceHandle " + 
+        toHexString(sscSurfaceHandle) + ", ioi: " + bool1 + ") -> " + isOffscreenInstance);
+    }
+    
+
+
+
+    if ((0 != (0x80000000 & paramInt5)) && (0 == (0x1 & paramInt5)))
+    {
+
+      if (!isOffscreenInstance)
+        OSXUtil.RunOnMainThread(false, false, new Runnable()
+        {
+          public void run() {
+            WindowDriver.this.orderOut0(getWindowHandle());
+            visibleChanged(true, false);
+          }
+        }); else {
+        visibleChanged(true, false);
+      }
+    }
+    final long l = getWindowHandle();
+    if (((0L == l) && (0 != (0x1 & paramInt5))) || (0 != (0x20000000 & paramInt5)) || (0 != (0x10000000 & paramInt5)) || (0 != (0x8000000 & paramInt5)) || (0 != (0x4000000 & paramInt5)) || (0 != (0x1000000 & paramInt5)) || (0 != (0x200000 & paramInt5)))
+    {
+
+
+
+
+
+      if (isOffscreenInstance) {
+        createWindow(true, 0L != l, localPoint, 64, 64, paramInt5);
+      } else {
+        createWindow(false, 0L != l, localPoint, k, m, paramInt5);
+      }
+      
+      updatePixelScaleByWindowHandle(false);
+      if (isOffscreenInstance) {
+        super.sizeChanged(false, k, m, true);
+        positionChanged(false, i, j);
+      } else {
+        updateSizePosInsets0(getWindowHandle(), false);
+      }
+      visibleChanged(false, 0 != (0x1 & paramInt5));
+      if (bool2) {
+        requestFocusImpl(true);
+      }
+    } else if (0L != l) {
+      if ((k > 0) && (m > 0)) {
+        if (!isOffscreenInstance) {
+          OSXUtil.RunOnMainThread(true, false, new Runnable()
+          {
+            public void run() {
+              WindowDriver.this.setWindowClientTopLeftPointAndSize0(l, k
+                .getX(), k.getY(), m, paramInt5, 0 != (0x1 & val$flags));
+            }
+          });
+          updateSizePosInsets0(l, false);
+        }
+        else {
+          super.sizeChanged(false, k, m, false);
+          positionChanged(false, i, j);
+        }
+      }
+      if ((0 != (0x80000000 & paramInt5)) && (0 != (0x1 & paramInt5)))
+      {
+
+        if (!isOffscreenInstance)
+          OSXUtil.RunOnMainThread(false, false, new Runnable()
+          {
+            public void run() {
+              WindowDriver.this.orderFront0(getWindowHandle());
+              visibleChanged(true, true);
+            }
+          }); else {
+          visibleChanged(true, true);
+        }
+      }
+    } else {
+      throw new InternalError("Null windowHandle but no re-creation triggered, check visibility: " + getStateMaskString());
+    }
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("MacWindow reconfig.X: " + getLocationOnScreenImpl(0, 0) + " " + getWidth() + "x" + getHeight() + ", insets " + getInsets() + ", " + getStateMaskString());
+    }
+    return true;
+  }
+  
+  protected Point getLocationOnScreenImpl(int paramInt1, int paramInt2)
+  {
+    NativeWindow localNativeWindow = getParent();
+    if (useParent(localNativeWindow)) {
+      return getLocationOnScreenByParent(paramInt1, paramInt2, localNativeWindow);
+    }
+    long l = getWindowHandle();
+    if ((!isOffscreenInstance) && (0L != l)) {
+      return (Point)getLocationOnScreen0(l, paramInt1, paramInt2);
+    }
+    return new Point(paramInt1, paramInt2);
+  }
+  
+
+  private Point getLocationOnScreenByParent(int paramInt1, int paramInt2, NativeWindow paramNativeWindow)
+  {
+    return new Point(paramInt1, paramInt2).translate(paramNativeWindow.getLocationOnScreen(null));
+  }
+  
+
+  protected void screenPositionChanged(final boolean paramBoolean, final int paramInt1, final int paramInt2)
+  {
+    if (isNativeValid()) {
+      final NativeWindow localNativeWindow = getParent();
+      if ((!useParent(localNativeWindow)) || (isOffscreenInstance)) {
+        if (DEBUG_IMPLEMENTATION) {
+          System.err.println("MacWindow.positionChanged.0 (Screen Pos - TOP): (" + getThreadName() + "): (defer: " + paramBoolean + ") " + getX() + "/" + getY() + " -> " + paramInt1 + "/" + paramInt2);
+        }
+        positionChanged(paramBoolean, paramInt1, paramInt2);
+      } else {
+        Runnable local11 = new Runnable()
+        {
+          public void run() {
+            Point localPoint1 = new Point(paramInt1, paramInt2);
+            Point localPoint2 = localNativeWindow.getLocationOnScreen(null);
+            localPoint1.translate(localPoint2.scale(-1, -1));
+            if (Window.DEBUG_IMPLEMENTATION) {
+              System.err.println("MacWindow.positionChanged.1 (Screen Pos - CHILD): (" + WindowImpl.getThreadName() + "): (defer: " + paramBoolean + ") " + getX() + "/" + getY() + " -> absPos " + paramInt1 + "/" + paramInt2 + ", parentOnScreen " + localPoint2 + " -> " + localPoint1);
+            }
+            positionChanged(false, localPoint1.getX(), localPoint1.getY());
+          } };
+        if (paramBoolean) {
+          new InterruptSource.Thread(null, local11).start();
+        } else {
+          local11.run();
+        }
+      }
+    }
+    else if (DEBUG_IMPLEMENTATION) {
+      System.err.println("MacWindow.positionChanged.2 (Screen Pos - IGN): (" + getThreadName() + "): (defer: " + paramBoolean + ") " + getX() + "/" + getY() + " -> " + paramInt1 + "/" + paramInt2);
+    }
+  }
+  
+  protected void sizeChanged(boolean paramBoolean1, int paramInt1, int paramInt2, boolean paramBoolean2)
+  {
+    if ((paramBoolean2) || (getWidth() != paramInt1) || (getHeight() != paramInt2)) {
+      if ((isNativeValid()) && (!isOffscreenInstance)) {
+        NativeWindow localNativeWindow = getParent();
+        boolean bool = useParent(localNativeWindow);
+        if (bool) {
+          int i = getX();int j = getY();
+          final Point localPoint = getLocationOnScreenByParent(i, j, localNativeWindow);
+          if (DEBUG_IMPLEMENTATION) {
+            System.err.println("MacWindow: sizeChanged() parent[" + bool + " " + i + "/" + j + "] " + getX() + "/" + getY() + " " + paramInt1 + "x" + paramInt2 + " ->  " + localPoint + " screen-client-pos");
+          }
+          OSXUtil.RunOnMainThread(false, false, new Runnable()
+          {
+
+            public void run() { WindowDriver.this.setWindowClientTopLeftPoint0(getWindowHandle(), localPoint.getX(), localPoint.getY(), isVisible()); }
+          });
+        }
+      }
+      superSizeChangedOffThread(paramBoolean1, paramInt1, paramInt2, paramBoolean2);
+    }
+  }
+  
+  private void superSizeChangedOffThread(boolean paramBoolean1, final int paramInt1, final int paramInt2, final boolean paramBoolean2) { if (paramBoolean1)
+    {
+
+
+      new InterruptSource.Thread()
+      {
+        public void run()
+        {
+          WindowDriver.this.sizeChanged(false, paramInt1, paramInt2, paramBoolean2);
+        }
+      }.start(); } else {
+      super.sizeChanged(false, paramInt1, paramInt2, paramBoolean2);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  protected void sizeScreenPosInsetsChanged(boolean paramBoolean1, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, boolean paramBoolean2)
+  {
+    sizeChanged(paramBoolean1, paramInt3, paramInt4, paramBoolean2);
+    screenPositionChanged(paramBoolean1, paramInt1, paramInt2);
+    insetsChanged(paramBoolean1, paramInt5, paramInt6, paramInt7, paramInt8);
+  }
+  
+  protected void setPointerIconImpl(PointerIconImpl paramPointerIconImpl)
+  {
+    if (!isOffscreenInstance) {
+      final long l = null != paramPointerIconImpl ? paramPointerIconImpl.validatedHandle() : 0L;
+      OSXUtil.RunOnMainThread(true, false, new Runnable()
+      {
+        public void run() {
+          WindowDriver.setPointerIcon0(getWindowHandle(), l);
+        }
+      });
+    }
+  }
+  
+  protected boolean setPointerVisibleImpl(final boolean paramBoolean) {
+    if (!isOffscreenInstance) {
+      OSXUtil.RunOnMainThread(false, false, new Runnable()
+      {
+
+        public void run() { WindowDriver.setPointerVisible0(getWindowHandle(), hasFocus(), paramBoolean); }
+      });
+      return true;
+    }
+    return false;
+  }
+  
+  protected boolean confinePointerImpl(boolean paramBoolean)
+  {
+    if (!isOffscreenInstance) {
+      confinePointer0(getWindowHandle(), paramBoolean);
+      return true;
+    }
+    return false;
+  }
+  
+  protected void warpPointerImpl(int paramInt1, int paramInt2)
+  {
+    if (!isOffscreenInstance) {
+      warpPointer0(getWindowHandle(), 
+        SurfaceScaleUtils.scaleInv(paramInt1, getPixelScaleX()), 
+        SurfaceScaleUtils.scaleInv(paramInt2, getPixelScaleY()));
+    }
+  }
+  
+
+  protected final void doMouseEvent(boolean paramBoolean1, boolean paramBoolean2, short paramShort1, int paramInt1, int paramInt2, int paramInt3, short paramShort2, float[] paramArrayOfFloat, float paramFloat)
+  {
+    super.doMouseEvent(paramBoolean1, paramBoolean2, paramShort1, paramInt1, 
+      SurfaceScaleUtils.scale(paramInt2, getPixelScaleX()), 
+      SurfaceScaleUtils.scale(paramInt3, getPixelScaleY()), paramShort2, paramArrayOfFloat, paramFloat);
+  }
+  
+  public final void sendKeyEvent(short paramShort1, int paramInt, short paramShort2, short paramShort3, char paramChar)
+  {
+    throw new InternalError("XXX: Adapt Java Code to Native Code Changes");
+  }
+  
+  public final void enqueueKeyEvent(boolean paramBoolean, short paramShort1, int paramInt, short paramShort2, short paramShort3, char paramChar)
+  {
+    throw new InternalError("XXX: Adapt Java Code to Native Code Changes");
+  }
+  
+
+  protected final void enqueueKeyEvent(boolean paramBoolean, short paramShort1, int paramInt, short paramShort2, char paramChar1, char paramChar2)
+  {
+    short s1 = MacKeyUtil.validateKeyCode(paramShort2, paramChar1);
+    
+
+    int i = '\000' != paramChar2 ? KeyEvent.utf16ToVKey(paramChar2) : 0;
+    short s2 = 0 != i ? i : s1;
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+    switch (paramShort1) {
+    case 301: 
+      if (isKeyCodeTracked(s1)) {
+        setKeyPressed(s1, false);
+      }
+      break;
+    case 300: 
+      if ((isKeyCodeTracked(s1)) && 
+        (setKeyPressed(s1, true)))
+      {
+        paramInt |= 0x20000000;
+        super.enqueueKeyEvent(paramBoolean, (short)301, paramInt, s1, s2, paramChar1);
+      }
+      break;
+    }
+    
+    super.enqueueKeyEvent(paramBoolean, paramShort1, paramInt, s1, s2, paramChar1);
+  }
+  
+  protected int getDisplayID() {
+    if (!isOffscreenInstance) {
+      return getDisplayID0(getWindowHandle());
+    }
+    return 0;
+  }
+  
+
+
+
+
+
+
+  private void createWindow(final boolean paramBoolean1, boolean paramBoolean2, final PointImmutable paramPointImmutable, int paramInt1, final int paramInt2, final int paramInt3)
+  {
+    final long l1 = getParentWindowHandle();
+    long l2 = getWindowHandle();
+    
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("MacWindow.createWindow on thread " + Thread.currentThread().getName() + ": offscreen " + paramBoolean1 + ", recreate " + paramBoolean2 + ", pS " + paramPointImmutable + ", " + paramInt1 + "x" + paramInt2 + ", state " + 
+      
+        getReconfigStateMaskString(paramInt3) + ", preWinHandle " + 
+        toHexString(l2) + ", parentWin " + toHexString(l1) + ", surfaceHandle " + 
+        toHexString(surfaceHandle));
+    }
+    
+    try
+    {
+      if (0L != l2) {
+        setWindowHandle(0L);
+        if (0L == surfaceHandle) {
+          throw new NativeWindowException("Internal Error - create w/ window, but no Newt NSView");
+        }
+        OSXUtil.RunOnMainThread(false, false, new Runnable()
+        {
+          public void run() {
+            WindowDriver.this.changeContentView0(l1, val$preWinHandle, 0L);
+            WindowDriver.this.close0(val$preWinHandle);
+          }
+        });
+      } else { if (0L != surfaceHandle) {
+          throw new NativeWindowException("Internal Error - create w/o window, but has Newt NSView");
+        }
+        surfaceHandle = createView0(paramPointImmutable.getX(), paramPointImmutable.getY(), paramInt1, paramInt2);
+        if (0L == surfaceHandle) {
+          throw new NativeWindowException("Could not create native view " + Thread.currentThread().getName() + " " + this);
+        }
+      }
+      
+
+
+      int j = 0;
+      if ((0 != (0x10 & paramInt3)) || (paramBoolean1)) {
+        j = 0;
+      } else {
+        j = 7;
+        if (0 != (0x100 & paramInt3)) {
+          j |= 0x8;
+        }
+      }
+      int i = j;
+      
+      long l3 = createWindow0(paramPointImmutable.getX(), paramPointImmutable.getY(), paramInt1, paramInt2, 0 != (0x800 & paramInt3), i, 2, surfaceHandle);
+      
+
+
+      if (l3 == 0L) {
+        throw new NativeWindowException("Could not create native window " + Thread.currentThread().getName() + " " + this);
+      }
+      setWindowHandle(l3);
+      
+      final boolean bool = (getGraphicsConfiguration().getChosenCapabilities().isBackgroundOpaque()) && (!paramBoolean1);
+      
+      OSXUtil.RunOnMainThread(true, false, new Runnable()
+      {
+        public void run() {
+          WindowDriver.this.initWindow0(l1, paramPointImmutable, paramInt2.getX(), paramInt2.getY(), bool, paramBoolean1, reqPixelScale[0], paramInt3, (!val$offscreenInstance) && (0 != (0x20 & val$flags)), (!val$offscreenInstance) && (0 != (0x40 & val$flags)), (!val$offscreenInstance) && (0 != (0x1 & val$flags)), 
+          
+
+
+
+            surfaceHandle);
+          if (val$offscreenInstance) {
+            WindowDriver.this.orderOut0(0L != l1 ? l1 : paramPointImmutable);
+          } else
+            WindowDriver.this.setTitle0(paramPointImmutable, getTitle());
+        }
+      });
+    } catch (Exception localException) {
+      localException.printStackTrace();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private volatile long surfaceHandle = 0L;
+  private long sscSurfaceHandle = 0L;
+  private boolean isOffscreenInstance = false;
+  
+  protected static native boolean initIDs0();
+  
+  private native long createView0(int paramInt1, int paramInt2, int paramInt3, int paramInt4);
+  
+  private native long createWindow0(int paramInt1, int paramInt2, int paramInt3, int paramInt4, boolean paramBoolean, int paramInt5, int paramInt6, long paramLong);
+  
+  private native void initWindow0(long paramLong1, long paramLong2, int paramInt1, int paramInt2, int paramInt3, int paramInt4, float paramFloat, boolean paramBoolean1, boolean paramBoolean2, boolean paramBoolean3, boolean paramBoolean4, long paramLong3);
+  
+  private native int getDisplayID0(long paramLong);
+  
+  private native void setPixelScale0(long paramLong1, long paramLong2, float paramFloat);
+  
+  private native boolean lockSurface0(long paramLong1, long paramLong2);
+  
+  private native boolean unlockSurface0(long paramLong1, long paramLong2);
+  
+  private native void requestFocus0(long paramLong, boolean paramBoolean);
+  
+  private native void resignFocus0(long paramLong);
+  
+  private native void orderOut0(long paramLong);
+  
+  private native void orderFront0(long paramLong);
+  
+  private native void close0(long paramLong);
+  
+  private native void setTitle0(long paramLong, String paramString);
+  
+  private native long contentView0(long paramLong);
+  
+  private native void changeContentView0(long paramLong1, long paramLong2, long paramLong3);
+  
+  private native void setWindowClientTopLeftPointAndSize0(long paramLong, int paramInt1, int paramInt2, int paramInt3, int paramInt4, boolean paramBoolean);
+  
+  private native void setWindowClientTopLeftPoint0(long paramLong, int paramInt1, int paramInt2, boolean paramBoolean);
+  
+  private native void updateSizePosInsets0(long paramLong, boolean paramBoolean);
+  
+  private static native Object getLocationOnScreen0(long paramLong, int paramInt1, int paramInt2);
+  
+  private static native void setPointerIcon0(long paramLong1, long paramLong2);
+  
+  private static native void setPointerVisible0(long paramLong, boolean paramBoolean1, boolean paramBoolean2);
+  
+  private static native void confinePointer0(long paramLong, boolean paramBoolean);
+  
+  private static native void warpPointer0(long paramLong, int paramInt1, int paramInt2);
+  
+  static {}
+}

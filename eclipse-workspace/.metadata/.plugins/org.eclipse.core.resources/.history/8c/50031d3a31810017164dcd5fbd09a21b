@@ -1,0 +1,431 @@
+package jogamp.newt.driver.windows;
+
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.GraphicsConfigurationFactory;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.util.InsetsImmutable;
+import com.jogamp.nativewindow.util.Point;
+import com.jogamp.newt.event.KeyEvent;
+import com.jogamp.newt.event.MouseEvent.PointerType;
+import java.io.PrintStream;
+import java.nio.ByteBuffer;
+import jogamp.nativewindow.windows.GDI;
+import jogamp.nativewindow.windows.GDIUtil;
+import jogamp.newt.PointerIconImpl;
+import jogamp.newt.WindowImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class WindowDriver
+  extends WindowImpl
+{
+  private long hmon;
+  private long hdc;
+  private long hdc_old;
+  private long windowHandleClose;
+  
+  public WindowDriver() {}
+  
+  protected int lockSurfaceImpl()
+  {
+    if (0L != hdc) {
+      throw new InternalError("surface not released");
+    }
+    long l = getWindowHandle();
+    hdc = GDI.GetDC(l);
+    
+
+    if (0L == hdc) {
+      return 1;
+    }
+    hmon = MonitorFromWindow0(l);
+    
+
+
+    return 3;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  protected void unlockSurfaceImpl()
+  {
+    if (0L != hdc) {
+      GDI.ReleaseDC(getWindowHandle(), hdc);
+      hdc_old = hdc;
+      hdc = 0L;
+    }
+  }
+  
+  public final long getSurfaceHandle()
+  {
+    return hdc;
+  }
+  
+  public boolean hasDeviceChanged()
+  {
+    if (0L != getWindowHandle()) {
+      long l = MonitorFromWindow0(getWindowHandle());
+      if (hmon != l) {
+        if (DEBUG_IMPLEMENTATION) {
+          System.err.println("Info: Window Device Changed " + Thread.currentThread().getName() + ", HMON " + 
+            toHexString(hmon) + " -> " + toHexString(l));
+        }
+        
+        hmon = l;
+        return true;
+      }
+    }
+    return false;
+  }
+  
+  protected void createNativeImpl()
+  {
+    ScreenDriver localScreenDriver = (ScreenDriver)getScreen();
+    DisplayDriver localDisplayDriver = (DisplayDriver)localScreenDriver.getDisplay();
+    AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = GraphicsConfigurationFactory.getFactory(localDisplayDriver.getGraphicsDevice(), capsRequested).chooseGraphicsConfiguration(capsRequested, capsRequested, capabilitiesChooser, localScreenDriver
+      .getGraphicsScreen(), 0);
+    if (null == localAbstractGraphicsConfiguration) {
+      throw new NativeWindowException("Error choosing GraphicsConfiguration creating window: " + this);
+    }
+    setGraphicsConfiguration(localAbstractGraphicsConfiguration);
+    VersionNumber localVersionNumber = Platform.getOSVersionNumber();
+    int i = getReconfigureMask(0, true) & 0x7FF;
+    int j = 0;
+    if (0 != (0x400 & i)) {
+      i |= 0x400000;
+      j++;
+    }
+    if (0 != (0x200 & i)) {
+      i |= 0x800000;
+      j++;
+    }
+    long l = CreateWindow0(DisplayDriver.getHInstance(), localDisplayDriver.getWindowClassName(), localDisplayDriver.getWindowClassName(), localVersionNumber
+      .getMajor(), localVersionNumber.getMinor(), 
+      getParentWindowHandle(), 
+      getX(), getY(), getWidth(), getHeight(), i);
+    if (0L == l) {
+      throw new NativeWindowException("Error creating window");
+    }
+    if (!localAbstractGraphicsConfiguration.getChosenCapabilities().isBackgroundOpaque()) {
+      GDIUtil.DwmSetupTranslucency(l, true);
+    }
+    InitWindow0(l, i);
+    setWindowHandle(l);
+    windowHandleClose = l;
+    
+    if ((0 == (0x4 & i)) && (1 == j)) {
+      reconfigureWindowImpl(getX(), getY(), getWidth(), getHeight(), i);
+    }
+    
+    if (DEBUG_IMPLEMENTATION)
+    {
+
+      Exception localException = new Exception("Info: Window new window handle " + Thread.currentThread().getName() + " (Parent HWND " + toHexString(getParentWindowHandle()) + ") : HWND " + toHexString(l) + ", " + Thread.currentThread());
+      localException.printStackTrace();
+    }
+  }
+  
+  protected void closeNativeImpl()
+  {
+    if (0L != windowHandleClose) { Exception localException;
+      if (0L != hdc) {
+        try {
+          GDI.ReleaseDC(windowHandleClose, hdc);
+        } catch (Throwable localThrowable1) {
+          if (DEBUG_IMPLEMENTATION) {
+            localException = new Exception("Warning: closeNativeImpl failed - " + Thread.currentThread().getName(), localThrowable1);
+            localException.printStackTrace();
+          }
+        }
+      }
+      try {
+        GDI.DestroyWindow(windowHandleClose);
+      } catch (Throwable localThrowable2) {
+        if (DEBUG_IMPLEMENTATION) {
+          localException = new Exception("Warning: closeNativeImpl failed - " + Thread.currentThread().getName(), localThrowable2);
+          localException.printStackTrace();
+        }
+      }
+    }
+    windowHandleClose = 0L;
+    hdc = 0L;
+    hdc_old = 0L;
+  }
+  
+  protected final int getSupportedReconfigMaskImpl()
+  {
+    return 16253;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  protected boolean reconfigureWindowImpl(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5)
+  {
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("WindowsWindow reconfig.0: " + paramInt1 + "/" + paramInt2 + " " + paramInt3 + "x" + paramInt4 + ", " + 
+        getReconfigStateMaskString(paramInt5));
+    }
+    InsetsImmutable localInsetsImmutable = getInsets();
+    
+    if ((0 == (0x4 & paramInt5)) && (0 != (0xC00000 & paramInt5)))
+    {
+      int[] arrayOfInt = { paramInt1, paramInt2, paramInt3, paramInt4 };
+      if ((0 != (0x400 & paramInt5) ? 1 : 0) == (0 != (0x200 & paramInt5) ? 1 : 0)) {
+        resetMaximizedManual(arrayOfInt);
+      } else {
+        reconfigMaximizedManual(paramInt5, arrayOfInt, localInsetsImmutable);
+      }
+      paramInt1 = arrayOfInt[0];
+      paramInt2 = arrayOfInt[1];
+      paramInt3 = arrayOfInt[2];
+      paramInt4 = arrayOfInt[3];
+    }
+    
+    int i = 0 != (0x10000000 & paramInt5) ? 1 : 0;
+    int j = !getChosenCapabilities().isBackgroundOpaque() ? 1 : 0;
+    if ((i != 0) && (j != 0)) {
+      GDIUtil.DwmSetupTranslucency(getWindowHandle(), false);
+    }
+    reconfigureWindow0(getParentWindowHandle(), getWindowHandle(), paramInt1, paramInt2, paramInt3, paramInt4, paramInt5);
+    if ((i != 0) && (j != 0)) {
+      GDIUtil.DwmSetupTranslucency(getWindowHandle(), true);
+    }
+    
+    if (0 != (0x80000000 & paramInt5)) {
+      visibleChanged(false, 0 != (0x1 & paramInt5));
+    }
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("WindowsWindow reconfig.X: " + getX() + "/" + getY() + " " + getWidth() + "x" + getHeight() + ", " + getStateMaskString());
+    }
+    return true;
+  }
+  
+  protected void requestFocusImpl(boolean paramBoolean)
+  {
+    requestFocus0(getWindowHandle(), paramBoolean);
+  }
+  
+  protected void setTitleImpl(String paramString)
+  {
+    setTitle0(getWindowHandle(), paramString);
+  }
+  
+  protected void setPointerIconImpl(PointerIconImpl paramPointerIconImpl)
+  {
+    setPointerIcon0(getWindowHandle(), null != paramPointerIconImpl ? paramPointerIconImpl.validatedHandle() : 0L);
+  }
+  
+  protected boolean setPointerVisibleImpl(final boolean paramBoolean)
+  {
+    final boolean[] arrayOfBoolean = { false };
+    
+    runOnEDTIfAvail(true, new Runnable()
+    {
+      public void run() {
+        arrayOfBoolean[0] = WindowDriver.setPointerVisible0(getWindowHandle(), paramBoolean);
+      }
+    });
+    return arrayOfBoolean[0];
+  }
+  
+  protected boolean confinePointerImpl(final boolean paramBoolean)
+  {
+    final Boolean[] arrayOfBoolean = { Boolean.FALSE };
+    
+    runOnEDTIfAvail(true, new Runnable()
+    {
+      public void run() {
+        Point localPoint = convertToPixelUnits(getLocationOnScreenImpl(0, 0));
+        arrayOfBoolean[0] = Boolean.valueOf(WindowDriver.confinePointer0(getWindowHandle(), paramBoolean, localPoint
+          .getX(), localPoint.getY(), localPoint
+          .getX() + getSurfaceWidth(), localPoint.getY() + getSurfaceHeight()));
+      }
+    });
+    return arrayOfBoolean[0].booleanValue();
+  }
+  
+  protected void warpPointerImpl(final int paramInt1, final int paramInt2)
+  {
+    runOnEDTIfAvail(true, new Runnable()
+    {
+      public void run() {
+        Point localPoint = convertToPixelUnits(getLocationOnScreenImpl(paramInt1, paramInt2));
+        WindowDriver.warpPointer0(getWindowHandle(), localPoint.getX(), localPoint.getY());
+      }
+    });
+  }
+  
+
+  protected Point getLocationOnScreenImpl(int paramInt1, int paramInt2)
+  {
+    return GDIUtil.GetRelativeLocation(getWindowHandle(), 0L, paramInt1, paramInt2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void sendTouchScreenEvent(short paramShort, int paramInt1, int paramInt2, int[] paramArrayOfInt1, int[] paramArrayOfInt2, int[] paramArrayOfInt3, float[] paramArrayOfFloat, float paramFloat)
+  {
+    int i = paramArrayOfInt1.length;
+    MouseEvent.PointerType[] arrayOfPointerType = new MouseEvent.PointerType[i];
+    for (int j = i - 1; j >= 0; j--) arrayOfPointerType[j] = MouseEvent.PointerType.TouchScreen;
+    doPointerEvent(false, false, arrayOfPointerType, paramShort, paramInt1, paramInt2, false, paramArrayOfInt1, paramArrayOfInt2, paramArrayOfInt3, paramArrayOfFloat, paramFloat, new float[] { 0.0F, 0.0F, 0.0F }, 1.0F);
+  }
+  
+
+
+
+
+
+  private short repeatedKey = 0;
+  
+  private final boolean handlePressTypedAutoRepeat(boolean paramBoolean, int paramInt, short paramShort1, short paramShort2, char paramChar) {
+    if (setKeyPressed(paramShort1, true))
+    {
+      int i = repeatedKey == paramShort1 ? 1 : 0;
+      repeatedKey = paramShort1;
+      if (!paramBoolean)
+      {
+        paramInt |= 0x20000000;
+        if (i != 0)
+        {
+          super.sendKeyEvent((short)300, paramInt, paramShort1, paramShort2, paramChar);
+        }
+        super.sendKeyEvent((short)301, paramInt, paramShort1, paramShort2, paramChar);
+      }
+      return true;
+    }
+    return false;
+  }
+  
+  public final void sendKeyEvent(short paramShort1, int paramInt, short paramShort2, short paramShort3, char paramChar)
+  {
+    boolean bool = KeyEvent.isModifierKey(paramShort3);
+    
+
+
+
+
+    switch (paramShort1) {
+    case 301: 
+      if (isKeyCodeTracked(paramShort2)) {
+        if ((repeatedKey == paramShort2) && (!bool))
+        {
+          super.sendKeyEvent((short)300, paramInt | 0x20000000, paramShort2, paramShort3, paramChar);
+        }
+        setKeyPressed(paramShort2, false);
+        repeatedKey = 0;
+      }
+      super.sendKeyEvent((short)301, paramInt, paramShort2, paramShort3, paramChar);
+      break;
+    case 300: 
+      if (!handlePressTypedAutoRepeat(bool, paramInt, paramShort2, paramShort3, paramChar)) {
+        super.sendKeyEvent((short)300, paramInt, paramShort2, paramShort3, paramChar);
+      }
+      break;
+    }
+  }
+  
+  public final void enqueueKeyEvent(boolean paramBoolean, short paramShort1, int paramInt, short paramShort2, short paramShort3, char paramChar)
+  {
+    throw new InternalError("XXX: Adapt Java Code to Native Code Changes");
+  }
+  
+  protected static native long getNewtWndProc0();
+  
+  protected static native boolean initIDs0(long paramLong);
+  
+  private native long CreateWindow0(long paramLong1, String paramString1, String paramString2, int paramInt1, int paramInt2, long paramLong2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7);
+  
+  private native void InitWindow0(long paramLong, int paramInt);
+  
+  private native long MonitorFromWindow0(long paramLong);
+  
+  private native void reconfigureWindow0(long paramLong1, long paramLong2, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5);
+  
+  private static native void setTitle0(long paramLong, String paramString);
+  
+  private native void requestFocus0(long paramLong, boolean paramBoolean);
+  
+  private static native boolean setPointerVisible0(long paramLong, boolean paramBoolean);
+  
+  private static native boolean confinePointer0(long paramLong, boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3, int paramInt4);
+  
+  private static native void warpPointer0(long paramLong, int paramInt1, int paramInt2);
+  
+  private static native ByteBuffer newDirectByteBuffer(long paramLong1, long paramLong2);
+  
+  private static native void setPointerIcon0(long paramLong1, long paramLong2);
+  
+  static {}
+}

@@ -1,0 +1,460 @@
+package com.jogamp.common.util.cache;
+
+import com.jogamp.common.net.Uri;
+import com.jogamp.common.os.NativeLibrary;
+import com.jogamp.common.util.JarUtil;
+import com.jogamp.common.util.SecurityUtil;
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.security.cert.Certificate;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.jar.JarFile;
+import jogamp.common.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class TempJarCache
+{
+  private static final boolean DEBUG = Debug.debug("TempJarCache");
+  private static Map<String, String> nativeLibMap;
+  private static Map<Uri, LoadState> nativeLibJars;
+  private static Map<Uri, LoadState> classFileJars;
+  private static Map<Uri, LoadState> resourceFileJars;
+  private static TempFileCache tmpFileCache;
+  public TempJarCache() {}
+  
+  public static enum LoadState
+  {
+    LOOKED_UP,  LOADED;
+    
+    private LoadState() {}
+    public boolean compliesWith(LoadState paramLoadState) { return compareTo(paramLoadState) >= 0; }
+  }
+  
+  private static boolean testLoadState(LoadState paramLoadState1, LoadState paramLoadState2) {
+    if (null == paramLoadState1) {
+      return null == paramLoadState2;
+    }
+    return paramLoadState1.compliesWith(paramLoadState2);
+  }
+  
+
+
+
+
+
+
+
+  private static volatile boolean staticInitError = false;
+  private static volatile boolean isInit = false;
+  
+
+
+
+
+  public static boolean initSingleton()
+  {
+    if (!isInit) {
+      synchronized (TempJarCache.class) {
+        if (!isInit) {
+          staticInitError = !TempFileCache.initSingleton();
+          
+          if (!staticInitError) {
+            tmpFileCache = new TempFileCache();
+            staticInitError = !tmpFileCache.isValid();
+          }
+          
+          if (!staticInitError)
+          {
+            nativeLibMap = new HashMap();
+            nativeLibJars = new HashMap();
+            classFileJars = new HashMap();
+            resourceFileJars = new HashMap();
+          }
+          if (DEBUG) {
+            Object localObject1 = null != tmpFileCache ? tmpFileCache.getTempDir() : null;
+            String str = null != localObject1 ? localObject1.getAbsolutePath() : null;
+            System.err.println("TempJarCache.initSingleton(): ok " + (false == staticInitError) + ", " + str);
+          }
+          isInit = true;
+        }
+      }
+    }
+    return !staticInitError;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private static boolean isInitializedImpl()
+  {
+    if (!isInit) {
+      synchronized (TempJarCache.class) {
+        if (!isInit) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+  
+
+
+  public static boolean isInitialized()
+  {
+    return (isInitializedImpl()) && (!staticInitError);
+  }
+  
+  static void checkInitialized() {
+    if (!isInitializedImpl()) {
+      throw new RuntimeException("initSingleton() has to be called first.");
+    }
+    if (staticInitError) {
+      throw new RuntimeException("initSingleton() failed.");
+    }
+  }
+  
+  public static TempFileCache getTempFileCache() {
+    checkInitialized();
+    return tmpFileCache;
+  }
+  
+  public static synchronized boolean checkNativeLibs(Uri paramUri, LoadState paramLoadState) throws IOException {
+    
+    if (null == paramUri) {
+      throw new IllegalArgumentException("jarUri is null");
+    }
+    return testLoadState((LoadState)nativeLibJars.get(paramUri), paramLoadState);
+  }
+  
+  public static synchronized boolean checkClasses(Uri paramUri, LoadState paramLoadState) throws IOException {
+    
+    if (null == paramUri) {
+      throw new IllegalArgumentException("jarUri is null");
+    }
+    return testLoadState((LoadState)classFileJars.get(paramUri), paramLoadState);
+  }
+  
+  public static synchronized boolean checkResources(Uri paramUri, LoadState paramLoadState) throws IOException {
+    
+    if (null == paramUri) {
+      throw new IllegalArgumentException("jarUri is null");
+    }
+    return testLoadState((LoadState)resourceFileJars.get(paramUri), paramLoadState);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static final synchronized boolean addNativeLibs(Class<?> paramClass, Uri paramUri, String paramString)
+    throws IOException, SecurityException, IllegalArgumentException, URISyntaxException
+  {
+    checkInitialized();
+    LoadState localLoadState = (LoadState)nativeLibJars.get(paramUri);
+    if (!testLoadState(localLoadState, LoadState.LOOKED_UP)) {
+      nativeLibJars.put(paramUri, LoadState.LOOKED_UP);
+      JarFile localJarFile = JarUtil.getJarFile(paramUri);
+      if (DEBUG) {
+        System.err.println("TempJarCache: addNativeLibs: " + paramUri + ": nativeJar " + localJarFile.getName() + " (NEW)");
+      }
+      validateCertificates(paramClass, localJarFile);
+      int i = JarUtil.extract(tmpFileCache.getTempDir(), nativeLibMap, localJarFile, paramString, true, false, false);
+      nativeLibJars.put(paramUri, LoadState.LOADED);
+      return i > 0; }
+    if (testLoadState(localLoadState, LoadState.LOADED)) {
+      if (DEBUG) {
+        System.err.println("TempJarCache: addNativeLibs: " + paramUri + ": nativeJar " + paramUri + " (REUSE)");
+      }
+      return true;
+    }
+    throw new IOException("TempJarCache: addNativeLibs: " + paramUri + ", previous load attempt failed");
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static final synchronized void addClasses(Class<?> paramClass, Uri paramUri)
+    throws IOException, SecurityException, IllegalArgumentException, URISyntaxException
+  {
+    checkInitialized();
+    LoadState localLoadState = (LoadState)classFileJars.get(paramUri);
+    if (!testLoadState(localLoadState, LoadState.LOOKED_UP)) {
+      classFileJars.put(paramUri, LoadState.LOOKED_UP);
+      JarFile localJarFile = JarUtil.getJarFile(paramUri);
+      if (DEBUG) {
+        System.err.println("TempJarCache: addClasses: " + paramUri + ": nativeJar " + localJarFile.getName());
+      }
+      validateCertificates(paramClass, localJarFile);
+      JarUtil.extract(tmpFileCache.getTempDir(), null, localJarFile, null, false, true, false);
+      
+      classFileJars.put(paramUri, LoadState.LOADED);
+    } else if (!testLoadState(localLoadState, LoadState.LOADED)) {
+      throw new IOException("TempJarCache: addClasses: " + paramUri + ", previous load attempt failed");
+    }
+  }
+  
+
+
+
+
+
+  /**
+   * @deprecated
+   */
+  public static final synchronized void addResources(Class<?> paramClass, URI paramURI)
+    throws IOException, SecurityException, IllegalArgumentException, URISyntaxException
+  {
+    addResources(paramClass, Uri.valueOf(paramURI));
+  }
+  
+
+
+
+
+
+
+
+
+  public static final synchronized void addResources(Class<?> paramClass, Uri paramUri)
+    throws IOException, SecurityException, IllegalArgumentException, URISyntaxException
+  {
+    checkInitialized();
+    LoadState localLoadState = (LoadState)resourceFileJars.get(paramUri);
+    if (!testLoadState(localLoadState, LoadState.LOOKED_UP)) {
+      resourceFileJars.put(paramUri, LoadState.LOOKED_UP);
+      JarFile localJarFile = JarUtil.getJarFile(paramUri);
+      if (DEBUG) {
+        System.err.println("TempJarCache: addResources: " + paramUri + ": nativeJar " + localJarFile.getName());
+      }
+      validateCertificates(paramClass, localJarFile);
+      JarUtil.extract(tmpFileCache.getTempDir(), null, localJarFile, null, false, false, true);
+      
+      resourceFileJars.put(paramUri, LoadState.LOADED);
+    } else if (!testLoadState(localLoadState, LoadState.LOADED)) {
+      throw new IOException("TempJarCache: addResources: " + paramUri + ", previous load attempt failed");
+    }
+  }
+  
+
+
+
+
+
+
+  public static final synchronized void addAll(Class<?> paramClass, Uri paramUri)
+    throws IOException, SecurityException, IllegalArgumentException, URISyntaxException
+  {
+    
+    
+
+
+
+
+
+    if (null == paramUri) {
+      throw new IllegalArgumentException("jarUri is null");
+    }
+    LoadState localLoadState1 = (LoadState)nativeLibJars.get(paramUri);
+    LoadState localLoadState2 = (LoadState)classFileJars.get(paramUri);
+    LoadState localLoadState3 = (LoadState)resourceFileJars.get(paramUri);
+    if ((!testLoadState(localLoadState1, LoadState.LOOKED_UP)) || 
+      (!testLoadState(localLoadState2, LoadState.LOOKED_UP)) || 
+      (!testLoadState(localLoadState3, LoadState.LOOKED_UP)))
+    {
+      boolean bool1 = !testLoadState(localLoadState1, LoadState.LOADED);
+      boolean bool2 = !testLoadState(localLoadState2, LoadState.LOADED);
+      boolean bool3 = !testLoadState(localLoadState3, LoadState.LOOKED_UP);
+      
+
+      if (bool1) {
+        nativeLibJars.put(paramUri, LoadState.LOOKED_UP);
+      }
+      if (bool2) {
+        classFileJars.put(paramUri, LoadState.LOOKED_UP);
+      }
+      if (bool3) {
+        resourceFileJars.put(paramUri, LoadState.LOOKED_UP);
+      }
+      
+      JarFile localJarFile = JarUtil.getJarFile(paramUri);
+      if (DEBUG) {
+        System.err.println("TempJarCache: addAll: " + paramUri + ": nativeJar " + localJarFile.getName());
+      }
+      validateCertificates(paramClass, localJarFile);
+      JarUtil.extract(tmpFileCache.getTempDir(), nativeLibMap, localJarFile, null, bool1, bool2, bool3);
+      
+
+
+      if (bool1) {
+        nativeLibJars.put(paramUri, LoadState.LOADED);
+      }
+      if (bool2) {
+        classFileJars.put(paramUri, LoadState.LOADED);
+      }
+      if (bool3) {
+        resourceFileJars.put(paramUri, LoadState.LOADED);
+      }
+    } else if ((!testLoadState(localLoadState1, LoadState.LOADED)) || 
+      (!testLoadState(localLoadState2, LoadState.LOADED)) || 
+      (!testLoadState(localLoadState3, LoadState.LOADED))) {
+      throw new IOException("TempJarCache: addAll: " + paramUri + ", previous load attempt failed");
+    }
+  }
+  
+  public static final synchronized String findLibrary(String paramString) {
+    checkInitialized();
+    
+    String str = (String)nativeLibMap.get(paramString);
+    if (null == str)
+    {
+      if (null != NativeLibrary.isValidNativeLibraryName(paramString, false)) {
+        File localFile = new File(tmpFileCache.getTempDir(), paramString);
+        if (localFile.exists()) {
+          str = localFile.getAbsolutePath();
+        }
+      }
+    }
+    return str;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final synchronized String findResource(String paramString)
+  {
+    checkInitialized();
+    File localFile = new File(tmpFileCache.getTempDir(), paramString);
+    if (localFile.exists()) {
+      return localFile.getAbsolutePath();
+    }
+    return null;
+  }
+  
+  /**
+   * @deprecated
+   */
+  public static final synchronized URI getResource(String paramString) throws URISyntaxException
+  {
+    return getResourceUri(paramString).toURI();
+  }
+  
+  public static final synchronized Uri getResourceUri(String paramString) throws URISyntaxException
+  {
+    checkInitialized();
+    File localFile = new File(tmpFileCache.getTempDir(), paramString);
+    if (localFile.exists()) {
+      return Uri.valueOf(localFile);
+    }
+    return null;
+  }
+  
+  private static void validateCertificates(Class<?> paramClass, JarFile paramJarFile) throws IOException, SecurityException {
+    if (null == paramClass) {
+      throw new IllegalArgumentException("certClass is null");
+    }
+    Certificate[] arrayOfCertificate = SecurityUtil.getCerts(paramClass);
+    if (null != arrayOfCertificate)
+    {
+
+
+
+      JarUtil.validateCertificates(arrayOfCertificate, paramJarFile);
+      if (DEBUG) {
+        System.err.println("TempJarCache: validateCertificates: OK - Matching rootCerts in given class " + paramClass.getName() + ", nativeJar " + paramJarFile.getName());
+      }
+    } else if (DEBUG) {
+      System.err.println("TempJarCache: validateCertificates: OK - No rootCerts in given class " + paramClass.getName() + ", nativeJar " + paramJarFile.getName());
+    }
+  }
+}

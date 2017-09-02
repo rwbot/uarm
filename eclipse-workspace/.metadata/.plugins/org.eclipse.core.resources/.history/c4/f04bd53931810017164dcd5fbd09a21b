@@ -1,0 +1,58 @@
+package jogamp.common.os;
+
+
+
+
+
+
+public final class MacOSXDynamicLinkerImpl
+  extends UnixDynamicLinkerImpl
+{
+  private static final long RTLD_DEFAULT = -2L;
+  
+
+
+
+
+  private static final int RTLD_LAZY = 1;
+  
+
+
+
+
+  private static final int RTLD_LOCAL = 4;
+  
+
+
+
+
+  private static final int RTLD_GLOBAL = 8;
+  
+
+
+
+
+
+  public MacOSXDynamicLinkerImpl() {}
+  
+
+
+
+
+
+  protected final long openLibraryLocalImpl(String paramString)
+    throws SecurityException
+  {
+    return dlopen(paramString, 5);
+  }
+  
+  protected final long openLibraryGlobalImpl(String paramString) throws SecurityException
+  {
+    return dlopen(paramString, 9);
+  }
+  
+  protected final long lookupSymbolGlobalImpl(String paramString) throws SecurityException
+  {
+    return dlsym(-2L, paramString);
+  }
+}

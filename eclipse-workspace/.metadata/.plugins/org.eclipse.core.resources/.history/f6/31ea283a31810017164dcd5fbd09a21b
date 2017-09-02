@@ -1,0 +1,240 @@
+package jogamp.opengl.glu.tessellator;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class TessMono
+{
+  private static final int MARKED_FOR_DELETION = Integer.MAX_VALUE;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  TessMono() {}
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  static boolean __gl_meshTessellateMonoRegion(GLUface paramGLUface, boolean paramBoolean)
+  {
+    GLUhalfEdge localGLUhalfEdge1 = anEdge;
+    assert ((Lnext != localGLUhalfEdge1) && (Lnext.Lnext != localGLUhalfEdge1));
+    
+    while (Geom.VertLeq(Sym.Org, Org)) { localGLUhalfEdge1 = Onext.Sym;
+    }
+    while (Geom.VertLeq(Org, Sym.Org)) { localGLUhalfEdge1 = Lnext;
+    }
+    GLUhalfEdge localGLUhalfEdge2 = Onext.Sym;
+    
+    int i = 0;
+    GLUhalfEdge localGLUhalfEdge3;
+    while (Lnext != localGLUhalfEdge2) {
+      if ((paramBoolean) && (i == 0))
+      {
+
+
+
+
+
+
+        if (Geom.EdgeCos(Lnext.Org, Org, Lnext.Lnext.Org) <= -0.99999D) {
+          do
+          {
+            localGLUhalfEdge2 = Onext.Sym;
+            i = 1;
+            if (Lnext == localGLUhalfEdge2) break;
+          } while (Geom.EdgeCos(Lnext.Org, Org, Lnext.Lnext.Org) <= -0.99999D);
+        } else if (Geom.EdgeCos(Onext.Sym.Org, Org, Onext.Sym.Onext.Sym.Org) <= -0.99999D) {
+          do
+          {
+            localGLUhalfEdge1 = Lnext;
+            i = 1;
+          } while ((Lnext != localGLUhalfEdge2) && 
+            (Geom.EdgeCos(Onext.Sym.Org, Org, Onext.Sym.Onext.Sym.Org) <= -0.99999D));
+        }
+        
+        if (Lnext == localGLUhalfEdge2) {
+          break;
+        }
+      }
+      if (Geom.VertLeq(Sym.Org, Org))
+      {
+
+
+
+        while ((Lnext != localGLUhalfEdge1) && ((Geom.EdgeGoesLeft(Lnext)) || 
+          (Geom.EdgeSign(Org, Sym.Org, Lnext.Sym.Org) <= 0.0D))) {
+          localGLUhalfEdge3 = Mesh.__gl_meshConnect(Lnext, localGLUhalfEdge2);
+          i = 0;
+          if (localGLUhalfEdge3 == null) return false;
+          localGLUhalfEdge2 = Sym;
+        }
+        localGLUhalfEdge2 = Onext.Sym;
+      }
+      else {
+        while ((Lnext != localGLUhalfEdge1) && ((Geom.EdgeGoesRight(Onext.Sym)) || 
+          (Geom.EdgeSign(Sym.Org, Org, Onext.Sym.Org) >= 0.0D))) {
+          localGLUhalfEdge3 = Mesh.__gl_meshConnect(localGLUhalfEdge1, Onext.Sym);
+          i = 0;
+          if (localGLUhalfEdge3 == null) return false;
+          localGLUhalfEdge1 = Sym;
+        }
+        localGLUhalfEdge1 = Lnext;
+      }
+    }
+    
+
+
+
+    assert (Lnext != localGLUhalfEdge1);
+    while (Lnext.Lnext != localGLUhalfEdge1) {
+      localGLUhalfEdge3 = Mesh.__gl_meshConnect(Lnext, localGLUhalfEdge2);
+      if (localGLUhalfEdge3 == null) return false;
+      localGLUhalfEdge2 = Sym;
+    }
+    
+    return true;
+  }
+  
+
+
+
+  public static boolean __gl_meshTessellateInterior(GLUmesh paramGLUmesh, boolean paramBoolean)
+  {
+    GLUface localGLUface;
+    
+
+
+    for (Object localObject = fHead.next; localObject != fHead; localObject = localGLUface)
+    {
+      localGLUface = next;
+      if ((inside) && 
+        (!__gl_meshTessellateMonoRegion((GLUface)localObject, paramBoolean))) { return false;
+      }
+    }
+    
+    return true;
+  }
+  
+
+
+
+
+  public static void __gl_meshDiscardExterior(GLUmesh paramGLUmesh)
+  {
+    GLUface localGLUface;
+    
+
+
+    for (Object localObject = fHead.next; localObject != fHead; localObject = localGLUface)
+    {
+      localGLUface = next;
+      if (!inside) {
+        Mesh.__gl_meshZapFace((GLUface)localObject);
+      }
+    }
+  }
+  
+
+
+
+
+
+  public static boolean __gl_meshSetWindingNumber(GLUmesh paramGLUmesh, int paramInt, boolean paramBoolean)
+  {
+    GLUhalfEdge localGLUhalfEdge;
+    
+
+
+
+
+    for (Object localObject = eHead.next; localObject != eHead; localObject = localGLUhalfEdge) {
+      localGLUhalfEdge = next;
+      if (Sym.Lface.inside != Lface.inside)
+      {
+
+        winding = (Lface.inside ? paramInt : -paramInt);
+
+
+      }
+      else if (!paramBoolean) {
+        winding = 0;
+      }
+      else if (!Mesh.__gl_meshDelete((GLUhalfEdge)localObject)) { return false;
+      }
+    }
+    
+    return true;
+  }
+}

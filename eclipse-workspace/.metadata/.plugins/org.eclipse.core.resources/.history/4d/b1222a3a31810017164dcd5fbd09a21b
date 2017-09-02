@@ -1,0 +1,83 @@
+package jogamp.opengl.util;
+
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2ES1;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.fixedfunc.GLPointerFunc;
+import com.jogamp.opengl.util.GLArrayDataWrapper;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLFixedArrayHandlerFlat
+  implements GLArrayHandlerFlat
+{
+  private final GLArrayDataWrapper ad;
+  
+  public GLFixedArrayHandlerFlat(GLArrayDataWrapper paramGLArrayDataWrapper)
+  {
+    ad = paramGLArrayDataWrapper;
+  }
+  
+  public GLArrayDataWrapper getData()
+  {
+    return ad;
+  }
+  
+  public final void syncData(GL paramGL, Object paramObject)
+  {
+    GL2ES1 localGL2ES1 = paramGL.getGL2ES1();
+    switch (ad.getIndex()) {
+    case 32884: 
+      localGL2ES1.glVertexPointer(ad);
+      break;
+    case 32885: 
+      localGL2ES1.glNormalPointer(ad);
+      break;
+    case 32886: 
+      localGL2ES1.glColorPointer(ad);
+      break;
+    case 32888: 
+      localGL2ES1.glTexCoordPointer(ad);
+      break;
+    case 32887: default: 
+      throw new GLException("invalid glArrayIndex: " + ad.getIndex() + ":\n\t" + ad);
+    }
+  }
+  
+  public final void enableState(GL paramGL, boolean paramBoolean, Object paramObject)
+  {
+    GL2ES1 localGL2ES1 = paramGL.getGL2ES1();
+    if (paramBoolean) {
+      localGL2ES1.glEnableClientState(ad.getIndex());
+    } else {
+      localGL2ES1.glDisableClientState(ad.getIndex());
+    }
+  }
+}

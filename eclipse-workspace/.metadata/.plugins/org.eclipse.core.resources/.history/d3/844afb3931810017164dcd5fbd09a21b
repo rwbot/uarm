@@ -1,0 +1,164 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+import java.util.Arrays;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class CmapTable
+  implements Table
+{
+  private final DirectoryEntry _de;
+  private final int _version;
+  private final int _numTables;
+  private final CmapIndexEntry[] _entries;
+  
+  protected CmapTable(DirectoryEntry paramDirectoryEntry, DataInput paramDataInput)
+    throws IOException
+  {
+    _de = ((DirectoryEntry)paramDirectoryEntry.clone());
+    _version = paramDataInput.readUnsignedShort();
+    _numTables = paramDataInput.readUnsignedShort();
+    long l = 4L;
+    _entries = new CmapIndexEntry[_numTables];
+    
+
+    for (int i = 0; i < _numTables; i++) {
+      _entries[i] = new CmapIndexEntry(paramDataInput);
+      l += 8L;
+    }
+    
+
+    Arrays.sort(_entries);
+    
+
+    i = 0;
+    CmapFormat localCmapFormat = null;
+    for (int j = 0; j < _numTables; j++)
+      if (_entries[j].getOffset() == i)
+      {
+
+        _entries[j].setFormat(localCmapFormat);
+      } else {
+        if (_entries[j].getOffset() > l) {
+          paramDataInput.skipBytes(_entries[j].getOffset() - (int)l);
+        } else if (_entries[j].getOffset() != l)
+        {
+
+          throw new IOException();
+        }
+        int k = paramDataInput.readUnsignedShort();
+        localCmapFormat = CmapFormat.create(k, paramDataInput);
+        i = _entries[j].getOffset();
+        _entries[j].setFormat(localCmapFormat);
+        l += localCmapFormat.getLength();
+      }
+  }
+  
+  public int getVersion() {
+    return _version;
+  }
+  
+  public int getNumTables() {
+    return _numTables;
+  }
+  
+  public CmapIndexEntry getCmapIndexEntry(int paramInt) {
+    return _entries[paramInt];
+  }
+  
+
+  public CmapFormat getCmapFormat(short paramShort1, short paramShort2)
+  {
+    for (int i = 0; i < _numTables; i++) {
+      if ((_entries[i].getPlatformId() == paramShort1) && 
+        (_entries[i].getEncodingId() == paramShort2)) {
+        return _entries[i].getFormat();
+      }
+    }
+    return null;
+  }
+  
+  public int getType()
+  {
+    return 1668112752;
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder().append("cmap\n");
+    
+
+    for (int i = 0; i < _numTables; i++) {
+      localStringBuilder.append("\t").append(_entries[i].toString()).append("\n");
+    }
+    
+
+
+
+
+    return localStringBuilder.toString();
+  }
+  
+
+
+
+
+
+
+  public DirectoryEntry getDirectoryEntry()
+  {
+    return _de;
+  }
+}

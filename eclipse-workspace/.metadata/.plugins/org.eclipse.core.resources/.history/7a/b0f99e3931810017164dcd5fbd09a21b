@@ -1,0 +1,1668 @@
+package processing.opengl;
+
+import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.NoSuchElementException;
+import processing.core.PApplet;
+import processing.core.PConstants;
+import processing.core.PGraphics;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Texture
+  implements PConstants
+{
+  protected static final int TEX2D = 0;
+  protected static final int TEXRECT = 1;
+  protected static final int POINT = 2;
+  protected static final int LINEAR = 3;
+  protected static final int BILINEAR = 4;
+  protected static final int TRILINEAR = 5;
+  protected static final int MAX_UPDATES = 10;
+  protected static final int MIN_MEMORY = 5;
+  public int width;
+  public int height;
+  public int glName;
+  public int glTarget;
+  public int glFormat;
+  public int glMinFilter;
+  public int glMagFilter;
+  public int glWrapS;
+  public int glWrapT;
+  public int glWidth;
+  public int glHeight;
+  private PGraphicsOpenGL.GLResourceTexture glres;
+  protected PGraphicsOpenGL pg;
+  protected PGL pgl;
+  protected int context;
+  protected boolean colorBuffer;
+  protected boolean usingMipmaps;
+  protected boolean usingRepeat;
+  protected float maxTexcoordU;
+  protected float maxTexcoordV;
+  protected boolean bound;
+  protected boolean invertedX;
+  protected boolean invertedY;
+  protected int[] rgbaPixels = null;
+  protected IntBuffer pixelBuffer = null;
+  
+  protected int[] edgePixels = null;
+  protected IntBuffer edgeBuffer = null;
+  
+  protected FrameBuffer tempFbo = null;
+  protected int pixBufUpdateCount = 0;
+  protected int rgbaPixUpdateCount = 0;
+  protected boolean modified;
+  protected int mx1;
+  protected int my1;
+  protected int mx2;
+  protected int my2;
+  protected Object bufferSource;
+  protected LinkedList<BufferData> bufferCache = null;
+  protected LinkedList<BufferData> usedBuffers = null;
+  
+
+  protected Method disposeBufferMethod;
+  
+  public static final int MAX_BUFFER_CACHE_SIZE = 3;
+  
+
+  public Texture(PGraphicsOpenGL pg)
+  {
+    this.pg = pg;
+    pgl = pgl;
+    context = pgl.createEmptyContext();
+    
+    colorBuffer = false;
+    
+    glName = 0;
+  }
+  
+
+
+
+
+
+
+  public Texture(PGraphicsOpenGL pg, int width, int height)
+  {
+    this(pg, width, height, new Parameters());
+  }
+  
+
+
+
+
+
+
+
+  public Texture(PGraphicsOpenGL pg, int width, int height, Object params)
+  {
+    this.pg = pg;
+    pgl = pgl;
+    context = pgl.createEmptyContext();
+    
+    colorBuffer = false;
+    
+    glName = 0;
+    
+    init(width, height, (Parameters)params);
+  }
+  
+
+
+
+
+  public void init(int width, int height)
+  {
+    Parameters params;
+    
+
+
+
+    Parameters params;
+    
+
+
+    if (glName > 0)
+    {
+
+      params = getParameters();
+    }
+    else {
+      params = new Parameters();
+    }
+    init(width, height, params);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public void init(int width, int height, Parameters params)
+  {
+    setParameters(params);
+    setSize(width, height);
+    allocate();
+  }
+  
+
+
+
+
+
+
+
+  public void init(int width, int height, int glName, int glTarget, int glFormat, int glWidth, int glHeight, int glMinFilter, int glMagFilter, int glWrapS, int glWrapT)
+  {
+    this.width = width;
+    this.height = height;
+    
+    this.glName = glName;
+    this.glTarget = glTarget;
+    this.glFormat = glFormat;
+    this.glWidth = glWidth;
+    this.glHeight = glHeight;
+    this.glMinFilter = glMinFilter;
+    this.glMagFilter = glMagFilter;
+    this.glWrapS = glWrapS;
+    this.glWrapT = glWrapT;
+    
+    maxTexcoordU = (width / glWidth);
+    maxTexcoordV = (height / glHeight);
+    
+    usingMipmaps = ((glMinFilter == PGL.LINEAR_MIPMAP_NEAREST) || 
+      (glMinFilter == PGL.LINEAR_MIPMAP_LINEAR));
+    
+    usingRepeat = ((glWrapS == PGL.REPEAT) || (glWrapT == PGL.REPEAT));
+  }
+  
+
+  public void resize(int wide, int high)
+  {
+    dispose();
+    
+
+    Texture tex = new Texture(pg, wide, high, getParameters());
+    
+
+    tex.set(this);
+    
+
+    copyObject(tex);
+    
+
+
+    tempFbo = null;
+  }
+  
+
+
+
+
+  public boolean available()
+  {
+    return glName > 0;
+  }
+  
+
+
+
+
+
+  public void set(Texture tex)
+  {
+    copyTexture(tex, 0, 0, width, height, true);
+  }
+  
+  public void set(Texture tex, int x, int y, int w, int h)
+  {
+    copyTexture(tex, x, y, w, h, true);
+  }
+  
+
+  public void set(int texTarget, int texName, int texWidth, int texHeight, int w, int h)
+  {
+    copyTexture(texTarget, texName, texWidth, texHeight, 0, 0, w, h, true);
+  }
+  
+
+  public void set(int texTarget, int texName, int texWidth, int texHeight, int target, int tex, int x, int y, int w, int h)
+  {
+    copyTexture(texTarget, texName, texWidth, texHeight, x, y, w, h, true);
+  }
+  
+  public void set(int[] pixels)
+  {
+    set(pixels, 0, 0, width, height, 2);
+  }
+  
+  public void set(int[] pixels, int format)
+  {
+    set(pixels, 0, 0, width, height, format);
+  }
+  
+  public void set(int[] pixels, int x, int y, int w, int h)
+  {
+    set(pixels, x, y, w, h, 2);
+  }
+  
+  public void set(int[] pixels, int x, int y, int w, int h, int format)
+  {
+    if (pixels == null) {
+      PGraphics.showWarning("The pixels array is null.");
+      return;
+    }
+    if (pixels.length < w * h) {
+      PGraphics.showWarning(
+      
+        "The pixel array has a length of " + pixels.length + ", but it should be at least " + w * h);
+      return;
+    }
+    
+    if ((pixels.length == 0) || (w == 0) || (h == 0)) {
+      return;
+    }
+    
+    boolean enabledTex = false;
+    if (!pgl.texturingIsEnabled(glTarget)) {
+      pgl.enableTexturing(glTarget);
+      enabledTex = true;
+    }
+    pgl.bindTexture(glTarget, glName);
+    
+    loadPixels(w * h);
+    convertToRGBA(pixels, format, w, h);
+    updatePixelBuffer(rgbaPixels);
+    pgl.texSubImage2D(glTarget, 0, x, y, w, h, PGL.RGBA, PGL.UNSIGNED_BYTE, 
+      pixelBuffer);
+    fillEdges(x, y, w, h);
+    
+    if (usingMipmaps) {
+      if (PGraphicsOpenGL.autoMipmapGenSupported) {
+        pgl.generateMipmap(glTarget);
+      } else {
+        manualMipmap();
+      }
+    }
+    
+    pgl.bindTexture(glTarget, 0);
+    if (enabledTex) {
+      pgl.disableTexturing(glTarget);
+    }
+    
+    releasePixelBuffer();
+    releaseRGBAPixels();
+    
+    updateTexels(x, y, w, h);
+  }
+  
+
+
+
+
+
+  public void setNative(int[] pixels)
+  {
+    setNative(pixels, 0, 0, width, height);
+  }
+  
+  public void setNative(int[] pixels, int x, int y, int w, int h)
+  {
+    updatePixelBuffer(pixels);
+    setNative(pixelBuffer, x, y, w, h);
+    releasePixelBuffer();
+  }
+  
+  public void setNative(IntBuffer pixBuf, int x, int y, int w, int h)
+  {
+    if (pixBuf == null) {
+      pixBuf = null;
+      PGraphics.showWarning("The pixel buffer is null.");
+      return;
+    }
+    if (pixBuf.capacity() < w * h) {
+      PGraphics.showWarning(
+      
+        "The pixel bufer has a length of " + pixBuf.capacity() + ", but it should be at least " + w * h);
+      return;
+    }
+    
+    if (pixBuf.capacity() == 0)
+    {
+      return;
+    }
+    
+    boolean enabledTex = false;
+    if (!pgl.texturingIsEnabled(glTarget)) {
+      pgl.enableTexturing(glTarget);
+      enabledTex = true;
+    }
+    pgl.bindTexture(glTarget, glName);
+    
+    pgl.texSubImage2D(glTarget, 0, x, y, w, h, PGL.RGBA, PGL.UNSIGNED_BYTE, 
+      pixBuf);
+    fillEdges(x, y, w, h);
+    
+    if (usingMipmaps) {
+      if (PGraphicsOpenGL.autoMipmapGenSupported) {
+        pgl.generateMipmap(glTarget);
+      } else {
+        manualMipmap();
+      }
+    }
+    pgl.bindTexture(glTarget, 0);
+    if (enabledTex) {
+      pgl.disableTexturing(glTarget);
+    }
+    
+    updateTexels(x, y, w, h);
+  }
+  
+
+
+
+
+
+
+
+
+  public void get(int[] pixels)
+  {
+    if (pixels == null) {
+      throw new RuntimeException("Trying to copy texture to null pixels array");
+    }
+    if (pixels.length != width * height) {
+      throw new RuntimeException("Trying to copy texture to pixels array of wrong size");
+    }
+    
+
+    if (tempFbo == null) {
+      tempFbo = new FrameBuffer(pg, glWidth, glHeight);
+    }
+    
+
+
+
+    tempFbo.setColorBuffer(this);
+    pg.pushFramebuffer();
+    pg.setFramebuffer(tempFbo);
+    tempFbo.readPixels();
+    pg.popFramebuffer();
+    
+    tempFbo.getPixels(pixels);
+    convertToARGB(pixels);
+    
+    if (invertedX) flipArrayOnX(pixels, 1);
+    if (invertedY) { flipArrayOnY(pixels, 1);
+    }
+  }
+  
+
+
+
+
+
+  public void put(Texture tex)
+  {
+    copyTexture(tex, 0, 0, width, height, false);
+  }
+  
+  public void put(Texture tex, int x, int y, int w, int h)
+  {
+    copyTexture(tex, x, y, w, h, false);
+  }
+  
+
+  public void put(int texTarget, int texName, int texWidth, int texHeight, int w, int h)
+  {
+    copyTexture(texTarget, texName, texWidth, texHeight, 0, 0, w, h, false);
+  }
+  
+
+  public void put(int texTarget, int texName, int texWidth, int texHeight, int target, int tex, int x, int y, int w, int h)
+  {
+    copyTexture(texTarget, texName, texWidth, texHeight, x, y, w, h, false);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public boolean usingMipmaps()
+  {
+    return usingMipmaps;
+  }
+  
+  public void usingMipmaps(boolean mipmaps, int sampling)
+  {
+    int glMagFilter0 = glMagFilter;
+    int glMinFilter0 = glMinFilter;
+    if (mipmaps) {
+      if (sampling == 2) {
+        glMagFilter = PGL.NEAREST;
+        glMinFilter = PGL.NEAREST;
+        usingMipmaps = false;
+      } else if (sampling == 3) {
+        glMagFilter = PGL.NEAREST;
+        glMinFilter = 
+          (PGL.MIPMAPS_ENABLED ? PGL.LINEAR_MIPMAP_NEAREST : PGL.LINEAR);
+        usingMipmaps = true;
+      } else if (sampling == 4) {
+        glMagFilter = PGL.LINEAR;
+        glMinFilter = 
+          (PGL.MIPMAPS_ENABLED ? PGL.LINEAR_MIPMAP_NEAREST : PGL.LINEAR);
+        usingMipmaps = true;
+      } else if (sampling == 5) {
+        glMagFilter = PGL.LINEAR;
+        glMinFilter = 
+          (PGL.MIPMAPS_ENABLED ? PGL.LINEAR_MIPMAP_LINEAR : PGL.LINEAR);
+        usingMipmaps = true;
+      } else {
+        throw new RuntimeException("Unknown texture filtering mode");
+      }
+    } else {
+      usingMipmaps = false;
+      if (sampling == 2) {
+        glMagFilter = PGL.NEAREST;
+        glMinFilter = PGL.NEAREST;
+      } else if (sampling == 3) {
+        glMagFilter = PGL.NEAREST;
+        glMinFilter = PGL.LINEAR;
+      } else if ((sampling == 4) || (sampling == 5)) {
+        glMagFilter = PGL.LINEAR;
+        glMinFilter = PGL.LINEAR;
+      } else {
+        throw new RuntimeException("Unknown texture filtering mode");
+      }
+    }
+    
+    if ((glMagFilter0 != glMagFilter) || (glMinFilter0 != glMinFilter)) {
+      bind();
+      pgl.texParameteri(glTarget, PGL.TEXTURE_MIN_FILTER, glMinFilter);
+      pgl.texParameteri(glTarget, PGL.TEXTURE_MAG_FILTER, glMagFilter);
+      if (usingMipmaps) {
+        if (PGraphicsOpenGL.autoMipmapGenSupported) {
+          pgl.generateMipmap(glTarget);
+        } else {
+          manualMipmap();
+        }
+      }
+      unbind();
+    }
+  }
+  
+
+
+
+
+
+  public boolean usingRepeat()
+  {
+    return usingRepeat;
+  }
+  
+  public void usingRepeat(boolean repeat)
+  {
+    if (repeat) {
+      glWrapS = PGL.REPEAT;
+      glWrapT = PGL.REPEAT;
+      usingRepeat = true;
+    } else {
+      glWrapS = PGL.CLAMP_TO_EDGE;
+      glWrapT = PGL.CLAMP_TO_EDGE;
+      usingRepeat = false;
+    }
+    
+    bind();
+    pgl.texParameteri(glTarget, PGL.TEXTURE_WRAP_S, glWrapS);
+    pgl.texParameteri(glTarget, PGL.TEXTURE_WRAP_T, glWrapT);
+    unbind();
+  }
+  
+
+
+
+
+
+  public float maxTexcoordU()
+  {
+    return maxTexcoordU;
+  }
+  
+
+
+
+
+  public float maxTexcoordV()
+  {
+    return maxTexcoordV;
+  }
+  
+
+
+
+
+  public boolean invertedX()
+  {
+    return invertedX;
+  }
+  
+
+
+
+
+  public void invertedX(boolean v)
+  {
+    invertedX = v;
+  }
+  
+
+
+
+
+  public boolean invertedY()
+  {
+    return invertedY;
+  }
+  
+
+
+
+
+  public void invertedY(boolean v)
+  {
+    invertedY = v;
+  }
+  
+  public int currentSampling()
+  {
+    if ((glMagFilter == PGL.NEAREST) && (glMinFilter == PGL.NEAREST))
+      return 2;
+    if (glMagFilter == PGL.NEAREST)
+      if (glMinFilter == (PGL.MIPMAPS_ENABLED ? PGL.LINEAR_MIPMAP_NEAREST : PGL.LINEAR))
+        return 3;
+    if (glMagFilter == PGL.LINEAR)
+      if (glMinFilter == (PGL.MIPMAPS_ENABLED ? PGL.LINEAR_MIPMAP_NEAREST : PGL.LINEAR))
+        return 4;
+    if ((glMagFilter == PGL.LINEAR) && 
+      (glMinFilter == PGL.LINEAR_MIPMAP_LINEAR)) {
+      return 5;
+    }
+    return -1;
+  }
+  
+
+
+
+
+
+
+
+
+  public void bind()
+  {
+    if (!pgl.texturingIsEnabled(glTarget)) {
+      pgl.enableTexturing(glTarget);
+    }
+    pgl.bindTexture(glTarget, glName);
+    bound = true;
+  }
+  
+  public void unbind()
+  {
+    if (pgl.textureIsBound(glTarget, glName))
+    {
+
+      if (!pgl.texturingIsEnabled(glTarget)) {
+        pgl.enableTexturing(glTarget);
+        pgl.bindTexture(glTarget, 0);
+        pgl.disableTexturing(glTarget);
+      } else {
+        pgl.bindTexture(glTarget, 0);
+      }
+    }
+    bound = false;
+  }
+  
+
+
+  public boolean bound()
+  {
+    return bound;
+  }
+  
+
+
+
+
+
+  public boolean isModified()
+  {
+    return modified;
+  }
+  
+  public void setModified()
+  {
+    modified = true;
+  }
+  
+  public void setModified(boolean m)
+  {
+    modified = m;
+  }
+  
+  public int getModifiedX1()
+  {
+    return mx1;
+  }
+  
+  public int getModifiedX2()
+  {
+    return mx2;
+  }
+  
+  public int getModifiedY1()
+  {
+    return my1;
+  }
+  
+  public int getModifiedY2()
+  {
+    return my2;
+  }
+  
+  public void updateTexels()
+  {
+    updateTexelsImpl(0, 0, width, height);
+  }
+  
+  public void updateTexels(int x, int y, int w, int h)
+  {
+    updateTexelsImpl(x, y, w, h);
+  }
+  
+  protected void updateTexelsImpl(int x, int y, int w, int h)
+  {
+    int x2 = x + w;
+    int y2 = y + h;
+    
+    if (!modified) {
+      mx1 = PApplet.max(0, x);
+      mx2 = PApplet.min(width - 1, x2);
+      my1 = PApplet.max(0, y);
+      my2 = PApplet.min(height - 1, y2);
+      modified = true;
+    }
+    else {
+      if (x < mx1) mx1 = PApplet.max(0, x);
+      if (x > mx2) mx2 = PApplet.min(width - 1, x);
+      if (y < my1) my1 = PApplet.max(0, y);
+      if (y > my2) { my2 = y;
+      }
+      if (x2 < mx1) mx1 = PApplet.max(0, x2);
+      if (x2 > mx2) mx2 = PApplet.min(width - 1, x2);
+      if (y2 < my1) my1 = PApplet.max(0, y2);
+      if (y2 > my2) my2 = PApplet.min(height - 1, y2);
+    }
+  }
+  
+  protected void loadPixels(int len)
+  {
+    if ((rgbaPixels == null) || (rgbaPixels.length < len)) {
+      rgbaPixels = new int[len];
+    }
+  }
+  
+  protected void updatePixelBuffer(int[] pixels)
+  {
+    pixelBuffer = PGL.updateIntBuffer(pixelBuffer, pixels, true);
+    pixBufUpdateCount += 1;
+  }
+  
+
+
+
+
+
+  protected void manualMipmap() {}
+  
+
+
+
+
+  public void setBufferSource(Object source)
+  {
+    bufferSource = source;
+    getSourceMethods();
+  }
+  
+
+  public void copyBufferFromSource(Object natRef, ByteBuffer byteBuf, int w, int h)
+  {
+    if (bufferCache == null) {
+      bufferCache = new LinkedList();
+    }
+    
+    if (bufferCache.size() + 1 <= 3) {
+      bufferCache.add(new BufferData(natRef, byteBuf.asIntBuffer(), w, h));
+    }
+    else {
+      try
+      {
+        usedBuffers.add(new BufferData(natRef, byteBuf.asIntBuffer(), w, h));
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }
+  }
+  
+  public void disposeSourceBuffer()
+  {
+    if (usedBuffers == null) { return;
+    }
+    while (usedBuffers.size() > 0) {
+      BufferData data = null;
+      try {
+        data = (BufferData)usedBuffers.remove(0);
+      } catch (NoSuchElementException localNoSuchElementException) {
+        PGraphics.showWarning("Cannot remove used buffer");
+      }
+      if (data != null) {
+        data.dispose();
+      }
+    }
+  }
+  
+
+
+
+  public void getBufferPixels(int[] pixels)
+  {
+    BufferData data = null;
+    if ((usedBuffers != null) && (usedBuffers.size() > 0)) {
+      data = (BufferData)usedBuffers.getLast();
+    } else if ((bufferCache != null) && (bufferCache.size() > 0)) {
+      data = (BufferData)bufferCache.getLast();
+    }
+    if (data != null) {
+      if ((w != width) || (h != height)) {
+        init(w, h);
+      }
+      
+      rgbBuf.rewind();
+      rgbBuf.get(pixels);
+      convertToARGB(pixels);
+      
+
+
+
+      if (usedBuffers == null) {
+        usedBuffers = new LinkedList();
+      }
+      while (bufferCache.size() > 0) {
+        data = (BufferData)bufferCache.remove(0);
+        usedBuffers.add(data);
+      }
+    }
+  }
+  
+  public boolean hasBufferSource()
+  {
+    return bufferSource != null;
+  }
+  
+  public boolean hasBuffers()
+  {
+    return (bufferSource != null) && (bufferCache != null) && (
+      bufferCache.size() > 0);
+  }
+  
+  protected boolean bufferUpdate()
+  {
+    BufferData data = null;
+    try {
+      data = (BufferData)bufferCache.remove(0);
+    } catch (NoSuchElementException localNoSuchElementException) {
+      PGraphics.showWarning("Don't have pixel data to copy to texture");
+    }
+    
+    if (data != null) {
+      if ((w != width) || (h != height)) {
+        init(w, h);
+      }
+      rgbBuf.rewind();
+      setNative(rgbBuf, 0, 0, width, height);
+      
+
+
+      if (usedBuffers == null) {
+        usedBuffers = new LinkedList();
+      }
+      usedBuffers.add(data);
+      
+      return true;
+    }
+    return false;
+  }
+  
+  protected void getSourceMethods()
+  {
+    try
+    {
+      disposeBufferMethod = bufferSource.getClass()
+        .getMethod("disposeBuffer", new Class[] { Object.class });
+    } catch (Exception localException) {
+      throw new RuntimeException("Provided source object doesn't have a disposeBuffer method.");
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  protected void flipArrayOnX(int[] intArray, int mult)
+  {
+    int index = 0;
+    int xindex = mult * (width - 1);
+    for (int x = 0; x < width / 2; x++) {
+      for (int y = 0; y < height; y++) {
+        int i = index + mult * y * width;
+        int j = xindex + mult * y * width;
+        
+        for (int c = 0; c < mult; c++) {
+          int temp = intArray[i];
+          intArray[i] = intArray[j];
+          intArray[j] = temp;
+          
+          i++;
+          j++;
+        }
+      }
+      
+      index += mult;
+      xindex -= mult;
+    }
+  }
+  
+
+
+
+
+
+  protected void flipArrayOnY(int[] intArray, int mult)
+  {
+    int index = 0;
+    int yindex = mult * (height - 1) * width;
+    for (int y = 0; y < height / 2; y++) {
+      for (int x = 0; x < mult * width; x++) {
+        int temp = intArray[index];
+        intArray[index] = intArray[yindex];
+        intArray[yindex] = temp;
+        
+        index++;
+        yindex++;
+      }
+      yindex -= mult * width * 2;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+  protected void convertToRGBA(int[] pixels, int format, int w, int h)
+  {
+    if (PGL.BIG_ENDIAN) {
+      switch (format)
+      {
+
+      case 4: 
+        for (int i = 0; i < pixels.length; i++) {
+          rgbaPixels[i] = (0xFF00 | pixels[i]);
+        }
+        break;
+      
+      case 1: 
+        for (int i = 0; i < pixels.length; i++) {
+          int pixel = pixels[i];
+          rgbaPixels[i] = (pixel << 8 | 0xFF);
+        }
+        break;
+      
+
+      case 2: 
+        for (int i = 0; i < pixels.length; i++) {
+          int pixel = pixels[i];
+          rgbaPixels[i] = (pixel << 8 | pixel >> 24 & 0xFF);
+        }
+      
+
+
+
+
+      }
+      
+    } else {
+      switch (format)
+      {
+      case 4: 
+        for (int i = 0; i < pixels.length; i++) {
+          rgbaPixels[i] = (pixels[i] << 24 | 0xFFFFFF);
+        }
+        break;
+      
+
+      case 1: 
+        for (int i = 0; i < pixels.length; i++) {
+          int pixel = pixels[i];
+          rgbaPixels[i] = 
+          
+            (0xFF000000 | (pixel & 0xFF) << 16 | (pixel & 0xFF0000) >> 16 | pixel & 0xFF00);
+        }
+        break;
+      
+
+      case 2: 
+        for (int i = 0; i < pixels.length; i++) {
+          int pixel = pixels[i];
+          rgbaPixels[i] = 
+            ((pixel & 0xFF) << 16 | (pixel & 0xFF0000) >> 16 | pixel & 0xFF00FF00);
+        }
+      }
+      
+    }
+    rgbaPixUpdateCount = (rgbaPixUpdateCount + 1);
+  }
+  
+
+
+
+
+
+  protected void convertToARGB(int[] pixels)
+  {
+    int t = 0;
+    int p = 0;
+    if (PGL.BIG_ENDIAN)
+    {
+
+      for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+          int pixel = pixels[(p++)];
+          pixels[(t++)] = (pixel >>> 8 | pixel << 24 & 0xFF000000);
+        }
+        
+      }
+      
+    } else {
+      for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+          int pixel = pixels[(p++)];
+          pixels[(t++)] = 
+            ((pixel & 0xFF) << 16 | (pixel & 0xFF0000) >> 16 | pixel & 0xFF00FF00);
+        }
+      }
+    }
+  }
+  
+
+
+
+
+
+  protected void setSize(int w, int h)
+  {
+    width = w;
+    height = h;
+    
+    if (PGraphicsOpenGL.npotTexSupported) {
+      glWidth = w;
+      glHeight = h;
+    } else {
+      glWidth = PGL.nextPowerOfTwo(w);
+      glHeight = PGL.nextPowerOfTwo(h);
+    }
+    
+    if ((glWidth > PGraphicsOpenGL.maxTextureSize) || 
+      (glHeight > PGraphicsOpenGL.maxTextureSize)) {
+      glWidth = (this.glHeight = 0);
+      throw new RuntimeException("Image width and height cannot be larger than " + 
+      
+        PGraphicsOpenGL.maxTextureSize + 
+        " with this graphics card.");
+    }
+    
+
+
+
+
+
+    maxTexcoordU = (width / glWidth);
+    maxTexcoordV = (height / glHeight);
+  }
+  
+
+
+
+  protected void allocate()
+  {
+    dispose();
+    
+    boolean enabledTex = false;
+    if (!pgl.texturingIsEnabled(glTarget)) {
+      pgl.enableTexturing(glTarget);
+      enabledTex = true;
+    }
+    
+    context = pgl.getCurrentContext();
+    glres = new PGraphicsOpenGL.GLResourceTexture(this);
+    
+    pgl.bindTexture(glTarget, glName);
+    pgl.texParameteri(glTarget, PGL.TEXTURE_MIN_FILTER, glMinFilter);
+    pgl.texParameteri(glTarget, PGL.TEXTURE_MAG_FILTER, glMagFilter);
+    pgl.texParameteri(glTarget, PGL.TEXTURE_WRAP_S, glWrapS);
+    pgl.texParameteri(glTarget, PGL.TEXTURE_WRAP_T, glWrapT);
+    if (PGraphicsOpenGL.anisoSamplingSupported) {
+      pgl.texParameterf(glTarget, PGL.TEXTURE_MAX_ANISOTROPY, 
+        PGraphicsOpenGL.maxAnisoAmount);
+    }
+    
+
+
+
+    pgl.texImage2D(glTarget, 0, glFormat, glWidth, glHeight, 0, 
+      PGL.RGBA, PGL.UNSIGNED_BYTE, null);
+    
+
+
+    pgl.initTexture(glTarget, PGL.RGBA, width, height);
+    
+    pgl.bindTexture(glTarget, 0);
+    if (enabledTex) {
+      pgl.disableTexturing(glTarget);
+    }
+    bound = false;
+  }
+  
+
+
+
+  protected void dispose()
+  {
+    if (glres != null) {
+      glres.dispose();
+      glres = null;
+      glName = 0;
+    }
+  }
+  
+  protected boolean contextIsOutdated()
+  {
+    boolean outdated = !pgl.contextIsCurrent(context);
+    if (outdated) {
+      dispose();
+    }
+    return outdated;
+  }
+  
+  public void colorBuffer(boolean value)
+  {
+    colorBuffer = value;
+  }
+  
+  public boolean colorBuffer()
+  {
+    return colorBuffer;
+  }
+  
+
+
+
+
+
+
+
+  protected void copyTexture(Texture tex, int x, int y, int w, int h, boolean scale)
+  {
+    if (tex == null) {
+      throw new RuntimeException("Source texture is null");
+    }
+    
+    if (tempFbo == null) {
+      tempFbo = new FrameBuffer(pg, glWidth, glHeight);
+    }
+    
+
+    tempFbo.setColorBuffer(this);
+    tempFbo.disableDepthTest();
+    
+
+    pg.pushFramebuffer();
+    pg.setFramebuffer(tempFbo);
+    
+
+    pg.pushStyle();
+    pg.blendMode(0);
+    if (scale)
+    {
+
+      pgl.drawTexture(glTarget, glName, glWidth, glHeight, 
+        0, 0, tempFbo.width, tempFbo.height, 1, 
+        x, y, x + w, y + h, 0, 0, width, height);
+
+    }
+    else
+    {
+
+      pgl.drawTexture(glTarget, glName, glWidth, glHeight, 
+        0, 0, tempFbo.width, tempFbo.height, 1, 
+        x, y, x + w, y + h, x, y, x + w, y + h);
+    }
+    pgl.flush();
+    
+    pg.popStyle();
+    pg.popFramebuffer();
+    updateTexels(x, y, w, h);
+  }
+  
+
+
+
+  protected void copyTexture(int texTarget, int texName, int texWidth, int texHeight, int x, int y, int w, int h, boolean scale)
+  {
+    if (tempFbo == null) {
+      tempFbo = new FrameBuffer(pg, glWidth, glHeight);
+    }
+    
+
+    tempFbo.setColorBuffer(this);
+    tempFbo.disableDepthTest();
+    
+
+    pg.pushFramebuffer();
+    pg.setFramebuffer(tempFbo);
+    
+
+    pg.pushStyle();
+    pg.blendMode(0);
+    if (scale)
+    {
+
+      pgl.drawTexture(texTarget, texName, texWidth, texHeight, 
+        0, 0, tempFbo.width, tempFbo.height, 
+        x, y, w, h, 0, 0, width, height);
+
+    }
+    else
+    {
+
+      pgl.drawTexture(texTarget, texName, texWidth, texHeight, 
+        0, 0, tempFbo.width, tempFbo.height, 
+        x, y, w, h, x, y, w, h);
+    }
+    pgl.flush();
+    
+    pg.popStyle();
+    pg.popFramebuffer();
+    updateTexels(x, y, w, h);
+  }
+  
+
+
+  protected void copyObject(Texture src)
+  {
+    dispose();
+    
+    width = width;
+    height = height;
+    
+    glName = glName;
+    glTarget = glTarget;
+    glFormat = glFormat;
+    glMinFilter = glMinFilter;
+    glMagFilter = glMagFilter;
+    
+    glWidth = glWidth;
+    glHeight = glHeight;
+    
+    usingMipmaps = usingMipmaps;
+    usingRepeat = usingRepeat;
+    maxTexcoordU = maxTexcoordU;
+    maxTexcoordV = maxTexcoordV;
+    
+    invertedX = invertedX;
+    invertedY = invertedY;
+  }
+  
+
+
+  protected void releasePixelBuffer()
+  {
+    double freeMB = Runtime.getRuntime().freeMemory() / 1000000.0D;
+    if ((pixBufUpdateCount < 10) || (freeMB < 5.0D)) {
+      pixelBuffer = null;
+    }
+  }
+  
+
+
+  protected void releaseRGBAPixels()
+  {
+    double freeMB = Runtime.getRuntime().freeMemory() / 1000000.0D;
+    if ((rgbaPixUpdateCount < 10) || (freeMB < 5.0D)) {
+      rgbaPixels = null;
+    }
+  }
+  
+
+
+
+
+
+  public Parameters getParameters()
+  {
+    Parameters res = new Parameters();
+    
+    if (glTarget == PGL.TEXTURE_2D) {
+      target = 0;
+    }
+    
+    if (glFormat == PGL.RGB) {
+      format = 1;
+    } else if (glFormat == PGL.RGBA) {
+      format = 2;
+    } else if (glFormat == PGL.ALPHA) {
+      format = 4;
+    }
+    
+    if ((glMagFilter == PGL.NEAREST) && (glMinFilter == PGL.NEAREST)) {
+      sampling = 2;
+      mipmaps = false;
+    } else if ((glMagFilter == PGL.NEAREST) && (glMinFilter == PGL.LINEAR)) {
+      sampling = 3;
+      mipmaps = false;
+    } else if ((glMagFilter == PGL.NEAREST) && 
+      (glMinFilter == PGL.LINEAR_MIPMAP_NEAREST)) {
+      sampling = 3;
+      mipmaps = true;
+    } else if ((glMagFilter == PGL.LINEAR) && (glMinFilter == PGL.LINEAR)) {
+      sampling = 4;
+      mipmaps = false;
+    } else if ((glMagFilter == PGL.LINEAR) && 
+      (glMinFilter == PGL.LINEAR_MIPMAP_NEAREST)) {
+      sampling = 4;
+      mipmaps = true;
+    } else if ((glMagFilter == PGL.LINEAR) && 
+      (glMinFilter == PGL.LINEAR_MIPMAP_LINEAR)) {
+      sampling = 5;
+      mipmaps = true;
+    }
+    
+    if (glWrapS == PGL.CLAMP_TO_EDGE) {
+      wrapU = 0;
+    } else if (glWrapS == PGL.REPEAT) {
+      wrapU = 1;
+    }
+    
+    if (glWrapT == PGL.CLAMP_TO_EDGE) {
+      wrapV = 0;
+    } else if (glWrapT == PGL.REPEAT) {
+      wrapV = 1;
+    }
+    
+    return res;
+  }
+  
+
+
+
+
+
+
+  protected void setParameters(Parameters params)
+  {
+    if (target == 0) {
+      glTarget = PGL.TEXTURE_2D;
+    } else {
+      throw new RuntimeException("Unknown texture target");
+    }
+    
+    if (format == 1) {
+      glFormat = PGL.RGB;
+    } else if (format == 2) {
+      glFormat = PGL.RGBA;
+    } else if (format == 4) {
+      glFormat = PGL.ALPHA;
+    } else {
+      throw new RuntimeException("Unknown texture format");
+    }
+    
+    boolean mipmaps = (mipmaps) && (PGL.MIPMAPS_ENABLED);
+    if ((mipmaps) && (!PGraphicsOpenGL.autoMipmapGenSupported)) {
+      PGraphics.showWarning("Mipmaps were requested but automatic mipmap generation is not supported and manual generation still not implemented, so mipmaps will be disabled.");
+      
+
+
+      mipmaps = false;
+    }
+    
+    if (sampling == 2) {
+      glMagFilter = PGL.NEAREST;
+      glMinFilter = PGL.NEAREST;
+    } else if (sampling == 3) {
+      glMagFilter = PGL.NEAREST;
+      glMinFilter = (mipmaps ? PGL.LINEAR_MIPMAP_NEAREST : PGL.LINEAR);
+    } else if (sampling == 4) {
+      glMagFilter = PGL.LINEAR;
+      glMinFilter = (mipmaps ? PGL.LINEAR_MIPMAP_NEAREST : PGL.LINEAR);
+    } else if (sampling == 5) {
+      glMagFilter = PGL.LINEAR;
+      glMinFilter = (mipmaps ? PGL.LINEAR_MIPMAP_LINEAR : PGL.LINEAR);
+    } else {
+      throw new RuntimeException("Unknown texture filtering mode");
+    }
+    
+    if (wrapU == 0) {
+      glWrapS = PGL.CLAMP_TO_EDGE;
+    } else if (wrapU == 1) {
+      glWrapS = PGL.REPEAT;
+    } else {
+      throw new RuntimeException("Unknown wrapping mode");
+    }
+    
+    if (wrapV == 0) {
+      glWrapT = PGL.CLAMP_TO_EDGE;
+    } else if (wrapV == 1) {
+      glWrapT = PGL.REPEAT;
+    } else {
+      throw new RuntimeException("Unknown wrapping mode");
+    }
+    
+    usingMipmaps = ((glMinFilter == PGL.LINEAR_MIPMAP_NEAREST) || 
+      (glMinFilter == PGL.LINEAR_MIPMAP_LINEAR));
+    
+    usingRepeat = ((glWrapS == PGL.REPEAT) || (glWrapT == PGL.REPEAT));
+    
+    invertedX = false;
+    invertedY = false;
+  }
+  
+  protected void fillEdges(int x, int y, int w, int h)
+  {
+    if (((width < glWidth) || (height < glHeight)) && ((x + w == width) || (y + h == height))) {
+      if (x + w == width) {
+        int ew = glWidth - width;
+        edgePixels = new int[h * ew];
+        for (int i = 0; i < h; i++) {
+          int c = rgbaPixels[(i * w + (w - 1))];
+          Arrays.fill(edgePixels, i * ew, (i + 1) * ew, c);
+        }
+        edgeBuffer = PGL.updateIntBuffer(edgeBuffer, edgePixels, true);
+        pgl.texSubImage2D(glTarget, 0, width, y, ew, h, PGL.RGBA, 
+          PGL.UNSIGNED_BYTE, edgeBuffer);
+      }
+      
+      if (y + h == height) {
+        int eh = glHeight - height;
+        edgePixels = new int[eh * w];
+        for (int i = 0; i < eh; i++) {
+          System.arraycopy(rgbaPixels, (h - 1) * w, edgePixels, i * w, w);
+        }
+        edgeBuffer = PGL.updateIntBuffer(edgeBuffer, edgePixels, true);
+        pgl.texSubImage2D(glTarget, 0, x, height, w, eh, PGL.RGBA, 
+          PGL.UNSIGNED_BYTE, edgeBuffer);
+      }
+      
+      if ((x + w == width) && (y + h == height)) {
+        int ew = glWidth - width;
+        int eh = glHeight - height;
+        int c = rgbaPixels[(w * h - 1)];
+        edgePixels = new int[eh * ew];
+        Arrays.fill(edgePixels, 0, eh * ew, c);
+        edgeBuffer = PGL.updateIntBuffer(edgeBuffer, edgePixels, true);
+        pgl.texSubImage2D(glTarget, 0, width, height, ew, eh, PGL.RGBA, 
+          PGL.UNSIGNED_BYTE, edgeBuffer);
+      }
+    }
+  }
+  
+
+
+
+
+
+  public static class Parameters
+  {
+    public int target;
+    
+
+
+
+
+    public int format;
+    
+
+
+
+
+    public int sampling;
+    
+
+
+
+
+    public boolean mipmaps;
+    
+
+
+
+
+    public int wrapU;
+    
+
+
+
+    public int wrapV;
+    
+
+
+
+
+    public Parameters()
+    {
+      target = 0;
+      format = 2;
+      sampling = 4;
+      mipmaps = true;
+      wrapU = 0;
+      wrapV = 0;
+    }
+    
+    public Parameters(int format) {
+      target = 0;
+      this.format = format;
+      sampling = 4;
+      mipmaps = true;
+      wrapU = 0;
+      wrapV = 0;
+    }
+    
+    public Parameters(int format, int sampling) {
+      target = 0;
+      this.format = format;
+      this.sampling = sampling;
+      mipmaps = true;
+      wrapU = 0;
+      wrapV = 0;
+    }
+    
+    public Parameters(int format, int sampling, boolean mipmaps) {
+      target = 0;
+      this.format = format;
+      this.mipmaps = mipmaps;
+      if ((sampling == 5) && (!mipmaps)) {
+        this.sampling = 4;
+      } else {
+        this.sampling = sampling;
+      }
+      wrapU = 0;
+      wrapV = 0;
+    }
+    
+    public Parameters(int format, int sampling, boolean mipmaps, int wrap) {
+      target = 0;
+      this.format = format;
+      this.mipmaps = mipmaps;
+      if ((sampling == 5) && (!mipmaps)) {
+        this.sampling = 4;
+      } else {
+        this.sampling = sampling;
+      }
+      wrapU = wrap;
+      wrapV = wrap;
+    }
+    
+    public Parameters(Parameters src) {
+      set(src);
+    }
+    
+    public void set(int format) {
+      this.format = format;
+    }
+    
+    public void set(int format, int sampling) {
+      this.format = format;
+      this.sampling = sampling;
+    }
+    
+    public void set(int format, int sampling, boolean mipmaps) {
+      this.format = format;
+      this.sampling = sampling;
+      this.mipmaps = mipmaps;
+    }
+    
+    public void set(Parameters src) {
+      target = target;
+      format = format;
+      sampling = sampling;
+      mipmaps = mipmaps;
+      wrapU = wrapU;
+      wrapV = wrapV;
+    }
+  }
+  
+
+  protected class BufferData
+  {
+    int w;
+    
+    int h;
+    
+    Object natBuf;
+    IntBuffer rgbBuf;
+    
+    BufferData(Object nat, IntBuffer rgb, int w, int h)
+    {
+      natBuf = nat;
+      rgbBuf = rgb;
+      this.w = w;
+      this.h = h;
+    }
+    
+    void dispose()
+    {
+      try {
+        disposeBufferMethod.invoke(bufferSource, new Object[] { natBuf });
+        natBuf = null;
+        rgbBuf = null;
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }
+  }
+}

@@ -1,0 +1,411 @@
+package com.jogamp.opengl;
+
+import com.jogamp.common.nio.PointerBuffer;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import java.nio.ShortBuffer;
+
+public abstract interface GLES1
+  extends GL2ES1
+{
+  public static final int GL_MAX_SAMPLES_EXT = 36183;
+  public static final int GL_TEXTURE_GEN_MODE = 9472;
+  public static final int GL_TEXTURE_FORMAT_QCOM = 35798;
+  public static final int GL_WEIGHT_ARRAY_OES = 34477;
+  public static final int GL_NORMAL_MAP = 34065;
+  public static final int GL_POINT_SIZE_ARRAY_POINTER_OES = 35212;
+  public static final int GL_POINT_SIZE_ARRAY_BUFFER_BINDING_OES = 35743;
+  public static final int GL_TEXTURE_EXTERNAL_OES = 36197;
+  public static final int GL_MAX_VERTEX_UNITS_OES = 34468;
+  public static final int GL_RENDERBUFFER_SAMPLES_IMG = 37171;
+  public static final int GL_MULTISAMPLE_BUFFER_BIT3_QCOM = 134217728;
+  public static final int GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG = 35841;
+  public static final int GL_STENCIL_BUFFER_BIT3_QCOM = 524288;
+  public static final int GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG = 35843;
+  public static final int GL_CURRENT_PALETTE_MATRIX_OES = 34883;
+  public static final int GL_MATRIX_INDEX_ARRAY_POINTER_OES = 34889;
+  public static final int GL_CLIP_PLANE5_IMG = 12293;
+  public static final int GL_STENCIL_BUFFER_BIT2_QCOM = 262144;
+  public static final int GL_WEIGHT_ARRAY_BUFFER_BINDING_OES = 34974;
+  public static final long GL_MULTISAMPLE_BUFFER_BIT7_QCOM = 2147483648L;
+  public static final int GL_DEPTH_BUFFER_BIT6_QCOM = 16384;
+  public static final int GL_COLOR_BUFFER_BIT7_QCOM = 128;
+  public static final int GL_TEXTURE_TYPE_QCOM = 35799;
+  public static final int GL_TEXTURE_IMAGE_VALID_QCOM = 35800;
+  public static final int GL_COLOR_BUFFER_BIT6_QCOM = 64;
+  public static final int GL_DEPTH_BUFFER_BIT5_QCOM = 8192;
+  public static final int GL_STATE_RESTORE = 35804;
+  public static final int GL_REFLECTION_MAP = 34066;
+  public static final int GL_VERTEX_ARRAY_BINDING_OES = 34229;
+  public static final int GL_COLOR_BUFFER_BIT0_QCOM = 1;
+  public static final int GL_DEPTH_BUFFER_BIT3_QCOM = 2048;
+  public static final int GL_MAX_PALETTE_MATRICES_OES = 34882;
+  public static final int GL_TEXTURE_GEN_STR = 36192;
+  public static final int GL_COLOR_BUFFER_BIT2_QCOM = 4;
+  public static final int GL_DEPTH_BUFFER_BIT1_QCOM = 512;
+  public static final int GL_MULTISAMPLE_BUFFER_BIT2_QCOM = 67108864;
+  public static final int GL_MULTISAMPLE_BUFFER_BIT4_QCOM = 268435456;
+  public static final int GL_TEXTURE_WIDTH_QCOM = 35794;
+  public static final int GL_ATC_RGBA_INTERPOLATED_ALPHA_AMD = 34798;
+  public static final int GL_COLOR_BUFFER_BIT4_QCOM = 16;
+  public static final int GL_ATC_RGBA_EXPLICIT_ALPHA_AMD = 35987;
+  public static final int GL_CLIP_PLANE4_IMG = 12292;
+  public static final int GL_DEPTH_EXT = 6145;
+  public static final int GL_DOT3_RGBA_IMG = 34479;
+  public static final int GL_MULTISAMPLE_BUFFER_BIT6_QCOM = 1073741824;
+  public static final int GL_FACTOR_ALPHA_MODULATE_IMG = 35847;
+  public static final int GL_MATRIX_INDEX_ARRAY_STRIDE_OES = 34888;
+  public static final int GL_TEXTURE_HEIGHT_QCOM = 35795;
+  public static final int GL_STENCIL_BUFFER_BIT7_QCOM = 8388608;
+  public static final int GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE_IMG = 37172;
+  public static final int GL_MAX_CLIP_PLANES_IMG = 3378;
+  public static final int GL_COLOR_EXT = 6144;
+  public static final int GL_CLIP_PLANE3_IMG = 12291;
+  public static final int GL_ADD_BLEND_IMG = 35849;
+  public static final int GL_POINT_SIZE_ARRAY_OES = 35740;
+  public static final int GL_STENCIL_BUFFER_BIT5_QCOM = 2097152;
+  public static final int GL_ETC1_RGB8_OES = 36196;
+  public static final int GL_TEXTURE_MAX_LEVEL_APPLE = 33085;
+  public static final int GL_UNSIGNED_SHORT_4_4_4_4_REV_IMG = 33637;
+  public static final int GL_TEXTURE_TARGET_QCOM = 35802;
+  public static final int GL_TEXTURE_ALPHA_MODULATE_IMG = 35846;
+  public static final int GL_STENCIL_BUFFER_BIT0_QCOM = 65536;
+  public static final int GL_TEXTURE_MATRIX_FLOAT_AS_INT_BITS_OES = 35215;
+  public static final int GL_3DC_X_AMD = 34809;
+  public static final int GL_REQUIRED_TEXTURE_IMAGE_UNITS_OES = 36200;
+  public static final int GL_PERFMON_GLOBAL_MODE_QCOM = 36768;
+  public static final int GL_BGRA_IMG = 32993;
+  public static final int GL_CLIP_PLANE2_IMG = 12290;
+  public static final int GL_TEXTURE_INTERNAL_FORMAT_QCOM = 35797;
+  public static final int GL_TEXTURE_DEPTH_QCOM = 35796;
+  public static final int GL_COLOR_BUFFER_BIT1_QCOM = 2;
+  public static final int GL_DEPTH_BUFFER_BIT0_QCOM = 256;
+  public static final int GL_STENCIL_BUFFER_BIT1_QCOM = 131072;
+  public static final int GL_STENCIL_EXT = 6146;
+  public static final int GL_COLOR_BUFFER_BIT5_QCOM = 32;
+  public static final int GL_DEPTH_BUFFER_BIT4_QCOM = 4096;
+  public static final int GL_COMPRESSED_RGB_PVRTC_4BPPV1_IMG = 35840;
+  public static final int GL_TEXTURE_SAMPLES_IMG = 37174;
+  public static final int GL_ATC_RGB_AMD = 35986;
+  public static final int GL_MODULATE_COLOR_IMG = 35844;
+  public static final int GL_MATRIX_PALETTE_OES = 34880;
+  public static final int GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_SAMPLES_EXT = 36204;
+  public static final int GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE_EXT = 36182;
+  public static final int GL_POINT_SIZE_ARRAY_TYPE_OES = 35210;
+  public static final int GL_STENCIL_BUFFER_BIT4_QCOM = 1048576;
+  public static final int GL_MAX_SAMPLES_IMG = 37173;
+  public static final int GL_3DC_XY_AMD = 34810;
+  public static final int GL_TEXTURE_NUM_LEVELS_QCOM = 35801;
+  public static final int GL_MULTISAMPLE_BUFFER_BIT1_QCOM = 33554432;
+  public static final int GL_WRITEONLY_RENDERING_QCOM = 34851;
+  public static final int GL_CLIP_PLANE1_IMG = 12289;
+  public static final int GL_PROJECTION_MATRIX_FLOAT_AS_INT_BITS_OES = 35214;
+  public static final int GL_TEXTURE_BINDING_EXTERNAL_OES = 36199;
+  public static final int GL_MATRIX_INDEX_ARRAY_OES = 34884;
+  public static final int GL_TEXTURE_CROP_RECT_OES = 35741;
+  public static final int GL_POINT_SIZE_ARRAY_STRIDE_OES = 35211;
+  public static final int GL_MODELVIEW_MATRIX_FLOAT_AS_INT_BITS_OES = 35213;
+  public static final int GL_MATRIX_INDEX_ARRAY_TYPE_OES = 34887;
+  public static final int GL_WEIGHT_ARRAY_POINTER_OES = 34476;
+  public static final int GL_MULTISAMPLE_BUFFER_BIT0_QCOM = 16777216;
+  public static final int GL_MATRIX_INDEX_ARRAY_SIZE_OES = 34886;
+  public static final int GL_CLIP_PLANE0_IMG = 12288;
+  public static final int GL_MATRIX_INDEX_ARRAY_BUFFER_BINDING_OES = 35742;
+  public static final int GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG = 35842;
+  public static final int GL_FRAGMENT_ALPHA_MODULATE_IMG = 35848;
+  public static final int GL_WEIGHT_ARRAY_STRIDE_OES = 34474;
+  public static final int GL_DEPTH_BUFFER_BIT7_QCOM = 32768;
+  public static final int GL_STENCIL_BUFFER_BIT6_QCOM = 4194304;
+  public static final int GL_MULTISAMPLE_BUFFER_BIT5_QCOM = 536870912;
+  public static final int GL_WEIGHT_ARRAY_TYPE_OES = 34473;
+  public static final int GL_RENDERBUFFER_SAMPLES_EXT = 36011;
+  public static final int GL_RECIP_ADD_SIGNED_ALPHA_IMG = 35845;
+  public static final int GL_TEXTURE_OBJECT_VALID_QCOM = 35803;
+  public static final int GL_WEIGHT_ARRAY_SIZE_OES = 34475;
+  public static final int GL_COLOR_BUFFER_BIT3_QCOM = 8;
+  public static final int GL_DEPTH_BUFFER_BIT2_QCOM = 1024;
+  
+  public abstract void glClipPlanef(int paramInt, FloatBuffer paramFloatBuffer);
+  
+  public abstract void glClipPlanef(int paramInt1, float[] paramArrayOfFloat, int paramInt2);
+  
+  public abstract void glGetClipPlanef(int paramInt, FloatBuffer paramFloatBuffer);
+  
+  public abstract void glGetClipPlanef(int paramInt1, float[] paramArrayOfFloat, int paramInt2);
+  
+  public abstract void glAlphaFuncx(int paramInt1, int paramInt2);
+  
+  public abstract void glClearColorx(int paramInt1, int paramInt2, int paramInt3, int paramInt4);
+  
+  public abstract void glClearDepthx(int paramInt);
+  
+  public abstract void glClipPlanex(int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract void glClipPlanex(int paramInt1, int[] paramArrayOfInt, int paramInt2);
+  
+  public abstract void glColor4x(int paramInt1, int paramInt2, int paramInt3, int paramInt4);
+  
+  public abstract void glDepthRangex(int paramInt1, int paramInt2);
+  
+  public abstract void glFogx(int paramInt1, int paramInt2);
+  
+  public abstract void glFogxv(int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract void glFogxv(int paramInt1, int[] paramArrayOfInt, int paramInt2);
+  
+  public abstract void glFrustumx(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6);
+  
+  public abstract void glGetClipPlanex(int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract void glGetClipPlanex(int paramInt1, int[] paramArrayOfInt, int paramInt2);
+  
+  public abstract void glGetFixedv(int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract void glGetFixedv(int paramInt1, int[] paramArrayOfInt, int paramInt2);
+  
+  public abstract void glGetLightxv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer);
+  
+  public abstract void glGetLightxv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3);
+  
+  public abstract void glGetMaterialxv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer);
+  
+  public abstract void glGetMaterialxv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3);
+  
+  public abstract void glGetTexEnvxv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer);
+  
+  public abstract void glGetTexEnvxv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3);
+  
+  public abstract void glGetTexParameterxv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer);
+  
+  public abstract void glGetTexParameterxv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3);
+  
+  public abstract void glLightModelx(int paramInt1, int paramInt2);
+  
+  public abstract void glLightModelxv(int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract void glLightModelxv(int paramInt1, int[] paramArrayOfInt, int paramInt2);
+  
+  public abstract void glLightx(int paramInt1, int paramInt2, int paramInt3);
+  
+  public abstract void glLightxv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer);
+  
+  public abstract void glLightxv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3);
+  
+  public abstract void glLineWidthx(int paramInt);
+  
+  public abstract void glLoadMatrixx(IntBuffer paramIntBuffer);
+  
+  public abstract void glLoadMatrixx(int[] paramArrayOfInt, int paramInt);
+  
+  public abstract void glMaterialx(int paramInt1, int paramInt2, int paramInt3);
+  
+  public abstract void glMaterialxv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer);
+  
+  public abstract void glMaterialxv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3);
+  
+  public abstract void glMultMatrixx(IntBuffer paramIntBuffer);
+  
+  public abstract void glMultMatrixx(int[] paramArrayOfInt, int paramInt);
+  
+  public abstract void glMultiTexCoord4x(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5);
+  
+  public abstract void glNormal3x(int paramInt1, int paramInt2, int paramInt3);
+  
+  public abstract void glOrthox(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6);
+  
+  public abstract void glPointParameterx(int paramInt1, int paramInt2);
+  
+  public abstract void glPointParameterxv(int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract void glPointParameterxv(int paramInt1, int[] paramArrayOfInt, int paramInt2);
+  
+  public abstract void glPointSizex(int paramInt);
+  
+  public abstract void glPolygonOffsetx(int paramInt1, int paramInt2);
+  
+  public abstract void glRotatex(int paramInt1, int paramInt2, int paramInt3, int paramInt4);
+  
+  public abstract void glSampleCoveragex(int paramInt, boolean paramBoolean);
+  
+  public abstract void glScalex(int paramInt1, int paramInt2, int paramInt3);
+  
+  public abstract void glTexEnvx(int paramInt1, int paramInt2, int paramInt3);
+  
+  public abstract void glTexEnvxv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer);
+  
+  public abstract void glTexEnvxv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3);
+  
+  public abstract void glTexParameterx(int paramInt1, int paramInt2, int paramInt3);
+  
+  public abstract void glTexParameterxv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer);
+  
+  public abstract void glTexParameterxv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3);
+  
+  public abstract void glTranslatex(int paramInt1, int paramInt2, int paramInt3);
+  
+  public abstract void glPointSizePointerOES(int paramInt1, int paramInt2, Buffer paramBuffer);
+  
+  public abstract void glDrawTexsOES(short paramShort1, short paramShort2, short paramShort3, short paramShort4, short paramShort5);
+  
+  public abstract void glDrawTexiOES(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5);
+  
+  public abstract void glDrawTexxOES(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5);
+  
+  public abstract void glDrawTexsvOES(ShortBuffer paramShortBuffer);
+  
+  public abstract void glDrawTexsvOES(short[] paramArrayOfShort, int paramInt);
+  
+  public abstract void glDrawTexivOES(IntBuffer paramIntBuffer);
+  
+  public abstract void glDrawTexivOES(int[] paramArrayOfInt, int paramInt);
+  
+  public abstract void glDrawTexxvOES(IntBuffer paramIntBuffer);
+  
+  public abstract void glDrawTexxvOES(int[] paramArrayOfInt, int paramInt);
+  
+  public abstract void glDrawTexfOES(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5);
+  
+  public abstract void glDrawTexfvOES(FloatBuffer paramFloatBuffer);
+  
+  public abstract void glDrawTexfvOES(float[] paramArrayOfFloat, int paramInt);
+  
+  public abstract void glEGLImageTargetTexture2DOES(int paramInt, long paramLong);
+  
+  public abstract void glEGLImageTargetRenderbufferStorageOES(int paramInt, long paramLong);
+  
+  public abstract void glCurrentPaletteMatrixOES(int paramInt);
+  
+  public abstract void glLoadPaletteFromModelViewMatrixOES();
+  
+  public abstract void glMatrixIndexPointerOES(int paramInt1, int paramInt2, int paramInt3, Buffer paramBuffer);
+  
+  public abstract void glWeightPointerOES(int paramInt1, int paramInt2, int paramInt3, Buffer paramBuffer);
+  
+  public abstract int glQueryMatrixxOES(IntBuffer paramIntBuffer1, IntBuffer paramIntBuffer2);
+  
+  public abstract int glQueryMatrixxOES(int[] paramArrayOfInt1, int paramInt1, int[] paramArrayOfInt2, int paramInt2);
+  
+  public abstract void glTexGenf(int paramInt1, int paramInt2, float paramFloat);
+  
+  public abstract void glTexGenfv(int paramInt1, int paramInt2, FloatBuffer paramFloatBuffer);
+  
+  public abstract void glTexGenfv(int paramInt1, int paramInt2, float[] paramArrayOfFloat, int paramInt3);
+  
+  public abstract void glTexGeni(int paramInt1, int paramInt2, int paramInt3);
+  
+  public abstract void glTexGeniv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer);
+  
+  public abstract void glTexGeniv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3);
+  
+  public abstract void glTexGenx(int paramInt1, int paramInt2, int paramInt3);
+  
+  public abstract void glTexGenxv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer);
+  
+  public abstract void glTexGenxv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3);
+  
+  public abstract void glGetTexGenfv(int paramInt1, int paramInt2, FloatBuffer paramFloatBuffer);
+  
+  public abstract void glGetTexGenfv(int paramInt1, int paramInt2, float[] paramArrayOfFloat, int paramInt3);
+  
+  public abstract void glGetTexGeniv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer);
+  
+  public abstract void glGetTexGeniv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3);
+  
+  public abstract void glGetTexGenxv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer);
+  
+  public abstract void glGetTexGenxv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3);
+  
+  public abstract void glBindVertexArrayOES(int paramInt);
+  
+  public abstract void glDeleteVertexArraysOES(int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract void glDeleteVertexArraysOES(int paramInt1, int[] paramArrayOfInt, int paramInt2);
+  
+  public abstract void glGenVertexArraysOES(int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract void glGenVertexArraysOES(int paramInt1, int[] paramArrayOfInt, int paramInt2);
+  
+  public abstract boolean glIsVertexArrayOES(int paramInt);
+  
+  public abstract void glCopyTextureLevelsAPPLE(int paramInt1, int paramInt2, int paramInt3, int paramInt4);
+  
+  public abstract void glResolveMultisampleFramebuffer();
+  
+  public abstract void glDiscardFramebufferEXT(int paramInt1, int paramInt2, IntBuffer paramIntBuffer);
+  
+  public abstract void glDiscardFramebufferEXT(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3);
+  
+  public abstract void glRenderbufferStorageMultisampleEXT(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5);
+  
+  public abstract void glFramebufferTexture2DMultisampleEXT(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6);
+  
+  public abstract void glClipPlanefIMG(int paramInt, FloatBuffer paramFloatBuffer);
+  
+  public abstract void glClipPlanefIMG(int paramInt1, float[] paramArrayOfFloat, int paramInt2);
+  
+  public abstract void glClipPlanexIMG(int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract void glClipPlanexIMG(int paramInt1, int[] paramArrayOfInt, int paramInt2);
+  
+  public abstract void glRenderbufferStorageMultisampleIMG(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5);
+  
+  public abstract void glFramebufferTexture2DMultisampleIMG(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6);
+  
+  public abstract void glGetDriverControlsQCOM(IntBuffer paramIntBuffer1, int paramInt, IntBuffer paramIntBuffer2);
+  
+  public abstract void glGetDriverControlsQCOM(int[] paramArrayOfInt1, int paramInt1, int paramInt2, int[] paramArrayOfInt2, int paramInt3);
+  
+  public abstract void glGetDriverControlStringQCOM(int paramInt1, int paramInt2, IntBuffer paramIntBuffer, ByteBuffer paramByteBuffer);
+  
+  public abstract void glGetDriverControlStringQCOM(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3, byte[] paramArrayOfByte, int paramInt4);
+  
+  public abstract void glEnableDriverControlQCOM(int paramInt);
+  
+  public abstract void glDisableDriverControlQCOM(int paramInt);
+  
+  public abstract void glExtGetTexturesQCOM(IntBuffer paramIntBuffer1, int paramInt, IntBuffer paramIntBuffer2);
+  
+  public abstract void glExtGetTexturesQCOM(int[] paramArrayOfInt1, int paramInt1, int paramInt2, int[] paramArrayOfInt2, int paramInt3);
+  
+  public abstract void glExtGetBuffersQCOM(IntBuffer paramIntBuffer1, int paramInt, IntBuffer paramIntBuffer2);
+  
+  public abstract void glExtGetBuffersQCOM(int[] paramArrayOfInt1, int paramInt1, int paramInt2, int[] paramArrayOfInt2, int paramInt3);
+  
+  public abstract void glExtGetRenderbuffersQCOM(IntBuffer paramIntBuffer1, int paramInt, IntBuffer paramIntBuffer2);
+  
+  public abstract void glExtGetRenderbuffersQCOM(int[] paramArrayOfInt1, int paramInt1, int paramInt2, int[] paramArrayOfInt2, int paramInt3);
+  
+  public abstract void glExtGetFramebuffersQCOM(IntBuffer paramIntBuffer1, int paramInt, IntBuffer paramIntBuffer2);
+  
+  public abstract void glExtGetFramebuffersQCOM(int[] paramArrayOfInt1, int paramInt1, int paramInt2, int[] paramArrayOfInt2, int paramInt3);
+  
+  public abstract void glExtGetTexLevelParameterivQCOM(int paramInt1, int paramInt2, int paramInt3, int paramInt4, IntBuffer paramIntBuffer);
+  
+  public abstract void glExtGetTexLevelParameterivQCOM(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int[] paramArrayOfInt, int paramInt5);
+  
+  public abstract void glExtTexObjectStateOverrideiQCOM(int paramInt1, int paramInt2, int paramInt3);
+  
+  public abstract void glExtGetTexSubImageQCOM(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, int paramInt10, Buffer paramBuffer);
+  
+  public abstract void glExtGetBufferPointervQCOM(int paramInt, PointerBuffer paramPointerBuffer);
+  
+  public abstract void glExtGetShadersQCOM(IntBuffer paramIntBuffer1, int paramInt, IntBuffer paramIntBuffer2);
+  
+  public abstract void glExtGetShadersQCOM(int[] paramArrayOfInt1, int paramInt1, int paramInt2, int[] paramArrayOfInt2, int paramInt3);
+  
+  public abstract void glExtGetProgramsQCOM(IntBuffer paramIntBuffer1, int paramInt, IntBuffer paramIntBuffer2);
+  
+  public abstract void glExtGetProgramsQCOM(int[] paramArrayOfInt1, int paramInt1, int paramInt2, int[] paramArrayOfInt2, int paramInt3);
+  
+  public abstract boolean glExtIsProgramBinaryQCOM(int paramInt);
+  
+  public abstract void glExtGetProgramBinarySourceQCOM(int paramInt1, int paramInt2, ByteBuffer paramByteBuffer, IntBuffer paramIntBuffer);
+  
+  public abstract void glExtGetProgramBinarySourceQCOM(int paramInt1, int paramInt2, byte[] paramArrayOfByte, int paramInt3, int[] paramArrayOfInt, int paramInt4);
+  
+  public abstract void glStartTilingQCOM(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5);
+  
+  public abstract void glEndTilingQCOM(int paramInt);
+}

@@ -1,0 +1,127 @@
+package jogamp.graph.curve.tess;
+
+import com.jogamp.graph.geom.Vertex;
+import java.util.ArrayList;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GraphVertex
+{
+  private Vertex point;
+  private ArrayList<HEdge> edges = null;
+  private boolean boundaryContained = false;
+  
+  public GraphVertex(Vertex paramVertex) {
+    point = paramVertex;
+  }
+  
+  public Vertex getPoint() {
+    return point;
+  }
+  
+  public float getX() {
+    return point.getX();
+  }
+  
+  public float getY() {
+    return point.getY();
+  }
+  
+  public float getZ() {
+    return point.getZ();
+  }
+  
+  public float[] getCoord() { return point.getCoord(); }
+  
+  public void setPoint(Vertex paramVertex)
+  {
+    point = paramVertex;
+  }
+  
+  public ArrayList<HEdge> getEdges() {
+    return edges;
+  }
+  
+  public void setEdges(ArrayList<HEdge> paramArrayList) {
+    edges = paramArrayList;
+  }
+  
+  public void addEdge(HEdge paramHEdge) {
+    if (edges == null) {
+      edges = new ArrayList();
+    }
+    edges.add(paramHEdge);
+  }
+  
+  public void removeEdge(HEdge paramHEdge) { if (edges == null)
+      return;
+    edges.remove(paramHEdge);
+    if (edges.size() == 0)
+      edges = null;
+  }
+  
+  public HEdge findNextEdge(GraphVertex paramGraphVertex) {
+    for (int i = 0; i < edges.size(); i++) {
+      HEdge localHEdge = (HEdge)edges.get(i);
+      if (localHEdge.getNext().getGraphPoint() == paramGraphVertex) {
+        return localHEdge;
+      }
+    }
+    return null;
+  }
+  
+  public HEdge findBoundEdge() { for (int i = 0; i < edges.size(); i++) {
+      HEdge localHEdge = (HEdge)edges.get(i);
+      if ((localHEdge.getType() == 3) || (localHEdge.getType() == 2)) {
+        return localHEdge;
+      }
+    }
+    return null;
+  }
+  
+  public HEdge findPrevEdge(GraphVertex paramGraphVertex) { for (int i = 0; i < edges.size(); i++) {
+      HEdge localHEdge = (HEdge)edges.get(i);
+      if (localHEdge.getPrev().getGraphPoint() == paramGraphVertex) {
+        return localHEdge;
+      }
+    }
+    return null;
+  }
+  
+  public boolean isBoundaryContained() {
+    return boundaryContained;
+  }
+  
+  public void setBoundaryContained(boolean paramBoolean) {
+    boundaryContained = paramBoolean;
+  }
+  
+  public String toString() {
+    return "GraphVertex[contained " + boundaryContained + ", " + point + "]";
+  }
+}

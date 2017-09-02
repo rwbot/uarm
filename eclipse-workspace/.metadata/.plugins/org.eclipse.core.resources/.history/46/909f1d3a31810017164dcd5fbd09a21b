@@ -1,0 +1,68 @@
+package jogamp.newt.event;
+
+import com.jogamp.newt.event.NEWTEvent;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class NEWTEventTask
+{
+  private final NEWTEvent event;
+  private final Object notifyObject;
+  private RuntimeException exception;
+  private volatile boolean dispatched;
+  
+  public NEWTEventTask(NEWTEvent paramNEWTEvent, Object paramObject)
+  {
+    event = paramNEWTEvent;
+    notifyObject = paramObject;
+    exception = null;
+    dispatched = false;
+  }
+  
+  public final NEWTEvent get() { return event; }
+  public final void setException(RuntimeException paramRuntimeException) { exception = paramRuntimeException; }
+  public final RuntimeException getException() { return exception; }
+  public final boolean isCallerWaiting() { return null != notifyObject; }
+  public final boolean isDispatched() { return dispatched; }
+  public final void setDispatched() { dispatched = true; }
+  
+
+
+  public void notifyCaller()
+  {
+    setDispatched();
+    if (null != notifyObject) {
+      synchronized (notifyObject) {
+        notifyObject.notifyAll();
+      }
+    }
+  }
+}

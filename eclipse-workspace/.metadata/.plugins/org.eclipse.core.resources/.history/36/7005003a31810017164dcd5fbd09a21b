@@ -1,0 +1,1054 @@
+package jogamp.graph.font.typecast.t2;
+
+import java.util.ArrayList;
+import jogamp.graph.font.typecast.ot.Point;
+import jogamp.graph.font.typecast.ot.table.CharstringType2;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class T2Interpreter
+{
+  private static final int ARGUMENT_STACK_LIMIT = 48;
+  private static final int SUBR_STACK_LIMIT = 10;
+  private static final int TRANSIENT_ARRAY_ELEMENT_COUNT = 32;
+  private final Number[] _argStack = new Number[48];
+  private int _argStackIndex = 0;
+  private final int[] _subrStack = new int[10];
+  private int _subrStackIndex = 0;
+  private final Number[] _transientArray = new Number[32];
+  
+
+  private ArrayList<Point> _points;
+  
+
+
+  public T2Interpreter() {}
+  
+
+
+  private void _rmoveto()
+  {
+    int i = popArg().intValue();
+    int j = popArg().intValue();
+    clearArg();
+    Point localPoint = getLastPoint();
+    moveTo(x + j, y + i);
+  }
+  
+
+
+  private void _hmoveto()
+  {
+    int i = popArg().intValue();
+    clearArg();
+    Point localPoint = getLastPoint();
+    moveTo(x + i, y);
+  }
+  
+
+
+  private void _vmoveto()
+  {
+    int i = popArg().intValue();
+    clearArg();
+    Point localPoint = getLastPoint();
+    moveTo(x, y + i);
+  }
+  
+
+
+
+
+
+  private void _rlineto()
+  {
+    int i = getArgCount() / 2;
+    int[] arrayOfInt1 = new int[i];
+    int[] arrayOfInt2 = new int[i];
+    for (int j = 0; j < i; j++) {
+      arrayOfInt2[(i - j - 1)] = popArg().intValue();
+      arrayOfInt1[(i - j - 1)] = popArg().intValue();
+    }
+    for (j = 0; j < i; j++) {
+      Point localPoint = getLastPoint();
+      lineTo(x + arrayOfInt1[j], y + arrayOfInt2[j]);
+    }
+    clearArg();
+  }
+  
+
+
+
+
+
+
+
+
+
+  private void _hlineto()
+  {
+    int i = getArgCount();
+    Number[] arrayOfNumber = new Number[i];
+    for (int j = 0; j < i; j++) {
+      arrayOfNumber[(i - j - 1)] = popArg();
+    }
+    for (j = 0; j < i; j++) {
+      Point localPoint = getLastPoint();
+      if (j % 2 == 0) {
+        lineTo(x + arrayOfNumber[j].intValue(), y);
+      } else {
+        lineTo(x, y + arrayOfNumber[j].intValue());
+      }
+    }
+    clearArg();
+  }
+  
+
+
+
+
+
+
+
+
+
+  private void _vlineto()
+  {
+    int i = getArgCount();
+    Number[] arrayOfNumber = new Number[i];
+    for (int j = 0; j < i; j++) {
+      arrayOfNumber[(i - j - 1)] = popArg();
+    }
+    for (j = 0; j < i; j++) {
+      Point localPoint = getLastPoint();
+      if (j % 2 == 0) {
+        lineTo(x, y + arrayOfNumber[j].intValue());
+      } else {
+        lineTo(x + arrayOfNumber[j].intValue(), y);
+      }
+    }
+    clearArg();
+  }
+  
+
+
+
+
+
+
+
+  private void _rrcurveto()
+  {
+    int i = getArgCount() / 6;
+    int[] arrayOfInt1 = new int[i];
+    int[] arrayOfInt2 = new int[i];
+    int[] arrayOfInt3 = new int[i];
+    int[] arrayOfInt4 = new int[i];
+    int[] arrayOfInt5 = new int[i];
+    int[] arrayOfInt6 = new int[i];
+    for (int j = 0; j < i; j++) {
+      arrayOfInt6[(i - j - 1)] = popArg().intValue();
+      arrayOfInt5[(i - j - 1)] = popArg().intValue();
+      arrayOfInt4[(i - j - 1)] = popArg().intValue();
+      arrayOfInt3[(i - j - 1)] = popArg().intValue();
+      arrayOfInt2[(i - j - 1)] = popArg().intValue();
+      arrayOfInt1[(i - j - 1)] = popArg().intValue();
+    }
+    for (j = 0; j < i; j++) {
+      Point localPoint = getLastPoint();
+      int k = x + arrayOfInt1[j];
+      int m = y + arrayOfInt2[j];
+      int n = k + arrayOfInt3[j];
+      int i1 = m + arrayOfInt4[j];
+      int i2 = n + arrayOfInt5[j];
+      int i3 = i1 + arrayOfInt6[j];
+      curveTo(k, m, n, i1, i2, i3);
+    }
+    clearArg();
+  }
+  
+
+
+
+
+
+
+  private void _hhcurveto()
+  {
+    int i = getArgCount() / 4;
+    int j = 0;
+    int[] arrayOfInt1 = new int[i];
+    int[] arrayOfInt2 = new int[i];
+    int[] arrayOfInt3 = new int[i];
+    int[] arrayOfInt4 = new int[i];
+    for (int k = 0; k < i; k++) {
+      arrayOfInt4[(i - k - 1)] = popArg().intValue();
+      arrayOfInt3[(i - k - 1)] = popArg().intValue();
+      arrayOfInt2[(i - k - 1)] = popArg().intValue();
+      arrayOfInt1[(i - k - 1)] = popArg().intValue();
+    }
+    if (getArgCount() == 1) {
+      j = popArg().intValue();
+    }
+    for (k = 0; k < i; k++) {
+      Point localPoint = getLastPoint();
+      int m = x + arrayOfInt1[k];
+      int n = y + (k == 0 ? j : 0);
+      int i1 = m + arrayOfInt2[k];
+      int i2 = n + arrayOfInt3[k];
+      int i3 = i1 + arrayOfInt4[k];
+      int i4 = i2;
+      curveTo(m, n, i1, i2, i3, i4);
+    }
+    clearArg(); }
+  
+  private void _hvcurveto() { int i;
+    int[] arrayOfInt1;
+    int[] arrayOfInt2;
+    int[] arrayOfInt3;
+    int[] arrayOfInt4;
+    int[] arrayOfInt5;
+    int[] arrayOfInt6;
+    int[] arrayOfInt7;
+    int[] arrayOfInt8;
+    int j;
+    int k;
+    Point localPoint;
+    int m; int n; int i1; int i2; int i3; int i4; int i5; int i6; int i7; int i8; int i9; int i10; if (getArgCount() % 8 <= 1) {
+      i = getArgCount() / 8;
+      arrayOfInt1 = new int[i];
+      arrayOfInt2 = new int[i];
+      arrayOfInt3 = new int[i];
+      arrayOfInt4 = new int[i];
+      arrayOfInt5 = new int[i];
+      arrayOfInt6 = new int[i];
+      arrayOfInt7 = new int[i];
+      arrayOfInt8 = new int[i];
+      j = 0;
+      if (getArgCount() % 8 == 1) {
+        j = popArg().intValue();
+      }
+      for (k = 0; k < i; k++) {
+        arrayOfInt8[(i - k - 1)] = popArg().intValue();
+        arrayOfInt7[(i - k - 1)] = popArg().intValue();
+        arrayOfInt6[(i - k - 1)] = popArg().intValue();
+        arrayOfInt5[(i - k - 1)] = popArg().intValue();
+        arrayOfInt4[(i - k - 1)] = popArg().intValue();
+        arrayOfInt3[(i - k - 1)] = popArg().intValue();
+        arrayOfInt2[(i - k - 1)] = popArg().intValue();
+        arrayOfInt1[(i - k - 1)] = popArg().intValue();
+      }
+      for (k = 0; k < i; k++) {
+        localPoint = getLastPoint();
+        m = x + arrayOfInt1[k];
+        n = y;
+        i1 = m + arrayOfInt2[k];
+        i2 = n + arrayOfInt3[k];
+        i3 = i1;
+        i4 = i2 + arrayOfInt4[k];
+        i5 = i3;
+        i6 = i4 + arrayOfInt5[k];
+        i7 = i5 + arrayOfInt6[k];
+        i8 = i6 + arrayOfInt7[k];
+        i9 = i7 + arrayOfInt8[k];
+        i10 = i8 + j;
+        curveTo(m, n, i1, i2, i3, i4);
+        curveTo(i5, i6, i7, i8, i9, i10);
+      }
+    } else {
+      i = getArgCount() / 8;
+      arrayOfInt1 = new int[i];
+      arrayOfInt2 = new int[i];
+      arrayOfInt3 = new int[i];
+      arrayOfInt4 = new int[i];
+      arrayOfInt5 = new int[i];
+      arrayOfInt6 = new int[i];
+      arrayOfInt7 = new int[i];
+      arrayOfInt8 = new int[i];
+      j = 0;
+      if (getArgCount() % 8 == 1) {
+        j = popArg().intValue();
+      }
+      for (k = 0; k < i; k++) {
+        arrayOfInt8[(i - k - 1)] = popArg().intValue();
+        arrayOfInt7[(i - k - 1)] = popArg().intValue();
+        arrayOfInt6[(i - k - 1)] = popArg().intValue();
+        arrayOfInt5[(i - k - 1)] = popArg().intValue();
+        arrayOfInt4[(i - k - 1)] = popArg().intValue();
+        arrayOfInt3[(i - k - 1)] = popArg().intValue();
+        arrayOfInt2[(i - k - 1)] = popArg().intValue();
+        arrayOfInt1[(i - k - 1)] = popArg().intValue();
+      }
+      
+
+
+
+
+
+
+
+
+      popArg();
+      popArg();
+      popArg();
+      popArg();
+      
+      for (k = 0; k < i; k++) {
+        localPoint = getLastPoint();
+        m = x;
+        n = y + arrayOfInt1[k];
+        i1 = m + arrayOfInt2[k];
+        i2 = n + arrayOfInt3[k];
+        i3 = i1 + arrayOfInt4[k];
+        i4 = i2;
+        i5 = i3 + arrayOfInt5[k];
+        i6 = i4;
+        i7 = i5 + arrayOfInt6[k];
+        i8 = i6 + arrayOfInt7[k];
+        i9 = i7 + j;
+        i10 = i8 + arrayOfInt8[k];
+        curveTo(m, n, i1, i2, i3, i4);
+        curveTo(i5, i6, i7, i8, i9, i10);
+      }
+    }
+    
+
+    clearArg();
+  }
+  
+
+
+
+
+
+  private void _rcurveline()
+  {
+    int i = (getArgCount() - 2) / 6;
+    int[] arrayOfInt1 = new int[i];
+    int[] arrayOfInt2 = new int[i];
+    int[] arrayOfInt3 = new int[i];
+    int[] arrayOfInt4 = new int[i];
+    int[] arrayOfInt5 = new int[i];
+    int[] arrayOfInt6 = new int[i];
+    int j = popArg().intValue();
+    int k = popArg().intValue();
+    for (int m = 0; m < i; m++) {
+      arrayOfInt6[(i - m - 1)] = popArg().intValue();
+      arrayOfInt5[(i - m - 1)] = popArg().intValue();
+      arrayOfInt4[(i - m - 1)] = popArg().intValue();
+      arrayOfInt3[(i - m - 1)] = popArg().intValue();
+      arrayOfInt2[(i - m - 1)] = popArg().intValue();
+      arrayOfInt1[(i - m - 1)] = popArg().intValue();
+    }
+    m = 0;
+    int n = 0;
+    for (int i1 = 0; i1 < i; i1++) {
+      Point localPoint = getLastPoint();
+      int i2 = x + arrayOfInt1[i1];
+      int i3 = y + arrayOfInt2[i1];
+      int i4 = i2 + arrayOfInt3[i1];
+      int i5 = i3 + arrayOfInt4[i1];
+      m = i4 + arrayOfInt5[i1];
+      n = i5 + arrayOfInt6[i1];
+      curveTo(i2, i3, i4, i5, m, n);
+    }
+    lineTo(m + k, n + j);
+    clearArg();
+  }
+  
+
+
+
+
+
+  private void _rlinecurve()
+  {
+    int i = (getArgCount() - 6) / 2;
+    int[] arrayOfInt1 = new int[i];
+    int[] arrayOfInt2 = new int[i];
+    int j = popArg().intValue();
+    int k = popArg().intValue();
+    int m = popArg().intValue();
+    int n = popArg().intValue();
+    int i1 = popArg().intValue();
+    int i2 = popArg().intValue();
+    for (int i3 = 0; i3 < i; i3++) {
+      arrayOfInt2[(i - i3 - 1)] = popArg().intValue();
+      arrayOfInt1[(i - i3 - 1)] = popArg().intValue();
+    }
+    i3 = 0;
+    int i4 = 0;
+    for (int i5 = 0; i5 < i; i5++) {
+      Point localPoint = getLastPoint();
+      i3 = x + arrayOfInt1[i5];
+      i4 = y + arrayOfInt2[i5];
+      lineTo(i3, i4);
+    }
+    i5 = i3 + i2;
+    int i6 = i4 + i1;
+    int i7 = i5 + n;
+    int i8 = i6 + m;
+    int i9 = i7 + k;
+    int i10 = i8 + j;
+    curveTo(i5, i6, i7, i8, i9, i10);
+    clearArg();
+  }
+  
+
+
+
+
+
+  private void _vhcurveto()
+  {
+    if (getArgCount() % 8 <= 1) {
+      int i = getArgCount() / 8;
+      int[] arrayOfInt1 = new int[i];
+      int[] arrayOfInt2 = new int[i];
+      int[] arrayOfInt3 = new int[i];
+      int[] arrayOfInt4 = new int[i];
+      int[] arrayOfInt5 = new int[i];
+      int[] arrayOfInt6 = new int[i];
+      int[] arrayOfInt7 = new int[i];
+      int[] arrayOfInt8 = new int[i];
+      int j = 0;
+      if (getArgCount() % 8 == 1) {
+        j = popArg().intValue();
+      }
+      for (int k = 0; k < i; k++) {
+        arrayOfInt8[(i - k - 1)] = popArg().intValue();
+        arrayOfInt7[(i - k - 1)] = popArg().intValue();
+        arrayOfInt6[(i - k - 1)] = popArg().intValue();
+        arrayOfInt5[(i - k - 1)] = popArg().intValue();
+        arrayOfInt4[(i - k - 1)] = popArg().intValue();
+        arrayOfInt3[(i - k - 1)] = popArg().intValue();
+        arrayOfInt2[(i - k - 1)] = popArg().intValue();
+        arrayOfInt1[(i - k - 1)] = popArg().intValue();
+      }
+      for (k = 0; k < i; k++) {
+        Point localPoint = getLastPoint();
+        int m = x;
+        int n = y + arrayOfInt1[k];
+        int i1 = m + arrayOfInt2[k];
+        int i2 = n + arrayOfInt3[k];
+        int i3 = i1 + arrayOfInt4[k];
+        int i4 = i2;
+        int i5 = i3 + arrayOfInt5[k];
+        int i6 = i4;
+        int i7 = i5 + arrayOfInt6[k];
+        int i8 = i6 + arrayOfInt7[k];
+        int i9 = i7 + j;
+        int i10 = i8 + arrayOfInt8[k];
+        curveTo(m, n, i1, i2, i3, i4);
+        curveTo(i5, i6, i7, i8, i9, i10);
+      }
+    }
+    
+
+    clearArg();
+  }
+  
+
+
+
+
+
+
+  private void _vvcurveto()
+  {
+    clearArg();
+  }
+  
+
+
+
+
+
+
+
+  private void _flex()
+  {
+    clearArg();
+  }
+  
+
+
+
+
+
+
+  private void _hflex()
+  {
+    clearArg();
+  }
+  
+
+
+
+
+
+
+  private void _hflex1()
+  {
+    clearArg();
+  }
+  
+
+
+
+
+
+
+  private void _flex1()
+  {
+    clearArg();
+  }
+  
+
+
+
+  private void _endchar()
+  {
+    endContour();
+    clearArg();
+  }
+  
+  private void _hstem()
+  {
+    clearArg();
+  }
+  
+  private void _vstem()
+  {
+    clearArg();
+  }
+  
+  private void _hstemhm()
+  {
+    clearArg();
+  }
+  
+  private void _vstemhm()
+  {
+    clearArg();
+  }
+  
+  private void _hintmask()
+  {
+    clearArg();
+  }
+  
+  private void _cntrmask()
+  {
+    clearArg();
+  }
+  
+
+
+  private void _abs()
+  {
+    double d = popArg().doubleValue();
+    pushArg(Double.valueOf(Math.abs(d)));
+  }
+  
+
+
+  private void _add()
+  {
+    double d1 = popArg().doubleValue();
+    double d2 = popArg().doubleValue();
+    pushArg(Double.valueOf(d2 + d1));
+  }
+  
+
+
+  private void _sub()
+  {
+    double d1 = popArg().doubleValue();
+    double d2 = popArg().doubleValue();
+    pushArg(Double.valueOf(d2 - d1));
+  }
+  
+
+
+
+  private void _div()
+  {
+    double d1 = popArg().doubleValue();
+    double d2 = popArg().doubleValue();
+    pushArg(Double.valueOf(d2 / d1));
+  }
+  
+
+
+  private void _neg()
+  {
+    double d = popArg().doubleValue();
+    pushArg(Double.valueOf(-d));
+  }
+  
+
+
+
+  private void _random()
+  {
+    pushArg(Double.valueOf(1.0D - Math.random()));
+  }
+  
+
+
+
+  private void _mul()
+  {
+    double d1 = popArg().doubleValue();
+    double d2 = popArg().doubleValue();
+    pushArg(Double.valueOf(d2 * d1));
+  }
+  
+
+
+
+  private void _sqrt()
+  {
+    double d = popArg().doubleValue();
+    pushArg(Double.valueOf(Math.sqrt(d)));
+  }
+  
+
+
+  private void _drop()
+  {
+    popArg();
+  }
+  
+
+
+  private void _exch()
+  {
+    Number localNumber1 = popArg();
+    Number localNumber2 = popArg();
+    pushArg(localNumber1);
+    pushArg(localNumber2);
+  }
+  
+
+
+
+
+
+  private void _index()
+  {
+    int i = popArg().intValue();
+    Number[] arrayOfNumber = new Number[i];
+    for (int j = 0; j < i; j++) {
+      arrayOfNumber[j] = popArg();
+    }
+    for (j = i - 1; j >= 0; j--) {
+      pushArg(arrayOfNumber[j]);
+    }
+    pushArg(arrayOfNumber[i]);
+  }
+  
+
+
+
+
+
+
+  private void _roll()
+  {
+    int i = popArg().intValue();
+    int j = popArg().intValue();
+    Number[] arrayOfNumber = new Number[j];
+    for (int k = 0; k < j; k++) {
+      arrayOfNumber[k] = popArg();
+    }
+    for (k = j - 1; k >= 0; k--) {
+      pushArg(arrayOfNumber[((j + k + i) % j)]);
+    }
+  }
+  
+
+
+  private void _dup()
+  {
+    Number localNumber = popArg();
+    pushArg(localNumber);
+    pushArg(localNumber);
+  }
+  
+
+
+  private void _put()
+  {
+    int i = popArg().intValue();
+    Number localNumber = popArg();
+    _transientArray[i] = localNumber;
+  }
+  
+
+
+
+
+
+  private void _get()
+  {
+    int i = popArg().intValue();
+    pushArg(_transientArray[i]);
+  }
+  
+
+
+
+  private void _and()
+  {
+    double d1 = popArg().doubleValue();
+    double d2 = popArg().doubleValue();
+    pushArg(Integer.valueOf((d2 != 0.0D) && (d1 != 0.0D) ? 1 : 0));
+  }
+  
+
+
+
+  private void _or()
+  {
+    double d1 = popArg().doubleValue();
+    double d2 = popArg().doubleValue();
+    pushArg(Integer.valueOf((d2 != 0.0D) || (d1 != 0.0D) ? 1 : 0));
+  }
+  
+
+
+  private void _not()
+  {
+    double d = popArg().doubleValue();
+    pushArg(Integer.valueOf(d != 0.0D ? 0 : 1));
+  }
+  
+
+
+
+  private void _eq()
+  {
+    double d1 = popArg().doubleValue();
+    double d2 = popArg().doubleValue();
+    pushArg(Integer.valueOf(d2 == d1 ? 1 : 0));
+  }
+  
+
+
+
+
+  private void _ifelse()
+  {
+    double d1 = popArg().doubleValue();
+    double d2 = popArg().doubleValue();
+    Number localNumber1 = popArg();
+    Number localNumber2 = popArg();
+    pushArg(d2 <= d1 ? localNumber2 : localNumber1);
+  }
+  
+
+
+
+
+
+
+  private void _callsubr() {}
+  
+
+
+
+
+
+
+  private void _callgsubr() {}
+  
+
+
+
+
+
+
+  private void _return() {}
+  
+
+
+
+
+
+  public Point[] execute(CharstringType2 paramCharstringType2)
+  {
+    _points = new ArrayList();
+    paramCharstringType2.resetIP();
+    while (paramCharstringType2.moreBytes()) {
+      while (paramCharstringType2.isOperandAtIndex()) {
+        pushArg(paramCharstringType2.nextOperand());
+      }
+      int i = paramCharstringType2.nextByte();
+      if (i == 12) {
+        i = paramCharstringType2.nextByte();
+        
+
+        switch (i) {
+        case 3: 
+          _and();
+          break;
+        case 4: 
+          _or();
+          break;
+        case 5: 
+          _not();
+          break;
+        case 9: 
+          _abs();
+          break;
+        case 10: 
+          _add();
+          break;
+        case 11: 
+          _sub();
+          break;
+        case 12: 
+          _div();
+          break;
+        case 14: 
+          _neg();
+          break;
+        case 15: 
+          _eq();
+          break;
+        case 18: 
+          _drop();
+          break;
+        case 20: 
+          _put();
+          break;
+        case 21: 
+          _get();
+          break;
+        case 22: 
+          _ifelse();
+          break;
+        case 23: 
+          _random();
+          break;
+        case 24: 
+          _mul();
+          break;
+        case 26: 
+          _sqrt();
+          break;
+        case 27: 
+          _dup();
+          break;
+        case 28: 
+          _exch();
+          break;
+        case 29: 
+          _index();
+          break;
+        case 30: 
+          _roll();
+          break;
+        case 34: 
+          _hflex();
+          break;
+        case 35: 
+          _flex();
+          break;
+        case 36: 
+          _hflex1();
+          break;
+        case 37: 
+          _flex1();
+          break;
+        case 6: case 7: case 8: case 13: case 16: case 17: 
+        case 19: case 25: case 31: case 32: case 33: default: 
+          return null;
+        }
+      }
+      else
+      {
+        switch (i) {
+        case 1: 
+          _hstem();
+          break;
+        case 3: 
+          _vstem();
+          break;
+        case 4: 
+          _vmoveto();
+          break;
+        case 5: 
+          _rlineto();
+          break;
+        case 6: 
+          _hlineto();
+          break;
+        case 7: 
+          _vlineto();
+          break;
+        case 8: 
+          _rrcurveto();
+          break;
+        case 10: 
+          _callsubr();
+          break;
+        case 11: 
+          _return();
+          break;
+        case 14: 
+          _endchar();
+          break;
+        case 18: 
+          _hstemhm();
+          break;
+        case 19: 
+          _hintmask();
+          break;
+        case 20: 
+          _cntrmask();
+          break;
+        case 21: 
+          _rmoveto();
+          break;
+        case 22: 
+          _hmoveto();
+          break;
+        case 23: 
+          _vstemhm();
+          break;
+        case 24: 
+          _rcurveline();
+          break;
+        case 25: 
+          _rlinecurve();
+          break;
+        case 26: 
+          _vvcurveto();
+          break;
+        case 27: 
+          _hhcurveto();
+          break;
+        case 29: 
+          _callgsubr();
+          break;
+        case 30: 
+          _vhcurveto();
+          break;
+        case 31: 
+          _hvcurveto();
+          break;
+        case 2: case 9: case 12: case 13: case 15: 
+        case 16: case 17: case 28: default: 
+          return null;
+        }
+      }
+    }
+    Point[] arrayOfPoint = new Point[_points.size()];
+    _points.toArray(arrayOfPoint);
+    return arrayOfPoint;
+  }
+  
+
+
+  private int getArgCount()
+  {
+    return _argStackIndex;
+  }
+  
+
+
+  private Number popArg()
+  {
+    return _argStack[(--_argStackIndex)];
+  }
+  
+
+
+  private void pushArg(Number paramNumber)
+  {
+    _argStack[(_argStackIndex++)] = paramNumber;
+  }
+  
+
+
+  private int popSubr()
+  {
+    return _subrStack[(--_subrStackIndex)];
+  }
+  
+
+
+  private void pushSubr(int paramInt)
+  {
+    _subrStack[(_subrStackIndex++)] = paramInt;
+  }
+  
+
+
+  private void clearArg()
+  {
+    _argStackIndex = 0;
+  }
+  
+  private Point getLastPoint() {
+    int i = _points.size();
+    if (i > 0) {
+      return (Point)_points.get(i - 1);
+    }
+    return new Point(0, 0, true, false);
+  }
+  
+  private void moveTo(int paramInt1, int paramInt2)
+  {
+    endContour();
+    _points.add(new Point(paramInt1, paramInt2, true, false));
+  }
+  
+  private void lineTo(int paramInt1, int paramInt2) {
+    _points.add(new Point(paramInt1, paramInt2, true, false));
+  }
+  
+  private void curveTo(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6) {
+    _points.add(new Point(paramInt1, paramInt2, false, false));
+    _points.add(new Point(paramInt3, paramInt4, false, false));
+    _points.add(new Point(paramInt5, paramInt6, true, false));
+  }
+  
+  private void endContour() {
+    Point localPoint = getLastPoint();
+    if (localPoint != null) {
+      endOfContour = true;
+    }
+  }
+}

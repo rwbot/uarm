@@ -1,0 +1,152 @@
+package jogamp.opengl.windows.wgl;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.StructAccessor;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import java.nio.ByteBuffer;
+import jogamp.common.os.MachineDataInfoRuntime;
+
+
+
+
+
+
+
+
+
+
+public class PGPU_DEVICE
+{
+  StructAccessor accessor;
+  private static final int mdIdx = MachineDataInfoRuntime.getStatic().ordinal();
+  
+  private final MachineDataInfo md;
+  private static final int[] PGPU_DEVICE_size = { 184, 184, 184, 184, 184, 184, 184, 184 };
+  private static final int[] cb_offset = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  
+  private static final int[] DeviceName_offset = { 4, 4, 4, 4, 4, 4, 4, 4 };
+  private static final int[] DeviceName_size = { 32, 32, 32, 32, 32, 32, 32, 32 };
+  private static final int[] DeviceString_offset = { 36, 36, 36, 36, 36, 36, 36, 36 };
+  private static final int[] DeviceString_size = { 128, 128, 128, 128, 128, 128, 128, 128 };
+  private static final int[] Flags_offset = { 164, 164, 164, 164, 164, 164, 164, 164 };
+  
+  private static final int[] rcVirtualScreen_offset = { 168, 168, 168, 168, 168, 168, 168, 168 };
+  private static final int[] rcVirtualScreen_size = { 16, 16, 16, 16, 16, 16, 16, 16 };
+  
+  public static int size() {
+    return PGPU_DEVICE_size[mdIdx];
+  }
+  
+  public static PGPU_DEVICE create() {
+    return create(Buffers.newDirectByteBuffer(size()));
+  }
+  
+  public static PGPU_DEVICE create(ByteBuffer paramByteBuffer) {
+    return new PGPU_DEVICE(paramByteBuffer);
+  }
+  
+  PGPU_DEVICE(ByteBuffer paramByteBuffer) {
+    md = valuesmdIdxmd;
+    accessor = new StructAccessor(paramByteBuffer);
+  }
+  
+  public ByteBuffer getBuffer() {
+    return accessor.getBuffer();
+  }
+  
+  public PGPU_DEVICE setCb(int paramInt)
+  {
+    accessor.setIntAt(cb_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getCb()
+  {
+    return accessor.getIntAt(cb_offset[mdIdx]);
+  }
+  
+  public static final int getDeviceNameArrayLength()
+  {
+    return 32;
+  }
+  
+
+  public PGPU_DEVICE setDeviceName(int paramInt, byte[] paramArrayOfByte)
+  {
+    if (paramInt + paramArrayOfByte.length > 32) { throw new IndexOutOfBoundsException("offset " + paramInt + " + val.length " + paramArrayOfByte.length + " > array-length " + 32);
+    }
+    ByteBuffer localByteBuffer = getBuffer();
+    
+    if (32 > DeviceName_size[mdIdx]) throw new IndexOutOfBoundsException("bTotal 32 > size " + DeviceName_size[mdIdx] + ", elemSize " + 1 + " * " + 32);
+    int i = DeviceName_offset[mdIdx];
+    int j = i + 32;
+    if (j > localByteBuffer.limit()) throw new IndexOutOfBoundsException("bLimes " + j + " > buffer.limit " + localByteBuffer.limit() + ", elemOff " + i + ", elemSize " + 1 + " * " + 32);
+    i += 1 * paramInt;
+    accessor.setBytesAt(i, paramArrayOfByte);
+    return this;
+  }
+  
+  public ByteBuffer getDeviceName()
+  {
+    return accessor.slice(DeviceName_offset[mdIdx], 32);
+  }
+  
+
+  public byte[] getDeviceName(int paramInt, byte[] paramArrayOfByte)
+  {
+    if (paramInt + paramArrayOfByte.length > 32) throw new IndexOutOfBoundsException("offset " + paramInt + " + result.length " + paramArrayOfByte.length + " > array-length " + 32);
+    return accessor.getBytesAt(DeviceName_offset[mdIdx] + 1 * paramInt, paramArrayOfByte);
+  }
+  
+
+  public static final int getDeviceStringArrayLength()
+  {
+    return 128;
+  }
+  
+
+  public PGPU_DEVICE setDeviceString(int paramInt, byte[] paramArrayOfByte)
+  {
+    if (paramInt + paramArrayOfByte.length > 128) { throw new IndexOutOfBoundsException("offset " + paramInt + " + val.length " + paramArrayOfByte.length + " > array-length " + 128);
+    }
+    ByteBuffer localByteBuffer = getBuffer();
+    
+    if (128 > DeviceString_size[mdIdx]) throw new IndexOutOfBoundsException("bTotal 128 > size " + DeviceString_size[mdIdx] + ", elemSize " + 1 + " * " + 128);
+    int i = DeviceString_offset[mdIdx];
+    int j = i + 128;
+    if (j > localByteBuffer.limit()) throw new IndexOutOfBoundsException("bLimes " + j + " > buffer.limit " + localByteBuffer.limit() + ", elemOff " + i + ", elemSize " + 1 + " * " + 128);
+    i += 1 * paramInt;
+    accessor.setBytesAt(i, paramArrayOfByte);
+    return this;
+  }
+  
+  public ByteBuffer getDeviceString()
+  {
+    return accessor.slice(DeviceString_offset[mdIdx], 128);
+  }
+  
+
+  public byte[] getDeviceString(int paramInt, byte[] paramArrayOfByte)
+  {
+    if (paramInt + paramArrayOfByte.length > 128) throw new IndexOutOfBoundsException("offset " + paramInt + " + result.length " + paramArrayOfByte.length + " > array-length " + 128);
+    return accessor.getBytesAt(DeviceString_offset[mdIdx] + 1 * paramInt, paramArrayOfByte);
+  }
+  
+
+  public PGPU_DEVICE setFlags(int paramInt)
+  {
+    accessor.setIntAt(Flags_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getFlags()
+  {
+    return accessor.getIntAt(Flags_offset[mdIdx]);
+  }
+  
+  public RECT getRcVirtualScreen()
+  {
+    return RECT.create(accessor.slice(rcVirtualScreen_offset[mdIdx], rcVirtualScreen_size[mdIdx]));
+  }
+}

@@ -1,0 +1,386 @@
+package jogamp.opengl.egl;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.util.LongObjectHashMap;
+import com.jogamp.common.util.LongObjectHashMap.Entry;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.egl.EGLGraphicsDevice;
+import com.jogamp.nativewindow.egl.EGLGraphicsDevice.EGLDisplayLifecycleCallback;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.egl.EGL;
+import java.io.PrintStream;
+import java.nio.IntBuffer;
+import java.util.Iterator;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class EGLDisplayUtil
+{
+  private static final boolean DEBUG = Debug.debug("EGLDisplayUtil");
+  private static boolean useSingletonEGLDisplay = false;
+  private static EGLDisplayRef singletonEGLDisplay = null;
+  
+
+
+
+  private static class EGLDisplayRef
+  {
+    final long eglDisplay;
+    
+
+
+    final Throwable createdStack;
+    
+
+    int initRefCount;
+    
+
+
+    static EGLDisplayRef getOrCreateOpened(long paramLong, IntBuffer paramIntBuffer1, IntBuffer paramIntBuffer2)
+    {
+      EGLDisplayRef localEGLDisplayRef1 = (EGLDisplayRef)EGLDisplayUtil.openEGLDisplays.get(paramLong);
+      if (null == localEGLDisplayRef1) {
+        boolean bool = EGL.eglInitialize(paramLong, paramIntBuffer1, paramIntBuffer2);
+        if (EGLDisplayUtil.DEBUG) {
+          System.err.println("EGLDisplayUtil.EGL.eglInitialize 0x" + Long.toHexString(paramLong) + " -> " + bool);
+        }
+        if (bool) {
+          EGLDisplayRef localEGLDisplayRef2 = new EGLDisplayRef(paramLong);
+          EGLDisplayUtil.openEGLDisplays.put(paramLong, localEGLDisplayRef2);
+          initRefCount += 1;
+          if (EGLDisplayUtil.DEBUG) {
+            System.err.println("EGLDisplayUtil.EGL.eglInitialize " + localEGLDisplayRef2);
+          }
+          if (null == EGLDisplayUtil.singletonEGLDisplay) {
+            EGLDisplayUtil.access$202(localEGLDisplayRef2);
+          }
+          return localEGLDisplayRef2;
+        }
+        return null;
+      }
+      
+      initRefCount += 1;
+      return localEGLDisplayRef1;
+    }
+    
+
+
+
+
+
+
+
+
+
+    static EGLDisplayRef closeOpened(long paramLong, boolean[] paramArrayOfBoolean)
+    {
+      EGLDisplayRef localEGLDisplayRef = (EGLDisplayRef)EGLDisplayUtil.openEGLDisplays.get(paramLong);
+      paramArrayOfBoolean[0] = true;
+      if (null != localEGLDisplayRef) {
+        if (0 < initRefCount) {
+          initRefCount -= 1;
+          if (0 == initRefCount) {
+            boolean bool = EGL.eglTerminate(paramLong);
+            if (EGLDisplayUtil.DEBUG) {
+              System.err.println("EGLDisplayUtil.EGL.eglTerminate 0x" + Long.toHexString(paramLong) + " -> " + bool);
+              System.err.println("EGLDisplayUtil.EGL.eglTerminate " + localEGLDisplayRef);
+            }
+            paramArrayOfBoolean[0] = bool;
+            if (localEGLDisplayRef == EGLDisplayUtil.singletonEGLDisplay) {
+              EGLDisplayUtil.access$202(null);
+            }
+          }
+        }
+        if (0 >= initRefCount) {
+          EGLDisplayUtil.openEGLDisplays.remove(paramLong);
+        }
+      }
+      return localEGLDisplayRef;
+    }
+    
+    private EGLDisplayRef(long paramLong) {
+      eglDisplay = paramLong;
+      initRefCount = 0;
+      createdStack = (EGLDisplayUtil.DEBUG ? new Throwable() : null);
+    }
+    
+    public String toString()
+    {
+      return "EGLDisplayRef[0x" + Long.toHexString(eglDisplay) + ": refCnt " + initRefCount + "]";
+    }
+  }
+  
+
+
+  private static final LongObjectHashMap openEGLDisplays = new LongObjectHashMap();
+  static { openEGLDisplays.setKeyNotFoundValue(null); }
+  
+
+
+
+  public static int shutdown(boolean paramBoolean)
+  {
+    if ((DEBUG) || (paramBoolean) || (openEGLDisplays.size() > 0)) {
+      System.err.println("EGLDisplayUtil.EGLDisplays: Shutdown (open: " + openEGLDisplays.size() + ")");
+      if (DEBUG) {
+        ExceptionUtils.dumpStack(System.err);
+      }
+      if (openEGLDisplays.size() > 0) {
+        dumpOpenDisplayConnections();
+      }
+    }
+    return openEGLDisplays.size();
+  }
+  
+  public static void dumpOpenDisplayConnections() {
+    System.err.println("EGLDisplayUtil: Open EGL Display Connections: " + openEGLDisplays.size());
+    int i = 0;
+    for (Iterator localIterator = openEGLDisplays.iterator(); localIterator.hasNext(); i++) {
+      LongObjectHashMap.Entry localEntry = (LongObjectHashMap.Entry)localIterator.next();
+      EGLDisplayRef localEGLDisplayRef = (EGLDisplayRef)value;
+      System.err.println("EGLDisplayUtil: Open[" + i + "]: 0x" + Long.toHexString(key) + ": " + localEGLDisplayRef);
+      if (null != createdStack) {
+        createdStack.printStackTrace();
+      }
+    }
+  }
+  
+  static synchronized void setSingletonEGLDisplayOnly(boolean paramBoolean) { useSingletonEGLDisplay = paramBoolean; }
+  
+  private static synchronized long eglGetDisplay(long paramLong) {
+    if ((useSingletonEGLDisplay) && (null != singletonEGLDisplay)) {
+      if (DEBUG) {
+        System.err.println("EGLDisplayUtil.eglGetDisplay.s: eglDisplay(" + EGLContext.toHexString(paramLong) + "): " + 
+          EGLContext.toHexString(singletonEGLDisplayeglDisplay) + ", " + (0L != singletonEGLDisplayeglDisplay ? "OK" : "Failed") + ", singletonEGLDisplay " + singletonEGLDisplay + " (use " + useSingletonEGLDisplay + ")");
+      }
+      
+      return singletonEGLDisplayeglDisplay;
+    }
+    long l = EGL.eglGetDisplay(paramLong);
+    if (DEBUG) {
+      System.err.println("EGLDisplayUtil.eglGetDisplay.X: eglDisplay(" + EGLContext.toHexString(paramLong) + "): " + 
+        EGLContext.toHexString(l) + ", " + (0L != l ? "OK" : "Failed") + ", singletonEGLDisplay " + singletonEGLDisplay + " (use " + useSingletonEGLDisplay + ")");
+    }
+    
+    return l;
+  }
+  
+
+
+
+
+
+
+
+  private static synchronized boolean eglInitialize(long paramLong, int[] paramArrayOfInt1, int[] paramArrayOfInt2)
+  {
+    if (0L == paramLong) {
+      return false;
+    }
+    EGLDisplayRef localEGLDisplayRef = EGLDisplayRef.getOrCreateOpened(paramLong, _eglMajorVersion, _eglMinorVersion);
+    int i = _eglMajorVersion.get(0);
+    int j = _eglMinorVersion.get(0);
+    if ((null != paramArrayOfInt1) && (null != paramArrayOfInt2)) {
+      if (null != localEGLDisplayRef) {
+        paramArrayOfInt1[0] = i;
+        paramArrayOfInt2[0] = j;
+      } else {
+        paramArrayOfInt1[0] = 0;
+        paramArrayOfInt2[0] = 0;
+      }
+    }
+    if (DEBUG) {
+      System.err.println("EGLDisplayUtil.eglInitialize(" + EGLContext.toHexString(paramLong) + " ...): " + localEGLDisplayRef + " = " + (null != localEGLDisplayRef) + ", eglVersion " + i + "." + j + ", singletonEGLDisplay " + singletonEGLDisplay + " (use " + useSingletonEGLDisplay + ")");
+    }
+    
+    return null != localEGLDisplayRef; }
+  
+  private static final IntBuffer _eglMajorVersion = Buffers.newDirectIntBuffer(1);
+  private static final IntBuffer _eglMinorVersion = Buffers.newDirectIntBuffer(1);
+  
+
+
+
+
+
+
+
+
+
+
+
+  private static synchronized int eglGetDisplayAndInitialize(long paramLong, long[] paramArrayOfLong, int[] paramArrayOfInt1, int[] paramArrayOfInt2, int[] paramArrayOfInt3)
+  {
+    paramArrayOfLong[0] = 0L;
+    long l = eglGetDisplay(paramLong);
+    if (0L == l) {
+      paramArrayOfInt1[0] = EGL.eglGetError();
+      return 12296;
+    }
+    if (!eglInitialize(l, paramArrayOfInt2, paramArrayOfInt3)) {
+      paramArrayOfInt1[0] = EGL.eglGetError();
+      return 12289;
+    }
+    paramArrayOfLong[0] = l;
+    return 12288;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  private static synchronized long eglGetDisplayAndInitialize(long[] paramArrayOfLong, int[] paramArrayOfInt1, int[] paramArrayOfInt2)
+  {
+    long[] arrayOfLong = new long[1];
+    int[] arrayOfInt = new int[1];
+    int i = eglGetDisplayAndInitialize(paramArrayOfLong[0], arrayOfLong, arrayOfInt, paramArrayOfInt1, paramArrayOfInt2);
+    if (12288 == i) {
+      return arrayOfLong[0];
+    }
+    if (0L != paramArrayOfLong[0]) {
+      if (DEBUG) {
+        System.err.println("EGLDisplayUtil.eglGetAndInitDisplay failed with native " + EGLContext.toHexString(paramArrayOfLong[0]) + ", error " + EGLContext.toHexString(i) + "/" + EGLContext.toHexString(arrayOfInt[0]) + " - fallback!");
+      }
+      i = eglGetDisplayAndInitialize(0L, arrayOfLong, arrayOfInt, paramArrayOfInt1, paramArrayOfInt2);
+      if (12288 == i) {
+        paramArrayOfLong[0] = 0L;
+        return arrayOfLong[0];
+      }
+    }
+    throw new GLException("Failed to created/initialize EGL display incl. fallback default: native " + EGLContext.toHexString(paramArrayOfLong[0]) + ", error " + EGLContext.toHexString(i) + "/" + EGLContext.toHexString(arrayOfInt[0]));
+  }
+  
+
+
+
+  private static synchronized boolean eglTerminate(long paramLong)
+  {
+    if (0L == paramLong) {
+      return false;
+    }
+    boolean[] arrayOfBoolean = new boolean[1];
+    EGLDisplayRef localEGLDisplayRef = EGLDisplayRef.closeOpened(paramLong, arrayOfBoolean);
+    if (DEBUG) {
+      System.err.println("EGLDisplayUtil.eglTerminate.X(" + EGLContext.toHexString(paramLong) + " ...): " + localEGLDisplayRef + " = " + arrayOfBoolean[0] + ", singletonEGLDisplay " + singletonEGLDisplay + " (use " + useSingletonEGLDisplay + ")");
+    }
+    
+    return arrayOfBoolean[0];
+  }
+  
+  private static final EGLGraphicsDevice.EGLDisplayLifecycleCallback eglLifecycleCallback = new EGLGraphicsDevice.EGLDisplayLifecycleCallback()
+  {
+    public long eglGetAndInitDisplay(long[] paramAnonymousArrayOfLong, int[] paramAnonymousArrayOfInt1, int[] paramAnonymousArrayOfInt2) {
+      return EGLDisplayUtil.eglGetDisplayAndInitialize(paramAnonymousArrayOfLong, paramAnonymousArrayOfInt1, paramAnonymousArrayOfInt2);
+    }
+    
+    public void eglTerminate(long paramAnonymousLong) {
+      EGLDisplayUtil.eglTerminate(paramAnonymousLong);
+    }
+  };
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static EGLGraphicsDevice eglCreateEGLGraphicsDevice(long paramLong, String paramString, int paramInt)
+  {
+    return new EGLGraphicsDevice(paramLong, 0L, paramString, paramInt, eglLifecycleCallback);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static EGLGraphicsDevice eglCreateEGLGraphicsDevice(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    return new EGLGraphicsDevice(paramAbstractGraphicsDevice, 0L, eglLifecycleCallback);
+  }
+  
+
+
+
+
+
+
+  public static EGLGraphicsDevice eglCreateEGLGraphicsDevice(NativeSurface paramNativeSurface)
+  {
+    long l;
+    
+
+
+
+
+    if (NativeWindowFactory.TYPE_WINDOWS == NativeWindowFactory.getNativeWindowType(false)) {
+      l = paramNativeSurface.getSurfaceHandle();
+    } else {
+      l = paramNativeSurface.getDisplayHandle();
+    }
+    AbstractGraphicsDevice localAbstractGraphicsDevice = paramNativeSurface.getGraphicsConfiguration().getScreen().getDevice();
+    return new EGLGraphicsDevice(l, 0L, localAbstractGraphicsDevice.getConnection(), localAbstractGraphicsDevice.getUnitID(), eglLifecycleCallback);
+  }
+  
+  public EGLDisplayUtil() {}
+}

@@ -1,0 +1,181 @@
+package com.jogamp.opengl.util.stereo;
+
+import com.jogamp.opengl.math.FloatUtil;
+import com.jogamp.opengl.math.Quaternion;
+import com.jogamp.opengl.math.VectorUtil;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class StereoUtil
+{
+  public StereoUtil() {}
+  
+  public static float getVertPupilCenterFromTop(float paramFloat1, float paramFloat2)
+  {
+    return paramFloat2 / paramFloat1;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static float[] getHorizPupilCenterFromLeft(float paramFloat1, float paramFloat2)
+  {
+    float f1 = 0.5F * paramFloat1;
+    float f2 = (paramFloat1 - paramFloat2) * 0.5F;
+    float f3 = f2 + paramFloat2 - f1;
+    return new float[] { f2 / f1, f3 / f1 };
+  }
+  
+
+
+  public static boolean usesBarrelDistortion(int paramInt) { return 0 != (paramInt & 0x1); }
+  
+  public static boolean usesTimewarpDistortion(int paramInt) { return 0 != (paramInt & 0x8); }
+  
+  public static boolean usesChromaticDistortion(int paramInt) { return 0 != (paramInt & 0x2); }
+  
+  public static boolean usesVignetteDistortion(int paramInt) { return 0 != (paramInt & 0x4); }
+  
+  public static String distortionBitsToString(int paramInt)
+  {
+    int i = 0;
+    StringBuilder localStringBuilder = new StringBuilder();
+    if (usesBarrelDistortion(paramInt)) {
+      if (i != 0) localStringBuilder.append(", ");
+      localStringBuilder.append("barrel");i = 1;
+    }
+    if (usesVignetteDistortion(paramInt)) {
+      if (i != 0) localStringBuilder.append(", ");
+      localStringBuilder.append("vignette");i = 1;
+    }
+    if (usesChromaticDistortion(paramInt)) {
+      if (i != 0) localStringBuilder.append(", ");
+      localStringBuilder.append("chroma");i = 1;
+    }
+    if (usesTimewarpDistortion(paramInt)) {
+      if (i != 0) localStringBuilder.append(", ");
+      localStringBuilder.append("timewarp");i = 1;
+    }
+    return localStringBuilder.toString();
+  }
+  
+
+  public static boolean usesOrientationSensor(int paramInt) { return 0 != (paramInt & 0x1); }
+  
+  public static boolean usesYawCorrectionSensor(int paramInt) { return 0 != (paramInt & 0x2); }
+  
+  public static boolean usesPositionSensor(int paramInt) { return 0 != (paramInt & 0x4); }
+  
+  public static String sensorBitsToString(int paramInt)
+  {
+    int i = 0;
+    StringBuilder localStringBuilder = new StringBuilder();
+    if (usesOrientationSensor(paramInt)) {
+      if (i != 0) localStringBuilder.append(", ");
+      localStringBuilder.append("orientation");i = 1;
+    }
+    if (usesYawCorrectionSensor(paramInt)) {
+      if (i != 0) localStringBuilder.append(", ");
+      localStringBuilder.append("yaw-corr");i = 1;
+    }
+    if (usesPositionSensor(paramInt)) {
+      if (i != 0) localStringBuilder.append(", ");
+      localStringBuilder.append("position");i = 1;
+    }
+    return localStringBuilder.toString();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static void getSBSUpstreamPMV(ViewerPose paramViewerPose, StereoDeviceRenderer.Eye paramEye, float paramFloat1, float paramFloat2, float[] paramArrayOfFloat1, float[] paramArrayOfFloat2)
+  {
+    float[] arrayOfFloat1 = new float[16];
+    float[] arrayOfFloat2 = new float[16];
+    float[] arrayOfFloat3 = new float[3];
+    float[] arrayOfFloat4 = new float[3];
+    float[] arrayOfFloat5 = new float[3];
+    
+    EyeParameter localEyeParameter = paramEye.getEyeParameter();
+    
+
+
+
+    FloatUtil.makePerspective(paramArrayOfFloat1, 0, true, fovhv, paramFloat1, paramFloat2);
+    
+
+
+
+    Quaternion localQuaternion = new Quaternion();
+    
+
+    float[] arrayOfFloat6 = localQuaternion.rotateVector(arrayOfFloat3, 0, position, 0);
+    VectorUtil.addVec3(arrayOfFloat6, arrayOfFloat6, positionOffset);
+    
+    localQuaternion.mult(orientation);
+    float[] arrayOfFloat7 = localQuaternion.rotateVector(arrayOfFloat4, 0, VectorUtil.VEC3_UNIT_Y, 0);
+    float[] arrayOfFloat8 = localQuaternion.rotateVector(arrayOfFloat5, 0, VectorUtil.VEC3_UNIT_Z_NEG, 0);
+    float[] arrayOfFloat9 = VectorUtil.addVec3(arrayOfFloat8, arrayOfFloat6, arrayOfFloat8);
+    
+    float[] arrayOfFloat10 = FloatUtil.makeLookAt(arrayOfFloat2, 0, arrayOfFloat6, 0, arrayOfFloat9, 0, arrayOfFloat7, 0, arrayOfFloat1);
+    float[] arrayOfFloat11 = FloatUtil.makeTranslation(paramArrayOfFloat2, true, distNoseToPupilX, distMiddleToPupilY, eyeReliefZ);
+    
+
+
+
+    FloatUtil.multMatrix(arrayOfFloat11, arrayOfFloat10);
+  }
+}

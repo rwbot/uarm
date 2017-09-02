@@ -1,0 +1,203 @@
+package jogamp.opengl.util.pngj;
+
+
+
+
+
+
+public class ImageInfo
+{
+  private static final int MAX_COLS_ROWS_VAL = 1000000;
+  
+
+
+
+
+  public final int cols;
+  
+
+
+
+
+  public final int rows;
+  
+
+
+
+
+  public final int bitDepth;
+  
+
+
+
+
+  public final int channels;
+  
+
+
+
+
+  public final boolean alpha;
+  
+
+
+
+
+  public final boolean greyscale;
+  
+
+
+
+
+  public final boolean indexed;
+  
+
+
+
+
+  public final boolean packed;
+  
+
+
+
+
+  public final int bitspPixel;
+  
+
+
+
+
+  public final int bytesPixel;
+  
+
+
+
+
+  public final int bytesPerRow;
+  
+
+
+
+
+  public final int samplesPerRow;
+  
+
+
+
+
+  public final int samplesPerRowPacked;
+  
+
+
+
+
+  public ImageInfo(int paramInt1, int paramInt2, int paramInt3, boolean paramBoolean)
+  {
+    this(paramInt1, paramInt2, paramInt3, paramBoolean, false, false);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public ImageInfo(int paramInt1, int paramInt2, int paramInt3, boolean paramBoolean1, boolean paramBoolean2, boolean paramBoolean3)
+  {
+    cols = paramInt1;
+    rows = paramInt2;
+    alpha = paramBoolean1;
+    indexed = paramBoolean3;
+    greyscale = paramBoolean2;
+    if ((greyscale) && (paramBoolean3))
+      throw new PngjException("palette and greyscale are mutually exclusive");
+    channels = (paramBoolean1 ? 4 : (paramBoolean2) || (paramBoolean3) ? 1 : paramBoolean1 ? 2 : 3);
+    
+    bitDepth = paramInt3;
+    packed = (paramInt3 < 8);
+    bitspPixel = (channels * bitDepth);
+    bytesPixel = ((bitspPixel + 7) / 8);
+    bytesPerRow = ((bitspPixel * paramInt1 + 7) / 8);
+    samplesPerRow = (channels * cols);
+    samplesPerRowPacked = (packed ? bytesPerRow : samplesPerRow);
+    
+    switch (bitDepth) {
+    case 1: 
+    case 2: 
+    case 4: 
+      if ((!indexed) && (!greyscale))
+        throw new PngjException("only indexed or grayscale can have bitdepth=" + bitDepth);
+      break;
+    case 8: 
+      break;
+    case 16: 
+      if (indexed)
+        throw new PngjException("indexed can't have bitdepth=" + bitDepth);
+      break;
+    default: 
+      throw new PngjException("invalid bitdepth=" + bitDepth);
+    }
+    if ((paramInt1 < 1) || (paramInt1 > 1000000))
+      throw new PngjException("invalid cols=" + paramInt1 + " ???");
+    if ((paramInt2 < 1) || (paramInt2 > 1000000)) {
+      throw new PngjException("invalid rows=" + paramInt2 + " ???");
+    }
+  }
+  
+  public String toString() {
+    return "ImageInfo [cols=" + cols + ", rows=" + rows + ", bitDepth=" + bitDepth + ", channels=" + channels + ", bitspPixel=" + bitspPixel + ", bytesPixel=" + bytesPixel + ", bytesPerRow=" + bytesPerRow + ", samplesPerRow=" + samplesPerRow + ", samplesPerRowP=" + samplesPerRowPacked + ", alpha=" + alpha + ", greyscale=" + greyscale + ", indexed=" + indexed + ", packed=" + packed + "]";
+  }
+  
+
+
+
+
+  public int hashCode()
+  {
+    int i = 1;
+    i = 31 * i + (alpha ? 1231 : 1237);
+    i = 31 * i + bitDepth;
+    i = 31 * i + channels;
+    i = 31 * i + cols;
+    i = 31 * i + (greyscale ? 1231 : 1237);
+    i = 31 * i + (indexed ? 1231 : 1237);
+    i = 31 * i + rows;
+    return i;
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    if (this == paramObject)
+      return true;
+    if (paramObject == null)
+      return false;
+    if (getClass() != paramObject.getClass())
+      return false;
+    ImageInfo localImageInfo = (ImageInfo)paramObject;
+    if (alpha != alpha)
+      return false;
+    if (bitDepth != bitDepth)
+      return false;
+    if (channels != channels)
+      return false;
+    if (cols != cols)
+      return false;
+    if (greyscale != greyscale)
+      return false;
+    if (indexed != indexed)
+      return false;
+    if (rows != rows)
+      return false;
+    return true;
+  }
+}

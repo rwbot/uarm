@@ -1,0 +1,1520 @@
+package jogamp.opengl.util.jpeg;
+
+import com.jogamp.common.util.ArrayHashSet;
+import com.jogamp.common.util.Bitstream;
+import com.jogamp.common.util.Bitstream.ByteInputStream;
+import com.jogamp.common.util.Bitstream.ByteStream;
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.opengl.util.texture.TextureData.ColorSpace;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class JPEGDecoder
+{
+  private static final boolean DEBUG = Debug.debug("JPEGImage");
+  private static final boolean DEBUG_IN = false;
+  private static final int M_SOI = 65496;
+  private static final int M_EOI = 65497;
+  private static final int M_SOF0 = 65472;
+  private static final int M_SOF2 = 65474;
+  private static final int M_DHT = 65476;
+  private static final int M_SOS = 65498;
+  private static final int M_QTT = 65499;
+  private static final int M_DRI = 65501;
+  private static final int M_APP00 = 65504;
+  private static final int M_APP01 = 65505;
+  private static final int M_APP02 = 65506;
+  private static final int M_APP03 = 65507;
+  
+  public static abstract interface ColorSink
+  {
+    public abstract TextureData.ColorSpace allocate(int paramInt1, int paramInt2, TextureData.ColorSpace paramColorSpace, int paramInt3) throws RuntimeException;
+    
+    public abstract void store2(int paramInt1, int paramInt2, byte paramByte1, byte paramByte2);
+    
+    public abstract void storeRGB(int paramInt1, int paramInt2, byte paramByte1, byte paramByte2, byte paramByte3);
+    
+    public abstract void storeYCbCr(int paramInt1, int paramInt2, byte paramByte1, byte paramByte2, byte paramByte3);
+  }
+  
+  public static class JFIF
+  {
+    private JFIF(byte[] paramArrayOfByte) {
+      version = new VersionNumber(paramArrayOfByte[5], paramArrayOfByte[6], 0);
+      densityUnits = paramArrayOfByte[7];
+      xDensity = (paramArrayOfByte[8] << 8 & 0xFF00 | paramArrayOfByte[9] & 0xFF);
+      yDensity = (paramArrayOfByte[10] << 8 & 0xFF00 | paramArrayOfByte[11] & 0xFF);
+      thumbWidth = paramArrayOfByte[12];
+      thumbHeight = paramArrayOfByte[13];
+      if ((0 < thumbWidth) && (0 < thumbHeight)) {
+        int i = 14 + 3 * thumbWidth * thumbHeight;
+        thumbData = new byte[i];
+        System.arraycopy(paramArrayOfByte, 14, thumbData, 0, i);
+      } else {
+        thumbData = null; } }
+    
+    final VersionNumber version;
+    final int densityUnits;
+    final int xDensity;
+    public static final JFIF get(byte[] paramArrayOfByte) throws RuntimeException { if ((paramArrayOfByte[0] == 74) && (paramArrayOfByte[1] == 70) && (paramArrayOfByte[2] == 73) && (paramArrayOfByte[3] == 70) && (paramArrayOfByte[4] == 0))
+      {
+        JFIF localJFIF = new JFIF(paramArrayOfByte);
+        return localJFIF;
+      }
+      return null; }
+    
+    final int yDensity;
+    final int thumbWidth;
+    final int thumbHeight;
+    final byte[] thumbData;
+    public final String toString() { return "JFIF[ver " + version + ", density[units " + densityUnits + ", " + xDensity + "x" + yDensity + "], thumb " + thumbWidth + "x" + thumbHeight + "]"; }
+  }
+  
+  public static class Adobe
+  {
+    final short version;
+    final short flags0;
+    final short flags1;
+    final short colorCode;
+    final TextureData.ColorSpace colorSpace;
+    
+    private Adobe(byte[] paramArrayOfByte) {
+      version = ((short)paramArrayOfByte[6]);
+      flags0 = ((short)(paramArrayOfByte[7] << 8 & 0xFF00 | paramArrayOfByte[8] & 0xFF));
+      flags1 = ((short)(paramArrayOfByte[9] << 8 & 0xFF00 | paramArrayOfByte[10] & 0xFF));
+      colorCode = ((short)paramArrayOfByte[11]);
+      switch (colorCode) {
+      case 2:  colorSpace = TextureData.ColorSpace.YCCK; break;
+      case 1:  colorSpace = TextureData.ColorSpace.YCbCr; break;
+      default:  colorSpace = TextureData.ColorSpace.CMYK; }
+    }
+    
+    public static final Adobe get(byte[] paramArrayOfByte) throws RuntimeException {
+      if ((paramArrayOfByte[0] == 65) && (paramArrayOfByte[1] == 100) && (paramArrayOfByte[2] == 111) && (paramArrayOfByte[3] == 98) && (paramArrayOfByte[4] == 101) && (paramArrayOfByte[5] == 0))
+      {
+        Adobe localAdobe = new Adobe(paramArrayOfByte);
+        return localAdobe;
+      }
+      return null;
+    }
+    
+    public final String toString()
+    {
+      return "Adobe[ver " + version + ", flags[" + JPEGDecoder.toHexString(flags0) + ", " + JPEGDecoder.toHexString(flags1) + "], colorSpace/Code " + colorSpace + "/" + JPEGDecoder.toHexString(colorCode) + "]";
+    }
+  }
+  
+  public static class EXIF
+  {
+    private EXIF(byte[] paramArrayOfByte) {}
+    
+    public static final EXIF get(byte[] paramArrayOfByte) throws RuntimeException {
+      if ((paramArrayOfByte[0] == 69) && (paramArrayOfByte[1] == 120) && (paramArrayOfByte[2] == 105) && (paramArrayOfByte[3] == 102) && (paramArrayOfByte[4] == 0))
+      {
+        EXIF localEXIF = new EXIF(paramArrayOfByte);
+        return localEXIF;
+      }
+      return null;
+    }
+    
+    public final String toString()
+    {
+      return "EXIF[]";
+    }
+  }
+  
+  public static class CodecException
+    extends RuntimeException
+  {
+    CodecException(String paramString) { super(); }
+  }
+  
+  public static class MarkerException extends JPEGDecoder.CodecException {
+    final int marker;
+    
+    MarkerException(int paramInt, String paramString) {
+      super();
+      marker = paramInt; }
+    
+    public int getMarker() { return marker; }
+  }
+  
+
+
+
+  private static final int M_APP04 = 65508;
+  
+
+
+  private static final int M_APP05 = 65509;
+  
+
+
+  private static final int M_APP06 = 65510;
+  
+
+
+  private static final int M_APP07 = 65511;
+  
+
+
+  private static final int M_APP08 = 65512;
+  
+
+
+  private static final int M_APP09 = 65513;
+  
+
+
+  private static final int M_APP10 = 65514;
+  
+
+
+  private static final int M_APP11 = 65515;
+  
+
+
+  private static final int M_APP12 = 65516;
+  
+
+
+  private static final int M_APP13 = 65517;
+  
+
+  private static final int M_APP14 = 65518;
+  
+
+  private static final int M_APP15 = 65519;
+  
+
+  private static final int M_ANO = 65534;
+  
+
+  public JPEGDecoder() {}
+  
+
+
+  static final int[] dctZigZag = { 0, 1, 8, 16, 9, 2, 3, 10, 17, 24, 32, 25, 18, 11, 4, 5, 12, 19, 26, 33, 40, 48, 41, 34, 27, 20, 13, 6, 7, 14, 21, 28, 35, 42, 49, 56, 57, 50, 43, 36, 29, 22, 15, 23, 30, 37, 44, 51, 58, 59, 52, 45, 38, 31, 39, 46, 53, 60, 61, 54, 47, 55, 62, 63 };
+  
+  static final int dctCos1 = 4017;
+  
+  static final int dctSin1 = 799;
+  
+  static final int dctCos3 = 3406;
+  
+  static final int dctSin3 = 2276;
+  
+  static final int dctCos6 = 1567;
+  
+  static final int dctSin6 = 3784;
+  
+  static final int dctSqrt2 = 5793;
+  
+  static final int dctSqrt1d2 = 2896;
+  
+
+  static class Frame
+  {
+    final boolean progressive;
+    
+    final int precision;
+    
+    final int scanLines;
+    
+    final int samplesPerLine;
+    
+    private final ArrayHashSet<Integer> compIDs;
+    
+    private final JPEGDecoder.ComponentIn[] comps;
+    
+    private final int compCount;
+    
+    final int[][] qtt;
+    int maxCompID;
+    int maxH;
+    int maxV;
+    int mcusPerLine;
+    int mcusPerColumn;
+    
+    Frame(boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int[][] paramArrayOfInt)
+    {
+      progressive = paramBoolean;
+      precision = paramInt1;
+      scanLines = paramInt2;
+      samplesPerLine = paramInt3;
+      compIDs = new ArrayHashSet(false, paramInt4, 0.75F);
+      comps = new JPEGDecoder.ComponentIn[paramInt4];
+      compCount = paramInt4;
+      qtt = paramArrayOfInt;
+    }
+    
+    private final void checkBounds(int paramInt) {
+      if ((0 > paramInt) || (paramInt >= compCount))
+        throw new JPEGDecoder.CodecException("Idx out of bounds " + paramInt + ", " + this);
+    }
+    
+    public final void validateComponents() {
+      for (int i = 0; i < compCount; i++) {
+        JPEGDecoder.ComponentIn localComponentIn = comps[i];
+        if (null == localComponentIn) {
+          throw new JPEGDecoder.CodecException("Component[" + i + "] null");
+        }
+        if (null == qtt[qttIdx]) {
+          throw new JPEGDecoder.CodecException("Component[" + i + "].qttIdx -> null QTT");
+        }
+      }
+    }
+    
+    public final int getCompCount() { return compCount; }
+    public final int getMaxCompID() { return maxCompID; }
+    
+    public final void putOrdered(int paramInt, JPEGDecoder.ComponentIn paramComponentIn) {
+      if (maxCompID < paramInt) {
+        maxCompID = paramInt;
+      }
+      int i = compIDs.size();
+      checkBounds(i);
+      compIDs.add(Integer.valueOf(paramInt));
+      comps[i] = paramComponentIn;
+    }
+    
+    public final JPEGDecoder.ComponentIn getCompByIndex(int paramInt) { checkBounds(paramInt);
+      return comps[paramInt];
+    }
+    
+    public final JPEGDecoder.ComponentIn getCompByID(int paramInt) { return getCompByIndex(compIDs.indexOf(Integer.valueOf(paramInt))); }
+    
+    public final int getCompID(int paramInt) {
+      return ((Integer)compIDs.get(paramInt)).intValue();
+    }
+    
+    public final boolean hasCompID(int paramInt) { return compIDs.contains(Integer.valueOf(paramInt)); }
+    
+
+    public final String toString()
+    {
+      return "Frame[progressive " + progressive + ", precision " + precision + ", scanLines " + scanLines + ", samplesPerLine " + samplesPerLine + ", components[count " + compCount + ", maxID " + maxCompID + ", componentIDs " + compIDs + ", comps " + Arrays.asList(comps) + "]]";
+    }
+  }
+  
+  static class ComponentIn
+  {
+    final int h;
+    final int v;
+    final int qttIdx;
+    int blocksPerColumn;
+    int blocksPerColumnForMcu;
+    int blocksPerLine;
+    int blocksPerLineForMcu;
+    int[][][] blocks;
+    int pred;
+    JPEGDecoder.BinObj huffmanTableAC;
+    JPEGDecoder.BinObj huffmanTableDC;
+    
+    ComponentIn(int paramInt1, int paramInt2, int paramInt3)
+    {
+      h = paramInt1;
+      v = paramInt2;
+      qttIdx = paramInt3;
+    }
+    
+    public final void allocateBlocks(int paramInt1, int paramInt2, int paramInt3, int paramInt4) {
+      blocksPerColumn = paramInt1;
+      blocksPerColumnForMcu = paramInt2;
+      blocksPerLine = paramInt3;
+      blocksPerLineForMcu = paramInt4;
+      blocks = new int[paramInt2][paramInt4][64];
+    }
+    
+    public final int[] getBlock(int paramInt1, int paramInt2) { if ((paramInt1 >= blocksPerColumnForMcu) || (paramInt2 >= blocksPerLineForMcu)) {
+        throw new JPEGDecoder.CodecException("Out of bounds given [" + paramInt1 + "][" + paramInt2 + "] - " + this);
+      }
+      return blocks[paramInt1][paramInt2];
+    }
+    
+    public final String toString()
+    {
+      return "CompIn[h " + h + ", v " + v + ", qttIdx " + qttIdx + ", blocks[" + blocksPerColumn + ", mcu " + blocksPerColumnForMcu + "][" + blocksPerLine + ", mcu " + blocksPerLineForMcu + "][64]]";
+    }
+  }
+  
+  static class ComponentOut
+  {
+    private final ArrayList<byte[]> lines;
+    final float scaleX;
+    final float scaleY;
+    
+    ComponentOut(ArrayList<byte[]> paramArrayList, float paramFloat1, float paramFloat2) {
+      lines = paramArrayList;
+      scaleX = paramFloat1;
+      scaleY = paramFloat2;
+    }
+    
+    public final byte[] getLine(int paramInt)
+    {
+      int i = lines.size();
+      return (byte[])lines.get(paramInt < i ? paramInt : i - 1);
+    }
+    
+    public final String toString()
+    {
+      return "CompOut[lines " + lines.size() + ", scale " + scaleX + "x" + scaleY + "]";
+    }
+  }
+  
+  public String toString()
+  {
+    String str1 = null != jfif ? jfif.toString() : "JFIF nil";
+    String str2 = null != exif ? exif.toString() : "Exif nil";
+    String str3 = null != adobe ? adobe.toString() : "Adobe nil";
+    String str4 = null != components ? Arrays.asList(components).toString() : "nil";
+    return "JPEG[size " + width + "x" + height + ", compOut " + str4 + ", " + str1 + ", " + str2 + ", " + str3 + "]";
+  }
+  
+  private final Bitstream<InputStream> bstream = new Bitstream(new Bitstream.ByteInputStream(null), false);
+  
+  private int width = 0;
+  private int height = 0;
+  private JFIF jfif = null;
+  private EXIF exif = null;
+  private Adobe adobe = null;
+  private ComponentOut[] components = null;
+  
+  public final JFIF getJFIFHeader() { return jfif; }
+  public final EXIF getEXIFHeader() { return exif; }
+  public final Adobe getAdobeHeader() { return adobe; }
+  public final int getWidth() { return width; }
+  public final int getHeight() { return height; }
+  
+  private final void setStream(InputStream paramInputStream) {
+    try {
+      bstream.setStream(paramInputStream, false);
+    } catch (Exception localException) {
+      throw new RuntimeException(localException);
+    }
+  }
+  
+  private final int readUInt8() throws IOException {
+    return bstream.readUInt8();
+  }
+  
+  private final int readUInt16() throws IOException {
+    return bstream.readUInt16(true);
+  }
+  
+  private final int readNumber() throws IOException {
+    int i = readUInt16();
+    if (i != 4) {
+      throw new CodecException("ERROR: Define number format error [Len!=4, but " + i + "]");
+    }
+    return readUInt16();
+  }
+  
+  private final byte[] readDataBlock() throws IOException {
+    int i = 0;int j = 0;
+    int k = readUInt16();i += 2;
+    byte[] arrayOfByte = new byte[k - 2];
+    for (; i < k; 
+        i++) { arrayOfByte[(j++)] = ((byte)readUInt8());
+    }
+    
+    return arrayOfByte;
+  }
+  
+  static final void dumpData(byte[] paramArrayOfByte, int paramInt1, int paramInt2) { for (int i = 0; i < paramInt2;) {
+      System.err.print(i % 8 + ": ");
+      for (int j = 0; (j < 8) && (i < paramInt2); i++) {
+        System.err.print(toHexString(0xFF & paramArrayOfByte[(paramInt1 + i)]) + ", ");j++;
+      }
+      System.err.println("");
+    }
+  }
+  
+  public synchronized void clear(InputStream paramInputStream) {
+    setStream(paramInputStream);
+    width = 0;
+    height = 0;
+    jfif = null;
+    exif = null;
+    adobe = null;
+    components = null;
+  }
+  
+  public synchronized JPEGDecoder parse(InputStream paramInputStream) throws IOException { clear(paramInputStream);
+    
+    int[][] arrayOfInt = new int[15][];
+    BinObj[] arrayOfBinObj1 = new BinObj[15];
+    BinObj[] arrayOfBinObj2 = new BinObj[15];
+    
+
+    Frame localFrame = null;
+    int i = 0;
+    int j = readUInt16();
+    if (j != 65496) {
+      throw new CodecException("SOI not found, but has marker " + toHexString(j));
+    }
+    
+    j = readUInt16();
+    while (j != 65497) {
+      if (DEBUG) System.err.println("JPG.parse got marker " + toHexString(j));
+      int n; int i1; int i3; int i6; int i8; int i2; int i10; switch (j) {
+      case 65504: 
+      case 65505: 
+      case 65506: 
+      case 65507: 
+      case 65508: 
+      case 65509: 
+      case 65510: 
+      case 65511: 
+      case 65512: 
+      case 65513: 
+      case 65514: 
+      case 65515: 
+      case 65516: 
+      case 65517: 
+      case 65518: 
+      case 65519: 
+      case 65534: 
+        byte[] arrayOfByte1 = readDataBlock();
+        
+        if (j == 65504) {
+          jfif = JFIF.get(arrayOfByte1);
+        }
+        if (j == 65505) {
+          exif = EXIF.get(arrayOfByte1);
+        }
+        if (j == 65518) {
+          adobe = Adobe.get(arrayOfByte1);
+        }
+        j = 0;
+        
+        break;
+      
+      case 65499: 
+        k = 0;
+        m = readUInt16();k += 2;
+        while (k < m) {
+          n = readUInt8();k++;
+          i1 = n >> 4;
+          i3 = n & 0xF;
+          int[] arrayOfInt1 = new int[64];
+          if (i1 == 0) {
+            for (i6 = 0; i6 < 64; i6++) {
+              i8 = dctZigZag[i6];
+              arrayOfInt1[i8] = readUInt8();k++;
+            }
+          } else if (i1 == 1) {
+            for (i6 = 0; i6 < 64; i6++) {
+              i8 = dctZigZag[i6];
+              arrayOfInt1[i8] = readUInt16();k += 2;
+            }
+          } else {
+            throw new CodecException("DQT: invalid table precision " + i1 + ", quantizationTableSpec " + n + ", idx " + i3);
+          }
+          arrayOfInt[i3] = arrayOfInt1;
+          if (DEBUG) {
+            System.err.println("JPEG.parse.QTT[" + i3 + "]: spec " + n + ", precision " + i1 + ", data " + k + "/" + m);
+          }
+        }
+        if (k != m) {
+          throw new CodecException("ERROR: QTT format error [count!=Length]: " + k + "/" + m);
+        }
+        j = 0;
+        
+        break;
+      
+      case 65472: 
+      case 65474: 
+        if (null != localFrame) {
+          throw new CodecException("only single frame JPEGs supported");
+        }
+        k = 0;
+        m = readUInt16();k += 2;
+        
+
+        i1 = j == 65474 ? 1 : 0;
+        i3 = readUInt8();k++;
+        int i4 = readUInt16();k += 2;
+        i6 = readUInt16();k += 2;
+        n = readUInt8();k++;
+        localFrame = new Frame(i1, i3, i4, i6, n, arrayOfInt);
+        width = samplesPerLine;
+        height = scanLines;
+        
+        for (i2 = 0; i2 < n; i2++) {
+          i3 = readUInt8();k++;
+          i4 = readUInt8();k++;
+          i6 = i4 >> 4;
+          i8 = i4 & 0xF;
+          i10 = readUInt8();k++;
+          ComponentIn localComponentIn3 = new ComponentIn(i6, i8, i10);
+          localFrame.putOrdered(i3, localComponentIn3);
+        }
+        if (k != m) {
+          throw new CodecException("ERROR: SOF format error [count!=Length]");
+        }
+        prepareComponents(localFrame);
+        
+        if (DEBUG) System.err.println("JPG.parse.SOF[02]: Got frame " + localFrame);
+        j = 0;
+        
+        break;
+      
+      case 65476: 
+        k = 0;
+        m = readUInt16();k += 2;
+        n = k;i2 = 0;
+        while (n < m) {
+          i3 = readUInt8();k++;
+          int[] arrayOfInt2 = new int[16];
+          i6 = 0;
+          for (i8 = 0; i8 < 16; i8++) {
+            i6 += (arrayOfInt2[i8] = readUInt8());k++;
+          }
+          byte[] arrayOfByte2 = new byte[i6];
+          for (i10 = 0; i10 < i6; i10++) {
+            arrayOfByte2[i10] = ((byte)readUInt8());k++;
+          }
+          i2 += i6;
+          n += 17 + i6;
+          BinObj[] arrayOfBinObj3 = i3 >> 4 == 0 ? arrayOfBinObj2 : arrayOfBinObj1;
+          arrayOfBinObj3[(i3 & 0xF)] = buildHuffmanTable(arrayOfInt2, arrayOfByte2);
+        }
+        if ((k != m) || (n != k)) {
+          throw new CodecException("ERROR: Huffman table format error [count!=Length]");
+        }
+        if (DEBUG) System.err.println("JPG.parse.DHT: Got Huffman CodeLengthTotal " + i2);
+        j = 0;
+        
+        break;
+      
+      case 65501: 
+        i = readNumber();
+        if (DEBUG) System.err.println("JPG.parse.DRI: Got Reset Interval " + i);
+        j = 0;
+        break;
+      
+      case 65498: 
+        k = 0;
+        m = readUInt16();k += 2;
+        n = readUInt8();k++;
+        ArrayList localArrayList = new ArrayList();
+        if (DEBUG) System.err.println("JPG.parse.SOS: selectorCount [0.." + (n - 1) + "]: " + localFrame);
+        for (i3 = 0; i3 < n; i3++) {
+          i5 = readUInt8();k++;
+          ComponentIn localComponentIn2 = localFrame.getCompByID(i5);
+          int i9 = readUInt8();k++;
+          huffmanTableDC = arrayOfBinObj2[(i9 >> 4)];
+          huffmanTableAC = arrayOfBinObj1[(i9 & 0xF)];
+          localArrayList.add(localComponentIn2);
+        }
+        i3 = readUInt8();k++;
+        int i5 = readUInt8();k++;
+        int i7 = readUInt8();k++;
+        if (k != m) {
+          throw new CodecException("ERROR: scan header format error [count!=Length]");
+        }
+        j = decoder.decodeScan(localFrame, localArrayList, i, i3, i5, i7 >> 4, i7 & 0xF);
+        
+
+        if (DEBUG) { System.err.println("JPG.parse.SOS.decode result " + toHexString(j));
+        }
+        break;
+      case 65473: case 65475: case 65477: case 65478: case 65479: 
+      case 65480: case 65481: case 65482: case 65483: case 65484: 
+      case 65485: case 65486: case 65487: case 65488: case 65489: 
+      case 65490: case 65491: case 65492: case 65493: case 65494: 
+      case 65495: case 65496: case 65497: case 65500: case 65502: 
+      case 65503: case 65520: case 65521: case 65522: 
+      case 65523: case 65524: case 65525: case 65526: 
+      case 65527: case 65528: case 65529: case 65530: 
+      case 65531: case 65532: case 65533: default: 
+        throw new CodecException("unknown JPEG marker " + toHexString(j) + ", " + bstream);
+      }
+      if (0 == j) {
+        j = readUInt16();
+      }
+    }
+    if (DEBUG) { System.err.println("JPG.parse.2: End of parsing input " + this);
+    }
+    
+
+
+    if (null == localFrame) {
+      throw new CodecException("no single frame found in stream " + this);
+    }
+    localFrame.validateComponents();
+    
+    int k = localFrame.getCompCount();
+    components = new ComponentOut[k];
+    for (int m = 0; m < k; m++) {
+      ComponentIn localComponentIn1 = localFrame.getCompByIndex(m);
+      
+
+      components[m] = new ComponentOut(output.buildComponentData(localFrame, localComponentIn1), h / maxH, v / maxV);
+    }
+    
+
+    if (DEBUG) System.err.println("JPG.parse.X: End of processing input " + this);
+    return this;
+  }
+  
+  private void prepareComponents(Frame paramFrame) {
+    int i = 0;int j = 0;
+    
+    int k = paramFrame.getCompCount();
+    for (int m = 0; m < k; m++) {
+      ComponentIn localComponentIn1 = paramFrame.getCompByIndex(m);
+      if (i < h) i = h;
+      if (j < v) j = v;
+    }
+    m = (int)Math.ceil(samplesPerLine / 8.0F / i);
+    int n = (int)Math.ceil(scanLines / 8.0F / j);
+    
+    for (int i1 = 0; i1 < k; i1++) {
+      ComponentIn localComponentIn2 = paramFrame.getCompByIndex(i1);
+      int i2 = (int)Math.ceil(Math.ceil(samplesPerLine / 8.0F) * h / i);
+      int i3 = (int)Math.ceil(Math.ceil(scanLines / 8.0F) * v / j);
+      int i4 = m * h;
+      int i5 = n * v;
+      localComponentIn2.allocateBlocks(i3, i5, i2, i4);
+    }
+    maxH = i;
+    maxV = j;
+    mcusPerLine = m;
+    mcusPerColumn = n;
+  }
+  
+  static class BinObjIdxed {
+    final JPEGDecoder.BinObj children;
+    byte index;
+    
+    BinObjIdxed() { children = new JPEGDecoder.BinObj();
+      index = 0;
+    }
+  }
+  
+  static class BinObj {
+    final boolean isValue;
+    final BinObj[] tree;
+    final byte b;
+    
+    BinObj(byte paramByte) { isValue = true;
+      b = paramByte;
+      tree = null;
+    }
+    
+    BinObj() { isValue = false;
+      b = 0;
+      tree = new BinObj[2]; }
+    
+    final byte getValue() { return b; }
+    final BinObj get(int paramInt) { return tree[paramInt]; }
+    final void set(byte paramByte1, byte paramByte2) { tree[paramByte1] = new BinObj(paramByte2); }
+    final void set(byte paramByte, BinObj paramBinObj) { tree[paramByte] = paramBinObj; }
+  }
+  
+  private BinObj buildHuffmanTable(int[] paramArrayOfInt, byte[] paramArrayOfByte) {
+    int i = 0;
+    int j = 16;
+    ArrayList localArrayList = new ArrayList();
+    while ((j > 0) && (0 == paramArrayOfInt[(j - 1)])) {
+      j--;
+    }
+    localArrayList.add(new BinObjIdxed());
+    Object localObject = (BinObjIdxed)localArrayList.get(0);
+    for (int k = 0; k < j; k++) { BinObjIdxed localBinObjIdxed;
+      for (int m = 0; m < paramArrayOfInt[k]; m++) {
+        localObject = (BinObjIdxed)localArrayList.remove(localArrayList.size() - 1);
+        children.set(index, paramArrayOfByte[i]);
+        while (index > 0) {
+          localObject = (BinObjIdxed)localArrayList.remove(localArrayList.size() - 1);
+        }
+        Object tmp145_143 = localObject;145143index = ((byte)(145143index + 1));
+        localArrayList.add(localObject);
+        while (localArrayList.size() <= k) {
+          localBinObjIdxed = new BinObjIdxed();
+          localArrayList.add(localBinObjIdxed);
+          children.set(index, children);
+          localObject = localBinObjIdxed;
+        }
+        i++;
+      }
+      if (k + 1 < j)
+      {
+        localBinObjIdxed = new BinObjIdxed();
+        localArrayList.add(localBinObjIdxed);
+        children.set(index, children);
+        localObject = localBinObjIdxed;
+      }
+    }
+    return get0children;
+  }
+  
+  private final Output output = new Output();
+  
+  static class Output {
+    private int blocksPerLine;
+    
+    Output() {}
+    
+    private ArrayList<byte[]> buildComponentData(JPEGDecoder.Frame paramFrame, JPEGDecoder.ComponentIn paramComponentIn) { ArrayList localArrayList = new ArrayList();
+      blocksPerLine = blocksPerLine;
+      blocksPerColumn = blocksPerColumn;
+      samplesPerLine = (blocksPerLine << 3);
+      int[] arrayOfInt = new int[64];
+      byte[] arrayOfByte1 = new byte[64];
+      
+      for (int i = 0; i < blocksPerColumn; i++) {
+        int j = i << 3;
+        
+        for (int k = 0; k < 8; k++) {
+          localArrayList.add(new byte[samplesPerLine]);
+        }
+        for (k = 0; k < blocksPerLine; k++)
+        {
+          quantizeAndInverse(paramComponentIn.getBlock(i, k), arrayOfByte1, arrayOfInt, qtt[qttIdx]);
+          
+          int m = k << 3;
+          int n = 0;
+          for (int i1 = 0; i1 < 8; i1++) {
+            byte[] arrayOfByte2 = (byte[])localArrayList.get(j + i1);
+            for (int i2 = 0; i2 < 8; i2++)
+              arrayOfByte2[(m + i2)] = arrayOfByte1[(n++)];
+          }
+        }
+      }
+      return localArrayList;
+    }
+    
+
+    private int blocksPerColumn;
+    
+    private int samplesPerLine;
+    
+    private void quantizeAndInverse(int[] paramArrayOfInt1, byte[] paramArrayOfByte, int[] paramArrayOfInt2, int[] paramArrayOfInt3)
+    {
+      int[] arrayOfInt = paramArrayOfInt2;
+      
+
+
+      for (int i5 = 0; i5 < 64; i5++)
+        paramArrayOfInt1[i5] *= paramArrayOfInt3[i5];
+      int i6;
+      int i4;
+      int i;
+      int j; int k; int m; int n; int i3; int i1; int i2; for (i5 = 0; i5 < 8; i5++) {
+        i6 = 8 * i5;
+        
+
+        if ((arrayOfInt[(1 + i6)] == 0) && (arrayOfInt[(2 + i6)] == 0) && (arrayOfInt[(3 + i6)] == 0) && (arrayOfInt[(4 + i6)] == 0) && (arrayOfInt[(5 + i6)] == 0) && (arrayOfInt[(6 + i6)] == 0) && (arrayOfInt[(7 + i6)] == 0))
+        {
+
+          i4 = 5793 * arrayOfInt[(0 + i6)] + 512 >> 10;
+          arrayOfInt[(0 + i6)] = i4;
+          arrayOfInt[(1 + i6)] = i4;
+          arrayOfInt[(2 + i6)] = i4;
+          arrayOfInt[(3 + i6)] = i4;
+          arrayOfInt[(4 + i6)] = i4;
+          arrayOfInt[(5 + i6)] = i4;
+          arrayOfInt[(6 + i6)] = i4;
+          arrayOfInt[(7 + i6)] = i4;
+
+        }
+        else
+        {
+          i = 5793 * arrayOfInt[(0 + i6)] + 128 >> 8;
+          j = 5793 * arrayOfInt[(4 + i6)] + 128 >> 8;
+          k = arrayOfInt[(2 + i6)];
+          m = arrayOfInt[(6 + i6)];
+          n = 2896 * (arrayOfInt[(1 + i6)] - arrayOfInt[(7 + i6)]) + 128 >> 8;
+          i3 = 2896 * (arrayOfInt[(1 + i6)] + arrayOfInt[(7 + i6)]) + 128 >> 8;
+          i1 = arrayOfInt[(3 + i6)] << 4;
+          i2 = arrayOfInt[(5 + i6)] << 4;
+          
+
+          i4 = i - j + 1 >> 1;
+          i = i + j + 1 >> 1;
+          j = i4;
+          i4 = k * 3784 + m * 1567 + 128 >> 8;
+          k = k * 1567 - m * 3784 + 128 >> 8;
+          m = i4;
+          i4 = n - i2 + 1 >> 1;
+          n = n + i2 + 1 >> 1;
+          i2 = i4;
+          i4 = i3 + i1 + 1 >> 1;
+          i1 = i3 - i1 + 1 >> 1;
+          i3 = i4;
+          
+
+          i4 = i - m + 1 >> 1;
+          i = i + m + 1 >> 1;
+          m = i4;
+          i4 = j - k + 1 >> 1;
+          j = j + k + 1 >> 1;
+          k = i4;
+          i4 = n * 2276 + i3 * 3406 + 2048 >> 12;
+          n = n * 3406 - i3 * 2276 + 2048 >> 12;
+          i3 = i4;
+          i4 = i1 * 799 + i2 * 4017 + 2048 >> 12;
+          i1 = i1 * 4017 - i2 * 799 + 2048 >> 12;
+          i2 = i4;
+          
+
+          arrayOfInt[(0 + i6)] = (i + i3);
+          arrayOfInt[(7 + i6)] = (i - i3);
+          arrayOfInt[(1 + i6)] = (j + i2);
+          arrayOfInt[(6 + i6)] = (j - i2);
+          arrayOfInt[(2 + i6)] = (k + i1);
+          arrayOfInt[(5 + i6)] = (k - i1);
+          arrayOfInt[(3 + i6)] = (m + n);
+          arrayOfInt[(4 + i6)] = (m - n);
+        }
+      }
+      
+      for (i5 = 0; i5 < 8; i5++) {
+        i6 = i5;
+        
+
+        if ((arrayOfInt[(8 + i6)] == 0) && (arrayOfInt[(16 + i6)] == 0) && (arrayOfInt[(24 + i6)] == 0) && (arrayOfInt[(32 + i6)] == 0) && (arrayOfInt[(40 + i6)] == 0) && (arrayOfInt[(48 + i6)] == 0) && (arrayOfInt[(56 + i6)] == 0))
+        {
+
+          i4 = 5793 * paramArrayOfInt2[(i5 + 0)] + 8192 >> 14;
+          arrayOfInt[(0 + i6)] = i4;
+          arrayOfInt[(8 + i6)] = i4;
+          arrayOfInt[(16 + i6)] = i4;
+          arrayOfInt[(24 + i6)] = i4;
+          arrayOfInt[(32 + i6)] = i4;
+          arrayOfInt[(40 + i6)] = i4;
+          arrayOfInt[(48 + i6)] = i4;
+          arrayOfInt[(56 + i6)] = i4;
+
+        }
+        else
+        {
+          i = 5793 * arrayOfInt[(0 + i6)] + 2048 >> 12;
+          j = 5793 * arrayOfInt[(32 + i6)] + 2048 >> 12;
+          k = arrayOfInt[(16 + i6)];
+          m = arrayOfInt[(48 + i6)];
+          n = 2896 * (arrayOfInt[(8 + i6)] - arrayOfInt[(56 + i6)]) + 2048 >> 12;
+          i3 = 2896 * (arrayOfInt[(8 + i6)] + arrayOfInt[(56 + i6)]) + 2048 >> 12;
+          i1 = arrayOfInt[(24 + i6)];
+          i2 = arrayOfInt[(40 + i6)];
+          
+
+          i4 = i - j + 1 >> 1;
+          i = i + j + 1 >> 1;
+          j = i4;
+          i4 = k * 3784 + m * 1567 + 2048 >> 12;
+          k = k * 1567 - m * 3784 + 2048 >> 12;
+          m = i4;
+          i4 = n - i2 + 1 >> 1;
+          n = n + i2 + 1 >> 1;
+          i2 = i4;
+          i4 = i3 + i1 + 1 >> 1;
+          i1 = i3 - i1 + 1 >> 1;
+          i3 = i4;
+          
+
+          i4 = i - m + 1 >> 1;
+          i = i + m + 1 >> 1;
+          m = i4;
+          i4 = j - k + 1 >> 1;
+          j = j + k + 1 >> 1;
+          k = i4;
+          i4 = n * 2276 + i3 * 3406 + 2048 >> 12;
+          n = n * 3406 - i3 * 2276 + 2048 >> 12;
+          i3 = i4;
+          i4 = i1 * 799 + i2 * 4017 + 2048 >> 12;
+          i1 = i1 * 4017 - i2 * 799 + 2048 >> 12;
+          i2 = i4;
+          
+
+          arrayOfInt[(0 + i6)] = (i + i3);
+          arrayOfInt[(56 + i6)] = (i - i3);
+          arrayOfInt[(8 + i6)] = (j + i2);
+          arrayOfInt[(48 + i6)] = (j - i2);
+          arrayOfInt[(16 + i6)] = (k + i1);
+          arrayOfInt[(40 + i6)] = (k - i1);
+          arrayOfInt[(24 + i6)] = (m + n);
+          arrayOfInt[(32 + i6)] = (m - n);
+        }
+      }
+      
+      for (i5 = 0; i5 < 64; i5++) {
+        i6 = 128 + (arrayOfInt[i5] + 8 >> 4);
+        paramArrayOfByte[i5] = ((byte)(i6 > 255 ? 'ÿ' : i6 < 0 ? 0 : i6));
+      }
+    }
+  }
+  
+  static abstract interface DecoderFunction
+  {
+    public abstract void decode(JPEGDecoder.ComponentIn paramComponentIn, int[] paramArrayOfInt)
+      throws IOException;
+  }
+  
+  class Decoder
+  {
+    private int mcusPerLine;
+    private boolean progressive;
+    private int spectralStart;
+    private int spectralEnd;
+    private int successive;
+    private int eobrun;
+    private int successiveACState;
+    private int successiveACNextValue;
+    
+    Decoder() {}
+    
+    private int decodeScan(JPEGDecoder.Frame paramFrame, ArrayList<JPEGDecoder.ComponentIn> paramArrayList, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5) throws IOException
+    {
+      mcusPerLine = mcusPerLine;
+      progressive = progressive;
+      
+
+      bstream.skip(bstream.getBitCount());
+      spectralStart = paramInt2;
+      spectralEnd = paramInt3;
+      successive = paramInt5;
+      
+      int i = paramArrayList.size();
+      
+      JPEGDecoder.DecoderFunction localDecoderFunction;
+      if (progressive) {
+        if (paramInt2 == 0) {
+          localDecoderFunction = paramInt4 == 0 ? decodeDCFirst : decodeDCSuccessive;
+        } else {
+          localDecoderFunction = paramInt4 == 0 ? decodeACFirst : decodeACSuccessive;
+        }
+      } else {
+        localDecoderFunction = decodeBaseline;
+      }
+      
+      int j = 0;
+      int k;
+      if (i == 1) {
+        JPEGDecoder.ComponentIn localComponentIn1 = (JPEGDecoder.ComponentIn)paramArrayList.get(0);
+        k = blocksPerLine * blocksPerColumn;
+      } else {
+        k = mcusPerLine * mcusPerColumn;
+      }
+      if (0 == paramInt1) {
+        paramInt1 = k;
+      }
+      if (JPEGDecoder.DEBUG) {
+        System.err.println("JPEG.decodeScan.1 resetInterval " + paramInt1 + ", mcuExpected " + k + ", sA " + paramInt2 + ", sP " + paramInt4 + ", sE " + paramInt3 + ", suc " + paramInt5 + ", decodeFn " + localDecoderFunction.getClass().getSimpleName());
+      }
+      int m = 0;
+      while (j < k)
+      {
+        for (int n = 0; n < i; n++) {
+          getpred = 0;
+        }
+        eobrun = 0;
+        try {
+          int i2;
+          if (i == 1) {
+            JPEGDecoder.ComponentIn localComponentIn2 = (JPEGDecoder.ComponentIn)paramArrayList.get(0);
+            for (i2 = 0; i2 < paramInt1; i2++) {
+              decodeBlock(localComponentIn2, localDecoderFunction, j);
+              j++;
+            }
+          } else {
+            for (int i1 = 0; i1 < paramInt1; i1++) {
+              for (i2 = 0; i2 < i; i2++) {
+                JPEGDecoder.ComponentIn localComponentIn3 = (JPEGDecoder.ComponentIn)paramArrayList.get(i2);
+                int i3 = h;
+                int i4 = v;
+                for (int i5 = 0; i5 < i4; i5++) {
+                  for (int i6 = 0; i6 < i3; i6++) {
+                    decodeMcu(localComponentIn3, localDecoderFunction, j, i5, i6);
+                  }
+                }
+              }
+              j++;
+            }
+          }
+        } catch (JPEGDecoder.MarkerException localMarkerException) {
+          if (JPEGDecoder.DEBUG) { System.err.println("JPEG.decodeScan: Marker exception: " + localMarkerException.getMessage());localMarkerException.printStackTrace(); }
+          return localMarkerException.getMarker();
+        } catch (JPEGDecoder.CodecException localCodecException) {
+          if (JPEGDecoder.DEBUG) { System.err.println("JPEG.decodeScan: Codec exception: " + localCodecException.getMessage());localCodecException.printStackTrace(); }
+          bstream.skip(bstream.getBitCount());
+          return 65497;
+        }
+        
+
+        bstream.skip(bstream.getBitCount());
+        bstream.mark(2);
+        m = JPEGDecoder.this.readUInt16();
+        if (m < 65280) {
+          bstream.reset();
+          throw new JPEGDecoder.CodecException("marker not found @ mcu " + j + "/" + k + ", u16: " + JPEGDecoder.toHexString(m));
+        }
+        boolean bool = (65488 <= m) && (m <= 65495);
+        if (JPEGDecoder.DEBUG) {
+          System.err.println("JPEG.decodeScan: MCUs " + j + "/" + k + ", u16 " + JPEGDecoder.toHexString(m) + ", RSTx " + bool + ", " + paramFrame);
+        }
+        if (!bool) {
+          break;
+        }
+      }
+      return m;
+    }
+    
+    private final int readBit() throws JPEGDecoder.MarkerException, IOException {
+      int i = bstream.readBit(true);
+      if ((-1 == i) || (7 != bstream.getBitCount())) {
+        return i;
+      }
+      
+      int j = bstream.getBitBuffer();
+      if (255 == j) {
+        int k = bstream.getStream().read();
+        if (-1 == k) {
+          throw new JPEGDecoder.CodecException("marked prefix 0xFF, then EOF");
+        }
+        if (0 != k) {
+          int m = j << 8 | k;
+          throw new JPEGDecoder.MarkerException(m, "Marker at readBit pos " + bstream);
+        }
+      }
+      
+      return i;
+    }
+    
+    private int decodeHuffman(JPEGDecoder.BinObj paramBinObj) throws IOException {
+      JPEGDecoder.BinObj localBinObj = paramBinObj;
+      int i;
+      while ((i = readBit()) != -1) {
+        localBinObj = localBinObj.get(i);
+        if (isValue) {
+          return 0xFF & localBinObj.getValue();
+        }
+      }
+      throw new JPEGDecoder.CodecException("EOF reached at " + bstream);
+    }
+    
+    private int receive(int paramInt) throws IOException { int i = 0;
+      while (paramInt > 0) {
+        int j = readBit();
+        if (j == -1) {
+          return -1;
+        }
+        i = i << 1 | j;
+        paramInt--;
+      }
+      return i;
+    }
+    
+    private int receiveAndExtend(int paramInt) throws IOException { int i = receive(paramInt);
+      if (i >= 1 << paramInt - 1) {
+        return i;
+      }
+      return i + (-1 << paramInt) + 1;
+    }
+    
+    final JPEGDecoder.DecoderFunction decodeBaseline = new BaselineDecoder();
+    final JPEGDecoder.DecoderFunction decodeDCFirst = new DCFirstDecoder();
+    final JPEGDecoder.DecoderFunction decodeDCSuccessive = new DCSuccessiveDecoder();
+    final JPEGDecoder.DecoderFunction decodeACFirst = new ACFirstDecoder();
+    final JPEGDecoder.DecoderFunction decodeACSuccessive = new ACSuccessiveDecoder();
+    
+    class BaselineDecoder implements JPEGDecoder.DecoderFunction {
+      BaselineDecoder() {}
+      
+      public void decode(JPEGDecoder.ComponentIn paramComponentIn, int[] paramArrayOfInt) throws IOException { int i = JPEGDecoder.Decoder.this.decodeHuffman(huffmanTableDC);
+        int j = i == 0 ? 0 : JPEGDecoder.Decoder.this.receiveAndExtend(i); JPEGDecoder.ComponentIn 
+          tmp33_32 = paramComponentIn; int tmp40_39 = (3332pred + j);3332pred = tmp40_39;paramArrayOfInt[0] = tmp40_39;
+        int k = 1;
+        while (k < 64) {
+          int m = JPEGDecoder.Decoder.this.decodeHuffman(huffmanTableAC);
+          int n = m & 0xF;int i1 = m >> 4;
+          if (n == 0) {
+            if (i1 < 15) {
+              break;
+            }
+            k += 16;
+          }
+          else {
+            k += i1;
+            int i2 = JPEGDecoder.dctZigZag[k];
+            paramArrayOfInt[i2] = JPEGDecoder.Decoder.this.receiveAndExtend(n);
+            k++;
+          }
+        }
+      } }
+    
+    class DCFirstDecoder implements JPEGDecoder.DecoderFunction { DCFirstDecoder() {}
+      
+      public void decode(JPEGDecoder.ComponentIn paramComponentIn, int[] paramArrayOfInt) throws IOException { int i = JPEGDecoder.Decoder.this.decodeHuffman(huffmanTableDC);
+        int j = i == 0 ? 0 : JPEGDecoder.Decoder.this.receiveAndExtend(i) << successive; JPEGDecoder.ComponentIn 
+          tmp41_40 = paramComponentIn; int tmp48_47 = (4140pred + j);4140pred = tmp48_47;paramArrayOfInt[0] = tmp48_47;
+      }
+    }
+    
+    class DCSuccessiveDecoder implements JPEGDecoder.DecoderFunction { DCSuccessiveDecoder() {}
+      
+      public void decode(JPEGDecoder.ComponentIn paramComponentIn, int[] paramArrayOfInt) throws IOException { paramArrayOfInt[0] |= JPEGDecoder.Decoder.this.readBit() << successive; }
+    }
+    
+    class ACFirstDecoder implements JPEGDecoder.DecoderFunction {
+      ACFirstDecoder() {}
+      
+      public void decode(JPEGDecoder.ComponentIn paramComponentIn, int[] paramArrayOfInt) throws IOException {
+        if (eobrun > 0) {
+          JPEGDecoder.Decoder.access$1010(JPEGDecoder.Decoder.this);
+          return;
+        }
+        int i = spectralStart;
+        int j = spectralEnd;
+        while (i <= j) {
+          int k = JPEGDecoder.Decoder.this.decodeHuffman(huffmanTableAC);
+          int m = k & 0xF;int n = k >> 4;
+          if (m == 0) {
+            if (n < 15) {
+              eobrun = (JPEGDecoder.Decoder.this.receive(n) + (1 << n) - 1);
+              break;
+            }
+            i += 16;
+          }
+          else {
+            i += n;
+            int i1 = JPEGDecoder.dctZigZag[i];
+            paramArrayOfInt[i1] = (JPEGDecoder.Decoder.this.receiveAndExtend(m) * (1 << successive));
+            i++;
+          }
+        }
+      } }
+    
+    class ACSuccessiveDecoder implements JPEGDecoder.DecoderFunction { ACSuccessiveDecoder() {}
+      
+      public void decode(JPEGDecoder.ComponentIn paramComponentIn, int[] paramArrayOfInt) throws IOException { int i = spectralStart;
+        int j = spectralEnd;
+        int k = 0;
+        while (i <= j) {
+          int m = JPEGDecoder.dctZigZag[i];
+          switch (successiveACState) {
+          case 0: 
+            int n = JPEGDecoder.Decoder.this.decodeHuffman(huffmanTableAC);
+            int i1 = n & 0xF;
+            k = n >> 4;
+            if (i1 == 0) {
+              if (k < 15) {
+                eobrun = (JPEGDecoder.Decoder.this.receive(k) + (1 << k));
+                successiveACState = 4;
+              } else {
+                k = 16;
+                successiveACState = 1;
+              }
+            }
+            else {
+              if (i1 != 1) {
+                throw new JPEGDecoder.CodecException("invalid ACn encoding");
+              }
+              successiveACNextValue = JPEGDecoder.Decoder.this.receiveAndExtend(i1);
+              successiveACState = (k != 0 ? 2 : 3);
+            }
+            break;
+          case 1: 
+          case 2: 
+            if (paramArrayOfInt[m] != 0) {
+              paramArrayOfInt[m] += (JPEGDecoder.Decoder.this.readBit() << successive);
+            } else {
+              k--;
+              if (k == 0) {
+                successiveACState = (successiveACState == 2 ? 3 : 0);
+              }
+            }
+            break;
+          case 3: 
+            if (paramArrayOfInt[m] != 0) {
+              paramArrayOfInt[m] += (JPEGDecoder.Decoder.this.readBit() << successive);
+            } else {
+              paramArrayOfInt[m] = (successiveACNextValue << successive);
+              successiveACState = 0;
+            }
+            break;
+          case 4: 
+            if (paramArrayOfInt[m] != 0) {
+              paramArrayOfInt[m] += (JPEGDecoder.Decoder.this.readBit() << successive);
+            }
+          
+          default: 
+            i++; }
+        }
+        if (successiveACState == 4) {
+          JPEGDecoder.Decoder.access$1010(JPEGDecoder.Decoder.this);
+          if (eobrun == 0)
+            successiveACState = 0;
+        }
+      }
+    }
+    
+    void decodeMcu(JPEGDecoder.ComponentIn paramComponentIn, JPEGDecoder.DecoderFunction paramDecoderFunction, int paramInt1, int paramInt2, int paramInt3) throws IOException {
+      int i = paramInt1 / mcusPerLine | 0x0;
+      int j = paramInt1 % mcusPerLine;
+      int k = i * v + paramInt2;
+      int m = j * h + paramInt3;
+      paramDecoderFunction.decode(paramComponentIn, paramComponentIn.getBlock(k, m));
+    }
+    
+    void decodeBlock(JPEGDecoder.ComponentIn paramComponentIn, JPEGDecoder.DecoderFunction paramDecoderFunction, int paramInt) throws IOException { int i = paramInt / blocksPerLine | 0x0;
+      int j = paramInt % blocksPerLine;
+      paramDecoderFunction.decode(paramComponentIn, paramComponentIn.getBlock(i, j));
+    }
+  }
+  
+  private final Decoder decoder = new Decoder();
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public synchronized void getPixel(ColorSink paramColorSink, int paramInt1, int paramInt2)
+  {
+    int i = width / paramInt1;int j = height / paramInt2;
+    
+    int k = components.length;
+    TextureData.ColorSpace localColorSpace1 = null != adobe ? adobe.colorSpace : TextureData.ColorSpace.YCbCr;
+    TextureData.ColorSpace localColorSpace2 = paramColorSink.allocate(paramInt1, paramInt2, localColorSpace1, k);
+    if ((TextureData.ColorSpace.RGB != localColorSpace2) && (TextureData.ColorSpace.YCbCr != localColorSpace2))
+      throw new IllegalArgumentException("Unsupported storage color space: " + localColorSpace2);
+    ComponentOut localComponentOut1;
+    int i1;
+    ComponentOut localComponentOut2; byte[] arrayOfByte3; int i6; ComponentOut localComponentOut3; int i2; byte[] arrayOfByte4; byte[] arrayOfByte5; int i8; byte b4; byte b5; byte b6; byte b7; switch (k)
+    {
+    case 1: 
+      localComponentOut1 = components[0];
+      for (int m = 0; m < paramInt2; m++) {
+        byte[] arrayOfByte1 = localComponentOut1.getLine((int)(m * scaleY * j));
+        for (i1 = 0; i1 < paramInt1; i1++) {
+          byte b1 = arrayOfByte1[((int)(i1 * scaleX * i))];
+          if (TextureData.ColorSpace.YCbCr == localColorSpace2) {
+            paramColorSink.storeYCbCr(i1, m, b1, (byte)0, (byte)0);
+          } else {
+            paramColorSink.storeRGB(i1, m, b1, b1, b1);
+          }
+        }
+      }
+      
+      break;
+    
+    case 2: 
+      localComponentOut1 = components[0];
+      localComponentOut2 = components[1];
+      for (int n = 0; n < paramInt2; n++) {
+        i1 = n * j;
+        byte[] arrayOfByte2 = localComponentOut1.getLine((int)(i1 * scaleY));
+        arrayOfByte3 = localComponentOut1.getLine((int)(i1 * scaleY));
+        for (int i4 = 0; i4 < paramInt1; i4++) {
+          int i5 = i4 * i;
+          i6 = arrayOfByte2[((int)(i5 * scaleX))];
+          byte b2 = arrayOfByte3[((int)(i5 * scaleX))];
+          paramColorSink.store2(i4, n, i6, b2);
+        }
+      }
+      
+      break;
+    case 3: 
+      if (TextureData.ColorSpace.YCbCr != localColorSpace1) {
+        throw new CodecException("Unsupported source color space w 3 components: " + localColorSpace1);
+      }
+      localComponentOut1 = components[0];
+      localComponentOut2 = components[1];
+      localComponentOut3 = components[2];
+      for (i1 = 0; i1 < paramInt2; i1++) {
+        i2 = i1 * j;
+        arrayOfByte3 = localComponentOut1.getLine((int)(i2 * scaleY));
+        arrayOfByte4 = localComponentOut2.getLine((int)(i2 * scaleY));
+        arrayOfByte5 = localComponentOut3.getLine((int)(i2 * scaleY));
+        int i7; byte b3; if (TextureData.ColorSpace.YCbCr == localColorSpace2) {
+          for (i6 = 0; i6 < paramInt1; i6++) {
+            i7 = i6 * i;
+            i8 = arrayOfByte3[((int)(i7 * scaleX))];
+            b3 = arrayOfByte4[((int)(i7 * scaleX))];
+            b4 = arrayOfByte5[((int)(i7 * scaleX))];
+            paramColorSink.storeYCbCr(i6, i1, i8, b3, b4);
+          }
+        } else {
+          for (i6 = 0; i6 < paramInt1; i6++) {
+            i7 = i6 * i;
+            i8 = 0xFF & arrayOfByte3[((int)(i7 * scaleX))];
+            b3 = 0xFF & arrayOfByte4[((int)(i7 * scaleX))];
+            b4 = 0xFF & arrayOfByte5[((int)(i7 * scaleX))];
+            
+            b5 = clampTo8bit(i8 + 1.402F * (b4 - 128.0F));
+            b6 = clampTo8bit(i8 - 0.3441363F * (b3 - 128.0F) - 0.71413636F * (b4 - 128.0F));
+            b7 = clampTo8bit(i8 + 1.772F * (b3 - 128.0F));
+            paramColorSink.storeRGB(i6, i1, b5, b6, b7);
+          }
+        }
+      }
+      
+      break;
+    case 4: 
+      if ((TextureData.ColorSpace.YCCK != localColorSpace1) && (TextureData.ColorSpace.CMYK != localColorSpace1)) {
+        throw new CodecException("Unsupported source color space w 4 components: " + localColorSpace1);
+      }
+      localComponentOut1 = components[0];
+      localComponentOut2 = components[1];
+      localComponentOut3 = components[2];
+      ComponentOut localComponentOut4 = components[3];
+      for (i2 = 0; i2 < paramInt2; i2++) {
+        int i3 = i2 * j;
+        arrayOfByte4 = localComponentOut1.getLine((int)(i3 * scaleY));
+        arrayOfByte5 = localComponentOut2.getLine((int)(i3 * scaleY));
+        byte[] arrayOfByte6 = localComponentOut3.getLine((int)(i3 * scaleY));
+        byte[] arrayOfByte7 = localComponentOut4.getLine((int)(i3 * scaleY));
+        int i9; if (TextureData.ColorSpace.YCbCr == localColorSpace2) {
+          if (TextureData.ColorSpace.YCCK != localColorSpace1) {
+            throw new CodecException("Unsupported storage color space " + localColorSpace2 + " with source color space " + localColorSpace1);
+          }
+          for (i8 = 0; i8 < paramInt1; i8++) {
+            i9 = i8 * i;
+            b4 = arrayOfByte4[((int)(i9 * scaleX))];
+            b5 = arrayOfByte5[((int)(i9 * scaleX))];
+            b6 = arrayOfByte6[((int)(i9 * scaleX))];
+            
+
+            paramColorSink.storeYCbCr(i8, i2, b4, b5, b6);
+          }
+        }
+        else if (TextureData.ColorSpace.CMYK == localColorSpace1) {
+          for (i8 = 0; i8 < paramInt1; i8++) {
+            i9 = i8 * i;
+            b4 = 0xFF & arrayOfByte4[((int)(i9 * scaleX))];
+            b5 = 0xFF & arrayOfByte5[((int)(i9 * scaleX))];
+            b6 = 0xFF & arrayOfByte6[((int)(i9 * scaleX))];
+            b7 = 0xFF & arrayOfByte7[((int)(i9 * scaleX))];
+            
+            byte b8 = clampTo8bit(b4 * b7 / 255.0F);
+            byte b9 = clampTo8bit(b5 * b7 / 255.0F);
+            byte b10 = clampTo8bit(b6 * b7 / 255.0F);
+            paramColorSink.storeRGB(i8, i2, b8, b9, b10);
+          }
+        } else {
+          for (i8 = 0; i8 < paramInt1; i8++) {
+            i9 = i8 * i;
+            b4 = 0xFF & arrayOfByte4[((int)(i9 * scaleX))];
+            b5 = 0xFF & arrayOfByte5[((int)(i9 * scaleX))];
+            b6 = 0xFF & arrayOfByte6[((int)(i9 * scaleX))];
+            b7 = 0xFF & arrayOfByte7[((int)(i9 * scaleX))];
+            
+            float f1 = 255.0F - (b4 + 1.402F * (b6 - 128.0F));
+            float f2 = 255.0F - (b4 - 0.3441363F * (b5 - 128.0F) - 0.71413636F * (b6 - 128.0F));
+            float f3 = 255.0F - (b4 + 1.772F * (b5 - 128.0F));
+            
+            byte b11 = clampTo8bit(f1 * b7 / 255.0F);
+            byte b12 = clampTo8bit(f2 * b7 / 255.0F);
+            byte b13 = clampTo8bit(f3 * b7 / 255.0F);
+            paramColorSink.storeRGB(i8, i2, b11, b12, b13);
+          }
+        }
+      }
+      
+
+      break;
+    default: 
+      throw new CodecException("Unsupported color model: Space " + localColorSpace1 + ", components " + k);
+    }
+  }
+  
+  private static byte clampTo8bit(float paramFloat) {
+    return (byte)(int)(paramFloat > 255.0F ? 255.0F : paramFloat < 0.0F ? 0.0F : paramFloat);
+  }
+  
+  private static String toHexString(int paramInt) {
+    return "0x" + Integer.toHexString(paramInt);
+  }
+}

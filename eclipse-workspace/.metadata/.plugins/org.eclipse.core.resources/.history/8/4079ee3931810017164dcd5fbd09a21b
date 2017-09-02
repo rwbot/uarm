@@ -1,0 +1,248 @@
+package com.jogamp.opengl.glu.gl2es1;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.util.ReflectionUtil;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2ES1;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.glu.GLU;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import java.nio.ShortBuffer;
+import jogamp.opengl.glu.mipmap.Mipmap;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLUgl2es1
+  extends GLU
+{
+  public GLUgl2es1() {}
+  
+  public static final GL2ES1 getCurrentGL2ES1()
+    throws GLException
+  {
+    GLContext localGLContext = GLContext.getCurrent();
+    if (localGLContext == null) {
+      throw new GLException("No OpenGL context current on this thread");
+    }
+    return localGLContext.getGL().getGL2ES1();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected static boolean availableMipmap = false;
+  protected static boolean checkedMipmap = false;
+  
+  protected static final void validateMipmap() {
+    if (!checkedMipmap) {
+      availableMipmap = ReflectionUtil.isClassAvailable("jogamp.opengl.glu.mipmap.Mipmap", GLU.class.getClassLoader());
+      checkedMipmap = true;
+    }
+    if (!availableMipmap) {
+      throw new GLException("Mipmap not available");
+    }
+  }
+  
+  private final ByteBuffer copyToByteBuffer(Buffer paramBuffer) {
+    if ((paramBuffer instanceof ByteBuffer)) {
+      if (paramBuffer.position() == 0) {
+        return (ByteBuffer)paramBuffer;
+      }
+      return Buffers.copyByteBuffer((ByteBuffer)paramBuffer); }
+    if ((paramBuffer instanceof ShortBuffer))
+      return Buffers.copyShortBufferAsByteBuffer((ShortBuffer)paramBuffer);
+    if ((paramBuffer instanceof IntBuffer))
+      return Buffers.copyIntBufferAsByteBuffer((IntBuffer)paramBuffer);
+    if ((paramBuffer instanceof FloatBuffer)) {
+      return Buffers.copyFloatBufferAsByteBuffer((FloatBuffer)paramBuffer);
+    }
+    throw new IllegalArgumentException("Unsupported buffer type (must be one of byte, short, int, or float)");
+  }
+  
+
+
+
+
+
+  public final int gluScaleImage(int paramInt1, int paramInt2, int paramInt3, int paramInt4, Buffer paramBuffer1, int paramInt5, int paramInt6, int paramInt7, Buffer paramBuffer2)
+  {
+    validateMipmap();
+    ByteBuffer localByteBuffer1 = null;
+    ByteBuffer localByteBuffer2 = null;
+    localByteBuffer1 = copyToByteBuffer(paramBuffer1);
+    if ((paramBuffer2 instanceof ByteBuffer)) {
+      localByteBuffer2 = (ByteBuffer)paramBuffer2;
+    } else if ((paramBuffer2 instanceof ShortBuffer)) {
+      localByteBuffer2 = Buffers.newDirectByteBuffer(paramBuffer2.remaining() * 2);
+    } else if ((paramBuffer2 instanceof IntBuffer)) {
+      localByteBuffer2 = Buffers.newDirectByteBuffer(paramBuffer2.remaining() * 4);
+    } else if ((paramBuffer2 instanceof FloatBuffer)) {
+      localByteBuffer2 = Buffers.newDirectByteBuffer(paramBuffer2.remaining() * 4);
+    } else {
+      throw new IllegalArgumentException("Unsupported destination buffer type (must be byte, short, int, or float)");
+    }
+    int i = Mipmap.gluScaleImage(getCurrentGL2ES1(), paramInt1, paramInt2, paramInt3, paramInt4, localByteBuffer1, paramInt5, paramInt6, paramInt7, localByteBuffer2);
+    
+    if (i == 0) {
+      localByteBuffer2.rewind();
+      if (localByteBuffer2 != paramBuffer2) {
+        if ((paramBuffer2 instanceof ShortBuffer)) {
+          ((ShortBuffer)paramBuffer2).put(localByteBuffer2.asShortBuffer());
+        } else if ((paramBuffer2 instanceof IntBuffer)) {
+          ((IntBuffer)paramBuffer2).put(localByteBuffer2.asIntBuffer());
+        } else if ((paramBuffer2 instanceof FloatBuffer)) {
+          ((FloatBuffer)paramBuffer2).put(localByteBuffer2.asFloatBuffer());
+        } else {
+          throw new RuntimeException("Should not reach here");
+        }
+      }
+    }
+    return i;
+  }
+  
+
+
+
+
+
+  public final int gluBuild1DMipmapLevels(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, Buffer paramBuffer)
+  {
+    validateMipmap();
+    ByteBuffer localByteBuffer = copyToByteBuffer(paramBuffer);
+    return Mipmap.gluBuild1DMipmapLevels(getCurrentGL2ES1(), paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8, localByteBuffer);
+  }
+  
+
+
+
+
+
+  public final int gluBuild1DMipmaps(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, Buffer paramBuffer)
+  {
+    validateMipmap();
+    ByteBuffer localByteBuffer = copyToByteBuffer(paramBuffer);
+    return Mipmap.gluBuild1DMipmaps(getCurrentGL2ES1(), paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, localByteBuffer);
+  }
+  
+
+
+
+
+
+
+  public final int gluBuild2DMipmapLevels(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, Buffer paramBuffer)
+  {
+    validateMipmap();
+    
+    paramBuffer = copyToByteBuffer(paramBuffer);
+    return Mipmap.gluBuild2DMipmapLevels(getCurrentGL2ES1(), paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8, paramInt9, paramBuffer);
+  }
+  
+
+
+
+
+  public final int gluBuild2DMipmaps(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, Buffer paramBuffer)
+  {
+    validateMipmap();
+    
+    paramBuffer = copyToByteBuffer(paramBuffer);
+    return Mipmap.gluBuild2DMipmaps(getCurrentGL2ES1(), paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramBuffer);
+  }
+  
+
+
+
+
+
+  public final int gluBuild3DMipmapLevels(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, int paramInt10, Buffer paramBuffer)
+  {
+    validateMipmap();
+    ByteBuffer localByteBuffer = copyToByteBuffer(paramBuffer);
+    return Mipmap.gluBuild3DMipmapLevels(getCurrentGL2ES1(), paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8, paramInt9, paramInt10, localByteBuffer);
+  }
+  
+
+
+
+
+  public final int gluBuild3DMipmaps(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, Buffer paramBuffer)
+  {
+    validateMipmap();
+    ByteBuffer localByteBuffer = copyToByteBuffer(paramBuffer);
+    return Mipmap.gluBuild3DMipmaps(getCurrentGL2ES1(), paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, localByteBuffer);
+  }
+}

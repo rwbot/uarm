@@ -1,0 +1,65 @@
+package com.jogamp.newt;
+
+import com.jogamp.common.GlueGenVersion;
+import com.jogamp.common.util.JogampVersion;
+import com.jogamp.common.util.VersionUtil;
+import com.jogamp.nativewindow.NativeWindowVersion;
+import java.io.PrintStream;
+import java.util.jar.Manifest;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class NewtVersion
+  extends JogampVersion
+{
+  protected static volatile NewtVersion jogampCommonVersionInfo;
+  
+  protected NewtVersion(String paramString, Manifest paramManifest)
+  {
+    super(paramString, paramManifest);
+  }
+  
+  public static NewtVersion getInstance() {
+    if (null == jogampCommonVersionInfo) {
+      synchronized (NewtVersion.class) {
+        if (null == jogampCommonVersionInfo)
+        {
+
+          Manifest localManifest = VersionUtil.getManifest(NativeWindowVersion.class.getClassLoader(), new String[] { "com.jogamp.newt", "com.jogamp.opengl" });
+          jogampCommonVersionInfo = new NewtVersion("com.jogamp.newt", localManifest);
+        }
+      }
+    }
+    return jogampCommonVersionInfo;
+  }
+  
+  public static void main(String[] paramArrayOfString) {
+    System.err.println(VersionUtil.getPlatformInfo());
+    System.err.println(GlueGenVersion.getInstance());
+    System.err.println(NativeWindowVersion.getInstance());
+    System.err.println(getInstance());
+  }
+}

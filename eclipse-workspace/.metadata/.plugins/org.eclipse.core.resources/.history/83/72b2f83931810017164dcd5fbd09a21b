@@ -1,0 +1,129 @@
+package jogamp.graph.curve.tess;
+
+import com.jogamp.graph.geom.Triangle;
+import com.jogamp.graph.geom.Vertex;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class HEdge
+{
+  public static final int BOUNDARY = 3;
+  public static final int INNER = 1;
+  public static final int HOLE = 2;
+  private GraphVertex vert;
+  private HEdge prev = null;
+  private HEdge next = null;
+  private HEdge sibling = null;
+  private int type = 3;
+  private Triangle triangle = null;
+  
+  public HEdge(GraphVertex paramGraphVertex, int paramInt) {
+    vert = paramGraphVertex;
+    type = paramInt;
+  }
+  
+  public HEdge(GraphVertex paramGraphVertex, HEdge paramHEdge1, HEdge paramHEdge2, HEdge paramHEdge3, int paramInt) {
+    vert = paramGraphVertex;
+    prev = paramHEdge1;
+    next = paramHEdge2;
+    sibling = paramHEdge3;
+    type = paramInt;
+  }
+  
+  public HEdge(GraphVertex paramGraphVertex, HEdge paramHEdge1, HEdge paramHEdge2, HEdge paramHEdge3, int paramInt, Triangle paramTriangle) {
+    vert = paramGraphVertex;
+    prev = paramHEdge1;
+    next = paramHEdge2;
+    sibling = paramHEdge3;
+    type = paramInt;
+    triangle = paramTriangle;
+  }
+  
+  public GraphVertex getGraphPoint() {
+    return vert;
+  }
+  
+  public void setVert(GraphVertex paramGraphVertex) {
+    vert = paramGraphVertex;
+  }
+  
+  public HEdge getPrev() {
+    return prev;
+  }
+  
+  public void setPrev(HEdge paramHEdge) {
+    prev = paramHEdge;
+  }
+  
+  public HEdge getNext() {
+    return next;
+  }
+  
+  public void setNext(HEdge paramHEdge) {
+    next = paramHEdge;
+  }
+  
+  public HEdge getSibling() {
+    return sibling;
+  }
+  
+  public void setSibling(HEdge paramHEdge) {
+    sibling = paramHEdge;
+  }
+  
+  public int getType() {
+    return type;
+  }
+  
+  public void setType(int paramInt) {
+    type = paramInt;
+  }
+  
+  public Triangle getTriangle() {
+    return triangle;
+  }
+  
+  public void setTriangle(Triangle paramTriangle) {
+    triangle = paramTriangle;
+  }
+  
+  public static <T extends Vertex> void connect(HEdge paramHEdge1, HEdge paramHEdge2) {
+    paramHEdge1.setNext(paramHEdge2);
+    paramHEdge2.setPrev(paramHEdge1);
+  }
+  
+  public static <T extends Vertex> void makeSiblings(HEdge paramHEdge1, HEdge paramHEdge2) {
+    paramHEdge1.setSibling(paramHEdge2);
+    paramHEdge2.setSibling(paramHEdge1);
+  }
+  
+  public boolean vertexOnCurveVertex() {
+    return vert.getPoint().isOnCurve();
+  }
+}

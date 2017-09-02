@@ -1,0 +1,72 @@
+package com.leapmotion.leap;
+
+import java.util.Iterator;
+
+
+
+public class ImageList
+  extends Interface
+  implements Iterable<Image>
+{
+  private long swigCPtr;
+  
+  public ImageList(long paramLong, boolean paramBoolean)
+  {
+    super(LeapJNI.ImageList_SWIGUpcast(paramLong), paramBoolean);
+    swigCPtr = paramLong;
+  }
+  
+  public static long getCPtr(ImageList paramImageList) {
+    return paramImageList == null ? 0L : swigCPtr;
+  }
+  
+  protected void finalize() {
+    delete();
+  }
+  
+  public synchronized void delete() {
+    if (swigCPtr != 0L) {
+      if (swigCMemOwn) {
+        swigCMemOwn = false;
+        LeapJNI.delete_ImageList(swigCPtr);
+      }
+      swigCPtr = 0L;
+    }
+    super.delete(); }
+  
+  public class ImageListIterator implements Iterator<Image> { public ImageListIterator() {}
+    
+    int index = 0;
+    
+    public boolean hasNext() { return index < count(); }
+    
+    public Image next() {
+      return get(index++);
+    }
+    
+    public void remove() {}
+  }
+  
+  public Iterator<Image> iterator() { return new ImageListIterator(); }
+  
+  public ImageList()
+  {
+    this(LeapJNI.new_ImageList(), true);
+  }
+  
+  public int count() {
+    return LeapJNI.ImageList_count(swigCPtr, this);
+  }
+  
+  public boolean isEmpty() {
+    return LeapJNI.ImageList_isEmpty(swigCPtr, this);
+  }
+  
+  public Image get(int paramInt) {
+    return new Image(LeapJNI.ImageList_get(swigCPtr, this, paramInt), true);
+  }
+  
+  public ImageList append(ImageList paramImageList) {
+    return new ImageList(LeapJNI.ImageList_append(swigCPtr, this, getCPtr(paramImageList), paramImageList), false);
+  }
+}

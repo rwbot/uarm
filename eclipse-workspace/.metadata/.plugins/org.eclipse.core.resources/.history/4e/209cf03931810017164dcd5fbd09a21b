@@ -1,0 +1,356 @@
+package com.jogamp.opengl.util;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.util.InterruptSource.Thread;
+import com.jogamp.common.util.SourcedInterruptedException;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLException;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import jogamp.opengl.FPSCounterImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Animator
+  extends AnimatorBase
+{
+  private ThreadGroup threadGroup;
+  private Runnable runnable;
+  private boolean runAsFastAsPossible;
+  boolean isAnimating;
+  volatile boolean pauseIssued;
+  volatile boolean stopIssued;
+  
+  public Animator()
+  {
+    if (DEBUG) {
+      System.err.println("Animator created");
+    }
+  }
+  
+
+
+
+  public Animator(ThreadGroup paramThreadGroup)
+  {
+    setThreadGroup(paramThreadGroup);
+    if (DEBUG) {
+      System.err.println("Animator created, ThreadGroup: " + threadGroup);
+    }
+  }
+  
+
+
+
+  public Animator(GLAutoDrawable paramGLAutoDrawable)
+  {
+    add(paramGLAutoDrawable);
+    if (DEBUG) {
+      System.err.println("Animator created, w/ " + paramGLAutoDrawable);
+    }
+  }
+  
+
+
+
+  public Animator(ThreadGroup paramThreadGroup, GLAutoDrawable paramGLAutoDrawable)
+  {
+    setThreadGroup(paramThreadGroup);
+    add(paramGLAutoDrawable);
+    if (DEBUG) {
+      System.err.println("Animator created, ThreadGroup: " + threadGroup + " and " + paramGLAutoDrawable);
+    }
+  }
+  
+  protected final String getBaseName(String paramString)
+  {
+    return paramString + "Animator";
+  }
+  
+
+
+
+
+
+  public final synchronized void setRunAsFastAsPossible(boolean paramBoolean)
+  {
+    runAsFastAsPossible = paramBoolean;
+  }
+  
+  class MainLoop implements Runnable {
+    MainLoop() {}
+    
+    public String toString() { return "[started " + isStarted() + ", animating " + isAnimating() + ", paused " + isPaused() + ", drawable " + drawables.size() + ", drawablesEmpty " + drawablesEmpty + "]"; }
+    
+
+    public void run()
+    {
+      Object localObject1 = null;
+      Object localObject2 = null;
+      try
+      {
+        synchronized (Animator.this) {
+          if (AnimatorBase.DEBUG) {
+            System.err.println("Animator start on " + AnimatorBase.getThreadName() + ": " + toString());
+          }
+          fpsCounter.resetFPSCounter();
+          animThread = Thread.currentThread();
+          isAnimating = false;
+        }
+        
+
+        while (!stopIssued) {
+          synchronized (Animator.this)
+          {
+            j = 0;
+            while ((!stopIssued) && ((pauseIssued) || (drawablesEmpty))) {
+              if (drawablesEmpty) {
+                pauseIssued = true;
+              }
+              boolean bool = pauseIssued;
+              if (AnimatorBase.DEBUG) {
+                System.err.println("Animator pause on " + animThread.getName() + ": " + toString());
+              }
+              if ((exclusiveContext) && (!drawablesEmpty) && (j == 0)) {
+                j = 1;
+                setDrawablesExclCtxState(false);
+                try {
+                  display();
+                } catch (AnimatorBase.UncaughtAnimatorException localUncaughtAnimatorException3) {
+                  localObject2 = localUncaughtAnimatorException3;
+                  stopIssued = true;
+                  break;
+                }
+              }
+              isAnimating = false;
+              notifyAll();
+              try {
+                wait();
+              } catch (InterruptedException localInterruptedException) {
+                localObject2 = new AnimatorBase.UncaughtAnimatorException(null, SourcedInterruptedException.wrap(localInterruptedException));
+                stopIssued = true;
+                break;
+              }
+              if (bool)
+              {
+                fpsCounter.resetFPSCounter();
+                if (AnimatorBase.DEBUG) {
+                  System.err.println("Animator resume on " + animThread.getName() + ": " + toString());
+                }
+              }
+            }
+            if ((!stopIssued) && (!isAnimating))
+            {
+
+
+
+              isAnimating = true;
+              setDrawablesExclCtxState(exclusiveContext);
+              notifyAll();
+            }
+          }
+          if ((!pauseIssued) && (!stopIssued)) {
+            try {
+              display();
+            } catch (AnimatorBase.UncaughtAnimatorException localUncaughtAnimatorException1) {
+              localObject2 = localUncaughtAnimatorException1;
+              stopIssued = true;
+              break;
+            }
+            if (!runAsFastAsPossible)
+            {
+              Thread.yield();
+            }
+          }
+        }
+      } catch (ThreadDeath localThreadDeath) {
+        if (AnimatorBase.DEBUG) {
+          ExceptionUtils.dumpThrowable("", localThreadDeath);
+        }
+        localObject1 = localThreadDeath;
+      }
+      if ((exclusiveContext) && (!drawablesEmpty)) {
+        setDrawablesExclCtxState(false);
+        try {
+          display();
+        } catch (AnimatorBase.UncaughtAnimatorException localUncaughtAnimatorException2) {
+          if (null == localObject2) {
+            localObject2 = localUncaughtAnimatorException2;
+          } else {
+            ExceptionUtils.dumpThrowable("(setExclusiveContextThread)", localUncaughtAnimatorException2);
+          }
+        }
+      }
+      int i = 0;
+      int j = 0;
+      synchronized (Animator.this) {
+        if (AnimatorBase.DEBUG) {
+          System.err.println("Animator stop on " + animThread.getName() + ": " + toString());
+          if (null != localObject2) {
+            ExceptionUtils.dumpThrowable("", (Throwable)localObject2);
+          }
+        }
+        stopIssued = false;
+        pauseIssued = false;
+        isAnimating = false;
+        if (null != localObject2) {
+          i = 1;
+          j = !handleUncaughtException((AnimatorBase.UncaughtAnimatorException)localObject2) ? 1 : 0;
+        }
+        animThread = null;
+        notifyAll();
+      }
+      if (i != 0) {
+        flushGLRunnables();
+      }
+      if (j != 0) {
+        throw ((Throwable)localObject2);
+      }
+      if (null != localObject1) {
+        throw localObject1;
+      }
+    }
+  }
+  
+  public final synchronized boolean isAnimating()
+  {
+    return (animThread != null) && (isAnimating);
+  }
+  
+  public final synchronized boolean isPaused()
+  {
+    return (animThread != null) && (pauseIssued);
+  }
+  
+
+
+
+
+  public final synchronized void setThreadGroup(ThreadGroup paramThreadGroup)
+    throws GLException
+  {
+    if (isStarted()) {
+      throw new GLException("Animator already started.");
+    }
+    threadGroup = paramThreadGroup;
+  }
+  
+  public final synchronized boolean start()
+  {
+    if (isStarted()) {
+      return false;
+    }
+    if (runnable == null) {
+      runnable = new MainLoop();
+    }
+    fpsCounter.resetFPSCounter();
+    InterruptSource.Thread localThread = new InterruptSource.Thread(threadGroup, runnable, getThreadName() + "-" + baseName);
+    localThread.setDaemon(false);
+    if (DEBUG) {
+      Thread localThread1 = Thread.currentThread();
+      System.err.println("Animator " + localThread1.getName() + "[daemon " + localThread1.isDaemon() + "]: starting " + localThread.getName() + "[daemon " + localThread.isDaemon() + "]");
+    }
+    localThread.start();
+    return finishLifecycleAction(waitForStartedCondition, 0L); }
+  
+  private final AnimatorBase.Condition waitForStartedCondition = new AnimatorBase.Condition()
+  {
+    public boolean eval() {
+      return (!isStarted()) || ((!drawablesEmpty) && (!isAnimating));
+    }
+  };
+  
+  public final synchronized boolean stop() {
+    if (!isStarted()) {
+      return false;
+    }
+    stopIssued = true;
+    return finishLifecycleAction(waitForStoppedCondition, 0L); }
+  
+  private final AnimatorBase.Condition waitForStoppedCondition = new AnimatorBase.Condition()
+  {
+    public boolean eval() {
+      return isStarted();
+    }
+  };
+  
+  public final synchronized boolean pause() {
+    if ((!isStarted()) || (pauseIssued)) {
+      return false;
+    }
+    pauseIssued = true;
+    return finishLifecycleAction(waitForPausedCondition, 0L); }
+  
+  private final AnimatorBase.Condition waitForPausedCondition = new AnimatorBase.Condition()
+  {
+    public boolean eval()
+    {
+      return (isStarted()) && (isAnimating);
+    }
+  };
+  
+  public final synchronized boolean resume() {
+    if ((!isStarted()) || (!pauseIssued)) {
+      return false;
+    }
+    pauseIssued = false;
+    return finishLifecycleAction(waitForResumeCondition, 0L); }
+  
+  private final AnimatorBase.Condition waitForResumeCondition = new AnimatorBase.Condition()
+  {
+    public boolean eval()
+    {
+      return (isStarted()) && (((!drawablesEmpty) && (!isAnimating)) || ((drawablesEmpty) && (!pauseIssued)));
+    }
+  };
+}

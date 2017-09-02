@@ -1,0 +1,169 @@
+package com.jogamp.common.util;
+
+import com.jogamp.common.os.AndroidVersion;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.os.Platform.OSType;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.util.Enumeration;
+import java.util.Iterator;
+import java.util.Set;
+import java.util.jar.Attributes;
+import java.util.jar.Attributes.Name;
+import java.util.jar.Manifest;
+import jogamp.common.os.PlatformPropsImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class VersionUtil
+{
+  public static final String SEPERATOR = "-----------------------------------------------------------------------------------------------------";
+  
+  public VersionUtil() {}
+  
+  public static StringBuilder getPlatformInfo(StringBuilder paramStringBuilder)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    
+    paramStringBuilder.append("-----------------------------------------------------------------------------------------------------").append(Platform.getNewline());
+    
+
+    paramStringBuilder.append("Platform: ").append(Platform.getOSType()).append(" / ").append(Platform.getOSName()).append(' ').append(Platform.getOSVersion()).append(" (").append(Platform.getOSVersionNumber()).append("), ");
+    paramStringBuilder.append(Platform.getArchName()).append(" (").append(Platform.getCPUType()).append(", ").append(Platform.getABIType()).append("), ");
+    paramStringBuilder.append(Runtime.getRuntime().availableProcessors()).append(" cores, ").append("littleEndian ").append(PlatformPropsImpl.LITTLE_ENDIAN);
+    paramStringBuilder.append(Platform.getNewline());
+    if (Platform.OSType.ANDROID == PlatformPropsImpl.OS_TYPE) {
+      paramStringBuilder.append("Platform: Android Version: ").append(AndroidVersion.CODENAME).append(", ");
+      paramStringBuilder.append(AndroidVersion.RELEASE).append(" [").append(AndroidVersion.RELEASE).append("], SDK: ").append(AndroidVersion.SDK_INT).append(", ").append(AndroidVersion.SDK_NAME);
+      paramStringBuilder.append(Platform.getNewline());
+    }
+    
+    Platform.getMachineDataInfo().toString(paramStringBuilder).append(Platform.getNewline());
+    
+
+    paramStringBuilder.append("Platform: Java Version: ").append(Platform.getJavaVersion()).append(" (").append(Platform.getJavaVersionNumber()).append("u").append(PlatformPropsImpl.JAVA_VERSION_UPDATE).append("), VM: ").append(Platform.getJavaVMName());
+    paramStringBuilder.append(", Runtime: ").append(Platform.getJavaRuntimeName()).append(Platform.getNewline());
+    paramStringBuilder.append("Platform: Java Vendor: ").append(Platform.getJavaVendor()).append(", ").append(Platform.getJavaVendorURL());
+    paramStringBuilder.append(", JavaSE: ").append(PlatformPropsImpl.JAVA_SE);
+    paramStringBuilder.append(", Java6: ").append(PlatformPropsImpl.JAVA_6);
+    paramStringBuilder.append(", AWT enabled: ").append(Platform.AWT_AVAILABLE);
+    paramStringBuilder.append(Platform.getNewline()).append("-----------------------------------------------------------------------------------------------------");
+    
+    return paramStringBuilder;
+  }
+  
+
+
+
+  public static String getPlatformInfo()
+  {
+    return getPlatformInfo(null).toString();
+  }
+  
+
+
+
+
+
+
+  public static Manifest getManifest(ClassLoader paramClassLoader, String paramString)
+  {
+    return getManifest(paramClassLoader, new String[] { paramString });
+  }
+  
+
+
+
+
+
+
+
+  public static Manifest getManifest(ClassLoader paramClassLoader, String[] paramArrayOfString)
+  {
+    Manifest[] arrayOfManifest = new Manifest[paramArrayOfString.length];
+    try {
+      Enumeration localEnumeration = paramClassLoader.getResources("META-INF/MANIFEST.MF");
+      while (localEnumeration.hasMoreElements()) {
+        InputStream localInputStream = ((URL)localEnumeration.nextElement()).openStream();
+        Manifest localManifest;
+        try {
+          localManifest = new Manifest(localInputStream);
+        } finally {
+          IOUtil.close(localInputStream, false);
+        }
+        Attributes localAttributes = localManifest.getMainAttributes();
+        if (localAttributes != null) {
+          for (int j = 0; (j < paramArrayOfString.length) && (null == arrayOfManifest[j]); j++) {
+            String str = paramArrayOfString[j];
+            if (str.equals(localAttributes.getValue(Attributes.Name.EXTENSION_NAME))) {
+              if (0 == j) {
+                return localManifest;
+              }
+              arrayOfManifest[j] = localManifest;
+            }
+          }
+        }
+      }
+    } catch (IOException localIOException) {
+      throw new RuntimeException("Unable to read manifest.", localIOException);
+    }
+    for (int i = 1; i < arrayOfManifest.length; i++) {
+      if (null != arrayOfManifest[i]) {
+        return arrayOfManifest[i];
+      }
+    }
+    return null;
+  }
+  
+  public static StringBuilder getFullManifestInfo(Manifest paramManifest, StringBuilder paramStringBuilder) {
+    if (null == paramManifest) {
+      return paramStringBuilder;
+    }
+    
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    
+    Attributes localAttributes = paramManifest.getMainAttributes();
+    Set localSet = localAttributes.keySet();
+    for (Iterator localIterator = localSet.iterator(); localIterator.hasNext();) {
+      Attributes.Name localName = (Attributes.Name)localIterator.next();
+      String str = localAttributes.getValue(localName);
+      paramStringBuilder.append(" ");
+      paramStringBuilder.append(localName);
+      paramStringBuilder.append(" = ");
+      paramStringBuilder.append(str);
+      paramStringBuilder.append(Platform.getNewline());
+    }
+    return paramStringBuilder;
+  }
+}

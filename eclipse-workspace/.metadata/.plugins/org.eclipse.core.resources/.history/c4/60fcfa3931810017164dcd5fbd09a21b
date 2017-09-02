@@ -1,0 +1,238 @@
+package jogamp.graph.font.typecast.ot.table;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class CharstringType2
+  extends Charstring
+{
+  private static final String[] _oneByteOperators = { "-Reserved-", "hstem", "-Reserved-", "vstem", "vmoveto", "rlineto", "hlineto", "vlineto", "rrcurveto", "-Reserved-", "callsubr", "return", "escape", "-Reserved-", "endchar", "-Reserved-", "-Reserved-", "-Reserved-", "hstemhm", "hintmask", "cntrmask", "rmoveto", "hmoveto", "vstemhm", "rcurveline", "rlinecurve", "vvcurveto", "hhcurveto", "shortint", "callgsubr", "vhcurveto", "hvcurveto" };
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private static final String[] _twoByteOperators = { "-Reserved- (dotsection)", "-Reserved-", "-Reserved-", "and", "or", "not", "-Reserved-", "-Reserved-", "-Reserved-", "abs", "add", "sub", "div", "-Reserved-", "neg", "eq", "-Reserved-", "-Reserved-", "drop", "-Reserved-", "put", "get", "ifelse", "random", "mul", "-Reserved-", "sqrt", "dup", "exch", "index", "roll", "-Reserved-", "-Reserved-", "-Reserved-", "hflex", "flex", "hflex1", "flex1", "-Reserved-" };
+  
+
+
+
+
+
+  private final int _index;
+  
+
+
+
+
+
+  private final String _name;
+  
+
+
+
+
+
+  private final int[] _data;
+  
+
+
+
+
+  private final int _offset;
+  
+
+
+
+
+  private final int _length;
+  
+
+
+
+
+  private final CffTable.Index _localSubrIndex;
+  
+
+
+
+
+  private final CffTable.Index _globalSubrIndex;
+  
+
+
+
+
+  private int _ip;
+  
+
+
+
+
+
+  protected CharstringType2(int paramInt1, String paramString, int[] paramArrayOfInt, int paramInt2, int paramInt3, CffTable.Index paramIndex1, CffTable.Index paramIndex2)
+  {
+    _index = paramInt1;
+    _name = paramString;
+    _data = paramArrayOfInt;
+    _offset = paramInt2;
+    _length = paramInt3;
+    _localSubrIndex = paramIndex1;
+    _globalSubrIndex = paramIndex2;
+  }
+  
+  public int getIndex()
+  {
+    return _index;
+  }
+  
+  public String getName()
+  {
+    return _name;
+  }
+  
+  private void disassemble(StringBuilder paramStringBuilder) {
+    Number localNumber = null;
+    while (isOperandAtIndex()) {
+      localNumber = nextOperand();
+      paramStringBuilder.append(localNumber).append(" ");
+    }
+    int i = nextByte();
+    String str;
+    if (i == 12) {
+      i = nextByte();
+      
+
+      if (i > 38) {
+        i = 38;
+      }
+      str = _twoByteOperators[i];
+    } else {
+      str = _oneByteOperators[i];
+    }
+    paramStringBuilder.append(str);
+  }
+  
+  public void resetIP() {
+    _ip = _offset;
+  }
+  
+  public boolean isOperandAtIndex() {
+    int i = _data[_ip];
+    if (((32 <= i) && (i <= 255)) || (i == 28)) {
+      return true;
+    }
+    return false;
+  }
+  
+  public Number nextOperand() {
+    int i = _data[_ip];
+    if ((32 <= i) && (i <= 246))
+    {
+
+      _ip += 1;
+      return Integer.valueOf(i - 139); }
+    int j; if ((247 <= i) && (i <= 250))
+    {
+
+      j = _data[(_ip + 1)];
+      _ip += 2;
+      return Integer.valueOf((i - 247) * 256 + j + 108); }
+    if ((251 <= i) && (i <= 254))
+    {
+
+      j = _data[(_ip + 1)];
+      _ip += 2;
+      return Integer.valueOf(-(i - 251) * 256 - j - 108); }
+    int k; if (i == 28)
+    {
+
+      j = _data[(_ip + 1)];
+      k = _data[(_ip + 2)];
+      _ip += 3;
+      return Integer.valueOf(j << 8 | k); }
+    if (i == 255)
+    {
+
+      j = (byte)_data[(_ip + 1)];
+      k = _data[(_ip + 2)];
+      int m = _data[(_ip + 3)];
+      int n = _data[(_ip + 4)];
+      _ip += 5;
+      return Float.valueOf((j << 8 | k) + (m << 8 | n) / 65536.0F);
+    }
+    return null;
+  }
+  
+  public int nextByte()
+  {
+    return _data[(_ip++)];
+  }
+  
+  public boolean moreBytes() {
+    return _ip < _offset + _length;
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    resetIP();
+    while (moreBytes()) {
+      disassemble(localStringBuilder);
+      localStringBuilder.append("\n");
+    }
+    return localStringBuilder.toString();
+  }
+}

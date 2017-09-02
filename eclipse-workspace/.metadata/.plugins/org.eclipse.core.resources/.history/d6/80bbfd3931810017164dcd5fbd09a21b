@@ -1,0 +1,84 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Ligature
+{
+  private final int _ligGlyph;
+  private final int _compCount;
+  private final int[] _components;
+  
+  public Ligature(DataInput paramDataInput)
+    throws IOException
+  {
+    _ligGlyph = paramDataInput.readUnsignedShort();
+    _compCount = paramDataInput.readUnsignedShort();
+    _components = new int[_compCount - 1];
+    for (int i = 0; i < _compCount - 1; i++) {
+      _components[i] = paramDataInput.readUnsignedShort();
+    }
+  }
+  
+  public int getGlyphCount() {
+    return _compCount;
+  }
+  
+  public int getGlyphId(int paramInt) {
+    return paramInt == 0 ? _ligGlyph : _components[(paramInt - 1)];
+  }
+}

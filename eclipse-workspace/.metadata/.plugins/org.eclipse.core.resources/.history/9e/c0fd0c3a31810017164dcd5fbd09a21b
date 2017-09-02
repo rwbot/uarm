@@ -1,0 +1,99 @@
+package jogamp.nativewindow.windows;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.StructAccessor;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import java.nio.ByteBuffer;
+import jogamp.common.os.MachineDataInfoRuntime;
+
+
+
+
+
+
+
+
+
+
+public class AccentPolicy
+{
+  StructAccessor accessor;
+  private static final int mdIdx = MachineDataInfoRuntime.getStatic().ordinal();
+  
+  private final MachineDataInfo md;
+  private static final int[] AccentPolicy_size = { 16, 16, 16, 16, 16, 16, 16, 16 };
+  private static final int[] AccentState_offset = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  
+  private static final int[] AccentFlags_offset = { 4, 4, 4, 4, 4, 4, 4, 4 };
+  
+  private static final int[] GradientColor_offset = { 8, 8, 8, 8, 8, 8, 8, 8 };
+  
+  private static final int[] AnimationId_offset = { 12, 12, 12, 12, 12, 12, 12, 12 };
+  
+  public static int size()
+  {
+    return AccentPolicy_size[mdIdx];
+  }
+  
+  public static AccentPolicy create() {
+    return create(Buffers.newDirectByteBuffer(size()));
+  }
+  
+  public static AccentPolicy create(ByteBuffer paramByteBuffer) {
+    return new AccentPolicy(paramByteBuffer);
+  }
+  
+  AccentPolicy(ByteBuffer paramByteBuffer) {
+    md = valuesmdIdxmd;
+    accessor = new StructAccessor(paramByteBuffer);
+  }
+  
+  public ByteBuffer getBuffer() {
+    return accessor.getBuffer();
+  }
+  
+  public AccentPolicy setAccentState(int paramInt)
+  {
+    accessor.setIntAt(AccentState_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getAccentState()
+  {
+    return accessor.getIntAt(AccentState_offset[mdIdx]);
+  }
+  
+  public AccentPolicy setAccentFlags(int paramInt)
+  {
+    accessor.setIntAt(AccentFlags_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getAccentFlags()
+  {
+    return accessor.getIntAt(AccentFlags_offset[mdIdx]);
+  }
+  
+  public AccentPolicy setGradientColor(int paramInt)
+  {
+    accessor.setIntAt(GradientColor_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getGradientColor()
+  {
+    return accessor.getIntAt(GradientColor_offset[mdIdx]);
+  }
+  
+  public AccentPolicy setAnimationId(int paramInt)
+  {
+    accessor.setIntAt(AnimationId_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getAnimationId()
+  {
+    return accessor.getIntAt(AnimationId_offset[mdIdx]);
+  }
+}

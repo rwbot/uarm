@@ -1,0 +1,166 @@
+package com.jogamp.common.util;
+
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.zip.DataFormatException;
+import java.util.zip.Deflater;
+import java.util.zip.Inflater;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class CustomCompress
+{
+  public static final int MAGIC = -554588192;
+  
+  public CustomCompress() {}
+  
+  public static byte[] inflateFromStream(InputStream paramInputStream)
+    throws IOException, ArrayIndexOutOfBoundsException, IllegalArgumentException
+  {
+    DataInputStream localDataInputStream = new DataInputStream(paramInputStream);
+    int k = localDataInputStream.readInt();
+    if (k != -554588192) {
+      throw new IOException("wrong magic: " + Integer.toHexString(k) + ", expected " + Integer.toHexString(-554588192));
+    }
+    int i = localDataInputStream.readInt();
+    int j = localDataInputStream.readInt();
+    
+    return inflateFromStream(paramInputStream, i, j, new byte[j], 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static byte[] inflateFromStream(InputStream paramInputStream, int paramInt1, int paramInt2, byte[] paramArrayOfByte, int paramInt3)
+    throws IOException, ArrayIndexOutOfBoundsException, IllegalArgumentException
+  {
+    if ((paramInt1 <= 0) || (paramInt2 <= 0)) {
+      throw new IllegalArgumentException("Length[input " + paramInt1 + ", output " + paramInt2 + "]");
+    }
+    if ((paramInt3 < 0) || (paramArrayOfByte.length < paramInt3 + paramInt2)) {
+      throw new ArrayIndexOutOfBoundsException("output.length " + paramArrayOfByte.length + ", offset " + paramInt3 + ", length " + paramInt2);
+    }
+    byte[] arrayOfByte = new byte[paramInt1];
+    int i = 0;
+    int k;
+    try {
+      for (;;) { int j = paramInt1 - i;
+        
+        if ((0 >= j) || ((k = paramInputStream.read(arrayOfByte, i, j)) == -1)) {
+          break;
+        }
+        i += k;
+      }
+    } finally {
+      paramInputStream.close();
+    }
+    if (paramInt1 != i) {
+      throw new IOException("Got " + i + " bytes != expected " + paramInt1);
+    }
+    try {
+      Inflater localInflater = new Inflater();
+      localInflater.setInput(arrayOfByte, 0, paramInt1);
+      k = localInflater.inflate(paramArrayOfByte, paramInt3, paramInt2);
+      localInflater.end();
+      if (paramInt2 != k) {
+        throw new IOException("Got inflated " + k + " bytes != expected " + paramInt2);
+      }
+    } catch (DataFormatException localDataFormatException) {
+      throw new IOException(localDataFormatException);
+    }
+    return paramArrayOfByte;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static int deflateToStream(byte[] paramArrayOfByte, int paramInt1, int paramInt2, int paramInt3, OutputStream paramOutputStream)
+    throws IOException, ArrayIndexOutOfBoundsException, IllegalArgumentException
+  {
+    if (paramInt2 <= 0) {
+      throw new IllegalArgumentException("Length[input " + paramInt2 + "]");
+    }
+    if ((paramInt1 < 0) || (paramArrayOfByte.length < paramInt1 + paramInt2)) {
+      throw new ArrayIndexOutOfBoundsException("input.length " + paramArrayOfByte.length + ", offset " + paramInt1 + ", length " + paramInt2);
+    }
+    byte[] arrayOfByte = new byte[paramInt2];
+    Deflater localDeflater = new Deflater(paramInt3);
+    localDeflater.setInput(paramArrayOfByte, paramInt1, paramInt2);
+    localDeflater.finish();
+    int i = localDeflater.deflate(arrayOfByte, 0, paramInt2);
+    localDeflater.end();
+    
+    DataOutputStream localDataOutputStream = new DataOutputStream(paramOutputStream);
+    localDataOutputStream.writeInt(-554588192);
+    localDataOutputStream.writeInt(i);
+    localDataOutputStream.writeInt(paramInt2);
+    
+    paramOutputStream.write(arrayOfByte, 0, i);
+    return i;
+  }
+}

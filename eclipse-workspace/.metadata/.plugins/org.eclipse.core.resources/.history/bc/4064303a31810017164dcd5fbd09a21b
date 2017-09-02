@@ -1,0 +1,139 @@
+package jogamp.opengl.util.pngj.chunks;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import jogamp.opengl.util.pngj.ImageInfo;
+import jogamp.opengl.util.pngj.PngHelperInternal;
+import jogamp.opengl.util.pngj.PngjException;
+
+
+
+
+
+
+
+public class PngChunkSPLT
+  extends PngChunkMultiple
+{
+  public static final String ID = "sPLT";
+  private String palName;
+  private int sampledepth;
+  private int[] palette;
+  
+  public PngChunkSPLT(ImageInfo paramImageInfo)
+  {
+    super("sPLT", paramImageInfo);
+  }
+  
+  public PngChunk.ChunkOrderingConstraint getOrderingConstraint()
+  {
+    return PngChunk.ChunkOrderingConstraint.BEFORE_IDAT;
+  }
+  
+  public ChunkRaw createRawChunk()
+  {
+    try {
+      ByteArrayOutputStream localByteArrayOutputStream = new ByteArrayOutputStream();
+      localByteArrayOutputStream.write(palName.getBytes(PngHelperInternal.charsetLatin1));
+      localByteArrayOutputStream.write(0);
+      localByteArrayOutputStream.write((byte)sampledepth);
+      int i = getNentries();
+      for (int j = 0; j < i; j++) {
+        for (int k = 0; k < 4; k++) {
+          if (sampledepth == 8) {
+            PngHelperInternal.writeByte(localByteArrayOutputStream, (byte)palette[(j * 5 + k)]);
+          } else
+            PngHelperInternal.writeInt2(localByteArrayOutputStream, palette[(j * 5 + k)]);
+        }
+        PngHelperInternal.writeInt2(localByteArrayOutputStream, palette[(j * 5 + 4)]);
+      }
+      byte[] arrayOfByte = localByteArrayOutputStream.toByteArray();
+      ChunkRaw localChunkRaw = createEmptyChunk(arrayOfByte.length, false);
+      data = arrayOfByte;
+      return localChunkRaw;
+    } catch (IOException localIOException) {
+      throw new PngjException(localIOException);
+    }
+  }
+  
+  public void parseFromRaw(ChunkRaw paramChunkRaw)
+  {
+    int i = -1;
+    for (int j = 0; j < data.length; j++) {
+      if (data[j] == 0) {
+        i = j;
+        break;
+      }
+    }
+    if ((i <= 0) || (i > data.length - 2))
+      throw new PngjException("bad sPLT chunk: no separator found");
+    palName = new String(data, 0, i, PngHelperInternal.charsetLatin1);
+    sampledepth = PngHelperInternal.readInt1fromByte(data, i + 1);
+    i += 2;
+    j = (data.length - i) / (sampledepth == 8 ? 6 : 10);
+    palette = new int[j * 5];
+    
+    int i3 = 0;
+    for (int i4 = 0; i4 < j; i4++) { int k;
+      int m; int n; int i1; if (sampledepth == 8) {
+        k = PngHelperInternal.readInt1fromByte(data, i++);
+        m = PngHelperInternal.readInt1fromByte(data, i++);
+        n = PngHelperInternal.readInt1fromByte(data, i++);
+        i1 = PngHelperInternal.readInt1fromByte(data, i++);
+      } else {
+        k = PngHelperInternal.readInt2fromBytes(data, i);
+        i += 2;
+        m = PngHelperInternal.readInt2fromBytes(data, i);
+        i += 2;
+        n = PngHelperInternal.readInt2fromBytes(data, i);
+        i += 2;
+        i1 = PngHelperInternal.readInt2fromBytes(data, i);
+        i += 2;
+      }
+      int i2 = PngHelperInternal.readInt2fromBytes(data, i);
+      i += 2;
+      palette[(i3++)] = k;
+      palette[(i3++)] = m;
+      palette[(i3++)] = n;
+      palette[(i3++)] = i1;
+      palette[(i3++)] = i2;
+    }
+  }
+  
+  public void cloneDataFromRead(PngChunk paramPngChunk)
+  {
+    PngChunkSPLT localPngChunkSPLT = (PngChunkSPLT)paramPngChunk;
+    palName = palName;
+    sampledepth = sampledepth;
+    palette = new int[palette.length];
+    System.arraycopy(palette, 0, palette, 0, palette.length);
+  }
+  
+  public int getNentries() {
+    return palette.length / 5;
+  }
+  
+  public String getPalName() {
+    return palName;
+  }
+  
+  public void setPalName(String paramString) {
+    palName = paramString;
+  }
+  
+  public int getSampledepth() {
+    return sampledepth;
+  }
+  
+  public void setSampledepth(int paramInt) {
+    sampledepth = paramInt;
+  }
+  
+  public int[] getPalette() {
+    return palette;
+  }
+  
+  public void setPalette(int[] paramArrayOfInt) {
+    palette = paramArrayOfInt;
+  }
+}

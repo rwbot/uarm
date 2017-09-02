@@ -1,0 +1,433 @@
+package jogamp.newt.driver.x11;
+
+import com.jogamp.common.util.ArrayHashMap;
+import com.jogamp.common.util.ReflectionUtil;
+import com.jogamp.nativewindow.Capabilities;
+import com.jogamp.nativewindow.GraphicsConfigurationFactory;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.util.Point;
+import com.jogamp.newt.Display;
+import com.jogamp.newt.NewtFactory;
+import com.jogamp.newt.Screen;
+import com.jogamp.newt.Window;
+import com.jogamp.newt.event.KeyEvent;
+import com.jogamp.newt.event.KeyListener;
+import com.jogamp.newt.event.MouseEvent;
+import com.jogamp.newt.event.MouseListener;
+import com.jogamp.newt.event.WindowEvent;
+import com.jogamp.newt.event.WindowListener;
+import com.jogamp.newt.event.WindowUpdateEvent;
+import jogamp.nativewindow.x11.X11Util;
+import jogamp.newt.WindowImpl;
+import jogamp.newt.driver.KeyTracker;
+import jogamp.newt.driver.MouseTracker;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class X11UnderlayTracker
+  implements WindowListener, KeyListener, MouseListener, MouseTracker, KeyTracker
+{
+  private volatile WindowImpl focusedWindow = null;
+  
+  private static volatile ArrayHashMap<WindowImpl, WindowImpl> underlayWindowMap = new ArrayHashMap(false, 16, 0.75F);
+  private static volatile ArrayHashMap<WindowImpl, WindowImpl> overlayWindowMap = new ArrayHashMap(false, 16, 0.75F);
+  
+
+
+
+
+
+
+  static
+  {
+    X11Util.initSingleton();
+    GraphicsConfigurationFactory.initSingleton();
+    try {
+      ReflectionUtil.callStaticMethod("jogamp.nativewindow.x11.X11GraphicsConfigurationFactory", "registerFactory", null, null, GraphicsConfigurationFactory.class
+      
+
+        .getClassLoader());
+    } catch (Exception localException) {
+      throw new RuntimeException(localException); } }
+  
+  private static final X11UnderlayTracker tracker = new X11UnderlayTracker();
+  private volatile MouseEvent lastMouse;
+  
+  public static X11UnderlayTracker getSingleton() {
+    return tracker;
+  }
+  
+
+
+
+
+
+
+
+
+  private X11UnderlayTracker()
+  {
+    display = NewtFactory.createDisplay(NativeWindowFactory.TYPE_X11, null, false);
+    screen = NewtFactory.createScreen(display, 0);
+  }
+  
+  public void windowResized(WindowEvent paramWindowEvent)
+  {
+    Object localObject = paramWindowEvent.getSource();
+    WindowImpl localWindowImpl1; WindowImpl localWindowImpl2; if (underlayWindowMap.containsKey(localObject)) {
+      localWindowImpl1 = (WindowImpl)localObject;
+      localWindowImpl2 = (WindowImpl)underlayWindowMap.get(localObject);
+      if ((localWindowImpl2.getSurfaceWidth() != localWindowImpl1.getSurfaceWidth()) || 
+        (localWindowImpl2.getSurfaceHeight() != localWindowImpl1.getSurfaceHeight())) {
+        localWindowImpl2.setSize(localWindowImpl1.getSurfaceWidth(), localWindowImpl1
+          .getSurfaceHeight());
+      }
+    } else if (overlayWindowMap.containsKey(localObject)) {
+      localWindowImpl1 = (WindowImpl)localObject;
+      localWindowImpl2 = (WindowImpl)overlayWindowMap.get(localObject);
+      if ((localWindowImpl1.getSurfaceWidth() != localWindowImpl2.getSurfaceWidth()) || 
+        (localWindowImpl1.getSurfaceHeight() != localWindowImpl2.getSurfaceHeight())) {
+        localWindowImpl2.setSize(localWindowImpl1.getSurfaceWidth(), localWindowImpl1
+          .getSurfaceHeight());
+      }
+    }
+  }
+  
+  public void windowMoved(WindowEvent paramWindowEvent)
+  {
+    Object localObject = paramWindowEvent.getSource();
+    WindowImpl localWindowImpl1; WindowImpl localWindowImpl2; if (underlayWindowMap.containsKey(localObject)) {
+      localWindowImpl1 = (WindowImpl)localObject;
+      localWindowImpl2 = (WindowImpl)underlayWindowMap.get(localObject);
+      Point localPoint1 = new Point();
+      Point localPoint2 = new Point();
+      localWindowImpl2.getLocationOnScreen(localPoint1);
+      localWindowImpl1.getLocationOnScreen(localPoint2);
+      if ((localPoint1.getX() != localPoint2.getX()) || 
+        (localPoint1.getY() != localPoint2.getY())) {
+        localWindowImpl2.setPosition(localPoint2.getX(), localPoint2.getY());
+      }
+    } else if (overlayWindowMap.containsKey(localObject)) {
+      localWindowImpl1 = (WindowImpl)localObject;
+      localWindowImpl2 = (WindowImpl)overlayWindowMap.get(localObject);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  private final Display display;
+  
+
+
+
+
+
+
+
+
+
+
+  private final Screen screen;
+  
+
+
+
+
+
+
+
+
+
+
+  public void windowDestroyNotify(WindowEvent paramWindowEvent)
+  {
+    Object localObject = paramWindowEvent.getSource();
+    WindowImpl localWindowImpl1; WindowImpl localWindowImpl2; if (underlayWindowMap.containsKey(localObject)) {
+      localWindowImpl1 = (WindowImpl)localObject;
+      localWindowImpl2 = (WindowImpl)underlayWindowMap.get(localObject);
+      overlayWindowMap.remove(localWindowImpl2);
+      underlayWindowMap.remove(localWindowImpl1);
+      if (focusedWindow == localWindowImpl2) {
+        focusedWindow = null;
+      }
+      localWindowImpl2.destroy();
+    } else if (overlayWindowMap.containsKey(localObject)) {
+      localWindowImpl1 = (WindowImpl)localObject;
+      localWindowImpl2 = (WindowImpl)overlayWindowMap.get(localObject);
+      overlayWindowMap.remove(localWindowImpl1);
+      underlayWindowMap.remove(localWindowImpl2);
+      if (focusedWindow == localWindowImpl1) {
+        focusedWindow = null;
+      }
+      localWindowImpl2.destroy();
+    }
+  }
+  
+
+
+
+
+  public void windowGainedFocus(WindowEvent paramWindowEvent)
+  {
+    Object localObject = paramWindowEvent.getSource();
+    if ((localObject instanceof WindowImpl)) { WindowImpl localWindowImpl1;
+      if (underlayWindowMap.containsKey(localObject)) {
+        localWindowImpl1 = (WindowImpl)underlayWindowMap.get(localObject);
+        focusedWindow = localWindowImpl1;
+      } else if (overlayWindowMap.containsKey(localObject)) {
+        focusedWindow = ((WindowImpl)localObject);
+
+      }
+      else
+      {
+
+        localWindowImpl1 = (WindowImpl)localObject;
+        Capabilities localCapabilities = new Capabilities();
+        
+
+
+
+
+
+        localCapabilities.setBackgroundOpaque(false);
+        
+        WindowImpl localWindowImpl2 = WindowImpl.create(null, 0L, screen, localCapabilities);
+        
+
+
+
+        underlayWindowMap.put(localWindowImpl2, localWindowImpl1);
+        overlayWindowMap.put(localWindowImpl1, localWindowImpl2);
+        
+
+
+
+        localWindowImpl2.setAlwaysOnTop(true);
+        
+        localWindowImpl2.setTitle(localWindowImpl1.getTitle());
+        
+        if (localWindowImpl1.isUndecorated()) {
+          localWindowImpl2.setUndecorated(true);
+        }
+        
+        localWindowImpl2.addKeyListener(this);
+        localWindowImpl2.addMouseListener(this);
+        localWindowImpl2.addWindowListener(this);
+        
+        localWindowImpl2.setSize(localWindowImpl1.getSurfaceWidth(), localWindowImpl1
+          .getSurfaceHeight());
+        localWindowImpl2.setPosition(localWindowImpl1.getX(), localWindowImpl1.getY());
+        
+        localWindowImpl2.setVisible(false, true);
+        
+        focusedWindow = ((WindowImpl)localObject);
+      }
+    }
+  }
+  
+  public void windowLostFocus(WindowEvent paramWindowEvent)
+  {
+    Object localObject = paramWindowEvent.getSource();
+    if (underlayWindowMap.containsKey(localObject)) {
+      WindowImpl localWindowImpl = (WindowImpl)underlayWindowMap.get(localObject);
+      if (focusedWindow == localWindowImpl) {
+        focusedWindow = null;
+      }
+    }
+    else if (focusedWindow == localObject) {
+      focusedWindow = null;
+    }
+  }
+  
+
+
+
+  public static void main(String[] paramArrayOfString)
+    throws InterruptedException
+  {
+    Capabilities localCapabilities = new Capabilities();
+    localCapabilities.setBackgroundOpaque(false);
+    
+    Window localWindow = NewtFactory.createWindow(localCapabilities);
+    localWindow.setUndecorated(true);
+    localWindow.addWindowListener(getSingleton());
+    localWindow.setTitle("1");
+    localWindow.setVisible(true);
+    
+    localWindow = NewtFactory.createWindow(localCapabilities);
+    localWindow.setUndecorated(false);
+    localWindow.addWindowListener(getSingleton());
+    localWindow.setTitle("2");
+    localWindow.setVisible(true);
+    
+    Thread.sleep(25000L);
+  }
+  
+  public void mouseClicked(MouseEvent paramMouseEvent)
+  {
+    lastMouse = paramMouseEvent;
+    Object localObject = paramMouseEvent.getSource();
+    if (underlayWindowMap.containsKey(localObject)) {
+      WindowImpl localWindowImpl = (WindowImpl)underlayWindowMap.get(localObject);
+      localWindowImpl.sendMouseEvent((short)200, 0, paramMouseEvent
+        .getX(), paramMouseEvent.getY(), (short)0, 0.0F);
+    }
+  }
+  
+  public void mouseEntered(MouseEvent paramMouseEvent)
+  {
+    lastMouse = paramMouseEvent;
+    Object localObject = paramMouseEvent.getSource();
+    if (underlayWindowMap.containsKey(localObject)) {
+      WindowImpl localWindowImpl = (WindowImpl)underlayWindowMap.get(localObject);
+      localWindowImpl.sendMouseEvent((short)201, 0, paramMouseEvent
+        .getX(), paramMouseEvent.getY(), (short)0, 0.0F);
+    }
+  }
+  
+  public void mouseExited(MouseEvent paramMouseEvent)
+  {
+    lastMouse = paramMouseEvent;
+    Object localObject = paramMouseEvent.getSource();
+    if (underlayWindowMap.containsKey(localObject)) {
+      WindowImpl localWindowImpl = (WindowImpl)underlayWindowMap.get(localObject);
+      localWindowImpl.sendMouseEvent((short)202, 0, paramMouseEvent
+        .getX(), paramMouseEvent.getY(), (short)0, 0.0F);
+    }
+  }
+  
+  public void mousePressed(MouseEvent paramMouseEvent)
+  {
+    lastMouse = paramMouseEvent;
+    Object localObject = paramMouseEvent.getSource();
+    if (underlayWindowMap.containsKey(localObject)) {
+      WindowImpl localWindowImpl = (WindowImpl)underlayWindowMap.get(localObject);
+      localWindowImpl.sendMouseEvent((short)203, 0, paramMouseEvent
+        .getX(), paramMouseEvent.getY(), (short)0, 0.0F);
+    }
+  }
+  
+  public void mouseReleased(MouseEvent paramMouseEvent)
+  {
+    lastMouse = paramMouseEvent;
+    Object localObject = paramMouseEvent.getSource();
+    if (underlayWindowMap.containsKey(localObject)) {
+      WindowImpl localWindowImpl = (WindowImpl)underlayWindowMap.get(localObject);
+      localWindowImpl.sendMouseEvent((short)204, 0, paramMouseEvent
+        .getX(), paramMouseEvent.getY(), (short)0, 0.0F);
+    }
+  }
+  
+  public void mouseMoved(MouseEvent paramMouseEvent)
+  {
+    lastMouse = paramMouseEvent;
+    Object localObject = paramMouseEvent.getSource();
+    if (underlayWindowMap.containsKey(localObject)) {
+      WindowImpl localWindowImpl = (WindowImpl)underlayWindowMap.get(localObject);
+      localWindowImpl.sendMouseEvent((short)205, 0, paramMouseEvent
+        .getX(), paramMouseEvent.getY(), (short)0, 0.0F);
+    }
+  }
+  
+  public void mouseDragged(MouseEvent paramMouseEvent)
+  {
+    lastMouse = paramMouseEvent;
+    Object localObject = paramMouseEvent.getSource();
+    if (underlayWindowMap.containsKey(localObject)) {
+      WindowImpl localWindowImpl = (WindowImpl)underlayWindowMap.get(localObject);
+      localWindowImpl.sendMouseEvent((short)206, 0, paramMouseEvent
+        .getX(), paramMouseEvent.getY(), (short)0, 0.0F);
+    }
+  }
+  
+  public void mouseWheelMoved(MouseEvent paramMouseEvent)
+  {
+    lastMouse = paramMouseEvent;
+    Object localObject = paramMouseEvent.getSource();
+    if (underlayWindowMap.containsKey(localObject)) {
+      WindowImpl localWindowImpl = (WindowImpl)underlayWindowMap.get(localObject);
+      localWindowImpl.sendMouseEvent((short)207, 0, paramMouseEvent
+        .getX(), paramMouseEvent.getY(), (short)0, 0.0F);
+    }
+  }
+  
+  public void keyPressed(KeyEvent paramKeyEvent)
+  {
+    if (focusedWindow != null) {
+      focusedWindow.sendKeyEvent(paramKeyEvent.getEventType(), paramKeyEvent.getModifiers(), paramKeyEvent
+        .getKeyCode(), paramKeyEvent.getKeySymbol(), paramKeyEvent.getKeyChar());
+    }
+  }
+  
+  public void keyReleased(KeyEvent paramKeyEvent)
+  {
+    if (focusedWindow != null) {
+      focusedWindow.sendKeyEvent(paramKeyEvent.getEventType(), paramKeyEvent.getModifiers(), paramKeyEvent
+        .getKeyCode(), paramKeyEvent.getKeySymbol(), paramKeyEvent.getKeyChar());
+    }
+  }
+  
+  public int getLastY()
+  {
+    if (lastMouse != null)
+      return lastMouse.getY();
+    return 0;
+  }
+  
+  public int getLastX()
+  {
+    if (lastMouse != null)
+      return lastMouse.getX();
+    return 0;
+  }
+  
+  public void windowDestroyed(WindowEvent paramWindowEvent) {}
+  
+  public void windowRepaint(WindowUpdateEvent paramWindowUpdateEvent) {}
+}

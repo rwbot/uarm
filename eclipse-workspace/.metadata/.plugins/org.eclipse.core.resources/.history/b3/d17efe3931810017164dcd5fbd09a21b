@@ -1,0 +1,148 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.ByteArrayInputStream;
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class NameTable
+  implements Table
+{
+  private final DirectoryEntry _de;
+  private final short _formatSelector;
+  private final short _numberOfNameRecords;
+  private final short _stringStorageOffset;
+  private final NameRecord[] _records;
+  
+  protected NameTable(DirectoryEntry paramDirectoryEntry, DataInput paramDataInput)
+    throws IOException
+  {
+    _de = ((DirectoryEntry)paramDirectoryEntry.clone());
+    _formatSelector = paramDataInput.readShort();
+    _numberOfNameRecords = paramDataInput.readShort();
+    _stringStorageOffset = paramDataInput.readShort();
+    _records = new NameRecord[_numberOfNameRecords];
+    
+
+
+    for (int i = 0; i < _numberOfNameRecords; i++) {
+      _records[i] = new NameRecord(paramDataInput);
+    }
+    
+
+
+    byte[] arrayOfByte = new byte[_de.getLength() - _stringStorageOffset];
+    paramDataInput.readFully(arrayOfByte);
+    
+
+    for (int j = 0; j < _numberOfNameRecords; j++) {
+      _records[j].loadString(new DataInputStream(new ByteArrayInputStream(arrayOfByte)));
+    }
+  }
+  
+  public short getNumberOfNameRecords()
+  {
+    return _numberOfNameRecords;
+  }
+  
+  public NameRecord getRecord(int paramInt)
+  {
+    if (_numberOfNameRecords > paramInt) {
+      return _records[paramInt];
+    }
+    return null;
+  }
+  
+  public StringBuilder getRecordsRecordString(StringBuilder paramStringBuilder, int paramInt) {
+    if (_numberOfNameRecords > paramInt) {
+      _records[paramInt].getRecordString(paramStringBuilder);
+    } else {
+      paramStringBuilder.append("n/a");
+    }
+    return paramStringBuilder;
+  }
+  
+  public StringBuilder getNamedRecordString(StringBuilder paramStringBuilder, short paramShort)
+  {
+    int i = 0;
+    for (int j = 0; (i == 0) && (j < _numberOfNameRecords); j++) {
+      if (_records[j].getNameId() == paramShort) {
+        _records[j].getRecordString(paramStringBuilder);
+        i = 1;
+      }
+    }
+    if (i == 0) {
+      paramStringBuilder.append("n/a");
+    }
+    return paramStringBuilder;
+  }
+  
+  public int getType()
+  {
+    return 1851878757;
+  }
+  
+
+
+
+
+
+
+  public DirectoryEntry getDirectoryEntry()
+  {
+    return _de;
+  }
+}

@@ -1,0 +1,184 @@
+package com.jogamp.nativewindow.x11;
+
+import com.jogamp.nativewindow.DefaultGraphicsDevice;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.ToolkitLock;
+import java.io.PrintStream;
+import jogamp.nativewindow.x11.X11Lib;
+import jogamp.nativewindow.x11.X11Util;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class X11GraphicsDevice
+  extends DefaultGraphicsDevice
+  implements Cloneable
+{
+  boolean handleOwner;
+  final boolean isXineramaEnabled;
+  
+  public X11GraphicsDevice(String paramString, int paramInt)
+  {
+    super(NativeWindowFactory.TYPE_X11, paramString, paramInt);
+    handleOwner = false;
+    isXineramaEnabled = false;
+  }
+  
+
+
+
+  public X11GraphicsDevice(long paramLong, int paramInt, boolean paramBoolean)
+  {
+    this(paramLong, paramInt, NativeWindowFactory.getDefaultToolkitLock(NativeWindowFactory.TYPE_X11, paramLong), paramBoolean);
+  }
+  
+
+
+
+
+  public X11GraphicsDevice(long paramLong, int paramInt, ToolkitLock paramToolkitLock, boolean paramBoolean)
+  {
+    super(NativeWindowFactory.TYPE_X11, X11Lib.XDisplayString(paramLong), paramInt, paramLong, paramToolkitLock);
+    if (0L == paramLong) {
+      throw new NativeWindowException("null display");
+    }
+    handleOwner = paramBoolean;
+    isXineramaEnabled = X11Util.XineramaIsEnabled(this);
+  }
+  
+
+
+
+
+
+
+
+
+  public X11GraphicsDevice(String paramString, int paramInt, ToolkitLock paramToolkitLock)
+  {
+    super(NativeWindowFactory.TYPE_X11, paramString, paramInt, 0L, paramToolkitLock);
+    handleOwner = true;
+    open();
+    isXineramaEnabled = X11Util.XineramaIsEnabled(this);
+  }
+  
+  private static int getDefaultScreenImpl(long paramLong) {
+    return X11Lib.DefaultScreen(paramLong);
+  }
+  
+
+
+
+
+
+  public int getDefaultScreen()
+  {
+    long l = getHandle();
+    if (0L == l) {
+      throw new NativeWindowException("null display");
+    }
+    int i = getDefaultScreenImpl(l);
+    if (DEBUG) {
+      System.err.println(Thread.currentThread().getName() + " - X11GraphicsDevice.getDefaultDisplay() of " + this + ": " + i + ", count " + X11Lib.ScreenCount(l));
+    }
+    return i;
+  }
+  
+  public int getDefaultVisualID() {
+    long l = getHandle();
+    if (0L == l) {
+      throw new NativeWindowException("null display");
+    }
+    return X11Lib.DefaultVisualID(l, getDefaultScreenImpl(l));
+  }
+  
+  public final boolean isXineramaEnabled() {
+    return isXineramaEnabled;
+  }
+  
+  public Object clone()
+  {
+    return super.clone();
+  }
+  
+  public boolean open()
+  {
+    if ((handleOwner) && (0L == handle)) {
+      if (DEBUG) {
+        System.err.println(Thread.currentThread().getName() + " - X11GraphicsDevice.open(): " + this);
+      }
+      handle = X11Util.openDisplay(connection);
+      if (0L == handle) {
+        throw new NativeWindowException("X11GraphicsDevice.open() failed: " + this);
+      }
+      return true;
+    }
+    return false;
+  }
+  
+  public boolean close()
+  {
+    if ((handleOwner) && (0L != handle)) {
+      if (DEBUG) {
+        System.err.println(Thread.currentThread().getName() + " - X11GraphicsDevice.close(): " + this);
+      }
+      X11Util.closeDisplay(handle);
+    }
+    return super.close();
+  }
+  
+  public boolean isHandleOwner()
+  {
+    return handleOwner;
+  }
+  
+  public void clearHandleOwner() {
+    handleOwner = false;
+  }
+  
+  protected Object getHandleOwnership() {
+    return Boolean.valueOf(handleOwner);
+  }
+  
+  protected Object setHandleOwnership(Object paramObject) {
+    Boolean localBoolean = Boolean.valueOf(handleOwner);
+    handleOwner = ((Boolean)paramObject).booleanValue();
+    return localBoolean;
+  }
+}

@@ -1,0 +1,258 @@
+package jogamp.opengl.glu.nurbs;
+
+
+
+
+
+public class Arc
+{
+  public PwlArc pwlArc;
+  
+
+
+
+  private long type;
+  
+
+
+
+  public Arc link;
+  
+
+
+
+  Arc prev;
+  
+
+
+
+  Arc next;
+  
+
+
+
+  private final BezierArc bezierArc;
+  
+
+
+
+  public static final int ARC_NONE = 0;
+  
+
+
+
+  public static final int ARC_RIGHT = 1;
+  
+
+
+
+  public static final int ARC_TOP = 2;
+  
+
+
+
+  public static final int ARC_LEFT = 3;
+  
+
+
+
+  public static final int ARC_BOTTOM = 4;
+  
+
+
+
+  private static final long BEZIER_TAG = 8192L;
+  
+
+
+
+  private static final long ARC_TAG = 8L;
+  
+
+
+  private static final long TAIL_TAG = 64L;
+  
+
+
+
+  public Arc(int paramInt)
+  {
+    bezierArc = null;
+    pwlArc = null;
+    type = 0L;
+    setside(paramInt);
+  }
+  
+
+
+
+
+
+
+
+  private void setside(int paramInt)
+  {
+    clearside();
+    type |= paramInt << 8;
+  }
+  
+
+
+
+  private void clearside()
+  {
+    type &= 0xFFFFFFFFFFFFF8FF;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public Arc append(Arc paramArc)
+  {
+    if (paramArc != null) {
+      next = next;
+      prev = paramArc;
+      next.prev = this;
+      prev.next = this;
+    } else {
+      next = this;
+      prev = this;
+    }
+    
+    return this;
+  }
+  
+
+
+
+
+  public boolean check()
+  {
+    return true;
+  }
+  
+
+
+
+  public void setbezier()
+  {
+    type |= 0x2000;
+  }
+  
+
+
+
+
+
+
+  public float[] tail()
+  {
+    return pwlArc.pts[0].param;
+  }
+  
+
+
+
+
+
+  public float[] head()
+  {
+    return next.pwlArc.pts[0].param;
+  }
+  
+
+
+
+
+
+  public boolean ismarked()
+  {
+    return (type & 0x8) > 0L;
+  }
+  
+
+
+
+  public void clearmark()
+  {
+    type &= 0xFFFFFFFFFFFFFFF7;
+  }
+  
+
+
+
+  public void setmark()
+  {
+    type |= 0x8;
+  }
+  
+
+
+
+  public void setitail()
+  {
+    type |= 0x40;
+  }
+  
+
+
+
+
+  public boolean getitail()
+  {
+    return false;
+  }
+  
+
+
+
+  public void clearitail()
+  {
+    type &= 0xFFFFFFFFFFFFFFBF;
+  }
+}

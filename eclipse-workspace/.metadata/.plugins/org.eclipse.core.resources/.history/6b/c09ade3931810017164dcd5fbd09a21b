@@ -1,0 +1,193 @@
+package com.jogamp.gluegen.runtime.opengl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLNameResolver
+{
+  private static final String[] extensionsARB = { "ARB", "GL2", "OES", "KHR", "OML" };
+  private static final String[] extensionsVEN = { "3DFX", "AMD", "ANDROID", "ANGLE", "ARM", "APPLE", "ATI", "EXT", "FJ", "HI", "HP", "IBM", "IMG", "INGR", "INTEL", "MESA", "MESAX", "NV", "PGI", "QCOM", "SGI", "SGIS", "SGIX", "SUN", "VIV", "WIN" };
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public GLNameResolver() {}
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final boolean isGLFunction(String paramString)
+  {
+    return (paramString.startsWith("gl")) || (paramString.startsWith("egl")) || (paramString.startsWith("wgl")) || (paramString.startsWith("agl")) || (paramString.startsWith("cgl"));
+  }
+  
+
+
+
+  public static final boolean isGLEnumeration(String paramString) { return (paramString.startsWith("GL_")) || (paramString.startsWith("GLU_")) || (paramString.startsWith("GLX_")) || (paramString.startsWith("EGL_")) || (paramString.startsWith("WGL_")) || (paramString.startsWith("AGL_")) || (paramString.startsWith("CGL_")); }
+  
+  public static final int getExtensionIdx(String[] paramArrayOfString, String paramString, boolean paramBoolean) {
+    int i;
+    if (paramBoolean) {
+      for (i = paramArrayOfString.length - 1; i >= 0; i--) {
+        if (paramString.endsWith(paramArrayOfString[i])) {
+          return i;
+        }
+      }
+    } else {
+      for (i = paramArrayOfString.length - 1; i >= 0; i--) {
+        if (paramString.endsWith("_" + paramArrayOfString[i])) {
+          return i;
+        }
+      }
+    }
+    return -1;
+  }
+  
+  public static final boolean isExtension(String[] paramArrayOfString, String paramString, boolean paramBoolean) {
+    return getExtensionIdx(paramArrayOfString, paramString, paramBoolean) >= 0;
+  }
+  
+  public static final String getExtensionSuffix(String paramString, boolean paramBoolean) {
+    int i = getExtensionIdx(extensionsARB, paramString, paramBoolean);
+    if (i >= 0) {
+      return extensionsARB[i];
+    }
+    i = getExtensionIdx(extensionsVEN, paramString, paramBoolean);
+    if (i >= 0) {
+      return extensionsVEN[i];
+    }
+    return null;
+  }
+  
+  public static final String normalize(String[] paramArrayOfString, String paramString, boolean paramBoolean) {
+    int i = 0;
+    for (int j = paramArrayOfString.length - 1; (i == 0) && (j >= 0); j--) {
+      if (paramBoolean) {
+        if (paramString.endsWith(paramArrayOfString[j]))
+        {
+          paramString = paramString.substring(0, paramString.length() - paramArrayOfString[j].length());
+          i = 1;
+        }
+      }
+      else if (paramString.endsWith("_" + paramArrayOfString[j]))
+      {
+        paramString = paramString.substring(0, paramString.length() - 1 - paramArrayOfString[j].length());
+        i = 1;
+      }
+    }
+    
+    return paramString;
+  }
+  
+  public static final String normalizeARB(String paramString, boolean paramBoolean) { return normalize(extensionsARB, paramString, paramBoolean); }
+  
+  public static final boolean isExtensionARB(String paramString, boolean paramBoolean) {
+    return isExtension(extensionsARB, paramString, paramBoolean);
+  }
+  
+  public static final String normalizeVEN(String paramString, boolean paramBoolean) { return normalize(extensionsVEN, paramString, paramBoolean); }
+  
+
+  public static final boolean isExtensionVEN(String paramString, boolean paramBoolean) { return isExtension(extensionsVEN, paramString, paramBoolean); }
+  
+  public static final String normalize(String paramString, boolean paramBoolean) {
+    if (isExtensionARB(paramString, paramBoolean)) {
+      return normalizeARB(paramString, paramBoolean);
+    }
+    if (isExtensionVEN(paramString, paramBoolean)) {
+      return normalizeVEN(paramString, paramBoolean);
+    }
+    return paramString;
+  }
+  
+  public static final boolean isExtension(String paramString, boolean paramBoolean) {
+    return (isExtension(extensionsARB, paramString, paramBoolean)) || (isExtension(extensionsVEN, paramString, paramBoolean));
+  }
+  
+  public static final int getFuncNamePermutationNumber(String paramString) {
+    if ((isExtensionARB(paramString, true)) || (isExtensionVEN(paramString, true)))
+    {
+      return 1;
+    }
+    return 1 + extensionsARB.length + extensionsVEN.length;
+  }
+  
+  public static final String getFuncNamePermutation(String paramString, int paramInt)
+  {
+    if (paramInt == 0) {
+      return paramString;
+    }
+    if ((0 > paramInt) || (paramInt >= 1 + extensionsARB.length + extensionsVEN.length)) {
+      throw new RuntimeException("Index out of range [0.." + (1 + extensionsARB.length + extensionsVEN.length - 1) + "]: " + paramInt);
+    }
+    
+    paramInt--;
+    if (paramInt < extensionsARB.length) {
+      return paramString + extensionsARB[paramInt];
+    }
+    
+    paramInt -= extensionsARB.length;
+    return paramString + extensionsVEN[paramInt];
+  }
+}

@@ -1,0 +1,139 @@
+package com.jogamp.nativewindow.awt;
+
+import com.jogamp.nativewindow.WindowClosingProtocol;
+import com.jogamp.nativewindow.WindowClosingProtocol.WindowClosingMode;
+import java.awt.Component;
+import java.awt.Window;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowListener;
+import jogamp.nativewindow.awt.AWTMisc;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AWTWindowClosingProtocol
+  implements WindowClosingProtocol
+{
+  private final Component comp;
+  private Window listenTo;
+  private final Runnable closingOperationClose;
+  private final Runnable closingOperationNOP;
+  private final Object closingListenerLock = new Object();
+  private WindowClosingProtocol.WindowClosingMode defaultCloseOperation = WindowClosingProtocol.WindowClosingMode.DISPOSE_ON_CLOSE;
+  private boolean defaultCloseOperationSetByUser = false;
+  
+
+
+
+
+  public AWTWindowClosingProtocol(Component paramComponent, Runnable paramRunnable1, Runnable paramRunnable2)
+  {
+    comp = paramComponent;
+    listenTo = null;
+    closingOperationClose = paramRunnable1;
+    closingOperationNOP = paramRunnable2;
+  }
+  
+  class WindowClosingAdapter extends WindowAdapter {
+    WindowClosingAdapter() {}
+    
+    public void windowClosing(WindowEvent paramWindowEvent) { WindowClosingProtocol.WindowClosingMode localWindowClosingMode = getDefaultCloseOperation();
+      
+      if (WindowClosingProtocol.WindowClosingMode.DISPOSE_ON_CLOSE == localWindowClosingMode)
+      {
+
+        closingOperationClose.run();
+      } else if (null != closingOperationNOP)
+        closingOperationNOP.run();
+    }
+  }
+  
+  WindowListener windowClosingAdapter = new WindowClosingAdapter();
+  
+
+
+
+
+
+
+
+  public final boolean addClosingListener()
+    throws IllegalStateException
+  {
+    synchronized (closingListenerLock) {
+      if (null != listenTo) {
+        throw new IllegalStateException("WindowClosingListener already set");
+      }
+      listenTo = AWTMisc.getWindow(comp);
+      if (null != listenTo) {
+        listenTo.addWindowListener(windowClosingAdapter);
+        return true;
+      }
+    }
+    return false;
+  }
+  
+  public final boolean removeClosingListener() {
+    synchronized (closingListenerLock) {
+      if (null != listenTo) {
+        listenTo.removeWindowListener(windowClosingAdapter);
+        listenTo = null;
+        return true;
+      }
+    }
+    return false;
+  }
+  
+
+
+
+
+
+
+  public final WindowClosingProtocol.WindowClosingMode getDefaultCloseOperation()
+  {
+    synchronized (closingListenerLock) {
+      if (defaultCloseOperationSetByUser) {
+        return defaultCloseOperation;
+      }
+    }
+    
+    return AWTMisc.getNWClosingOperation(comp);
+  }
+  
+  public final WindowClosingProtocol.WindowClosingMode setDefaultCloseOperation(WindowClosingProtocol.WindowClosingMode paramWindowClosingMode)
+  {
+    synchronized (closingListenerLock) {
+      WindowClosingProtocol.WindowClosingMode localWindowClosingMode = defaultCloseOperation;
+      defaultCloseOperation = paramWindowClosingMode;
+      defaultCloseOperationSetByUser = true;
+      return localWindowClosingMode;
+    }
+  }
+}

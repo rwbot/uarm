@@ -1,0 +1,101 @@
+package com.jogamp.newt.event.awt;
+
+import com.jogamp.nativewindow.NativeSurfaceHolder;
+import com.jogamp.newt.Window;
+import java.awt.Component;
+import jogamp.newt.awt.event.AWTNewtEventFactory;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AWTKeyAdapter
+  extends AWTAdapter
+  implements java.awt.event.KeyListener
+{
+  public AWTKeyAdapter(com.jogamp.newt.event.KeyListener paramKeyListener, NativeSurfaceHolder paramNativeSurfaceHolder)
+  {
+    super(paramKeyListener, paramNativeSurfaceHolder);
+  }
+  
+  public AWTKeyAdapter(com.jogamp.newt.event.KeyListener paramKeyListener, Window paramWindow) {
+    super(paramKeyListener, paramWindow);
+  }
+  
+  public AWTKeyAdapter(Window paramWindow) {
+    super(paramWindow);
+  }
+  
+
+  public AWTKeyAdapter() {}
+  
+
+  public synchronized AWTAdapter addTo(Component paramComponent)
+  {
+    paramComponent.addKeyListener(this);
+    return this;
+  }
+  
+  public synchronized AWTAdapter removeFrom(Component paramComponent)
+  {
+    paramComponent.removeKeyListener(this);
+    return this;
+  }
+  
+  public synchronized void keyPressed(java.awt.event.KeyEvent paramKeyEvent)
+  {
+    if (!isSetup) return;
+    com.jogamp.newt.event.KeyEvent localKeyEvent = AWTNewtEventFactory.createKeyEvent((short)300, paramKeyEvent, nsHolder);
+    if (consumeAWTEvent) {
+      paramKeyEvent.consume();
+    }
+    if (AWTAdapter.EventProcRes.DISPATCH == processEvent(false, localKeyEvent)) {
+      ((com.jogamp.newt.event.KeyListener)newtListener).keyPressed(localKeyEvent);
+    }
+  }
+  
+  public synchronized void keyReleased(java.awt.event.KeyEvent paramKeyEvent)
+  {
+    if (!isSetup) return;
+    com.jogamp.newt.event.KeyEvent localKeyEvent = AWTNewtEventFactory.createKeyEvent((short)301, paramKeyEvent, nsHolder);
+    if (consumeAWTEvent) {
+      paramKeyEvent.consume();
+    }
+    if (AWTAdapter.EventProcRes.DISPATCH == processEvent(false, localKeyEvent)) {
+      ((com.jogamp.newt.event.KeyListener)newtListener).keyReleased(localKeyEvent);
+    }
+  }
+  
+  public synchronized void keyTyped(java.awt.event.KeyEvent paramKeyEvent)
+  {
+    if (!isSetup) return;
+    if (consumeAWTEvent) {
+      paramKeyEvent.consume();
+    }
+  }
+}

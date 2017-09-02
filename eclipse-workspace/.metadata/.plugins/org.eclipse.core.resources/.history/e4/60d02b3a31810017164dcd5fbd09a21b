@@ -1,0 +1,85 @@
+package jogamp.opengl.util.glsl;
+
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.util.GLArrayDataEditable;
+import com.jogamp.opengl.util.GLArrayDataWrapper;
+import java.util.ArrayList;
+import java.util.List;
+import jogamp.opengl.util.GLArrayHandlerFlat;
+import jogamp.opengl.util.GLVBOArrayHandler;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLSLArrayHandlerInterleaved
+  extends GLVBOArrayHandler
+{
+  private final List<GLArrayHandlerFlat> subArrays = new ArrayList();
+  
+  public GLSLArrayHandlerInterleaved(GLArrayDataEditable paramGLArrayDataEditable) {
+    super(paramGLArrayDataEditable);
+  }
+  
+  public final void setSubArrayVBOName(int paramInt)
+  {
+    for (int i = 0; i < subArrays.size(); i++) {
+      ((GLArrayHandlerFlat)subArrays.get(i)).getData().setVBOName(paramInt);
+    }
+  }
+  
+  public final void addSubHandler(GLArrayHandlerFlat paramGLArrayHandlerFlat)
+  {
+    subArrays.add(paramGLArrayHandlerFlat);
+  }
+  
+  private final void syncSubData(GL paramGL, Object paramObject) {
+    for (int i = 0; i < subArrays.size(); i++) {
+      ((GLArrayHandlerFlat)subArrays.get(i)).syncData(paramGL, paramObject);
+    }
+  }
+  
+  public final void enableState(GL paramGL, boolean paramBoolean, Object paramObject)
+  {
+    if (paramBoolean) {
+      if (!ad.isVBO()) {
+        throw new InternalError("Interleaved handle is not VBO: " + ad);
+      }
+      bindBuffer(paramGL, true);
+      
+      syncSubData(paramGL, paramObject);
+      bindBuffer(paramGL, false);
+    }
+    for (int i = 0; i < subArrays.size(); i++) {
+      ((GLArrayHandlerFlat)subArrays.get(i)).enableState(paramGL, paramBoolean, paramObject);
+    }
+  }
+}

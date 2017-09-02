@@ -1,0 +1,907 @@
+package processing.data;
+
+import java.io.PrintStream;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.Random;
+import processing.core.PApplet;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class IntList
+  implements Iterable<Integer>
+{
+  protected int count;
+  protected int[] data;
+  
+  public IntList()
+  {
+    data = new int[10];
+  }
+  
+
+
+
+  public IntList(int length)
+  {
+    data = new int[length];
+  }
+  
+
+
+
+  public IntList(int[] source)
+  {
+    count = source.length;
+    data = new int[count];
+    System.arraycopy(source, 0, data, 0, count);
+  }
+  
+
+
+
+
+
+
+  public IntList(Iterable<Object> iter)
+  {
+    this(10);
+    for (Object o : iter) {
+      if (o == null) {
+        append(0);
+      } else if ((o instanceof Number)) {
+        append(((Number)o).intValue());
+      } else {
+        append(PApplet.parseInt(o.toString().trim()));
+      }
+    }
+    crop();
+  }
+  
+
+
+
+
+
+
+  public IntList(Object... items)
+  {
+    count = items.length;
+    data = new int[count];
+    int index = 0;
+    for (Object o : items) {
+      int value = 0;
+      if (o != null) {
+        if ((o instanceof Number)) {
+          value = ((Number)o).intValue();
+        } else {
+          value = PApplet.parseInt(o.toString().trim(), 0);
+        }
+      }
+      data[(index++)] = value;
+    }
+  }
+  
+  public static IntList fromRange(int stop)
+  {
+    return fromRange(0, stop);
+  }
+  
+  public static IntList fromRange(int start, int stop)
+  {
+    int count = stop - start;
+    IntList newbie = new IntList(count);
+    for (int i = 0; i < count; i++) {
+      newbie.set(i, start + i);
+    }
+    return newbie;
+  }
+  
+
+
+
+
+
+
+  private void crop()
+  {
+    if (count != data.length) {
+      data = PApplet.subset(data, 0, count);
+    }
+  }
+  
+
+
+
+
+
+
+  public int size()
+  {
+    return count;
+  }
+  
+  public void resize(int length)
+  {
+    if (length > data.length) {
+      int[] temp = new int[length];
+      System.arraycopy(data, 0, temp, 0, count);
+      data = temp;
+    }
+    else if (length > count) {
+      Arrays.fill(data, count, length, 0);
+    }
+    count = length;
+  }
+  
+
+
+
+
+
+
+  public void clear()
+  {
+    count = 0;
+  }
+  
+
+
+
+
+
+
+  public int get(int index)
+  {
+    if (index >= count) {
+      throw new ArrayIndexOutOfBoundsException(index);
+    }
+    return data[index];
+  }
+  
+
+
+
+
+
+
+
+
+  public void set(int index, int what)
+  {
+    if (index >= count) {
+      data = PApplet.expand(data, index + 1);
+      for (int i = count; i < index; i++) {
+        data[i] = 0;
+      }
+      count = (index + 1);
+    }
+    data[index] = what;
+  }
+  
+
+  public void push(int value)
+  {
+    append(value);
+  }
+  
+  public int pop()
+  {
+    if (count == 0) {
+      throw new RuntimeException("Can't call pop() on an empty list");
+    }
+    int value = get(count - 1);
+    count -= 1;
+    return value;
+  }
+  
+
+
+
+
+
+
+  public int remove(int index)
+  {
+    if ((index < 0) || (index >= count)) {
+      throw new ArrayIndexOutOfBoundsException(index);
+    }
+    int entry = data[index];
+    
+
+
+
+
+
+
+    for (int i = index; i < count - 1; i++) {
+      data[i] = data[(i + 1)];
+    }
+    count -= 1;
+    return entry;
+  }
+  
+
+
+  public int removeValue(int value)
+  {
+    int index = index(value);
+    if (index != -1) {
+      remove(index);
+      return index;
+    }
+    return -1;
+  }
+  
+
+
+  public int removeValues(int value)
+  {
+    int ii = 0;
+    for (int i = 0; i < count; i++) {
+      if (data[i] != value) {
+        data[(ii++)] = data[i];
+      }
+    }
+    int removed = count - ii;
+    count = ii;
+    return removed;
+  }
+  
+
+
+
+
+
+
+  public void append(int value)
+  {
+    if (count == data.length) {
+      data = PApplet.expand(data);
+    }
+    data[(count++)] = value;
+  }
+  
+  public void append(int[] values)
+  {
+    for (int v : values) {
+      append(v);
+    }
+  }
+  
+  public void append(IntList list)
+  {
+    for (int v : list.values()) {
+      append(v);
+    }
+  }
+  
+
+  public void appendUnique(int value)
+  {
+    if (!hasValue(value)) {
+      append(value);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void insert(int index, int value)
+  {
+    insert(index, new int[] { value });
+  }
+  
+
+  public void insert(int index, int[] values)
+  {
+    if (index < 0) {
+      throw new IllegalArgumentException("insert() index cannot be negative: it was " + index);
+    }
+    if (index >= data.length) {
+      throw new IllegalArgumentException("insert() index " + index + " is past the end of this list");
+    }
+    
+    int[] temp = new int[count + values.length];
+    
+
+    System.arraycopy(data, 0, temp, 0, Math.min(count, index));
+    
+
+    System.arraycopy(values, 0, temp, index, values.length);
+    
+
+
+    System.arraycopy(data, index, temp, index + values.length, count - index);
+    count += values.length;
+    
+
+
+
+    data = temp;
+  }
+  
+  public void insert(int index, IntList list)
+  {
+    insert(index, list.values());
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public int index(int what)
+  {
+    for (int i = 0; i < count; i++) {
+      if (data[i] == what) {
+        return i;
+      }
+    }
+    return -1;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean hasValue(int value)
+  {
+    for (int i = 0; i < count; i++) {
+      if (data[i] == value) {
+        return true;
+      }
+    }
+    return false;
+  }
+  
+
+
+
+  public void increment(int index)
+  {
+    if (count <= index) {
+      resize(index + 1);
+    }
+    data[index] += 1;
+  }
+  
+  private void boundsProblem(int index, String method)
+  {
+    String msg = String.format("The list size is %d. You cannot %s() to element %d.", new Object[] {
+      Integer.valueOf(count), method, Integer.valueOf(index) });
+    throw new ArrayIndexOutOfBoundsException(msg);
+  }
+  
+
+
+
+
+  public void add(int index, int amount)
+  {
+    if (index < count) {
+      data[index] += amount;
+    } else {
+      boundsProblem(index, "add");
+    }
+  }
+  
+
+
+
+  public void sub(int index, int amount)
+  {
+    if (index < count) {
+      data[index] -= amount;
+    } else {
+      boundsProblem(index, "sub");
+    }
+  }
+  
+
+
+
+  public void mult(int index, int amount)
+  {
+    if (index < count) {
+      data[index] *= amount;
+    } else {
+      boundsProblem(index, "mult");
+    }
+  }
+  
+
+
+
+  public void div(int index, int amount)
+  {
+    if (index < count) {
+      data[index] /= amount;
+    } else {
+      boundsProblem(index, "div");
+    }
+  }
+  
+  private void checkMinMax(String functionName)
+  {
+    if (count == 0) {
+      String msg = 
+        String.format("Cannot use %s() on an empty %s.", new Object[] {
+        functionName, getClass().getSimpleName() });
+      throw new RuntimeException(msg);
+    }
+  }
+  
+
+
+
+
+  public int min()
+  {
+    checkMinMax("min");
+    int outgoing = data[0];
+    for (int i = 1; i < count; i++) {
+      if (data[i] < outgoing) outgoing = data[i];
+    }
+    return outgoing;
+  }
+  
+
+
+  public int minIndex()
+  {
+    checkMinMax("minIndex");
+    int value = data[0];
+    int index = 0;
+    for (int i = 1; i < count; i++) {
+      if (data[i] < value) {
+        value = data[i];
+        index = i;
+      }
+    }
+    return index;
+  }
+  
+
+
+
+
+  public int max()
+  {
+    checkMinMax("max");
+    int outgoing = data[0];
+    for (int i = 1; i < count; i++) {
+      if (data[i] > outgoing) outgoing = data[i];
+    }
+    return outgoing;
+  }
+  
+
+
+  public int maxIndex()
+  {
+    checkMinMax("maxIndex");
+    int value = data[0];
+    int index = 0;
+    for (int i = 1; i < count; i++) {
+      if (data[i] > value) {
+        value = data[i];
+        index = i;
+      }
+    }
+    return index;
+  }
+  
+  public int sum()
+  {
+    int outgoing = 0;
+    for (int i = 0; i < count; i++) {
+      outgoing += data[i];
+    }
+    return outgoing;
+  }
+  
+
+
+
+
+
+
+  public void sort()
+  {
+    Arrays.sort(data, 0, count);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void sortReverse()
+  {
+    new Sort()
+    {
+      public int size()
+      {
+        return count;
+      }
+      
+      public float compare(int a, int b)
+      {
+        return data[b] - data[a];
+      }
+      
+      public void swap(int a, int b)
+      {
+        int temp = data[a];
+        data[a] = data[b];
+        data[b] = temp;
+      }
+    }.run();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void reverse()
+  {
+    int ii = count - 1;
+    for (int i = 0; i < count / 2; i++) {
+      int t = data[i];
+      data[i] = data[ii];
+      data[ii] = t;
+      ii--;
+    }
+  }
+  
+
+
+
+
+
+
+
+  public void shuffle()
+  {
+    Random r = new Random();
+    int num = count;
+    while (num > 1) {
+      int value = r.nextInt(num);
+      num--;
+      int temp = data[num];
+      data[num] = data[value];
+      data[value] = temp;
+    }
+  }
+  
+
+
+
+
+  public void shuffle(PApplet sketch)
+  {
+    int num = count;
+    while (num > 1) {
+      int value = (int)sketch.random(num);
+      num--;
+      int temp = data[num];
+      data[num] = data[value];
+      data[value] = temp;
+    }
+  }
+  
+  public IntList copy()
+  {
+    IntList outgoing = new IntList(data);
+    count = count;
+    return outgoing;
+  }
+  
+
+
+
+
+
+  public int[] values()
+  {
+    crop();
+    return data;
+  }
+  
+
+
+  public Iterator<Integer> iterator()
+  {
+    new Iterator() {
+      int index = -1;
+      
+      public void remove() {
+        remove(index);
+        index -= 1;
+      }
+      
+      public Integer next() {
+        return Integer.valueOf(data[(++index)]);
+      }
+      
+      public boolean hasNext() {
+        return index + 1 < count;
+      }
+    };
+  }
+  
+
+
+
+
+
+
+
+  public int[] array()
+  {
+    return array(null);
+  }
+  
+
+
+
+
+
+  public int[] array(int[] array)
+  {
+    if ((array == null) || (array.length != count)) {
+      array = new int[count];
+    }
+    System.arraycopy(data, 0, array, 0, count);
+    return array;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public FloatList getPercent()
+  {
+    double sum = 0.0D;
+    int[] arrayOfInt; int j = (arrayOfInt = array()).length; for (int i = 0; i < j; i++) { float value = arrayOfInt[i];
+      sum += value;
+    }
+    FloatList outgoing = new FloatList(count);
+    for (int i = 0; i < count; i++) {
+      double percent = data[i] / sum;
+      outgoing.set(i, (float)percent);
+    }
+    return outgoing;
+  }
+  
+  public IntList getSubset(int start)
+  {
+    return getSubset(start, count - start);
+  }
+  
+  public IntList getSubset(int start, int num)
+  {
+    int[] subset = new int[num];
+    System.arraycopy(data, start, subset, 0, num);
+    return new IntList(subset);
+  }
+  
+  public String join(String separator)
+  {
+    if (count == 0) {
+      return "";
+    }
+    StringBuilder sb = new StringBuilder();
+    sb.append(data[0]);
+    for (int i = 1; i < count; i++) {
+      sb.append(separator);
+      sb.append(data[i]);
+    }
+    return sb.toString();
+  }
+  
+  public void print()
+  {
+    for (int i = 0; i < size(); i++) {
+      System.out.format("[%d] %d%n", new Object[] { Integer.valueOf(i), Integer.valueOf(data[i]) });
+    }
+  }
+  
+
+  public String toString()
+  {
+    StringBuilder sb = new StringBuilder();
+    sb.append(getClass().getSimpleName() + " size=" + size() + " [ ");
+    for (int i = 0; i < size(); i++) {
+      if (i != 0) {
+        sb.append(", ");
+      }
+      sb.append(i + ": " + data[i]);
+    }
+    sb.append(" ]");
+    return sb.toString();
+  }
+}

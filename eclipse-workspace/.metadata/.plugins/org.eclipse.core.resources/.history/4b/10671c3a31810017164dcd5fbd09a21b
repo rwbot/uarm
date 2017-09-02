@@ -1,0 +1,240 @@
+package jogamp.newt.driver.linux;
+
+import com.jogamp.common.util.InterruptSource.Thread;
+import com.jogamp.newt.Screen;
+import com.jogamp.newt.Window;
+import com.jogamp.newt.event.WindowEvent;
+import com.jogamp.newt.event.WindowListener;
+import com.jogamp.newt.event.WindowUpdateEvent;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
+import jogamp.newt.WindowImpl;
+import jogamp.newt.driver.MouseTracker;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class LinuxMouseTracker
+  implements WindowListener, MouseTracker
+{
+  private static final LinuxMouseTracker lmt = new LinuxMouseTracker();
+  static { InterruptSource.Thread localThread = new InterruptSource.Thread(null, lmtmouseDevicePoller, "NEWT-LinuxMouseTracker");
+    localThread.setDaemon(true);
+    localThread.start();
+  }
+  
+  public static LinuxMouseTracker getSingleton() {
+    return lmt;
+  }
+  
+  private volatile boolean stop = false;
+  private int x = 0;
+  private int y = 0;
+  private short buttonDown = 0;
+  private int old_x = 0;
+  private int old_y = 0;
+  private volatile int lastFocusedX = 0;
+  private volatile int lastFocusedY = 0;
+  private short old_buttonDown = 0;
+  private WindowImpl focusedWindow = null;
+  private final MouseDevicePoller mouseDevicePoller = new MouseDevicePoller();
+  
+  public final int getLastX() { return lastFocusedX; }
+  public final int getLastY() { return lastFocusedY; }
+  
+
+
+
+
+
+
+  public void windowDestroyNotify(WindowEvent paramWindowEvent)
+  {
+    Object localObject = paramWindowEvent.getSource();
+    if (focusedWindow == localObject) {
+      focusedWindow = null;
+    }
+  }
+  
+
+
+
+  public void windowGainedFocus(WindowEvent paramWindowEvent)
+  {
+    Object localObject = paramWindowEvent.getSource();
+    if ((localObject instanceof WindowImpl)) {
+      focusedWindow = ((WindowImpl)localObject);
+    }
+  }
+  
+  public void windowLostFocus(WindowEvent paramWindowEvent)
+  {
+    Object localObject = paramWindowEvent.getSource();
+    if (focusedWindow == localObject)
+      focusedWindow = null;
+  }
+  
+  public LinuxMouseTracker() {}
+  
+  public void windowResized(WindowEvent paramWindowEvent) {}
+  
+  class MouseDevicePoller implements Runnable {
+    MouseDevicePoller() {}
+    
+    public void run() { byte[] arrayOfByte = new byte[3];
+      File localFile = new File("/dev/input/mice");
+      localFile.setReadOnly();
+      FileInputStream localFileInputStream;
+      try {
+        localFileInputStream = new FileInputStream(localFile);
+      }
+      catch (FileNotFoundException localFileNotFoundException) {
+        localFileNotFoundException.printStackTrace();
+        return;
+      }
+      int i = 0;int j = 0;
+      boolean bool1 = false;boolean bool2 = false;
+      boolean bool3 = false;boolean bool4 = false;boolean bool5 = false;boolean bool6 = false;boolean bool7 = false;
+      while (!stop) {
+        int k = 3;
+        while (k > 0) {
+          int m = 0;
+          try {
+            m = localFileInputStream.read(arrayOfByte, 0, k);
+          }
+          catch (IOException localIOException2) {
+            localIOException2.printStackTrace();
+          }
+          if (m < 0) {
+            stop = true;
+          } else {
+            k -= m;
+          }
+        }
+        bool3 = (arrayOfByte[0] & 0x1) > 0;
+        bool5 = (arrayOfByte[0] & 0x2) > 0;
+        bool4 = (arrayOfByte[0] & 0x4) > 0;
+        bool6 = (arrayOfByte[0] & 0x10) > 0;
+        bool7 = (arrayOfByte[0] & 0x20) > 0;
+        bool1 = (arrayOfByte[0] & 0x40) > 0;
+        bool2 = (arrayOfByte[0] & 0x80) > 0;
+        i = arrayOfByte[1];
+        j = arrayOfByte[2];
+        
+        x = (x + i);
+        y = (y - j);
+        
+        if (x < 0) {
+          x = 0;
+        }
+        if (y < 0) {
+          y = 0;
+        }
+        
+        buttonDown = 0;
+        if (bool3) {
+          buttonDown = 1;
+        }
+        if (bool4) {
+          buttonDown = 2;
+        }
+        if (bool5) {
+          buttonDown = 3;
+        }
+        
+        if (null != focusedWindow)
+        {
+
+          Object localObject = focusedWindow.getScreen();
+          int n = ((Screen)localObject).getWidth();
+          int i1 = ((Screen)localObject).getHeight();
+          if (x >= n) {
+            x = (n - 1);
+          }
+          if (y >= i1) {
+            y = (i1 - 1);
+          }
+          
+          localObject = focusedWindow.convertToPixelUnits(new int[] { focusedWindow.getX(), focusedWindow.getY() });
+          n = x - localObject[0];i1 = y - localObject[1];
+          if ((old_x != x) || (old_y != y))
+          {
+            lastFocusedX = n;
+            lastFocusedY = i1;
+            focusedWindow.sendMouseEvent((short)205, 0, n, i1, (short)0, 0.0F);
+          }
+          
+          if (old_buttonDown != buttonDown)
+          {
+            if (0 != buttonDown) {
+              focusedWindow.sendMouseEvent((short)203, 0, n, i1, buttonDown, 0.0F);
+            } else {
+              focusedWindow.sendMouseEvent((short)204, 0, n, i1, old_buttonDown, 0.0F);
+            }
+          }
+        }
+        else if (Window.DEBUG_MOUSE_EVENT) {
+          System.out.println(x + "/" + y + ", hs=" + bool6 + ",vs=" + bool7 + ",lb=" + bool3 + ",rb=" + bool5 + ",mb=" + bool4 + ",xo=" + bool1 + ",yo=" + bool2 + "xd=" + i + ",yd=" + j);
+        }
+        
+
+        old_x = x;
+        old_y = y;
+        old_buttonDown = buttonDown;
+      }
+      
+      if (null != localFileInputStream) {
+        try {
+          localFileInputStream.close();
+        }
+        catch (IOException localIOException1) {
+          localIOException1.printStackTrace();
+        }
+      }
+    }
+  }
+  
+  public void windowMoved(WindowEvent paramWindowEvent) {}
+  
+  public void windowDestroyed(WindowEvent paramWindowEvent) {}
+  
+  public void windowRepaint(WindowUpdateEvent paramWindowUpdateEvent) {}
+}

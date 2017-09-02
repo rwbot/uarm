@@ -1,0 +1,82 @@
+package jogamp.common.util.locks;
+
+import com.jogamp.common.util.locks.Lock;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class LockDebugUtil
+{
+  private static final ThreadLocal<ArrayList<Throwable>> tlsLockedStacks;
+  private static final List<Throwable> dummy;
+  
+  static
+  {
+    if (Lock.DEBUG) {
+      tlsLockedStacks = new ThreadLocal();
+      dummy = null;
+    } else {
+      tlsLockedStacks = null;
+      dummy = new ArrayList(0);
+    }
+  }
+  
+  public static List<Throwable> getRecursiveLockTrace() {
+    if (Lock.DEBUG) {
+      ArrayList localArrayList = (ArrayList)tlsLockedStacks.get();
+      if (null == localArrayList) {
+        localArrayList = new ArrayList();
+        tlsLockedStacks.set(localArrayList);
+      }
+      return localArrayList;
+    }
+    return dummy;
+  }
+  
+  public static void dumpRecursiveLockTrace(PrintStream paramPrintStream)
+  {
+    if (Lock.DEBUG) {
+      List localList = getRecursiveLockTrace();
+      if ((null != localList) && (localList.size() > 0)) {
+        int i = 0;
+        paramPrintStream.println("TLSLockedStacks: locks " + localList.size());
+        for (Iterator localIterator = localList.iterator(); localIterator.hasNext(); i++) {
+          paramPrintStream.print(i + ": ");
+          ((Throwable)localIterator.next()).printStackTrace(paramPrintStream);
+        }
+      }
+    }
+  }
+  
+  public LockDebugUtil() {}
+}

@@ -1,0 +1,48 @@
+package jogamp.opengl.x11.glx;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.StructAccessor;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import java.nio.ByteBuffer;
+import jogamp.common.os.MachineDataInfoRuntime;
+
+
+
+
+
+
+
+
+
+
+
+public class GLXFBConfigSGIX
+{
+  StructAccessor accessor;
+  private static final int mdIdx = MachineDataInfoRuntime.getStatic().ordinal();
+  
+  private final MachineDataInfo md;
+  private static final int[] GLXFBConfigSGIX_size = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  
+  public static int size() {
+    return GLXFBConfigSGIX_size[mdIdx];
+  }
+  
+  public static GLXFBConfigSGIX create() {
+    return create(Buffers.newDirectByteBuffer(size()));
+  }
+  
+  public static GLXFBConfigSGIX create(ByteBuffer paramByteBuffer) {
+    return new GLXFBConfigSGIX(paramByteBuffer);
+  }
+  
+  GLXFBConfigSGIX(ByteBuffer paramByteBuffer) {
+    md = valuesmdIdxmd;
+    accessor = new StructAccessor(paramByteBuffer);
+  }
+  
+  public ByteBuffer getBuffer() {
+    return accessor.getBuffer();
+  }
+}

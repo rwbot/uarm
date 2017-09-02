@@ -1,0 +1,217 @@
+package com.leapmotion.leap;
+
+
+
+
+public class Image
+  extends Interface
+{
+  private long swigCPtr;
+  
+
+
+  public Image(long paramLong, boolean paramBoolean)
+  {
+    super(LeapJNI.Image_SWIGUpcast(paramLong), paramBoolean);
+    swigCPtr = paramLong;
+  }
+  
+  public static long getCPtr(Image paramImage) {
+    return paramImage == null ? 0L : swigCPtr;
+  }
+  
+  protected void finalize() {
+    delete();
+  }
+  
+  public synchronized void delete() {
+    if (swigCPtr != 0L) {
+      if (swigCMemOwn) {
+        swigCMemOwn = false;
+        LeapJNI.delete_Image(swigCPtr);
+      }
+      swigCPtr = 0L;
+    }
+    super.delete();
+  }
+  
+
+
+
+
+
+
+
+
+
+  public byte[] data()
+  {
+    byte[] arrayOfByte = new byte[width() * height() * bytesPerPixel()];
+    LeapJNI.Image_data(swigCPtr, this, arrayOfByte);
+    return arrayOfByte;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public float[] distortion()
+  {
+    float[] arrayOfFloat = new float[distortionWidth() * distortionHeight()];
+    LeapJNI.Image_distortion(swigCPtr, this, arrayOfFloat);
+    return arrayOfFloat;
+  }
+  
+  public Image() {
+    this(LeapJNI.new_Image(), true);
+  }
+  
+  public long sequenceId() {
+    return LeapJNI.Image_sequenceId(swigCPtr, this);
+  }
+  
+  public int id() {
+    return LeapJNI.Image_id(swigCPtr, this);
+  }
+  
+  public void data(byte[] paramArrayOfByte) {
+    LeapJNI.Image_data(swigCPtr, this, paramArrayOfByte);
+  }
+  
+  public void distortion(float[] paramArrayOfFloat) {
+    LeapJNI.Image_distortion(swigCPtr, this, paramArrayOfFloat);
+  }
+  
+  public int width() {
+    return LeapJNI.Image_width(swigCPtr, this);
+  }
+  
+  public int height() {
+    return LeapJNI.Image_height(swigCPtr, this);
+  }
+  
+  public int bytesPerPixel() {
+    return LeapJNI.Image_bytesPerPixel(swigCPtr, this);
+  }
+  
+  public FormatType format() {
+    return FormatType.swigToEnum(LeapJNI.Image_format(swigCPtr, this));
+  }
+  
+  public int distortionWidth() {
+    return LeapJNI.Image_distortionWidth(swigCPtr, this);
+  }
+  
+  public int distortionHeight() {
+    return LeapJNI.Image_distortionHeight(swigCPtr, this);
+  }
+  
+  public float rayOffsetX() {
+    return LeapJNI.Image_rayOffsetX(swigCPtr, this);
+  }
+  
+  public float rayOffsetY() {
+    return LeapJNI.Image_rayOffsetY(swigCPtr, this);
+  }
+  
+  public float rayScaleX() {
+    return LeapJNI.Image_rayScaleX(swigCPtr, this);
+  }
+  
+  public float rayScaleY() {
+    return LeapJNI.Image_rayScaleY(swigCPtr, this);
+  }
+  
+  public Vector rectify(Vector paramVector) {
+    return new Vector(LeapJNI.Image_rectify(swigCPtr, this, Vector.getCPtr(paramVector), paramVector), true);
+  }
+  
+  public Vector warp(Vector paramVector) {
+    return new Vector(LeapJNI.Image_warp(swigCPtr, this, Vector.getCPtr(paramVector), paramVector), true);
+  }
+  
+  public long timestamp() {
+    return LeapJNI.Image_timestamp(swigCPtr, this);
+  }
+  
+  public boolean isValid() {
+    return LeapJNI.Image_isValid(swigCPtr, this);
+  }
+  
+  public static Image invalid() {
+    return new Image(LeapJNI.Image_invalid(), false);
+  }
+  
+  public boolean equals(Image paramImage) {
+    return LeapJNI.Image_equals(swigCPtr, this, getCPtr(paramImage), paramImage);
+  }
+  
+  public String toString() {
+    return LeapJNI.Image_toString(swigCPtr, this);
+  }
+  
+  public static enum FormatType {
+    INFRARED(0);
+    
+    public final int swigValue() {
+      return swigValue;
+    }
+    
+    public static FormatType swigToEnum(int paramInt) {
+      FormatType[] arrayOfFormatType1 = (FormatType[])FormatType.class.getEnumConstants();
+      if ((paramInt < arrayOfFormatType1.length) && (paramInt >= 0) && (swigValue == paramInt))
+        return arrayOfFormatType1[paramInt];
+      for (FormatType localFormatType : arrayOfFormatType1)
+        if (swigValue == paramInt)
+          return localFormatType;
+      throw new IllegalArgumentException("No enum " + FormatType.class + " with value " + paramInt);
+    }
+    
+    private FormatType()
+    {
+      swigValue = SwigNext.access$008();
+    }
+    
+    private FormatType(int paramInt)
+    {
+      swigValue = paramInt;
+      SwigNext.access$002(paramInt + 1);
+    }
+    
+    private FormatType(FormatType paramFormatType)
+    {
+      swigValue = swigValue;
+      SwigNext.access$002(swigValue + 1);
+    }
+    
+    private final int swigValue;
+    private static class SwigNext
+    {
+      private static int next = 0;
+      
+      private SwigNext() {}
+    }
+  }
+}

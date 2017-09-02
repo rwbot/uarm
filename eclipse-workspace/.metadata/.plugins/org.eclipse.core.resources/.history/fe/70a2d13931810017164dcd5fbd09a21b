@@ -1,0 +1,245 @@
+package com.jogamp.common.util;
+
+import com.jogamp.common.os.Platform;
+import java.util.Iterator;
+import java.util.Set;
+import java.util.jar.Attributes;
+import java.util.jar.Attributes.Name;
+import java.util.jar.Manifest;
+import jogamp.common.os.AndroidUtils;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class JogampVersion
+{
+  public static final Attributes.Name IMPLEMENTATION_BUILD = new Attributes.Name("Implementation-Build");
+  
+  public static final Attributes.Name IMPLEMENTATION_BRANCH = new Attributes.Name("Implementation-Branch");
+  
+  public static final Attributes.Name IMPLEMENTATION_COMMIT = new Attributes.Name("Implementation-Commit");
+  
+  private static final String packageNameFAT = "com.jogamp";
+  
+  private final String packageName;
+  
+  private final Manifest mf;
+  private final int hash;
+  private final Attributes mainAttributes;
+  private final Set<?> mainAttributeNames;
+  private final String androidPackageVersionName;
+  
+  protected JogampVersion(String paramString, Manifest paramManifest)
+  {
+    if (null != paramManifest)
+    {
+      mf = paramManifest;
+      packageName = paramString;
+    }
+    else {
+      Manifest localManifest = VersionUtil.getManifest(JogampVersion.class.getClassLoader(), "com.jogamp");
+      if (null != localManifest)
+      {
+        mf = localManifest;
+        packageName = "com.jogamp";
+      }
+      else {
+        mf = new Manifest();
+        packageName = paramString;
+      }
+    }
+    hash = mf.hashCode();
+    mainAttributes = mf.getMainAttributes();
+    mainAttributeNames = mainAttributes.keySet();
+    androidPackageVersionName = AndroidUtils.getPackageInfoVersionName(packageName);
+  }
+  
+  public final int hashCode()
+  {
+    return hash;
+  }
+  
+  public final boolean equals(Object paramObject)
+  {
+    if ((paramObject instanceof JogampVersion)) {
+      return mf.equals(((JogampVersion)paramObject).getManifest());
+    }
+    return false;
+  }
+  
+  public final Manifest getManifest() {
+    return mf;
+  }
+  
+  public final String getPackageName() {
+    return packageName;
+  }
+  
+  public final String getAttribute(Attributes.Name paramName) {
+    return null != paramName ? (String)mainAttributes.get(paramName) : null;
+  }
+  
+  public final String getAttribute(String paramString) {
+    return getAttribute(getAttributeName(paramString));
+  }
+  
+  public final Attributes.Name getAttributeName(String paramString) {
+    for (Iterator localIterator = mainAttributeNames.iterator(); localIterator.hasNext();) {
+      Attributes.Name localName = (Attributes.Name)localIterator.next();
+      if (localName.toString().equals(paramString)) {
+        return localName;
+      }
+    }
+    return null;
+  }
+  
+
+
+  public final Set<?> getAttributeNames()
+  {
+    return mainAttributeNames;
+  }
+  
+  public final String getExtensionName() {
+    if (null != androidPackageVersionName) {
+      return packageName;
+    }
+    return getAttribute(Attributes.Name.EXTENSION_NAME);
+  }
+  
+
+
+  public final String getImplementationBuild()
+  {
+    return getAttribute(IMPLEMENTATION_BUILD);
+  }
+  
+
+
+  public final String getImplementationBranch()
+  {
+    return getAttribute(IMPLEMENTATION_BRANCH);
+  }
+  
+
+
+  public final String getImplementationCommit()
+  {
+    return getAttribute(IMPLEMENTATION_COMMIT);
+  }
+  
+  public final String getImplementationTitle() {
+    return getAttribute(Attributes.Name.IMPLEMENTATION_TITLE);
+  }
+  
+  public final String getImplementationVendor() {
+    return getAttribute(Attributes.Name.IMPLEMENTATION_VENDOR);
+  }
+  
+  public final String getImplementationVendorID() {
+    return getAttribute(Attributes.Name.IMPLEMENTATION_VENDOR_ID);
+  }
+  
+  public final String getImplementationURL() {
+    return getAttribute(Attributes.Name.IMPLEMENTATION_URL);
+  }
+  
+
+
+
+
+
+
+  public final String getImplementationVersion()
+  {
+    return getAttribute(Attributes.Name.IMPLEMENTATION_VERSION);
+  }
+  
+  public final String getAndroidPackageVersionName() {
+    return androidPackageVersionName;
+  }
+  
+  public final String getSpecificationTitle() {
+    return getAttribute(Attributes.Name.SPECIFICATION_TITLE);
+  }
+  
+  public final String getSpecificationVendor() {
+    return getAttribute(Attributes.Name.SPECIFICATION_VENDOR);
+  }
+  
+  public final String getSpecificationVersion() {
+    return getAttribute(Attributes.Name.SPECIFICATION_VERSION);
+  }
+  
+  public final StringBuilder getFullManifestInfo(StringBuilder paramStringBuilder) {
+    return VersionUtil.getFullManifestInfo(getManifest(), paramStringBuilder);
+  }
+  
+  public StringBuilder getManifestInfo(StringBuilder paramStringBuilder) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    String str = Platform.getNewline();
+    paramStringBuilder.append("Package: ").append(getPackageName()).append(str);
+    paramStringBuilder.append("Extension Name: ").append(getExtensionName()).append(str);
+    paramStringBuilder.append("Specification Title: ").append(getSpecificationTitle()).append(str);
+    paramStringBuilder.append("Specification Vendor: ").append(getSpecificationVendor()).append(str);
+    paramStringBuilder.append("Specification Version: ").append(getSpecificationVersion()).append(str);
+    paramStringBuilder.append("Implementation Title: ").append(getImplementationTitle()).append(str);
+    paramStringBuilder.append("Implementation Vendor: ").append(getImplementationVendor()).append(str);
+    paramStringBuilder.append("Implementation Vendor ID: ").append(getImplementationVendorID()).append(str);
+    paramStringBuilder.append("Implementation URL: ").append(getImplementationURL()).append(str);
+    paramStringBuilder.append("Implementation Version: ").append(getImplementationVersion()).append(str);
+    paramStringBuilder.append("Implementation Build: ").append(getImplementationBuild()).append(str);
+    paramStringBuilder.append("Implementation Branch: ").append(getImplementationBranch()).append(str);
+    paramStringBuilder.append("Implementation Commit: ").append(getImplementationCommit()).append(str);
+    if (null != getAndroidPackageVersionName()) {
+      paramStringBuilder.append("Android Package Version: ").append(getAndroidPackageVersionName()).append(str);
+    }
+    return paramStringBuilder;
+  }
+  
+  public StringBuilder toString(StringBuilder paramStringBuilder) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    
+    paramStringBuilder.append("-----------------------------------------------------------------------------------------------------").append(Platform.getNewline());
+    getManifestInfo(paramStringBuilder);
+    paramStringBuilder.append("-----------------------------------------------------------------------------------------------------");
+    
+    return paramStringBuilder;
+  }
+  
+  public String toString()
+  {
+    return toString(null).toString();
+  }
+}

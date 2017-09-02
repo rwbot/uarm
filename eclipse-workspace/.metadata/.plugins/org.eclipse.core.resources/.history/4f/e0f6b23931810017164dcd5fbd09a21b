@@ -1,0 +1,72 @@
+package com.leapmotion.leap;
+
+import java.util.Iterator;
+
+
+
+public class MaskList
+  extends Interface
+  implements Iterable<Mask>
+{
+  private long swigCPtr;
+  
+  public MaskList(long paramLong, boolean paramBoolean)
+  {
+    super(LeapJNI.MaskList_SWIGUpcast(paramLong), paramBoolean);
+    swigCPtr = paramLong;
+  }
+  
+  public static long getCPtr(MaskList paramMaskList) {
+    return paramMaskList == null ? 0L : swigCPtr;
+  }
+  
+  protected void finalize() {
+    delete();
+  }
+  
+  public synchronized void delete() {
+    if (swigCPtr != 0L) {
+      if (swigCMemOwn) {
+        swigCMemOwn = false;
+        LeapJNI.delete_MaskList(swigCPtr);
+      }
+      swigCPtr = 0L;
+    }
+    super.delete(); }
+  
+  public class MaskListIterator implements Iterator<Mask> { public MaskListIterator() {}
+    
+    int index = 0;
+    
+    public boolean hasNext() { return index < count(); }
+    
+    public Mask next() {
+      return get(index++);
+    }
+    
+    public void remove() {}
+  }
+  
+  public Iterator<Mask> iterator() { return new MaskListIterator(); }
+  
+  public MaskList()
+  {
+    this(LeapJNI.new_MaskList(), true);
+  }
+  
+  public int count() {
+    return LeapJNI.MaskList_count(swigCPtr, this);
+  }
+  
+  public boolean isEmpty() {
+    return LeapJNI.MaskList_isEmpty(swigCPtr, this);
+  }
+  
+  public Mask get(int paramInt) {
+    return new Mask(LeapJNI.MaskList_get(swigCPtr, this, paramInt), true);
+  }
+  
+  public MaskList append(MaskList paramMaskList) {
+    return new MaskList(LeapJNI.MaskList_append(swigCPtr, this, getCPtr(paramMaskList), paramMaskList), false);
+  }
+}

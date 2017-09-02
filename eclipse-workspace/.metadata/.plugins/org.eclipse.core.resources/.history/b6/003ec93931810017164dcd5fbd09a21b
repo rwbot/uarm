@@ -1,0 +1,569 @@
+package g4p_controls;
+
+import java.awt.Font;
+import java.awt.font.TextAttribute;
+import java.awt.font.TextHitInfo;
+import java.awt.font.TextLayout;
+import java.awt.geom.GeneralPath;
+import java.util.LinkedList;
+import processing.awt.PGraphicsJava2D;
+import processing.core.PApplet;
+import processing.event.KeyEvent;
+
+public abstract class GEditableTextControl
+  extends GTextBase
+  implements Focusable
+{
+  GTabManager tabManager = null;
+  protected StyledString promptText = null;
+  protected int wrapWidth = Integer.MAX_VALUE;
+  protected float tx;
+  protected float ty;
+  protected float th;
+  protected float tw;
+  protected float ptx;
+  protected float pty;
+  protected float caretX;
+  protected float caretY;
+  protected boolean keepCursorInView = false;
+  protected GeneralPath gpTextDisplayArea;
+  protected StyledString.TextLayoutHitInfo startTLHI = new StyledString.TextLayoutHitInfo();
+  protected StyledString.TextLayoutHitInfo endTLHI = new StyledString.TextLayoutHitInfo();
+  protected final int scrollbarPolicy;
+  protected boolean autoHide = false;
+  protected GScrollbar hsb;
+  protected GScrollbar vsb;
+  protected GTimer caretFlasher;
+  protected boolean showCaret = false;
+  protected int endChar = -1;
+  protected int startChar = -1;
+  protected int pos = endChar;
+  protected int nbr = 0;
+  protected int adjust = 0;
+  protected boolean textChanged = false;
+  protected boolean selectionChanged = false;
+  boolean textEditEnabled = true;
+  KeySpeedMeasurer ksm = new KeySpeedMeasurer(20);
+  float scrollAdvance = 4.0F;
+  
+  public GEditableTextControl(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, int paramInt)
+  {
+    super(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+    scrollbarPolicy = paramInt;
+    autoHide = ((paramInt & 0x1000) == 4096);
+    caretFlasher = new GTimer(paramPApplet, this, "flashCaret", 400);
+    caretFlasher.start();
+    opaque = true;
+    cursorOver = 2;
+  }
+  
+  public void setTabManager(GTabManager paramGTabManager)
+  {
+    tabManager = paramGTabManager;
+  }
+  
+  protected void loseFocus(GAbstractControl paramGAbstractControl)
+  {
+    if (focusIsWith == this) {
+      fireEvent(new Object[] { this, GEvent.LOST_FOCUS });
+    }
+    if (cursorIsOver == this) {
+      cursorIsOver = null;
+    }
+    focusIsWith = paramGAbstractControl;
+    keepCursorInView = true;
+    bufferInvalid = true;
+  }
+  
+  protected void takeFocus()
+  {
+    if (focusIsWith != this)
+    {
+      if (focusIsWith != null) {
+        focusIsWith.loseFocus(this);
+      }
+      fireEvent(new Object[] { this, GEvent.GETS_FOCUS });
+    }
+    focusIsWith = this;
+  }
+  
+  public void setFocus(boolean paramBoolean)
+  {
+    if (!paramBoolean)
+    {
+      loseFocus(null);
+      return;
+    }
+    if (focusIsWith != this)
+    {
+      dragging = false;
+      if ((stext == null) || (stext.length() == 0)) {
+        stext.setText(" ", wrapWidth);
+      }
+      LinkedList localLinkedList = stext.getLines(buffer.g2);
+      startTLHI = new StyledString.TextLayoutHitInfo((StyledString.TextLayoutInfo)localLinkedList.getFirst(), null);
+      startTLHI.thi = startTLHI.tli.layout.getNextLeftHit(1);
+      endTLHI = new StyledString.TextLayoutHitInfo((StyledString.TextLayoutInfo)localLinkedList.getLast(), null);
+      int i = endTLHI.tli.layout.getCharacterCount();
+      endTLHI.thi = startTLHI.tli.layout.getNextRightHit(i - 1);
+      calculateCaretPos(endTLHI);
+      bufferInvalid = true;
+    }
+    keepCursorInView = true;
+    takeFocus();
+  }
+  
+  public void setPromptText(String paramString)
+  {
+    if ((paramString == null) || (paramString.length() == 0))
+    {
+      promptText = null;
+    }
+    else
+    {
+      promptText = new StyledString(paramString, wrapWidth);
+      promptText.addAttribute(G4P.POSTURE, G4P.POSTURE_OBLIQUE);
+    }
+    bufferInvalid = true;
+  }
+  
+  public int getWrapWidth()
+  {
+    return wrapWidth;
+  }
+  
+  public void setWrapWidth(int paramInt)
+  {
+    wrapWidth = paramInt;
+  }
+  
+  public String getPromptText()
+  {
+    return promptText.getPlainText();
+  }
+  
+  public String getText()
+  {
+    return stext.getPlainText();
+  }
+  
+  public StyledString getStyledText()
+  {
+    return stext;
+  }
+  
+  public void addStyle(TextAttribute paramTextAttribute, Object paramObject, int paramInt1, int paramInt2)
+  {
+    if (stext != null)
+    {
+      stext.addAttribute(paramTextAttribute, paramObject, paramInt1, paramInt2);
+      bufferInvalid = true;
+    }
+  }
+  
+  public void addStyle(TextAttribute paramTextAttribute, Object paramObject)
+  {
+    if (stext != null)
+    {
+      stext.addAttribute(paramTextAttribute, paramObject);
+      bufferInvalid = true;
+    }
+  }
+  
+  public void clearStyles(int paramInt1, int paramInt2)
+  {
+    if (stext != null)
+    {
+      stext.clearAttributes(paramInt1, paramInt2);
+      bufferInvalid = true;
+    }
+  }
+  
+  public void clearStyles()
+  {
+    if (stext != null)
+    {
+      stext.clearAttributes();
+      bufferInvalid = true;
+    }
+  }
+  
+  public void setFont(Font paramFont)
+  {
+    if ((paramFont != null) && (paramFont != localFont) && (buffer != null))
+    {
+      localFont = paramFont;
+      ptx = (this.pty = 0.0F);
+      setScrollbarValues(ptx, pty);
+      bufferInvalid = true;
+    }
+  }
+  
+  public String getSelectedText()
+  {
+    if (!hasSelection()) {
+      return "";
+    }
+    StyledString.TextLayoutHitInfo localTextLayoutHitInfo1;
+    StyledString.TextLayoutHitInfo localTextLayoutHitInfo2;
+    if (endTLHI.compareTo(startTLHI) == -1)
+    {
+      localTextLayoutHitInfo1 = endTLHI;
+      localTextLayoutHitInfo2 = startTLHI;
+    }
+    else
+    {
+      localTextLayoutHitInfo1 = startTLHI;
+      localTextLayoutHitInfo2 = endTLHI;
+    }
+    int i = tli.startCharIndex + thi.getInsertionIndex();
+    int j = tli.startCharIndex + thi.getInsertionIndex();
+    String str = stext.getPlainText().substring(i, j);
+    return str;
+  }
+  
+  public void setSelectedTextStyle(TextAttribute paramTextAttribute, Object paramObject)
+  {
+    if (!hasSelection()) {
+      return;
+    }
+    StyledString.TextLayoutHitInfo localTextLayoutHitInfo1;
+    StyledString.TextLayoutHitInfo localTextLayoutHitInfo2;
+    if (endTLHI.compareTo(startTLHI) == -1)
+    {
+      localTextLayoutHitInfo1 = endTLHI;
+      localTextLayoutHitInfo2 = startTLHI;
+    }
+    else
+    {
+      localTextLayoutHitInfo1 = startTLHI;
+      localTextLayoutHitInfo2 = endTLHI;
+    }
+    int i = tli.startCharIndex + thi.getInsertionIndex();
+    int j = tli.startCharIndex + thi.getInsertionIndex();
+    stext.addAttribute(paramTextAttribute, paramObject, i, j);
+    stext.getLines(buffer.g2);
+    tli = stext.getTLIforCharNo(j);
+    int k = j - tli.startCharIndex;
+    if (k == 0) {
+      thi = tli.layout.getNextLeftHit(1);
+    } else {
+      thi = tli.layout.getNextRightHit(k - 1);
+    }
+    bufferInvalid = true;
+  }
+  
+  public void clearSelectionStyle()
+  {
+    if (!hasSelection()) {
+      return;
+    }
+    StyledString.TextLayoutHitInfo localTextLayoutHitInfo1;
+    StyledString.TextLayoutHitInfo localTextLayoutHitInfo2;
+    if (endTLHI.compareTo(startTLHI) == -1)
+    {
+      localTextLayoutHitInfo1 = endTLHI;
+      localTextLayoutHitInfo2 = startTLHI;
+    }
+    else
+    {
+      localTextLayoutHitInfo1 = startTLHI;
+      localTextLayoutHitInfo2 = endTLHI;
+    }
+    int i = tli.startCharIndex + thi.getInsertionIndex();
+    int j = tli.startCharIndex + thi.getInsertionIndex();
+    stext.clearAttributes(i, j);
+    stext.getLines(buffer.g2);
+    tli = stext.getTLIforCharNo(j);
+    int k = j - tli.startCharIndex;
+    if (k == 0) {
+      thi = tli.layout.getNextLeftHit(1);
+    } else {
+      thi = tli.layout.getNextRightHit(k - 1);
+    }
+    bufferInvalid = true;
+  }
+  
+  void setScrollbarValues(float paramFloat1, float paramFloat2)
+  {
+    float f;
+    if (vsb != null)
+    {
+      f = stext.getTextAreaHeight();
+      if (f < th) {
+        vsb.setValue(0.0F, 1.0F);
+      } else {
+        vsb.setValue(paramFloat2 / f, th / f);
+      }
+    }
+    if (hsb != null)
+    {
+      f = stext.getMaxLineLength();
+      if (stext.getMaxLineLength() < tw) {
+        hsb.setValue(0.0F, 1.0F);
+      } else {
+        hsb.setValue(paramFloat1 / f, tw / f);
+      }
+    }
+  }
+  
+  protected boolean moveCaretStartOfLine(StyledString.TextLayoutHitInfo paramTextLayoutHitInfo)
+  {
+    if (thi.getCharIndex() == 0) {
+      return false;
+    }
+    thi = tli.layout.getNextLeftHit(1);
+    return true;
+  }
+  
+  protected boolean moveCaretEndOfLine(StyledString.TextLayoutHitInfo paramTextLayoutHitInfo)
+  {
+    if (thi.getCharIndex() == tli.nbrChars - 1) {
+      return false;
+    }
+    thi = tli.layout.getNextRightHit(tli.nbrChars - 1);
+    return true;
+  }
+  
+  protected boolean moveCaretLeft(StyledString.TextLayoutHitInfo paramTextLayoutHitInfo)
+  {
+    TextHitInfo localTextHitInfo = tli.layout.getNextLeftHit(thi);
+    if (localTextHitInfo == null) {
+      return false;
+    }
+    thi = localTextHitInfo;
+    return true;
+  }
+  
+  protected boolean moveCaretRight(StyledString.TextLayoutHitInfo paramTextLayoutHitInfo)
+  {
+    TextHitInfo localTextHitInfo = tli.layout.getNextRightHit(thi);
+    if (localTextHitInfo == null) {
+      return false;
+    }
+    thi = localTextHitInfo;
+    return true;
+  }
+  
+  public void setJustify(boolean paramBoolean)
+  {
+    stext.setJustify(paramBoolean);
+    bufferInvalid = true;
+  }
+  
+  public void setLocalColorScheme(int paramInt)
+  {
+    super.setLocalColorScheme(paramInt);
+    if (hsb != null) {
+      hsb.setLocalColorScheme(localColorScheme);
+    }
+    if (vsb != null) {
+      vsb.setLocalColorScheme(localColorScheme);
+    }
+  }
+  
+  public boolean hasSelection()
+  {
+    return (startTLHI.tli != null) && (endTLHI.tli != null) && (startTLHI.compareTo(endTLHI) != 0);
+  }
+  
+  protected void calculateCaretPos(StyledString.TextLayoutHitInfo paramTextLayoutHitInfo)
+  {
+    float[] arrayOfFloat = tli.layout.getCaretInfo(thi);
+    caretX = arrayOfFloat[0];
+    caretY = tli.yPosInPara;
+  }
+  
+  public void setTextEditEnabled(boolean paramBoolean)
+  {
+    if ((!paramBoolean) && (focusIsWith == this)) {
+      loseFocus(null);
+    }
+    enabled = paramBoolean;
+    textEditEnabled = paramBoolean;
+  }
+  
+  public boolean isTextEditEnabled()
+  {
+    return textEditEnabled;
+  }
+  
+  public void keyEvent(KeyEvent paramKeyEvent)
+  {
+    if ((!visible) || (!enabled) || (!textEditEnabled) || (!available)) {
+      return;
+    }
+    if ((focusIsWith == this) && (endTLHI != null))
+    {
+      char c = paramKeyEvent.getKey();
+      int i = paramKeyEvent.getKeyCode();
+      int j = paramKeyEvent.getAction();
+      boolean bool1 = paramKeyEvent.isShiftDown();
+      boolean bool2 = paramKeyEvent.isControlDown();
+      textChanged = false;
+      keepCursorInView = true;
+      int k = pos;
+      int m = nbr;
+      endChar = (endTLHI.tli.startCharIndex + endTLHI.thi.getInsertionIndex());
+      startChar = (startTLHI != null ? startTLHI.tli.startCharIndex + startTLHI.thi.getInsertionIndex() : endChar);
+      pos = endChar;
+      nbr = 0;
+      adjust = 0;
+      if (endChar != startChar) {
+        if (startChar < endChar)
+        {
+          pos = startChar;
+          nbr = (endChar - pos);
+        }
+        else if (startChar > endChar)
+        {
+          pos = endChar;
+          nbr = (startChar - pos);
+        }
+      }
+      if ((k >= 0) && ((k != pos) || (m != nbr))) {
+        fireEvent(new Object[] { this, GEvent.SELECTION_CHANGED });
+      }
+      if (j == 1)
+      {
+        keyPressedProcess(i, c, bool1, bool2);
+        setScrollbarValues(ptx, pty);
+      }
+      else if (j == 3)
+      {
+        keyTypedProcess(i, c, bool1, bool2);
+        setScrollbarValues(ptx, pty);
+      }
+      if (textChanged)
+      {
+        changeText();
+        fireEvent(new Object[] { this, GEvent.CHANGED });
+      }
+    }
+  }
+  
+  protected void keyPressedProcess(int paramInt, char paramChar, boolean paramBoolean1, boolean paramBoolean2) {}
+  
+  protected void keyTypedProcess(int paramInt, char paramChar, boolean paramBoolean1, boolean paramBoolean2) {}
+  
+  protected boolean changeText()
+  {
+    TextHitInfo localTextHitInfo1 = null;
+    TextHitInfo localTextHitInfo2 = null;
+    pos += adjust;
+    stext.getLines(buffer.g2);
+    StyledString.TextLayoutInfo localTextLayoutInfo = stext.getTLIforCharNo(pos);
+    if (localTextLayoutInfo == null)
+    {
+      endTLHI = null;
+      startTLHI = null;
+      ptx = (this.pty = 0.0F);
+      caretX = (this.caretY = 0.0F);
+      return false;
+    }
+    int i = pos - startCharIndex;
+    try
+    {
+      localTextHitInfo2 = layout.getNextRightHit(i);
+    }
+    catch (Exception localException)
+    {
+      localTextHitInfo2 = null;
+    }
+    if (i <= 0) {
+      localTextHitInfo1 = layout.getNextLeftHit(localTextHitInfo2);
+    } else if (i >= nbrChars) {
+      localTextHitInfo1 = layout.getNextRightHit(nbrChars - 1);
+    } else {
+      localTextHitInfo1 = layout.getNextLeftHit(localTextHitInfo2);
+    }
+    endTLHI.setInfo(localTextLayoutInfo, localTextHitInfo1);
+    calculateCaretPos(endTLHI);
+    bufferInvalid = true;
+    return true;
+  }
+  
+  public void flashCaret(GTimer paramGTimer)
+  {
+    showCaret = (!showCaret);
+  }
+  
+  public void hsbEventHandler(GScrollbar paramGScrollbar, GEvent paramGEvent)
+  {
+    keepCursorInView = false;
+    ptx = (hsb.getValue() * (stext.getMaxLineLength() + 4.0F));
+    bufferInvalid = true;
+  }
+  
+  public void vsbEventHandler(GScrollbar paramGScrollbar, GEvent paramGEvent)
+  {
+    keepCursorInView = false;
+    pty = (vsb.getValue() * (stext.getTextAreaHeight() + 1.5F * stext.getMaxLineHeight()));
+    bufferInvalid = true;
+  }
+  
+  public void markForDisposal()
+  {
+    if (tabManager != null) {
+      tabManager.removeControl(this);
+    }
+    super.markForDisposal();
+  }
+  
+  public boolean saveText(String paramString)
+  {
+    if (stext == null) {
+      return false;
+    }
+    if (hasSelection())
+    {
+      stext.startIdx = (startTLHI.tli.startCharIndex + startTLHI.thi.getInsertionIndex());
+      stext.endIdx = (endTLHI.tli.startCharIndex + endTLHI.thi.getInsertionIndex());
+    }
+    else
+    {
+      stext.startIdx = (stext.endIdx = -1);
+    }
+    StyledString.save(winApp, stext, paramString);
+    return true;
+  }
+  
+  public boolean loadText(String paramString)
+  {
+    StyledString localStyledString = StyledString.load(winApp, paramString);
+    if (localStyledString == null) {
+      return false;
+    }
+    setStyledText(localStyledString);
+    if (stext.startIdx >= 0)
+    {
+      startTLHI = new StyledString.TextLayoutHitInfo();
+      startTLHI.tli = stext.getTLIforCharNo(stext.startIdx);
+      int i = stext.startIdx - startTLHI.tli.startCharIndex;
+      if (i == 0) {
+        startTLHI.thi = startTLHI.tli.layout.getNextLeftHit(1);
+      } else {
+        startTLHI.thi = startTLHI.tli.layout.getNextRightHit(i - 1);
+      }
+      endTLHI = new StyledString.TextLayoutHitInfo();
+      endTLHI.tli = stext.getTLIforCharNo(stext.endIdx);
+      i = stext.endIdx - endTLHI.tli.startCharIndex;
+      if (i == 0) {
+        endTLHI.thi = endTLHI.tli.layout.getNextLeftHit(1);
+      } else {
+        endTLHI.thi = endTLHI.tli.layout.getNextRightHit(i - 1);
+      }
+      calculateCaretPos(endTLHI);
+    }
+    bufferInvalid = true;
+    return true;
+  }
+  
+  protected float getScrollAmount()
+  {
+    float f1 = ksm.calcCPS();
+    float f2 = PApplet.map(f1, 0.1F, 20.0F, 1.0F, f1 * localFont.getSize());
+    f2 = PApplet.constrain(f2, 4.0F, f1 * localFont.getSize());
+    return f2;
+  }
+}

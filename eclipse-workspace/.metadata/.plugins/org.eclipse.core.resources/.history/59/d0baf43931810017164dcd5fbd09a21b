@@ -1,0 +1,275 @@
+package com.jogamp.opengl.util.packrect;
+
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Level
+{
+  private final int width;
+  private int height;
+  private final int yPos;
+  private final LevelSet holder;
+  private final List<Rect> rects = new ArrayList();
+  private List<Rect> freeList;
+  private int nextAddX;
+  
+  static class RectXComparator implements Comparator<Rect> {
+    RectXComparator() {}
+    
+    public int compare(Rect paramRect1, Rect paramRect2) { return paramRect1.x() - paramRect2.x(); }
+    
+
+
+
+    public boolean equals(Object paramObject) { return this == paramObject; }
+  }
+  
+  private static final Comparator<Rect> rectXComparator = new RectXComparator();
+  
+  public Level(int paramInt1, int paramInt2, int paramInt3, LevelSet paramLevelSet) {
+    width = paramInt1;
+    height = paramInt2;
+    yPos = paramInt3;
+    holder = paramLevelSet;
+  }
+  
+  public int w() { return width; }
+  public int h() { return height; }
+  public int yPos() { return yPos; }
+  
+
+
+
+
+  public boolean add(Rect paramRect)
+  {
+    if (paramRect.h() > height)
+    {
+      if (nextAddX + paramRect.w() > width) {
+        return false;
+      }
+      
+
+      if (!holder.canExpand(this, paramRect.h())) {
+        return false;
+      }
+      
+
+      holder.expand(this, height, paramRect.h());
+      height = paramRect.h();
+    }
+    
+
+    if (nextAddX + paramRect.w() <= width) {
+      paramRect.setPosition(nextAddX, yPos);
+      rects.add(paramRect);
+      nextAddX += paramRect.w();
+      return true;
+    }
+    
+
+    if (freeList != null) {
+      Object localObject = null;
+      for (Iterator localIterator = freeList.iterator(); localIterator.hasNext();) {
+        Rect localRect = (Rect)localIterator.next();
+        if (localRect.canContain(paramRect)) {
+          localObject = localRect;
+          break;
+        }
+      }
+      
+      if (localObject != null)
+      {
+        freeList.remove(localObject);
+        
+        paramRect.setPosition(localObject.x(), localObject.y());
+        rects.add(paramRect);
+        
+        if (localObject.w() > paramRect.w()) {
+          localObject.setPosition(localObject.x() + paramRect.w(), localObject.y());
+          localObject.setSize(localObject.w() - paramRect.w(), height);
+          freeList.add(localObject);
+        }
+        
+        coalesceFreeList();
+        
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  public boolean remove(Rect paramRect)
+  {
+    if (!rects.remove(paramRect)) {
+      return false;
+    }
+    
+
+    if (paramRect.maxX() + 1 == nextAddX) {
+      nextAddX -= paramRect.w();
+    } else {
+      if (freeList == null) {
+        freeList = new ArrayList();
+      }
+      freeList.add(new Rect(paramRect.x(), paramRect.y(), paramRect.w(), height, null));
+      coalesceFreeList();
+    }
+    
+    return true;
+  }
+  
+  public boolean isEmpty()
+  {
+    return rects.isEmpty();
+  }
+  
+
+  public boolean couldAllocateIfCompacted(Rect paramRect)
+  {
+    if (paramRect.h() > height)
+      return false;
+    if (freeList == null)
+      return false;
+    int i = 0;
+    for (Iterator localIterator = freeList.iterator(); localIterator.hasNext();) {
+      Rect localRect = (Rect)localIterator.next();
+      i += localRect.w();
+    }
+    
+    i += width - nextAddX;
+    return i >= paramRect.w();
+  }
+  
+  public void compact(Object paramObject, BackingStoreManager paramBackingStoreManager) {
+    Collections.sort(rects, rectXComparator);
+    int i = 0;
+    paramBackingStoreManager.beginMovement(paramObject, paramObject);
+    for (Iterator localIterator = rects.iterator(); localIterator.hasNext();) {
+      Rect localRect = (Rect)localIterator.next();
+      if (localRect.x() != i) {
+        paramBackingStoreManager.move(paramObject, localRect, paramObject, new Rect(i, localRect
+          .y(), localRect.w(), localRect.h(), null));
+        localRect.setPosition(i, localRect.y());
+      }
+      i += localRect.w();
+    }
+    nextAddX = i;
+    freeList.clear();
+    paramBackingStoreManager.endMovement(paramObject, paramObject);
+  }
+  
+  public Iterator<Rect> iterator() {
+    return rects.iterator();
+  }
+  
+  public void visit(RectVisitor paramRectVisitor)
+  {
+    for (Iterator localIterator = rects.iterator(); localIterator.hasNext();) {
+      Rect localRect = (Rect)localIterator.next();
+      paramRectVisitor.visit(localRect);
+    }
+  }
+  
+
+
+
+  public void updateRectangleReferences()
+  {
+    for (int i = 0; i < rects.size(); i++) {
+      Rect localRect1 = (Rect)rects.get(i);
+      Rect localRect2 = localRect1.getNextLocation();
+      localRect2.setPosition(localRect1.x(), localRect1.y());
+      if ((localRect1.w() != localRect2.w()) || (localRect1.h() != localRect2.h()))
+        throw new RuntimeException("Unexpected disparity in rectangle sizes during updateRectangleReferences");
+      rects.set(i, localRect2);
+    }
+  }
+  
+  private void coalesceFreeList() {
+    if (freeList == null)
+      return;
+    if (freeList.isEmpty()) {
+      return;
+    }
+    
+    Collections.sort(freeList, rectXComparator);
+    int i = 0;
+    while (i < freeList.size() - 1) {
+      localRect1 = (Rect)freeList.get(i);
+      Rect localRect2 = (Rect)freeList.get(i + 1);
+      if (localRect1.maxX() + 1 == localRect2.x())
+      {
+        freeList.remove(i + 1);
+        localRect1.setSize(localRect1.w() + localRect2.w(), localRect1.h());
+      } else {
+        i++;
+      }
+    }
+    
+    Rect localRect1 = (Rect)freeList.get(freeList.size() - 1);
+    if (localRect1.maxX() + 1 == nextAddX) {
+      nextAddX -= localRect1.w();
+      freeList.remove(freeList.size() - 1);
+    }
+    if (freeList.isEmpty()) {
+      freeList = null;
+    }
+  }
+  
+
+
+
+  public void dumpFreeSpace()
+  {
+    int i = 0;
+    for (Iterator localIterator = freeList.iterator(); localIterator.hasNext();) {
+      Rect localRect = (Rect)localIterator.next();
+      System.err.println(" Free rectangle at " + localRect);
+      i += localRect.w();
+    }
+    
+    System.err.println(" Remaining free space " + (width - nextAddX));
+    i += width - nextAddX;
+    System.err.println(" Total free space " + i);
+  }
+}

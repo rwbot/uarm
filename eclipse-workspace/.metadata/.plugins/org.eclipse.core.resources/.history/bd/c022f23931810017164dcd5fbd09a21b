@@ -1,0 +1,112 @@
+package com.jogamp.opengl.util.awt;
+
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawable;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.util.GLReadBufferUtil;
+import com.jogamp.opengl.util.texture.TextureData;
+import java.awt.image.BufferedImage;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AWTGLReadBufferUtil
+  extends GLReadBufferUtil
+{
+  public AWTGLReadBufferUtil(GLProfile paramGLProfile, boolean paramBoolean)
+  {
+    super(new AWTGLPixelBuffer.AWTGLPixelBufferProvider(paramGLProfile.isGL2ES3()), paramBoolean, false);
+  }
+  
+
+  public AWTGLPixelBuffer getAWTGLPixelBuffer()
+  {
+    return (AWTGLPixelBuffer)getPixelBuffer();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public BufferedImage readPixelsToBufferedImage(GL paramGL, boolean paramBoolean)
+  {
+    return readPixelsToBufferedImage(paramGL, 0, 0, 0, 0, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public BufferedImage readPixelsToBufferedImage(GL paramGL, int paramInt1, int paramInt2, int paramInt3, int paramInt4, boolean paramBoolean)
+  {
+    GLDrawable localGLDrawable = paramGL.getContext().getGLReadDrawable();
+    int i;
+    if ((0 >= paramInt3) || (localGLDrawable.getSurfaceWidth() < paramInt3)) {
+      i = localGLDrawable.getSurfaceWidth();
+    } else
+      i = paramInt3;
+    int j;
+    if ((0 >= paramInt4) || (localGLDrawable.getSurfaceHeight() < paramInt4)) {
+      j = localGLDrawable.getSurfaceHeight();
+    } else {
+      j = paramInt4;
+    }
+    if (readPixelsImpl(localGLDrawable, paramGL, paramInt1, paramInt2, i, j, paramBoolean)) {
+      BufferedImage localBufferedImage = getAWTGLPixelBuffer().getAlignedImage(i, j);
+      if (getTextureData().getMustFlipVertically()) {
+        ImageUtil.flipImageVertically(localBufferedImage);
+      }
+      return localBufferedImage;
+    }
+    return null;
+  }
+}

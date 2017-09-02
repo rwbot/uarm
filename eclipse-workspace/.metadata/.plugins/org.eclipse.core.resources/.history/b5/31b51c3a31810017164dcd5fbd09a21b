@@ -1,0 +1,99 @@
+package jogamp.newt.driver.opengl;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.util.IOUtil.ClassResources;
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.PixelFormat;
+import com.jogamp.opengl.util.PNGPixelRect;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URLConnection;
+import java.nio.ByteBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class JoglUtilPNGIcon
+{
+  public JoglUtilPNGIcon() {}
+  
+  public static ByteBuffer arrayToX11BGRAImages(IOUtil.ClassResources paramClassResources, int[] paramArrayOfInt1, int[] paramArrayOfInt2)
+    throws UnsupportedOperationException, InterruptedException, IOException, MalformedURLException
+  {
+    PNGPixelRect[] arrayOfPNGPixelRect = new PNGPixelRect[paramClassResources.resourceCount()];
+    paramArrayOfInt1[0] = 0;
+    for (int i = 0; i < paramClassResources.resourceCount(); i++) {
+      localObject = paramClassResources.resolve(i);
+      if (null != localObject) {
+        PNGPixelRect localPNGPixelRect1 = PNGPixelRect.read(((URLConnection)localObject).getInputStream(), PixelFormat.BGRA8888, false, 0, false);
+        paramArrayOfInt1[0] += 2 + localPNGPixelRect1.getSize().getWidth() * localPNGPixelRect1.getSize().getHeight();
+        arrayOfPNGPixelRect[i] = localPNGPixelRect1;
+      } else {
+        arrayOfPNGPixelRect[i] = null;
+      }
+    }
+    if (0 == paramArrayOfInt1[0])
+    {
+      return null;
+    }
+    boolean bool = Platform.is64Bit();
+    paramArrayOfInt2[0] = (bool ? 8 : 4);
+    Object localObject = Buffers.newDirectByteBuffer(paramArrayOfInt1[0] * paramArrayOfInt2[0]);
+    
+    for (int j = 0; j < arrayOfPNGPixelRect.length; j++) {
+      PNGPixelRect localPNGPixelRect2 = arrayOfPNGPixelRect[j];
+      if (null != localPNGPixelRect2) {
+        int k = localPNGPixelRect2.getSize().getWidth();
+        int m = localPNGPixelRect2.getSize().getHeight();
+        if (bool) {
+          ((ByteBuffer)localObject).putLong(k);
+          ((ByteBuffer)localObject).putLong(m);
+        } else {
+          ((ByteBuffer)localObject).putInt(k);
+          ((ByteBuffer)localObject).putInt(m);
+        }
+        ByteBuffer localByteBuffer = localPNGPixelRect2.getPixels();
+        int n = localPNGPixelRect2.getStride();
+        for (int i1 = 0; i1 < m; i1++) {
+          int i2 = i1 * n;
+          for (int i3 = 0; i3 < k; i3++)
+          {
+            long l = 0xFF & localByteBuffer.get(i2++);
+            l |= (0xFF & localByteBuffer.get(i2++)) << 8;
+            l |= (0xFF & localByteBuffer.get(i2++)) << 16;
+            l |= (0xFF & localByteBuffer.get(i2++)) << 24;
+            if (bool) {
+              ((ByteBuffer)localObject).putLong(l);
+            } else {
+              ((ByteBuffer)localObject).putInt((int)l);
+            }
+          }
+        }
+      }
+    }
+    ((ByteBuffer)localObject).rewind();
+    return localObject;
+  }
+}

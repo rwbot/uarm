@@ -1,0 +1,72 @@
+package com.leapmotion.leap;
+
+import java.util.Iterator;
+
+
+
+public class DeviceList
+  extends Interface
+  implements Iterable<Device>
+{
+  private long swigCPtr;
+  
+  public DeviceList(long paramLong, boolean paramBoolean)
+  {
+    super(LeapJNI.DeviceList_SWIGUpcast(paramLong), paramBoolean);
+    swigCPtr = paramLong;
+  }
+  
+  public static long getCPtr(DeviceList paramDeviceList) {
+    return paramDeviceList == null ? 0L : swigCPtr;
+  }
+  
+  protected void finalize() {
+    delete();
+  }
+  
+  public synchronized void delete() {
+    if (swigCPtr != 0L) {
+      if (swigCMemOwn) {
+        swigCMemOwn = false;
+        LeapJNI.delete_DeviceList(swigCPtr);
+      }
+      swigCPtr = 0L;
+    }
+    super.delete(); }
+  
+  public class DeviceListIterator implements Iterator<Device> { public DeviceListIterator() {}
+    
+    int index = 0;
+    
+    public boolean hasNext() { return index < count(); }
+    
+    public Device next() {
+      return get(index++);
+    }
+    
+    public void remove() {}
+  }
+  
+  public Iterator<Device> iterator() { return new DeviceListIterator(); }
+  
+  public DeviceList()
+  {
+    this(LeapJNI.new_DeviceList(), true);
+  }
+  
+  public int count() {
+    return LeapJNI.DeviceList_count(swigCPtr, this);
+  }
+  
+  public boolean isEmpty() {
+    return LeapJNI.DeviceList_isEmpty(swigCPtr, this);
+  }
+  
+  public Device get(int paramInt) {
+    return new Device(LeapJNI.DeviceList_get(swigCPtr, this, paramInt), true);
+  }
+  
+  public DeviceList append(DeviceList paramDeviceList) {
+    return new DeviceList(LeapJNI.DeviceList_append(swigCPtr, this, getCPtr(paramDeviceList), paramDeviceList), false);
+  }
+}

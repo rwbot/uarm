@@ -1,0 +1,1562 @@
+package com.jogamp.common.util;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.nio.ByteBuffer;
+import jogamp.common.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Bitstream<T>
+{
+  private static final boolean DEBUG = Debug.debug("Bitstream");
+  
+
+
+  public static final int EOS = -1;
+  
+
+
+  private ByteStream<T> bytes;
+  
+
+
+  private int bitBuffer;
+  
+
+
+  private int bitsDataMark;
+  
+
+
+  private int bitCount;
+  
+
+
+  private int bitsCountMark;
+  
+
+
+  private boolean outputMode;
+  
+
+
+  private boolean throwIOExceptionOnEOF;
+  
+
+
+  private static final boolean useFastPathStream = true;
+  
+
+
+  private static final boolean useFastPathTypes = true;
+  
+
+  private static final String strZeroPadding = "0000000000000000000000000000000000000000000000000000000000000000";
+  
+
+
+  public static abstract interface ByteStream<T>
+  {
+    public abstract void setStream(T paramT);
+    
+
+
+    public abstract T getStream();
+    
+
+
+    public abstract void close()
+      throws IOException;
+    
+
+
+    public abstract void flush()
+      throws IOException;
+    
+
+
+    public abstract boolean canInput();
+    
+
+
+    public abstract boolean canOutput();
+    
+
+
+    public abstract long position();
+    
+
+
+    public abstract long position(long paramLong)
+      throws UnsupportedOperationException, IllegalArgumentException;
+    
+
+
+    public abstract long skip(long paramLong)
+      throws IOException;
+    
+
+
+    public abstract void mark(int paramInt)
+      throws UnsupportedOperationException;
+    
+
+
+    public abstract void reset()
+      throws UnsupportedOperationException, IllegalStateException, IOException;
+    
+
+
+    public abstract int read()
+      throws UnsupportedOperationException, IOException;
+    
+
+
+    public abstract int write(byte paramByte)
+      throws UnsupportedOperationException, IOException;
+  }
+  
+
+
+  public static class ByteArrayStream
+    implements Bitstream.ByteStream<byte[]>
+  {
+    private byte[] media;
+    
+
+    private int pos;
+    
+
+    private int posMark;
+    
+
+
+    public ByteArrayStream(byte[] paramArrayOfByte)
+    {
+      setStream(paramArrayOfByte);
+    }
+    
+    public void setStream(byte[] paramArrayOfByte)
+    {
+      media = paramArrayOfByte;
+      pos = 0;
+      posMark = -1;
+    }
+    
+    public byte[] getStream() {
+      return media;
+    }
+    
+    public void close() {
+      media = null;
+    }
+    
+
+    public void flush() {}
+    
+    public boolean canInput()
+    {
+      return true;
+    }
+    
+    public boolean canOutput() { return true; }
+    
+    public long position() {
+      return pos;
+    }
+    
+    public long position(long paramLong) throws UnsupportedOperationException, IllegalArgumentException {
+      if (paramLong >= media.length) {
+        return -1L;
+      }
+      pos = ((int)paramLong);
+      if (posMark > pos) {
+        posMark = -1;
+      }
+      return pos;
+    }
+    
+    public long skip(long paramLong) {
+      int i;
+      long l;
+      if (paramLong >= 0L) {
+        i = media.length - pos;
+        l = Math.min(i, (int)paramLong);
+      } else {
+        i = (int)paramLong * -1;
+        l = -1 * Math.min(pos, i);
+      }
+      pos = ((int)(pos + l));
+      return l;
+    }
+    
+    public void mark(int paramInt)
+    {
+      posMark = pos;
+    }
+    
+    public void reset() throws IllegalStateException
+    {
+      if (0 > posMark) {
+        throw new IllegalStateException("markpos not set");
+      }
+      if (Bitstream.DEBUG) System.err.println("rewind: " + pos + " -> " + posMark);
+      pos = posMark;
+    }
+    
+    public int read()
+    {
+      int i;
+      if (media.length > pos) {
+        i = 0xFF & media[(pos++)];
+      } else {
+        i = -1;
+      }
+      if (Bitstream.DEBUG) {
+        if (-1 != i) {
+          System.err.println("u8[" + (pos - 1) + "] -> " + Bitstream.toHexBinString(true, i, 8));
+        } else {
+          System.err.println("u8[" + (pos - 0) + "] -> EOS");
+        }
+      }
+      return i;
+    }
+    
+    public int write(byte paramByte)
+    {
+      int i;
+      if (media.length > pos) {
+        media[(pos++)] = paramByte;
+        i = 0xFF & paramByte;
+      } else {
+        i = -1;
+      }
+      if (Bitstream.DEBUG) {
+        if (-1 != i) {
+          System.err.println("u8[" + (pos - 1) + "] <- " + Bitstream.toHexBinString(true, i, 8));
+        } else {
+          System.err.println("u8[" + (pos - 0) + "] <- EOS");
+        }
+      }
+      return i;
+    }
+  }
+  
+
+  public static class ByteBufferStream
+    implements Bitstream.ByteStream<ByteBuffer>
+  {
+    private ByteBuffer media;
+    
+    private int pos;
+    
+    private int posMark;
+    
+    public ByteBufferStream(ByteBuffer paramByteBuffer)
+    {
+      setStream(paramByteBuffer);
+    }
+    
+    public void setStream(ByteBuffer paramByteBuffer)
+    {
+      media = paramByteBuffer;
+      pos = 0;
+      posMark = -1;
+    }
+    
+    public ByteBuffer getStream() {
+      return media;
+    }
+    
+    public void close() {
+      media = null;
+    }
+    
+
+    public void flush() {}
+    
+    public boolean canInput()
+    {
+      return true;
+    }
+    
+    public boolean canOutput() { return true; }
+    
+    public long position() {
+      return pos;
+    }
+    
+    public long position(long paramLong) throws UnsupportedOperationException, IllegalArgumentException {
+      if (paramLong >= media.limit()) {
+        return -1L;
+      }
+      media.position((int)paramLong);
+      pos = ((int)paramLong);
+      if (posMark > pos) {
+        posMark = -1;
+      }
+      return pos;
+    }
+    
+    public long skip(long paramLong) {
+      int i;
+      long l;
+      if (paramLong >= 0L) {
+        i = media.limit() - pos;
+        l = Math.min(i, (int)paramLong);
+      } else {
+        i = (int)paramLong * -1;
+        l = -1 * Math.min(pos, i);
+      }
+      pos = ((int)(pos + l));
+      return l;
+    }
+    
+    public void mark(int paramInt)
+    {
+      posMark = pos;
+    }
+    
+    public void reset() throws IllegalStateException
+    {
+      if (0 > posMark) {
+        throw new IllegalStateException("markpos not set");
+      }
+      if (Bitstream.DEBUG) System.err.println("rewind: " + pos + " -> " + posMark);
+      media.position(posMark);
+      pos = posMark;
+    }
+    
+    public int read()
+    {
+      int i;
+      if (media.limit() > pos) {
+        i = 0xFF & media.get(pos++);
+      } else {
+        i = -1;
+      }
+      if (Bitstream.DEBUG) {
+        if (-1 != i) {
+          System.err.println("u8[" + (pos - 1) + "] -> " + Bitstream.toHexBinString(true, i, 8));
+        } else {
+          System.err.println("u8[" + (pos - 0) + "] -> EOS");
+        }
+      }
+      return i;
+    }
+    
+    public int write(byte paramByte)
+    {
+      int i;
+      if (media.limit() > pos) {
+        media.put(pos++, paramByte);
+        i = 0xFF & paramByte;
+      } else {
+        i = -1;
+      }
+      if (Bitstream.DEBUG) {
+        if (-1 != i) {
+          System.err.println("u8[" + (pos - 1) + "] <- " + Bitstream.toHexBinString(true, i, 8));
+        } else {
+          System.err.println("u8[" + (pos - 0) + "] <- EOS");
+        }
+      }
+      return i;
+    }
+  }
+  
+
+  public static class ByteInputStream
+    implements Bitstream.ByteStream<InputStream>
+  {
+    private BufferedInputStream media;
+    
+    private long pos;
+    
+    private long posMark;
+    
+    public ByteInputStream(InputStream paramInputStream)
+    {
+      setStream(paramInputStream);
+    }
+    
+    public void setStream(InputStream paramInputStream)
+    {
+      if ((paramInputStream instanceof BufferedInputStream)) {
+        media = ((BufferedInputStream)paramInputStream);
+      } else if (null != paramInputStream) {
+        media = new BufferedInputStream(paramInputStream);
+      } else {
+        media = null;
+      }
+      pos = 0L;
+      posMark = -1L;
+    }
+    
+    public InputStream getStream() {
+      return media;
+    }
+    
+    public void close() throws IOException {
+      if (null != media) {
+        media.close();
+        media = null;
+      }
+    }
+    
+
+    public void flush() {}
+    
+    public boolean canInput()
+    {
+      return true;
+    }
+    
+    public boolean canOutput() { return false; }
+    
+    public long position() {
+      return pos;
+    }
+    
+    public long position(long paramLong) throws UnsupportedOperationException, IllegalArgumentException {
+      throw new UnsupportedOperationException("N/a for " + getClass().getCanonicalName());
+    }
+    
+    public long skip(long paramLong) throws IOException
+    {
+      long l = media.skip(paramLong);
+      pos += l;
+      return l;
+    }
+    
+    public void mark(int paramInt)
+    {
+      media.mark(paramInt);
+      posMark = pos;
+    }
+    
+    public void reset() throws IllegalStateException, IOException
+    {
+      if (0L > posMark) {
+        throw new IllegalStateException("markpos not set");
+      }
+      if (Bitstream.DEBUG) System.err.println("rewind: " + pos + " -> " + posMark);
+      media.reset();
+      pos = posMark;
+    }
+    
+    public int read() throws IOException
+    {
+      int i = media.read();
+      if (Bitstream.DEBUG) {
+        if (-1 != i) {
+          System.err.println("u8[" + pos + "] -> " + Bitstream.toHexBinString(true, i, 8));
+        } else {
+          System.err.println("u8[" + pos + "] -> EOS");
+        }
+      }
+      if (-1 != i) {
+        pos += 1L;
+      }
+      return i;
+    }
+    
+    public int write(byte paramByte) throws UnsupportedOperationException
+    {
+      throw new UnsupportedOperationException("not allowed with input stream");
+    }
+  }
+  
+
+
+  public static class ByteOutputStream
+    implements Bitstream.ByteStream<OutputStream>
+  {
+    private BufferedOutputStream media;
+    
+
+    private long pos = 0L;
+    
+    public ByteOutputStream(OutputStream paramOutputStream) {
+      setStream(paramOutputStream);
+    }
+    
+    public void setStream(OutputStream paramOutputStream)
+    {
+      if ((paramOutputStream instanceof BufferedOutputStream)) {
+        media = ((BufferedOutputStream)paramOutputStream);
+      } else if (null != paramOutputStream) {
+        media = new BufferedOutputStream(paramOutputStream);
+      } else {
+        media = null;
+      }
+      pos = 0L;
+    }
+    
+    public void close() throws IOException
+    {
+      if (null != media) {
+        media.close();
+        media = null;
+      }
+    }
+    
+    public void flush() throws IOException {
+      if (null != media) {
+        media.flush();
+      }
+    }
+    
+    public boolean canInput() {
+      return false;
+    }
+    
+    public boolean canOutput() { return true; }
+    
+    public long position() {
+      return pos;
+    }
+    
+    public long position(long paramLong) throws UnsupportedOperationException, IllegalArgumentException {
+      throw new UnsupportedOperationException("N/a for " + getClass().getCanonicalName());
+    }
+    
+    public long skip(long paramLong) throws IOException
+    {
+      long l1 = paramLong;
+      while (l1 > 0L) {
+        media.write(0);
+        l1 -= 1L;
+      }
+      long l2 = paramLong - l1;
+      pos += l2;
+      return l2;
+    }
+    
+    public OutputStream getStream() {
+      return media;
+    }
+    
+    public void mark(int paramInt) throws UnsupportedOperationException {
+      throw new UnsupportedOperationException("not allowed with output stream");
+    }
+    
+    public void reset() throws UnsupportedOperationException
+    {
+      throw new UnsupportedOperationException("not allowed with output stream");
+    }
+    
+    public int read() throws UnsupportedOperationException
+    {
+      throw new UnsupportedOperationException("not allowed with output stream");
+    }
+    
+    public int write(byte paramByte) throws IOException
+    {
+      int i = 0xFF & paramByte;
+      media.write(i);
+      if (Bitstream.DEBUG) {
+        System.err.println("u8[" + pos + "] <- " + Bitstream.toHexBinString(true, i, 8));
+      }
+      pos += 1L;
+      return i;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public Bitstream(ByteStream<T> paramByteStream, boolean paramBoolean)
+    throws IllegalArgumentException
+  {
+    bytes = paramByteStream;
+    outputMode = paramBoolean;
+    resetLocal();
+    validateMode();
+    throwIOExceptionOnEOF = false;
+  }
+  
+  private final void resetLocal() {
+    bitBuffer = 0;
+    bitCount = 0;
+    bitsDataMark = 0;
+    bitsCountMark = -1;
+  }
+  
+  private final void validateMode() throws IllegalArgumentException { if ((!canInput()) && (!canOutput())) {
+      throw new IllegalArgumentException("stream can neither input nor output: " + this);
+    }
+    if ((outputMode) && (!canOutput())) {
+      throw new IllegalArgumentException("stream cannot output as requested: " + this);
+    }
+    if ((!outputMode) && (!canInput())) {
+      throw new IllegalArgumentException("stream cannot input as requested: " + this);
+    }
+  }
+  
+
+
+
+
+
+  public final void setThrowIOExceptionOnEOF(boolean paramBoolean)
+  {
+    throwIOExceptionOnEOF = paramBoolean;
+  }
+  
+  public final boolean getThrowIOExceptionOnEOF() {
+    return throwIOExceptionOnEOF;
+  }
+  
+
+
+
+
+
+
+  public final void setStream(T paramT, boolean paramBoolean)
+    throws IllegalArgumentException, IOException
+  {
+    if ((null != bytes) && (outputMode)) {
+      flush();
+    }
+    bytes.setStream(paramT);
+    outputMode = paramBoolean;
+    resetLocal();
+    validateMode();
+  }
+  
+  public final ByteStream<T> getStream() {
+    return bytes;
+  }
+  
+  public final T getSubStream() { return bytes.getStream(); }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public final void close()
+    throws IOException
+  {
+    if ((null != bytes) && (outputMode)) {
+      flush();
+    }
+    bytes.close();
+    bytes = null;
+    resetLocal();
+  }
+  
+
+
+
+
+
+
+
+
+  public final int flush()
+    throws IllegalStateException, IOException
+  {
+    if ((!outputMode) || (null == bytes)) {
+      throw new IllegalStateException("not in output-mode: " + this);
+    }
+    bytes.flush();
+    if (0 != bitCount) {
+      int i = bytes.write((byte)bitBuffer);
+      bitBuffer = 0;
+      bitCount = 0;
+      if (-1 == i) {
+        if (throwIOExceptionOnEOF) {
+          throw new IOException("EOS " + this);
+        }
+        return -1;
+      }
+    }
+    return 0;
+  }
+  
+  public final boolean canInput() {
+    return null != bytes ? bytes.canInput() : false;
+  }
+  
+  public final boolean canOutput() { return null != bytes ? bytes.canOutput() : false; }
+  
+
+
+
+  public final void mark(int paramInt)
+    throws IllegalStateException
+  {
+    if ((outputMode) || (null == bytes)) {
+      throw new IllegalStateException("not in input-mode: " + this);
+    }
+    bytes.mark(paramInt);
+    bitsDataMark = bitBuffer;
+    bitsCountMark = bitCount;
+  }
+  
+
+
+
+
+
+
+
+  public final void reset()
+    throws IllegalStateException, IOException
+  {
+    if ((outputMode) || (null == bytes)) {
+      throw new IllegalStateException("not in input-mode: " + this);
+    }
+    if (0 > bitsCountMark) {
+      throw new IllegalStateException("markpos not set: " + this);
+    }
+    bytes.reset();
+    bitBuffer = bitsDataMark;
+    bitCount = bitsCountMark;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final int getBitCount()
+  {
+    return bitCount;
+  }
+  
+
+
+
+
+  public final int getLastBitPos()
+  {
+    return 7 - bitCount;
+  }
+  
+
+
+
+
+
+  public final int getBitPosition()
+  {
+    if (0 == bitCount) {
+      return 0;
+    }
+    return 8 - bitCount;
+  }
+  
+
+
+
+  public final int getBitBuffer()
+  {
+    return bitBuffer;
+  }
+  
+
+
+
+  public final long position()
+  {
+    if (null == bytes)
+      return -1L;
+    if (0 == bitCount) {
+      return bytes.position() << 3;
+    }
+    long l = bytes.position() - (outputMode ? 0 : 1);
+    return (l << 3) + 8L - bitCount;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final long position(long paramLong)
+    throws UnsupportedOperationException, IllegalArgumentException, IllegalStateException, IOException
+  {
+    if (0L > paramLong) {
+      throw new IllegalArgumentException("new position not positive: " + paramLong);
+    }
+    bytes.position(0L);
+    resetLocal();
+    if (paramLong > skip(paramLong)) {
+      return -1L;
+    }
+    return paramLong;
+  }
+  
+
+
+
+
+  public final int readBit(boolean paramBoolean)
+    throws UnsupportedOperationException, IllegalStateException, IOException
+  {
+    if ((outputMode) || (null == bytes)) {
+      throw new IllegalStateException("not in input-mode: " + this);
+    }
+    if (0 < bitCount) {
+      bitCount -= 1;
+      if (paramBoolean) {
+        return bitBuffer >>> bitCount & 0x1;
+      }
+      return bitBuffer >>> 7 - bitCount & 0x1;
+    }
+    
+    bitBuffer = bytes.read();
+    if (-1 == bitBuffer) {
+      if (throwIOExceptionOnEOF) {
+        throw new IOException("EOS " + this);
+      }
+      return -1;
+    }
+    bitCount = 7;
+    if (paramBoolean) {
+      return bitBuffer >>> 7;
+    }
+    return bitBuffer & 0x1;
+  }
+  
+
+
+
+
+
+
+
+
+  public final int writeBit(boolean paramBoolean, int paramInt)
+    throws IllegalStateException, IOException
+  {
+    if ((!outputMode) || (null == bytes)) {
+      throw new IllegalStateException("not in output-mode: " + this);
+    }
+    if (0 < bitCount) {
+      bitCount -= 1;
+      if (paramBoolean) {
+        bitBuffer |= (0x1 & paramInt) << bitCount;
+      } else {
+        bitBuffer |= (0x1 & paramInt) << 7 - bitCount;
+      }
+      if (0 == bitCount) {
+        int i = bytes.write((byte)bitBuffer);
+        if ((throwIOExceptionOnEOF) && (-1 == i)) {
+          throw new IOException("EOS " + this);
+        }
+        return i;
+      }
+    } else {
+      bitCount = 7;
+      if (paramBoolean) {
+        bitBuffer = ((0x1 & paramInt) << 7);
+      } else {
+        bitBuffer = (0x1 & paramInt);
+      }
+    }
+    return bitBuffer;
+  }
+  
+
+
+
+
+
+
+  public long skip(long paramLong)
+    throws IllegalStateException, IOException
+  {
+    if (null == bytes) {
+      throw new IllegalStateException("closed: " + this);
+    }
+    if (DEBUG) {
+      System.err.println("Bitstream.skip.0: " + paramLong + " - " + toStringImpl());
+    }
+    if (paramLong > 0L) {
+      if (paramLong <= bitCount) {
+        bitCount -= (int)paramLong;
+        if (DEBUG) {
+          System.err.println("Bitstream.skip.F_N1: " + paramLong + " - " + toStringImpl());
+        }
+        return paramLong;
+      }
+      if (outputMode) {
+        if ((0 < bitCount) && 
+          (-1 == bytes.write((byte)bitBuffer))) {
+          return 0L;
+        }
+        
+        bitBuffer = 0;
+      }
+      long l1 = paramLong - bitCount;
+      long l2 = l1 >>> 3;
+      long l3 = bytes.skip(l2);
+      int i = (int)(l1 - (l2 << 3));
+      long l4 = (l3 << 3) + i + bitCount;
+      
+
+
+
+      if (l4 < paramLong)
+      {
+        bitCount = 0;
+        bitBuffer = 0;
+        if (DEBUG) {
+          System.err.println("Bitstream.skip.F_EOS: " + paramLong + " - " + toStringImpl());
+        }
+        if (throwIOExceptionOnEOF) {
+          throw new IOException("EOS " + this);
+        }
+        return l4;
+      }
+      bitCount = (8 - i & 0x7);
+      int j = 0;
+      if ((!outputMode) && (0 < bitCount)) {
+        bitBuffer = bytes.read();
+        if (-1 == bitBuffer) {
+          j = bitCount;
+          bitCount = 0;
+        }
+      }
+      if (DEBUG) {
+        System.err.println("Bitstream.skip.F_N2: " + paramLong + ", notReadBits " + j + " - " + toStringImpl());
+      }
+      return l4 - j;
+    }
+    
+
+
+    return 0L;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public int readBits31(int paramInt)
+    throws IllegalArgumentException, IOException
+  {
+    if (31 < paramInt) {
+      throw new IllegalArgumentException("n > 31: " + paramInt);
+    }
+    if ((outputMode) || (null == bytes)) {
+      throw new IllegalStateException("not in input-mode: " + this);
+    }
+    if (0 == paramInt) {
+      return 0;
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    int i = paramInt;
+    int j = Math.min(paramInt, bitCount);
+    int n;
+    int k; if (0 < j) {
+      m = (1 << j) - 1;
+      n = 7 - bitCount + 1;
+      bitCount -= j;
+      i -= j;
+      
+      k = m & bitBuffer >>> n;
+      if (0 == i) {
+        return k;
+      }
+    } else {
+      k = 0;
+    }
+    assert (0 == bitCount);
+    int m = j;
+    do {
+      bitBuffer = bytes.read();
+      if (-1 == bitBuffer) {
+        if (throwIOExceptionOnEOF) {
+          throw new IOException("EOS " + this);
+        }
+        return -1;
+      }
+      n = Math.min(i, 8);
+      int i1 = (1 << n) - 1;
+      bitCount = (8 - n);
+      i -= n;
+      
+      k |= (i1 & bitBuffer) << m;
+      m += n;
+    } while (0 < i);
+    return k;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public int writeBits31(int paramInt1, int paramInt2)
+    throws IllegalStateException, IllegalArgumentException, IOException
+  {
+    if (31 < paramInt1) {
+      throw new IllegalArgumentException("n > 31: " + paramInt1);
+    }
+    if ((!outputMode) || (null == bytes)) {
+      throw new IllegalStateException("not in output-mode: " + this);
+    }
+    if (0 < paramInt1)
+    {
+
+
+
+
+
+
+
+
+
+      int i = paramInt1;
+      int j = Math.min(paramInt1, bitCount);
+      int m; if (0 < j) {
+        k = (1 << j) - 1;
+        m = 7 - bitCount + 1;
+        bitCount -= j;
+        i -= j;
+        
+        bitBuffer |= (k & paramInt2) << m;
+        if ((0 == bitCount) && 
+          (-1 == bytes.write((byte)bitBuffer))) {
+          if (throwIOExceptionOnEOF) {
+            throw new IOException("EOS " + this);
+          }
+          return -1;
+        }
+        
+        if (0 == i) {
+          return paramInt2;
+        }
+      }
+      assert (0 == bitCount);
+      int k = j;
+      do {
+        m = Math.min(i, 8);
+        int n = (1 << m) - 1;
+        bitCount = (8 - m);
+        i -= m;
+        
+        bitBuffer = (n & paramInt2 >>> k);
+        k += m;
+        if ((0 == bitCount) && 
+          (-1 == bytes.write((byte)bitBuffer))) {
+          if (throwIOExceptionOnEOF) {
+            throw new IOException("EOS " + this);
+          }
+          return -1;
+        }
+        
+      } while (0 < i);
+    }
+    
+    return paramInt2;
+  }
+  
+
+
+
+
+
+
+
+
+  public final int readUInt8()
+    throws IllegalStateException, IOException
+  {
+    if (0 == bitCount)
+    {
+      if ((outputMode) || (null == bytes)) {
+        throw new IllegalStateException("not in input-mode: " + this);
+      }
+      int i = bytes.read();
+      if ((throwIOExceptionOnEOF) && (-1 == i)) {
+        throw new IOException("EOS " + this);
+      }
+      return i;
+    }
+    return readBits31(8);
+  }
+  
+
+
+
+
+
+  public final int writeInt8(byte paramByte)
+    throws IllegalStateException, IOException
+  {
+    if (0 == bitCount)
+    {
+      if ((!outputMode) || (null == bytes)) {
+        throw new IllegalStateException("not in output-mode: " + this);
+      }
+      int i = bytes.write(paramByte);
+      if ((throwIOExceptionOnEOF) && (-1 == i)) {
+        throw new IOException("EOS " + this);
+      }
+      return i;
+    }
+    return writeBits31(8, paramByte);
+  }
+  
+
+
+
+
+
+  public final int readUInt16(boolean paramBoolean)
+    throws IllegalStateException, IOException
+  {
+    int j;
+    
+
+
+
+
+    if (0 == bitCount)
+    {
+      if ((outputMode) || (null == bytes)) {
+        throw new IllegalStateException("not in input-mode: " + this);
+      }
+      i = bytes.read();
+      j = -1 != i ? bytes.read() : -1;
+      if (-1 == j) {
+        if (throwIOExceptionOnEOF) {
+          throw new IOException("EOS " + this);
+        }
+        return -1; }
+      if (paramBoolean) {
+        return i << 8 | j;
+      }
+      return j << 8 | i;
+    }
+    
+    int i = readBits31(16);
+    if (-1 == i)
+      return -1;
+    if (paramBoolean) {
+      j = 0xFF & i >>> 8;
+      int k = 0xFF & i;
+      return k << 8 | j;
+    }
+    return i;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public static final int readUInt16(boolean paramBoolean, byte[] paramArrayOfByte, int paramInt)
+    throws IndexOutOfBoundsException
+  {
+    checkBounds(paramArrayOfByte, paramInt, 2);
+    
+    int i = paramArrayOfByte[paramInt] & 0xFF;
+    int j = paramArrayOfByte[(paramInt + 1)] & 0xFF;
+    if (paramBoolean) {
+      return i << 8 | j;
+    }
+    return j << 8 | i;
+  }
+  
+
+
+  public final int writeInt16(boolean paramBoolean, short paramShort)
+    throws IllegalStateException, IOException
+  {
+    int i;
+    
+
+    int j;
+    
+    if (0 == bitCount)
+    {
+      if ((!outputMode) || (null == bytes)) {
+        throw new IllegalStateException("not in output-mode: " + this);
+      }
+      i = (byte)(0xFF & paramShort >>> 8);
+      j = (byte)(0xFF & paramShort);
+      int k;
+      int m; if (paramBoolean) {
+        k = i;
+        m = j;
+      } else {
+        k = j;
+        m = i;
+      }
+      if ((-1 != bytes.write(k)) && 
+        (-1 != bytes.write(m))) {
+        return paramShort;
+      }
+      
+      if (throwIOExceptionOnEOF) {
+        throw new IOException("EOS " + this);
+      }
+      return -1; }
+    if (paramBoolean) {
+      i = 0xFF & paramShort >>> 8;
+      j = 0xFF & paramShort;
+      return writeBits31(16, j << 8 | i);
+    }
+    return writeBits31(16, paramShort);
+  }
+  
+
+
+
+  public final long readUInt32(boolean paramBoolean)
+    throws IllegalStateException, IOException
+  {
+    int k;
+    
+
+
+    int m;
+    
+
+
+    if (0 == bitCount)
+    {
+      if ((outputMode) || (null == bytes)) {
+        throw new IllegalStateException("not in input-mode: " + this);
+      }
+      i = bytes.read();
+      j = -1 != i ? bytes.read() : -1;
+      k = -1 != j ? bytes.read() : -1;
+      m = -1 != k ? bytes.read() : -1;
+      if (-1 == m) {
+        if (throwIOExceptionOnEOF) {
+          throw new IOException("EOS " + this);
+        }
+        return -1L; }
+      if (paramBoolean) {
+        return 0xFFFFFFFF & (i << 24 | j << 16 | k << 8 | m);
+      }
+      return 0xFFFFFFFF & (m << 24 | k << 16 | j << 8 | i);
+    }
+    
+    int i = readBits31(16);
+    int j = -1 != i ? readBits31(16) : -1;
+    if (-1 == j)
+      return -1L;
+    if (paramBoolean) {
+      k = 0xFF & j >>> 8;
+      m = 0xFF & j;
+      int n = 0xFF & i >>> 8;
+      int i1 = 0xFF & i;
+      return 0xFFFFFFFF & (i1 << 24 | n << 16 | m << 8 | k);
+    }
+    return 0xFFFFFFFF & (j << 16 | i);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public static final long readUInt32(boolean paramBoolean, byte[] paramArrayOfByte, int paramInt)
+    throws IndexOutOfBoundsException
+  {
+    checkBounds(paramArrayOfByte, paramInt, 4);
+    int i = paramArrayOfByte[paramInt];
+    int j = paramArrayOfByte[(paramInt + 1)];
+    int k = paramArrayOfByte[(paramInt + 2)];
+    int m = paramArrayOfByte[(paramInt + 3)];
+    if (paramBoolean) {
+      return 0xFFFFFFFF & (i << 24 | j << 16 | k << 8 | m);
+    }
+    return 0xFFFFFFFF & (m << 24 | k << 16 | j << 8 | i);
+  }
+  
+
+
+  public final int writeInt32(boolean paramBoolean, int paramInt)
+    throws IllegalStateException, IOException
+  {
+    int k;
+    
+
+    int m;
+    
+    if (0 == bitCount)
+    {
+      if ((!outputMode) || (null == bytes)) {
+        throw new IllegalStateException("not in output-mode: " + this);
+      }
+      i = (byte)(0xFF & paramInt >>> 24);
+      j = (byte)(0xFF & paramInt >>> 16);
+      k = (byte)(0xFF & paramInt >>> 8);
+      m = (byte)(0xFF & paramInt);
+      int n;
+      int i1; int i2; int i3; if (paramBoolean) {
+        n = i;
+        i1 = j;
+        i2 = k;
+        i3 = m;
+      } else {
+        n = m;
+        i1 = k;
+        i2 = j;
+        i3 = i;
+      }
+      if ((-1 != bytes.write(n)) && 
+        (-1 != bytes.write(i1)) && 
+        (-1 != bytes.write(i2)) && 
+        (-1 != bytes.write(i3))) {
+        return paramInt;
+      }
+      
+
+
+      if (throwIOExceptionOnEOF) {
+        throw new IOException("EOS " + this);
+      }
+      return -1; }
+    if (paramBoolean) {
+      i = 0xFF & paramInt >>> 24;
+      j = 0xFF & paramInt >>> 16;
+      k = 0xFF & paramInt >>> 8;
+      m = 0xFF & paramInt;
+      if ((-1 != writeBits31(16, j << 8 | i)) && 
+        (-1 != writeBits31(16, m << 8 | k))) {
+        return paramInt;
+      }
+      
+      return -1;
+    }
+    int i = 0xFFFF & paramInt >>> 16;
+    int j = 0xFFFF & paramInt;
+    if ((-1 != writeBits31(16, j)) && 
+      (-1 != writeBits31(16, i))) {
+      return paramInt;
+    }
+    
+    return -1;
+  }
+  
+
+
+
+
+
+
+
+  public static final long toUInt32Long(int paramInt)
+  {
+    return 0xFFFFFFFF & paramInt;
+  }
+  
+
+
+
+
+
+  public static final int toUInt32Int(int paramInt)
+  {
+    return uint32LongToInt(toUInt32Long(paramInt));
+  }
+  
+
+
+
+
+  public static final int uint32LongToInt(long paramLong)
+  {
+    if (2147483647L >= paramLong) {
+      return (int)paramLong;
+    }
+    return -1;
+  }
+  
+
+
+
+  public String toString() { return String.format("Bitstream[%s]", new Object[] { toStringImpl() }); }
+  
+  protected String toStringImpl() {
+    String str;
+    long l;
+    if (null == bytes) {
+      str = "closed";
+      l = -1L;
+    } else {
+      str = outputMode ? "output" : "input";
+      l = bytes.position();
+    }
+    return String.format("%s, pos %d [byteP %d, bitCnt %d], bitbuf %s", new Object[] { str, 
+      Long.valueOf(position()), Long.valueOf(l), Integer.valueOf(bitCount), toHexBinString(true, bitBuffer, 8) });
+  }
+  
+  public static String toBinString(boolean paramBoolean, int paramInt1, int paramInt2)
+  {
+    if (0 == paramInt2) {
+      return "";
+    }
+    if (paramBoolean) {
+      int i = (int)((1L << paramInt2) - 1L);
+      String str1 = Integer.toBinaryString(i & paramInt1);
+      return "0000000000000000000000000000000000000000000000000000000000000000".substring(0, paramInt2 - str1.length()) + str1;
+    }
+    char[] arrayOfChar = new char[32];
+    for (int j = 0; j < paramInt2; j++) {
+      arrayOfChar[j] = (0 != (paramInt1 & 1 << j) ? 49 : '0');
+    }
+    String str2 = new String(arrayOfChar, 0, paramInt2);
+    return str2 + "0000000000000000000000000000000000000000000000000000000000000000".substring(0, paramInt2 - str2.length());
+  }
+  
+  public static String toHexBinString(boolean paramBoolean, int paramInt1, int paramInt2) {
+    int i = 0 == paramInt2 ? 2 : (paramInt2 + 3) / 4;
+    return String.format("[0x%0" + i + "X, msbFirst %b, %s]", new Object[] { Integer.valueOf(paramInt1), Boolean.valueOf(paramBoolean), toBinString(paramBoolean, paramInt1, paramInt2) });
+  }
+  
+  public static final String toHexBinString(boolean paramBoolean, byte[] paramArrayOfByte, int paramInt1, int paramInt2) { StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("[");
+    for (int i = 0; i < paramInt2; i++) {
+      int j = 0xFF & paramArrayOfByte[(paramInt1 + i)];
+      localStringBuilder.append(toHexBinString(paramBoolean, j, 8)).append(", ");
+    }
+    localStringBuilder.append("]");
+    return localStringBuilder.toString();
+  }
+  
+  public static final String toHexBinString(boolean paramBoolean, ByteBuffer paramByteBuffer, int paramInt1, int paramInt2) { StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("[");
+    for (int i = 0; i < paramInt2; i++) {
+      int j = 0xFF & paramByteBuffer.get(paramInt1 + i);
+      localStringBuilder.append(toHexBinString(paramBoolean, j, 8)).append(", ");
+    }
+    localStringBuilder.append("]");
+    return localStringBuilder.toString();
+  }
+  
+  public static void checkBounds(byte[] paramArrayOfByte, int paramInt1, int paramInt2) throws IndexOutOfBoundsException {
+    if (paramInt1 + paramInt2 > paramArrayOfByte.length) {
+      throw new IndexOutOfBoundsException("Buffer of size " + paramArrayOfByte.length + " cannot hold offset " + paramInt1 + " + remaining " + paramInt2);
+    }
+  }
+}

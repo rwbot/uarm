@@ -1,0 +1,405 @@
+package jogamp.newt.driver.x11;
+
+import com.jogamp.common.util.ArrayHashSet;
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.nativewindow.util.RectangleImmutable;
+import com.jogamp.newt.MonitorDevice;
+import com.jogamp.newt.MonitorMode;
+import java.io.PrintStream;
+import jogamp.newt.MonitorModeProps;
+import jogamp.newt.MonitorModeProps.Cache;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class RandR11
+  implements RandR
+{
+  private static final boolean DEBUG = ScreenDriver.DEBUG;
+  
+  private static final int SINGLE_CRT_ID = 1;
+  private final VersionNumber version;
+  
+  RandR11(VersionNumber paramVersionNumber)
+  {
+    version = paramVersionNumber;
+  }
+  
+  public final VersionNumber getVersion() {
+    return version;
+  }
+  
+  public String toString() { return "RandR11[version " + version + "]"; }
+  
+
+
+
+
+
+
+  private int widthMM = 0; private int heightMM = 0;
+  private int modeCount = 0;
+  private int resolutionCount = 0;
+  private int[][] nrates = (int[][])null;
+  private int[] idx_rate = null; private int[] idx_res = null;
+  volatile int set_screen_idx;
+  
+  public void dumpInfo(long paramLong, int paramInt) {}
+  
+  public boolean beginInitialQuery(long paramLong, ScreenDriver paramScreenDriver) { int i = paramScreenDriver.getIndex();
+    resolutionCount = getNumScreenResolutions0(paramLong, i);
+    if (0 == resolutionCount) {
+      endInitialQuery(paramLong, paramScreenDriver);
+      return false;
+    }
+    
+    nrates = new int[resolutionCount][];
+    for (int j = 0; j < resolutionCount; j++) {
+      nrates[j] = getScreenRates0(paramLong, i, j);
+      if ((null == nrates[j]) || (0 == nrates[j].length)) {
+        endInitialQuery(paramLong, paramScreenDriver);
+        return false;
+      }
+    }
+    
+    for (j = 0; j < resolutionCount; j++) {
+      modeCount += nrates[j].length;
+    }
+    
+    idx_rate = new int[modeCount];
+    idx_res = new int[modeCount];
+    
+    j = 0;
+    for (int k = 0; k < resolutionCount; k++) {
+      for (int m = 0; m < nrates[k].length; m++) {
+        idx_rate[j] = m;
+        idx_res[j] = k;
+        j++;
+      }
+    }
+    return true;
+  }
+  
+  public void endInitialQuery(long paramLong, ScreenDriver paramScreenDriver)
+  {
+    idx_rate = null;
+    idx_res = null;
+    nrates = ((int[][])null);
+  }
+  
+  volatile int set_mode_idx;
+  public int[] getMonitorDeviceIds(long paramLong, ScreenDriver paramScreenDriver)
+  {
+    return new int[] { 1 };
+  }
+  
+  public int[] getAvailableRotations(long paramLong, ScreenDriver paramScreenDriver, int paramInt)
+  {
+    if (1 != paramInt)
+    {
+      return null;
+    }
+    int i = paramScreenDriver.getIndex();
+    int[] arrayOfInt = getAvailableScreenRotations0(paramLong, i);
+    if ((null == arrayOfInt) || (0 == arrayOfInt.length)) {
+      return null;
+    }
+    return arrayOfInt;
+  }
+  
+  public int[] getMonitorModeProps(long paramLong, ScreenDriver paramScreenDriver, int paramInt)
+  {
+    if (paramInt >= modeCount) {
+      return null;
+    }
+    int i = paramScreenDriver.getIndex();
+    
+    int j = idx_res[paramInt];
+    int k = idx_rate[paramInt];
+    
+    int[] arrayOfInt1 = getScreenResolution0(paramLong, i, j);
+    if ((null == arrayOfInt1) || (0 == arrayOfInt1.length)) {
+      return null;
+    }
+    if ((0 >= arrayOfInt1[0]) || (0 >= arrayOfInt1[1])) {
+      throw new InternalError("invalid resolution: " + arrayOfInt1[0] + "x" + arrayOfInt1[1] + " for res idx " + j + "/" + resolutionCount);
+    }
+    if (arrayOfInt1[2] > widthMM) {
+      widthMM = arrayOfInt1[2];
+    }
+    if (arrayOfInt1[3] > heightMM) {
+      heightMM = arrayOfInt1[3];
+    }
+    
+    int m = nrates[j][k];
+    if (0 >= m) {
+      m = 60;
+      if (DEBUG) {
+        System.err.println("Invalid rate: " + m + " at index " + k + "/" + nrates.length + ", using default: " + 60);
+      }
+    }
+    
+    int[] arrayOfInt2 = new int[8];
+    int n = 0;
+    arrayOfInt2[(n++)] = 8;
+    arrayOfInt2[(n++)] = arrayOfInt1[0];
+    arrayOfInt2[(n++)] = arrayOfInt1[1];
+    arrayOfInt2[(n++)] = 32;
+    arrayOfInt2[(n++)] = (m * 100);
+    arrayOfInt2[(n++)] = 0;
+    arrayOfInt2[(n++)] = j;
+    arrayOfInt2[(n++)] = -1;
+    if (8 != n) {
+      throw new InternalError("XX");
+    }
+    return arrayOfInt2;
+  }
+  
+  public int[] getMonitorDeviceProps(long paramLong, ScreenDriver paramScreenDriver, MonitorModeProps.Cache paramCache, int paramInt)
+  {
+    if (1 != paramInt)
+    {
+      return null;
+    }
+    int[] arrayOfInt1 = getCurrentMonitorModeProps(paramLong, paramScreenDriver, paramInt);
+    if (null == arrayOfInt1) {
+      return null;
+    }
+    MonitorMode localMonitorMode = MonitorModeProps.streamInMonitorMode(null, paramCache, arrayOfInt1, 0);
+    int i = monitorModes.size();
+    int[] arrayOfInt2 = new int[16 + i];
+    int j = 0;
+    arrayOfInt2[(j++)] = arrayOfInt2.length;
+    arrayOfInt2[(j++)] = 1;
+    arrayOfInt2[(j++)] = 0;
+    arrayOfInt2[(j++)] = (0 == paramInt ? 1 : 0);
+    arrayOfInt2[(j++)] = widthMM;
+    arrayOfInt2[(j++)] = heightMM;
+    arrayOfInt2[(j++)] = 0;
+    arrayOfInt2[(j++)] = 0;
+    arrayOfInt2[(j++)] = localMonitorMode.getRotatedWidth();
+    arrayOfInt2[(j++)] = localMonitorMode.getRotatedHeight();
+    arrayOfInt2[(j++)] = 0;
+    arrayOfInt2[(j++)] = 0;
+    arrayOfInt2[(j++)] = localMonitorMode.getRotatedWidth();
+    arrayOfInt2[(j++)] = localMonitorMode.getRotatedHeight();
+    arrayOfInt2[(j++)] = localMonitorMode.getId();
+    arrayOfInt2[(j++)] = localMonitorMode.getRotation();
+    for (int k = 0; k < i; k++) {
+      arrayOfInt2[(j++)] = ((MonitorMode)monitorModes.get(k)).getId();
+    }
+    return arrayOfInt2;
+  }
+  
+  public int[] getMonitorDeviceViewport(long paramLong, ScreenDriver paramScreenDriver, int paramInt)
+  {
+    if (1 != paramInt)
+    {
+      return null;
+    }
+    int i = paramScreenDriver.getIndex();
+    long l = getScreenConfiguration0(paramLong, i);
+    if (0L == l) {
+      return null;
+    }
+    int[] arrayOfInt1;
+    try
+    {
+      int k = getNumScreenResolutions0(paramLong, i);
+      int[] arrayOfInt3; if (0 == k) {
+        return null;
+      }
+      
+      int j = getCurrentScreenResolutionIndex0(l);
+      if (0 > j) {
+        return null;
+      }
+      if (j >= k) {
+        throw new RuntimeException("Invalid resolution index: ! " + j + " < " + k);
+      }
+      arrayOfInt1 = getScreenResolution0(paramLong, i, j);
+      if ((null == arrayOfInt1) || (0 == arrayOfInt1.length)) {
+        return null;
+      }
+      if ((0 >= arrayOfInt1[0]) || (0 >= arrayOfInt1[1])) {
+        throw new InternalError("invalid resolution: " + arrayOfInt1[0] + "x" + arrayOfInt1[1] + " for res idx " + j + "/" + k);
+      }
+    } finally {
+      freeScreenConfiguration0(l);
+    }
+    int[] arrayOfInt2 = new int[4];
+    int m = 0;
+    arrayOfInt2[(m++)] = 0;
+    arrayOfInt2[(m++)] = 0;
+    arrayOfInt2[(m++)] = arrayOfInt1[0];
+    arrayOfInt2[(m++)] = arrayOfInt1[1];
+    return arrayOfInt2;
+  }
+  
+  public int[] getCurrentMonitorModeProps(long paramLong, ScreenDriver paramScreenDriver, int paramInt)
+  {
+    if (1 != paramInt)
+    {
+      return null;
+    }
+    int i = paramScreenDriver.getIndex();
+    long l = getScreenConfiguration0(paramLong, i);
+    if (0L == l)
+      return null;
+    int m;
+    int[] arrayOfInt1;
+    int j;
+    int k;
+    try {
+      int n = getNumScreenResolutions0(paramLong, i);
+      int[] arrayOfInt3; if (0 == n) {
+        return null;
+      }
+      
+      m = getCurrentScreenResolutionIndex0(l);
+      if (0 > m) {
+        return null;
+      }
+      if (m >= n) {
+        throw new RuntimeException("Invalid resolution index: ! " + m + " < " + n);
+      }
+      arrayOfInt1 = getScreenResolution0(paramLong, i, m);
+      if ((null == arrayOfInt1) || (0 == arrayOfInt1.length)) {
+        return null;
+      }
+      if ((0 >= arrayOfInt1[0]) || (0 >= arrayOfInt1[1])) {
+        throw new InternalError("invalid resolution: " + arrayOfInt1[0] + "x" + arrayOfInt1[1] + " for res idx " + m + "/" + n);
+      }
+      j = getCurrentScreenRate0(l);
+      if (0 > j) {
+        return null;
+      }
+      k = getCurrentScreenRotation0(l);
+      if (0 > k) {
+        return null;
+      }
+    } finally {
+      freeScreenConfiguration0(l);
+    }
+    int[] arrayOfInt2 = new int[8];
+    int i1 = 0;
+    arrayOfInt2[(i1++)] = 8;
+    arrayOfInt2[(i1++)] = arrayOfInt1[0];
+    arrayOfInt2[(i1++)] = arrayOfInt1[1];
+    arrayOfInt2[(i1++)] = 32;
+    arrayOfInt2[(i1++)] = (j * 100);
+    arrayOfInt2[(i1++)] = 0;
+    arrayOfInt2[(i1++)] = m;
+    arrayOfInt2[(i1++)] = k;
+    if (8 != i1) {
+      throw new InternalError("XX");
+    }
+    return arrayOfInt2;
+  }
+  
+  public boolean setCurrentMonitorModeStart(long paramLong, ScreenDriver paramScreenDriver, MonitorDevice paramMonitorDevice, MonitorMode paramMonitorMode)
+  {
+    int i = paramScreenDriver.getIndex();
+    long l = getScreenConfiguration0(paramLong, i);
+    if (0L == l) {
+      return false;
+    }
+    boolean bool = false;
+    try {
+      int j = paramMonitorMode.getId();
+      if ((0 > j) || (j >= resolutionCount)) {
+        throw new RuntimeException("Invalid resolution index: ! 0 < " + j + " < " + resolutionCount + ", " + paramMonitorDevice + ", " + paramMonitorMode);
+      }
+      int k = (int)paramMonitorMode.getRefreshRate();
+      int m = paramMonitorMode.getRotation();
+      set_screen_idx = i;
+      set_mode_idx = j;
+      set_freq = k;
+      set_rot = m;
+      set_done = false;
+      bool = setCurrentScreenModeStart0(paramLong, i, l, j, k, m);
+      if (!bool) {
+        clearSetModeState();
+      }
+    } finally {
+      freeScreenConfiguration0(l);
+    }
+    return bool;
+  }
+  
+  public boolean setCurrentMonitorModeWait(ScreenDriver paramScreenDriver) {
+    long l = System.currentTimeMillis();
+    boolean bool = false;
+    while ((!bool) && (System.currentTimeMillis() - l < 10000L)) {
+      bool = set_done;
+      if (!bool)
+        try { Thread.sleep(10L);
+        } catch (InterruptedException localInterruptedException) {}
+    }
+    clearSetModeState();
+    return bool;
+  }
+  
+
+  volatile int set_freq;
+  volatile int set_rot;
+  volatile boolean set_done;
+  public void sendRRScreenChangeNotify(long paramLong1, long paramLong2)
+  {
+    set_done = sendRRScreenChangeNotify0(paramLong1, set_screen_idx, paramLong2, set_mode_idx, set_freq, set_rot); }
+  
+  private void clearSetModeState() {
+    set_screen_idx = -1;
+    set_mode_idx = -1;
+    set_freq = 0;
+    set_rot = 0;
+    set_done = false;
+  }
+  
+  public final void updateScreenViewport(long paramLong, ScreenDriver paramScreenDriver, RectangleImmutable paramRectangleImmutable) {}
+  
+  private static native int[] getAvailableScreenRotations0(long paramLong, int paramInt);
+  
+  private static native int getNumScreenResolutions0(long paramLong, int paramInt);
+  
+  private static native int[] getScreenResolution0(long paramLong, int paramInt1, int paramInt2);
+  
+  private static native int[] getScreenRates0(long paramLong, int paramInt1, int paramInt2);
+  
+  private static native long getScreenConfiguration0(long paramLong, int paramInt);
+  
+  private static native void freeScreenConfiguration0(long paramLong);
+  
+  private static native int getCurrentScreenResolutionIndex0(long paramLong);
+  
+  private static native int getCurrentScreenRate0(long paramLong);
+  
+  private static native int getCurrentScreenRotation0(long paramLong);
+  
+  private static native boolean setCurrentScreenModeStart0(long paramLong1, int paramInt1, long paramLong2, int paramInt2, int paramInt3, int paramInt4);
+  
+  private static native boolean sendRRScreenChangeNotify0(long paramLong1, int paramInt1, long paramLong2, int paramInt2, int paramInt3, int paramInt4);
+}

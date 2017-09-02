@@ -1,0 +1,702 @@
+package com.jogamp.opengl.util.awt;
+
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.glu.gl2.GLUgl2;
+import com.jogamp.opengl.util.texture.Texture;
+import com.jogamp.opengl.util.texture.TextureCoords;
+import com.jogamp.opengl.util.texture.TextureIO;
+import com.jogamp.opengl.util.texture.awt.AWTTextureData;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.Rectangle;
+import java.awt.image.BufferedImage;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class TextureRenderer
+{
+  private final boolean alpha;
+  private final boolean intensity;
+  private boolean mipmap;
+  private boolean smoothing = true;
+  
+  private boolean smoothingChanged;
+  
+  private BufferedImage image;
+  
+  private Texture texture;
+  
+  private AWTTextureData textureData;
+  private boolean mustReallocateTexture;
+  private Rectangle dirtyRegion;
+  private final GLUgl2 glu = new GLUgl2();
+  
+
+  private float r = 1.0F;
+  private float g = 1.0F;
+  private float b = 1.0F;
+  private float a = 1.0F;
+  
+
+
+
+  private float[] compArray;
+  
+
+
+
+  public TextureRenderer(int paramInt1, int paramInt2, boolean paramBoolean)
+  {
+    this(paramInt1, paramInt2, paramBoolean, false);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public TextureRenderer(int paramInt1, int paramInt2, boolean paramBoolean1, boolean paramBoolean2)
+  {
+    this(paramInt1, paramInt2, paramBoolean1, false, paramBoolean2);
+  }
+  
+
+  private TextureRenderer(int paramInt1, int paramInt2, boolean paramBoolean1, boolean paramBoolean2, boolean paramBoolean3)
+  {
+    alpha = paramBoolean1;
+    intensity = paramBoolean2;
+    mipmap = paramBoolean3;
+    init(paramInt1, paramInt2);
+  }
+  
+
+
+
+  public static TextureRenderer createAlphaOnlyRenderer(int paramInt1, int paramInt2)
+  {
+    return createAlphaOnlyRenderer(paramInt1, paramInt2, false);
+  }
+  
+
+
+
+
+
+  public static TextureRenderer createAlphaOnlyRenderer(int paramInt1, int paramInt2, boolean paramBoolean)
+  {
+    return new TextureRenderer(paramInt1, paramInt2, false, true, paramBoolean);
+  }
+  
+
+
+
+  public int getWidth()
+  {
+    return image.getWidth();
+  }
+  
+
+
+
+  public int getHeight()
+  {
+    return image.getHeight();
+  }
+  
+
+
+
+
+  public Dimension getSize()
+  {
+    return getSize(null);
+  }
+  
+
+
+
+
+
+
+
+
+  public Dimension getSize(Dimension paramDimension)
+  {
+    if (paramDimension == null)
+      paramDimension = new Dimension();
+    paramDimension.setSize(image.getWidth(), image.getHeight());
+    return paramDimension;
+  }
+  
+
+
+
+
+
+
+
+
+  public void setSize(int paramInt1, int paramInt2)
+    throws GLException
+  {
+    init(paramInt1, paramInt2);
+  }
+  
+
+
+
+
+
+  public void setSize(Dimension paramDimension)
+    throws GLException
+  {
+    setSize(width, height);
+  }
+  
+
+
+
+
+
+
+
+  public void setSmoothing(boolean paramBoolean)
+  {
+    smoothing = paramBoolean;
+    smoothingChanged = true;
+  }
+  
+
+
+
+
+  public boolean getSmoothing()
+  {
+    return smoothing;
+  }
+  
+
+
+
+
+
+
+
+
+  public Graphics2D createGraphics()
+  {
+    return image.createGraphics();
+  }
+  
+
+  public Image getImage()
+  {
+    return image;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void markDirty(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    Rectangle localRectangle = new Rectangle(paramInt1, paramInt2, paramInt3, paramInt4);
+    if (dirtyRegion == null) {
+      dirtyRegion = localRectangle;
+    } else {
+      dirtyRegion.add(localRectangle);
+    }
+  }
+  
+
+
+
+
+  public Texture getTexture()
+    throws GLException
+  {
+    if (dirtyRegion != null) {
+      sync(dirtyRegion.x, dirtyRegion.y, dirtyRegion.width, dirtyRegion.height);
+      dirtyRegion = null;
+    }
+    
+    ensureTexture();
+    return texture;
+  }
+  
+
+
+
+  public void dispose()
+    throws GLException
+  {
+    if (texture != null) {
+      texture.destroy(GLContext.getCurrentGL());
+      texture = null;
+    }
+    if (image != null) {
+      image.flush();
+      image = null;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void beginOrthoRendering(int paramInt1, int paramInt2)
+    throws GLException
+  {
+    beginOrthoRendering(paramInt1, paramInt2, true);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void beginOrthoRendering(int paramInt1, int paramInt2, boolean paramBoolean)
+    throws GLException
+  {
+    beginRendering(true, paramInt1, paramInt2, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public void begin3DRendering()
+    throws GLException
+  {
+    beginRendering(false, 0, 0, false);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void setColor(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+    throws GLException
+  {
+    GL2 localGL2 = GLContext.getCurrentGL().getGL2();
+    r = (paramFloat1 * paramFloat4);
+    g = (paramFloat2 * paramFloat4);
+    b = (paramFloat3 * paramFloat4);
+    a = paramFloat4;
+    
+    localGL2.glColor4f(r, g, b, a);
+  }
+  
+
+
+
+
+
+
+
+  public void setColor(Color paramColor)
+    throws GLException
+  {
+    if (compArray == null) {
+      compArray = new float[4];
+    }
+    paramColor.getRGBComponents(compArray);
+    setColor(compArray[0], compArray[1], compArray[2], compArray[3]);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public void drawOrthoRect(int paramInt1, int paramInt2)
+    throws GLException
+  {
+    drawOrthoRect(paramInt1, paramInt2, 0, 0, getWidth(), getHeight());
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void drawOrthoRect(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6)
+    throws GLException
+  {
+    draw3DRect(paramInt1, paramInt2, 0.0F, paramInt3, paramInt4, paramInt5, paramInt6, 1.0F);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void draw3DRect(float paramFloat1, float paramFloat2, float paramFloat3, int paramInt1, int paramInt2, int paramInt3, int paramInt4, float paramFloat4)
+    throws GLException
+  {
+    GL2 localGL2 = GLContext.getCurrentGL().getGL2();
+    Texture localTexture = getTexture();
+    TextureCoords localTextureCoords = localTexture.getSubImageTexCoords(paramInt1, paramInt2, paramInt1 + paramInt3, paramInt2 + paramInt4);
+    
+
+    localGL2.glBegin(7);
+    localGL2.glTexCoord2f(localTextureCoords.left(), localTextureCoords.bottom());
+    localGL2.glVertex3f(paramFloat1, paramFloat2, paramFloat3);
+    localGL2.glTexCoord2f(localTextureCoords.right(), localTextureCoords.bottom());
+    localGL2.glVertex3f(paramFloat1 + paramInt3 * paramFloat4, paramFloat2, paramFloat3);
+    localGL2.glTexCoord2f(localTextureCoords.right(), localTextureCoords.top());
+    localGL2.glVertex3f(paramFloat1 + paramInt3 * paramFloat4, paramFloat2 + paramInt4 * paramFloat4, paramFloat3);
+    localGL2.glTexCoord2f(localTextureCoords.left(), localTextureCoords.top());
+    localGL2.glVertex3f(paramFloat1, paramFloat2 + paramInt4 * paramFloat4, paramFloat3);
+    localGL2.glEnd();
+  }
+  
+
+
+
+
+
+
+  public void endOrthoRendering()
+    throws GLException
+  {
+    endRendering(true);
+  }
+  
+
+
+
+
+
+  public void end3DRendering()
+    throws GLException
+  {
+    endRendering(false);
+  }
+  
+
+
+
+
+  public boolean isUsingAutoMipmapGeneration()
+  {
+    return mipmap;
+  }
+  
+
+
+
+  private void beginRendering(boolean paramBoolean1, int paramInt1, int paramInt2, boolean paramBoolean2)
+  {
+    GL2 localGL2 = GLContext.getCurrentGL().getGL2();
+    int i = 0x46000 | (paramBoolean1 ? 4352 : 0);
+    
+
+    localGL2.glPushAttrib(i);
+    localGL2.glDisable(2896);
+    if (paramBoolean1) {
+      if (paramBoolean2) {
+        localGL2.glDisable(2929);
+      }
+      localGL2.glDisable(2884);
+      localGL2.glMatrixMode(5889);
+      localGL2.glPushMatrix();
+      localGL2.glLoadIdentity();
+      glu.gluOrtho2D(0.0F, paramInt1, 0.0F, paramInt2);
+      localGL2.glMatrixMode(5888);
+      localGL2.glPushMatrix();
+      localGL2.glLoadIdentity();
+      localGL2.glMatrixMode(5890);
+      localGL2.glPushMatrix();
+      localGL2.glLoadIdentity();
+    }
+    localGL2.glEnable(3042);
+    localGL2.glBlendFunc(1, 771);
+    Texture localTexture = getTexture();
+    localTexture.enable(localGL2);
+    localTexture.bind(localGL2);
+    localGL2.glTexEnvi(8960, 8704, 8448);
+    
+    localGL2.glColor4f(r, g, b, a);
+    if (smoothingChanged) {
+      smoothingChanged = false;
+      if (smoothing) {
+        localTexture.setTexParameteri(localGL2, 10240, 9729);
+        if (mipmap) {
+          localTexture.setTexParameteri(localGL2, 10241, 9987);
+        } else {
+          localTexture.setTexParameteri(localGL2, 10241, 9729);
+        }
+      } else {
+        localTexture.setTexParameteri(localGL2, 10241, 9728);
+        localTexture.setTexParameteri(localGL2, 10240, 9728);
+      }
+    }
+  }
+  
+  private void endRendering(boolean paramBoolean) {
+    GL2 localGL2 = GLContext.getCurrentGL().getGL2();
+    Texture localTexture = getTexture();
+    localTexture.disable(localGL2);
+    if (paramBoolean) {
+      localGL2.glMatrixMode(5889);
+      localGL2.glPopMatrix();
+      localGL2.glMatrixMode(5888);
+      localGL2.glPopMatrix();
+      localGL2.glMatrixMode(5890);
+      localGL2.glPopMatrix();
+    }
+    localGL2.glPopAttrib();
+  }
+  
+  private void init(int paramInt1, int paramInt2) {
+    GL2 localGL2 = GLContext.getCurrentGL().getGL2();
+    
+    if (image != null) {
+      image.flush();
+      image = null;
+    }
+    
+
+    int i = intensity ? 32841 : 0;
+    int j = alpha ? 3 : intensity ? 10 : 1;
+    
+
+    image = new BufferedImage(paramInt1, paramInt2, j);
+    
+
+
+
+    textureData = new AWTTextureData(localGL2.getGLProfile(), i, 0, mipmap, image);
+    
+
+    mustReallocateTexture = true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private void sync(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+    throws GLException
+  {
+    boolean bool = ensureTexture();
+    
+    if (!bool)
+    {
+
+
+
+
+
+      texture.updateSubImage(GLContext.getCurrentGL(), textureData, 0, paramInt1, paramInt2, paramInt1, paramInt2, paramInt3, paramInt4);
+    }
+  }
+  
+  private boolean ensureTexture()
+  {
+    GL localGL = GLContext.getCurrentGL();
+    if (mustReallocateTexture) {
+      if (texture != null) {
+        texture.destroy(localGL);
+        texture = null;
+      }
+      mustReallocateTexture = false;
+    }
+    
+    if (texture == null) {
+      texture = TextureIO.newTexture(textureData);
+      if ((mipmap) && (!texture.isUsingAutoMipmapGeneration()))
+      {
+        texture.destroy(localGL);
+        mipmap = false;
+        textureData.setMipmap(false);
+        texture = TextureIO.newTexture(textureData);
+      }
+      
+      if (!smoothing)
+      {
+        texture.setTexParameteri(localGL, 10241, 9728);
+        texture.setTexParameteri(localGL, 10240, 9728);
+      }
+      return true;
+    }
+    
+    return false;
+  }
+}

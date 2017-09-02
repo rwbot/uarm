@@ -1,0 +1,161 @@
+package jogamp.newt.driver.macosx;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.util.IOUtil.ClassResources;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.macosx.MacOSXGraphicsDevice;
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.PixelFormat;
+import com.jogamp.newt.NewtFactory;
+import com.jogamp.opengl.util.PNGPixelRect;
+import java.io.PrintStream;
+import java.net.URLConnection;
+import java.nio.ByteBuffer;
+import jogamp.newt.DisplayImpl;
+import jogamp.newt.NEWTJNILibLoader;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class DisplayDriver
+  extends DisplayImpl
+{
+  private static final PNGPixelRect defaultIconData;
+  
+  static
+  {
+    NEWTJNILibLoader.loadNEWT();
+    
+    if (!initNSApplication0()) {
+      throw new NativeWindowException("Failed to initialize native Application hook");
+    }
+    if (!WindowDriver.initIDs0()) {
+      throw new NativeWindowException("Failed to initialize jmethodIDs");
+    }
+    
+    PNGPixelRect localPNGPixelRect = null;
+    if (DisplayImpl.isPNGUtilAvailable()) {
+      try
+      {
+        IOUtil.ClassResources localClassResources = NewtFactory.getWindowIcons();
+        URLConnection localURLConnection = localClassResources.resolve(localClassResources.resourceCount() - 1);
+        if (null != localURLConnection) {
+          localPNGPixelRect = PNGPixelRect.read(localURLConnection.getInputStream(), PixelFormat.RGBA8888, true, 0, false);
+        }
+      } catch (Exception localException) {
+        localException.printStackTrace();
+      }
+    }
+    defaultIconData = localPNGPixelRect;
+    if (null != defaultIconData) {
+      ByteBuffer localByteBuffer = defaultIconData.getPixels();
+      setAppIcon0(localByteBuffer, 
+        Buffers.getDirectBufferByteOffset(localByteBuffer), true, defaultIconData
+        .getSize().getWidth(), defaultIconData.getSize().getHeight());
+    }
+    
+
+    if (DEBUG) {
+      System.err.println("MacDisplay.init App and IDs OK " + Thread.currentThread().getName());
+    }
+  }
+  
+
+
+
+
+
+
+  public PixelFormat getNativePointerIconPixelFormat()
+  {
+    return PixelFormat.RGBA8888;
+  }
+  
+
+
+
+
+  protected void createNativeImpl()
+  {
+    aDevice = new MacOSXGraphicsDevice(0);
+  }
+  
+  protected void closeNativeImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    paramAbstractGraphicsDevice.close();
+  }
+  
+
+
+
+
+
+  public final boolean getNativePointerIconForceDirectNIO()
+  {
+    return true;
+  }
+  
+  protected final long createPointerIconImpl(PixelFormat paramPixelFormat, int paramInt1, int paramInt2, ByteBuffer paramByteBuffer, int paramInt3, int paramInt4) {
+    return createPointerIcon0(paramByteBuffer, 
+      Buffers.getDirectBufferByteOffset(paramByteBuffer), true, paramInt1, paramInt2, paramInt3, paramInt4);
+  }
+  
+
+  protected final void destroyPointerIconImpl(long paramLong1, long paramLong2)
+  {
+    destroyPointerIcon0(paramLong2);
+  }
+  
+  public static void initSingleton() {}
+  
+  public DisplayDriver() {}
+  
+  protected void dispatchMessagesNative() {}
+  
+  public static void runNSApplication() {}
+  
+  public static void stopNSApplication() {}
+  
+  private static native boolean initNSApplication0();
+  
+  private static native void runNSApplication0();
+  
+  private static native void stopNSApplication0();
+  
+  static native void setAppIcon0(Object paramObject, int paramInt1, boolean paramBoolean, int paramInt2, int paramInt3);
+  
+  private static native long createPointerIcon0(Object paramObject, int paramInt1, boolean paramBoolean, int paramInt2, int paramInt3, int paramInt4, int paramInt5);
+  
+  private static native long destroyPointerIcon0(long paramLong);
+}

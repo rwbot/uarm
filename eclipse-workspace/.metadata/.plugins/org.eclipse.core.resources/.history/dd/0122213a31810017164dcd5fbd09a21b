@@ -1,0 +1,130 @@
+package jogamp.opengl;
+
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.common.util.VersionNumberString;
+import java.io.PrintStream;
+import java.util.regex.Pattern;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLVersionNumber
+  extends VersionNumberString
+{
+  private final boolean valid;
+  
+  private GLVersionNumber(int[] paramArrayOfInt, int paramInt, short paramShort, String paramString, boolean paramBoolean)
+  {
+    super(paramArrayOfInt[0], paramArrayOfInt[1], paramArrayOfInt[2], paramInt, paramShort, paramString);
+    valid = paramBoolean;
+  }
+  
+  private static Pattern getUnderscorePattern() {
+    if (null == _Pattern) {
+      synchronized (VersionNumber.class) {
+        if (null == _Pattern) {
+          _Pattern = getVersionNumberPattern("_");
+        }
+      }
+    }
+    return _Pattern; }
+  
+  private static volatile Pattern _Pattern = null;
+  
+  public static final GLVersionNumber create(String paramString) {
+    int[] arrayOfInt = { 0, 0, 0 };
+    int i = 0;
+    short s = 0;
+    boolean bool = false;
+    if ((paramString != null) && (paramString.length() > 0)) {
+      try {
+        Pattern localPattern;
+        if (paramString.startsWith("GL_VERSION_")) {
+          localPattern = getUnderscorePattern();
+        } else {
+          localPattern = VersionNumber.getDefaultVersionNumberPattern();
+        }
+        VersionNumberString localVersionNumberString = new VersionNumberString(paramString, localPattern);
+        i = localVersionNumberString.endOfStringMatch();
+        arrayOfInt[0] = localVersionNumberString.getMajor();
+        arrayOfInt[1] = localVersionNumberString.getMinor();
+        
+        s = (short)((localVersionNumberString.hasMajor() ? 1 : 0) | (localVersionNumberString.hasMinor() ? 2 : 0));
+        bool = (localVersionNumberString.hasMajor()) && (localVersionNumberString.hasMinor());
+      } catch (Exception localException) {
+        localException.printStackTrace();
+        System.err.println("Info: ExtensionAvailabilityCache: FunctionAvailabilityCache.Version.<init>: " + localException);
+        arrayOfInt[0] = 1;
+        arrayOfInt[1] = 0;
+      }
+    }
+    return new GLVersionNumber(arrayOfInt, i, s, paramString, bool);
+  }
+  
+  public final boolean isValid() {
+    return valid;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static final VersionNumberString createVendorVersion(String paramString)
+  {
+    if ((paramString == null) || (paramString.length() <= 0)) {
+      return null;
+    }
+    
+
+
+
+    Object localObject = create(paramString);
+    String str = paramString.substring(((GLVersionNumber)localObject).endOfStringMatch()).trim();
+    
+
+    while (str.length() > 0) {
+      localObject = new VersionNumberString(str, getDefaultVersionNumberPattern());
+      int i = ((VersionNumberString)localObject).endOfStringMatch();
+      if (0 >= i) break;
+      if ((((VersionNumberString)localObject).hasMajor()) && (((VersionNumberString)localObject).hasMinor())) {
+        return localObject;
+      }
+      str = str.substring(i).trim();
+    }
+    
+
+
+    return VersionNumberString.zeroVersion;
+  }
+}

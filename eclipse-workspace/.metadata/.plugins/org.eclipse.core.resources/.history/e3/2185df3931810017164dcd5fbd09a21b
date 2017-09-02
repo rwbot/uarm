@@ -1,0 +1,356 @@
+package com.jogamp.graph.curve.opengl;
+
+import com.jogamp.graph.curve.OutlineShape;
+import com.jogamp.graph.curve.Region;
+import com.jogamp.graph.font.Font;
+import com.jogamp.graph.font.Font.Glyph;
+import com.jogamp.graph.font.Font.Metrics;
+import com.jogamp.graph.geom.Vertex;
+import com.jogamp.graph.geom.Vertex.Factory;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.GLException;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import jogamp.graph.geom.plane.AffineTransform;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class TextRegionUtil
+{
+  public final int renderModes;
+  public static final int DEFAULT_CACHE_LIMIT = 256;
+  
+  public TextRegionUtil(int paramInt)
+  {
+    renderModes = paramInt;
+  }
+  
+
+
+
+
+
+
+
+
+  public static int getCharCount(String paramString, char paramChar)
+  {
+    int i = paramString.length();
+    int j = 0;
+    for (int k = 0; k < i; k++) {
+      if (paramString.charAt(k) == paramChar) {
+        j++;
+      }
+    }
+    return j;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static void processString(ShapeVisitor paramShapeVisitor, AffineTransform paramAffineTransform1, Font paramFont, float paramFloat, CharSequence paramCharSequence, AffineTransform paramAffineTransform2, AffineTransform paramAffineTransform3)
+  {
+    int i = paramCharSequence.length();
+    
+
+    Font.Metrics localMetrics = paramFont.getMetrics();
+    float f1 = paramFont.getLineHeight(paramFloat);
+    
+    float f2 = localMetrics.getScale(paramFloat);
+    
+    float f3 = 0.0F;
+    float f4 = 0.0F;
+    
+    for (int j = 0; j < i; j++) {
+      char c = paramCharSequence.charAt(j);
+      if ('\n' == c) {
+        f3 -= f1;
+        f4 = 0.0F;
+      } else if (c == ' ') {
+        f4 += paramFont.getAdvanceWidth(3, paramFloat);
+      } else {
+        if (Region.DEBUG_INSTANCE) {
+          System.err.println("XXXXXXXXXXXXXXx char: " + c + ", scale: " + f2 + "; translate: " + f4 + ", " + f3);
+        }
+        
+        if (null != paramAffineTransform1) {
+          paramAffineTransform2.setTransform(paramAffineTransform1);
+        } else {
+          paramAffineTransform2.setToIdentity();
+        }
+        paramAffineTransform2.translate(f4, f3, paramAffineTransform3);
+        paramAffineTransform2.scale(f2, f2, paramAffineTransform3);
+        
+        Font.Glyph localGlyph = paramFont.getGlyph(c);
+        OutlineShape localOutlineShape = localGlyph.getShape();
+        if (null != localOutlineShape)
+        {
+
+          paramShapeVisitor.visit(localOutlineShape, paramAffineTransform2);
+          
+          f4 += localGlyph.getAdvance(paramFloat, true);
+        }
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static void addStringToRegion(GLRegion paramGLRegion, Vertex.Factory<? extends Vertex> paramFactory, Font paramFont, float paramFloat, CharSequence paramCharSequence, final float[] paramArrayOfFloat, AffineTransform paramAffineTransform1, AffineTransform paramAffineTransform2)
+  {
+    ShapeVisitor local1 = new ShapeVisitor()
+    {
+      public final void visit(OutlineShape paramAnonymousOutlineShape, AffineTransform paramAnonymousAffineTransform) { val$region.addOutlineShape(paramAnonymousOutlineShape, paramAnonymousAffineTransform, val$region.hasColorChannel() ? paramArrayOfFloat : null); }
+    };
+    processString(local1, null, paramFont, paramFloat, paramCharSequence, paramAffineTransform1, paramAffineTransform2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void drawString3D(GL2ES2 paramGL2ES2, RegionRenderer paramRegionRenderer, Font paramFont, float paramFloat, CharSequence paramCharSequence, float[] paramArrayOfFloat, int[] paramArrayOfInt)
+  {
+    if (!paramRegionRenderer.isInitialized()) {
+      throw new GLException("TextRendererImpl01: not initialized!");
+    }
+    
+    GLRegion localGLRegion = getCachedRegion(paramFont, paramCharSequence, paramFloat, 0);
+    if (null == localGLRegion) {
+      localGLRegion = GLRegion.create(renderModes, null);
+      addStringToRegion(localGLRegion, paramRegionRenderer.getRenderState().getVertexFactory(), paramFont, paramFloat, paramCharSequence, paramArrayOfFloat, tempT1, tempT2);
+      addCachedRegion(paramGL2ES2, paramFont, paramCharSequence, paramFloat, 0, localGLRegion);
+    }
+    localGLRegion.draw(paramGL2ES2, paramRegionRenderer, paramArrayOfInt);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static void drawString3D(GL2ES2 paramGL2ES2, int paramInt, RegionRenderer paramRegionRenderer, Font paramFont, float paramFloat, CharSequence paramCharSequence, float[] paramArrayOfFloat, int[] paramArrayOfInt, AffineTransform paramAffineTransform1, AffineTransform paramAffineTransform2)
+  {
+    if (!paramRegionRenderer.isInitialized()) {
+      throw new GLException("TextRendererImpl01: not initialized!");
+    }
+    GLRegion localGLRegion = GLRegion.create(paramInt, null);
+    addStringToRegion(localGLRegion, paramRegionRenderer.getRenderState().getVertexFactory(), paramFont, paramFloat, paramCharSequence, paramArrayOfFloat, paramAffineTransform1, paramAffineTransform2);
+    localGLRegion.draw(paramGL2ES2, paramRegionRenderer, paramArrayOfInt);
+    localGLRegion.destroy(paramGL2ES2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static void drawString3D(GL2ES2 paramGL2ES2, GLRegion paramGLRegion, RegionRenderer paramRegionRenderer, Font paramFont, float paramFloat, CharSequence paramCharSequence, float[] paramArrayOfFloat, int[] paramArrayOfInt, AffineTransform paramAffineTransform1, AffineTransform paramAffineTransform2)
+  {
+    if (!paramRegionRenderer.isInitialized()) {
+      throw new GLException("TextRendererImpl01: not initialized!");
+    }
+    paramGLRegion.clear(paramGL2ES2);
+    addStringToRegion(paramGLRegion, paramRegionRenderer.getRenderState().getVertexFactory(), paramFont, paramFloat, paramCharSequence, paramArrayOfFloat, paramAffineTransform1, paramAffineTransform2);
+    paramGLRegion.draw(paramGL2ES2, paramRegionRenderer, paramArrayOfInt);
+  }
+  
+
+
+
+  public void clear(GL2ES2 paramGL2ES2)
+  {
+    Iterator localIterator = stringCacheMap.values().iterator();
+    while (localIterator.hasNext()) {
+      GLRegion localGLRegion = (GLRegion)localIterator.next();
+      localGLRegion.destroy(paramGL2ES2);
+    }
+    stringCacheMap.clear();
+    stringCacheArray.clear();
+  }
+  
+
+
+
+
+
+
+
+
+  public final void setCacheLimit(int paramInt)
+  {
+    stringCacheLimit = paramInt;
+  }
+  
+
+
+
+
+
+  public final void setCacheLimit(GL2ES2 paramGL2ES2, int paramInt)
+  {
+    stringCacheLimit = paramInt;validateCache(paramGL2ES2, 0);
+  }
+  
+  public final int getCacheLimit()
+  {
+    return stringCacheLimit;
+  }
+  
+
+
+  public final int getCacheSize() { return stringCacheArray.size(); }
+  
+  protected final void validateCache(GL2ES2 paramGL2ES2, int paramInt) {
+    if (getCacheLimit() > 0) {
+      while (getCacheSize() + paramInt > getCacheLimit()) {
+        removeCachedRegion(paramGL2ES2, 0);
+      }
+    }
+  }
+  
+  protected final GLRegion getCachedRegion(Font paramFont, CharSequence paramCharSequence, float paramFloat, int paramInt) {
+    return (GLRegion)stringCacheMap.get(getKey(paramFont, paramCharSequence, paramFloat, paramInt));
+  }
+  
+  protected final void addCachedRegion(GL2ES2 paramGL2ES2, Font paramFont, CharSequence paramCharSequence, float paramFloat, int paramInt, GLRegion paramGLRegion) {
+    if (0 != getCacheLimit()) {
+      String str = getKey(paramFont, paramCharSequence, paramFloat, paramInt);
+      GLRegion localGLRegion = (GLRegion)stringCacheMap.put(str, paramGLRegion);
+      if (null == localGLRegion)
+      {
+        validateCache(paramGL2ES2, 1);
+        stringCacheArray.add(stringCacheArray.size(), str);
+      }
+    }
+  }
+  
+  protected final void removeCachedRegion(GL2ES2 paramGL2ES2, Font paramFont, CharSequence paramCharSequence, int paramInt1, int paramInt2) {
+    String str = getKey(paramFont, paramCharSequence, paramInt1, paramInt2);
+    GLRegion localGLRegion = (GLRegion)stringCacheMap.remove(str);
+    if (null != localGLRegion) {
+      localGLRegion.destroy(paramGL2ES2);
+    }
+    stringCacheArray.remove(str);
+  }
+  
+  protected final void removeCachedRegion(GL2ES2 paramGL2ES2, int paramInt) {
+    String str = (String)stringCacheArray.remove(paramInt);
+    if (null != str) {
+      GLRegion localGLRegion = (GLRegion)stringCacheMap.remove(str);
+      if (null != localGLRegion) {
+        localGLRegion.destroy(paramGL2ES2);
+      }
+    }
+  }
+  
+  protected final String getKey(Font paramFont, CharSequence paramCharSequence, float paramFloat, int paramInt) {
+    StringBuilder localStringBuilder = new StringBuilder();
+    
+    return "." + paramCharSequence.hashCode() + "." + Float.floatToIntBits(paramFloat) + paramInt;
+  }
+  
+
+
+
+  public final AffineTransform tempT1 = new AffineTransform();
+  public final AffineTransform tempT2 = new AffineTransform();
+  private final HashMap<String, GLRegion> stringCacheMap = new HashMap(256);
+  private final ArrayList<String> stringCacheArray = new ArrayList(256);
+  private int stringCacheLimit = 256;
+  
+  public static abstract interface ShapeVisitor
+  {
+    public abstract void visit(OutlineShape paramOutlineShape, AffineTransform paramAffineTransform);
+  }
+}

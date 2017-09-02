@@ -1,0 +1,85 @@
+package jogamp.nativewindow;
+
+import com.jogamp.common.util.locks.LockFactory;
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.nativewindow.ToolkitLock;
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ResourceToolkitLock
+  implements ToolkitLock
+{
+  private final RecursiveLock lock;
+  
+  public static final ResourceToolkitLock create()
+  {
+    return new ResourceToolkitLock();
+  }
+  
+
+  private ResourceToolkitLock()
+  {
+    lock = LockFactory.createRecursiveLock();
+  }
+  
+  public final void lock()
+  {
+    lock.lock();
+    if (TRACE_LOCK) {
+      System.err.println(Thread.currentThread() + " ResourceToolkitLock: lock() " + toStringImpl());
+    }
+  }
+  
+
+  public final void unlock()
+  {
+    if (TRACE_LOCK) System.err.println(Thread.currentThread() + " ResourceToolkitLock: unlock() " + toStringImpl());
+    lock.unlock();
+  }
+  
+  public final void validateLocked() throws RuntimeException
+  {
+    lock.validateLocked();
+  }
+  
+
+
+  public final void dispose() {}
+  
+
+  public String toString()
+  {
+    return "ResourceToolkitLock[" + toStringImpl() + "]";
+  }
+  
+  private String toStringImpl() { return "obj 0x" + Integer.toHexString(hashCode()) + ", isOwner " + lock.isOwner(Thread.currentThread()) + ", " + lock.toString(); }
+}

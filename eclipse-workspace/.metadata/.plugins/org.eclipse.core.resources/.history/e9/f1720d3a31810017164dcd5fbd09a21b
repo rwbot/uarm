@@ -1,0 +1,99 @@
+package jogamp.nativewindow.windows;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.StructAccessor;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import java.nio.ByteBuffer;
+import jogamp.common.os.MachineDataInfoRuntime;
+
+
+
+
+
+
+
+
+
+
+public class RGBQUAD
+{
+  StructAccessor accessor;
+  private static final int mdIdx = MachineDataInfoRuntime.getStatic().ordinal();
+  
+  private final MachineDataInfo md;
+  private static final int[] RGBQUAD_size = { 4, 4, 4, 4, 4, 4, 4, 4 };
+  private static final int[] rgbBlue_offset = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  
+  private static final int[] rgbGreen_offset = { 1, 1, 1, 1, 1, 1, 1, 1 };
+  
+  private static final int[] rgbRed_offset = { 2, 2, 2, 2, 2, 2, 2, 2 };
+  
+  private static final int[] rgbReserved_offset = { 3, 3, 3, 3, 3, 3, 3, 3 };
+  
+  public static int size()
+  {
+    return RGBQUAD_size[mdIdx];
+  }
+  
+  public static RGBQUAD create() {
+    return create(Buffers.newDirectByteBuffer(size()));
+  }
+  
+  public static RGBQUAD create(ByteBuffer paramByteBuffer) {
+    return new RGBQUAD(paramByteBuffer);
+  }
+  
+  RGBQUAD(ByteBuffer paramByteBuffer) {
+    md = valuesmdIdxmd;
+    accessor = new StructAccessor(paramByteBuffer);
+  }
+  
+  public ByteBuffer getBuffer() {
+    return accessor.getBuffer();
+  }
+  
+  public RGBQUAD setRgbBlue(byte paramByte)
+  {
+    accessor.setByteAt(rgbBlue_offset[mdIdx], paramByte);
+    return this;
+  }
+  
+  public byte getRgbBlue()
+  {
+    return accessor.getByteAt(rgbBlue_offset[mdIdx]);
+  }
+  
+  public RGBQUAD setRgbGreen(byte paramByte)
+  {
+    accessor.setByteAt(rgbGreen_offset[mdIdx], paramByte);
+    return this;
+  }
+  
+  public byte getRgbGreen()
+  {
+    return accessor.getByteAt(rgbGreen_offset[mdIdx]);
+  }
+  
+  public RGBQUAD setRgbRed(byte paramByte)
+  {
+    accessor.setByteAt(rgbRed_offset[mdIdx], paramByte);
+    return this;
+  }
+  
+  public byte getRgbRed()
+  {
+    return accessor.getByteAt(rgbRed_offset[mdIdx]);
+  }
+  
+  public RGBQUAD setRgbReserved(byte paramByte)
+  {
+    accessor.setByteAt(rgbReserved_offset[mdIdx], paramByte);
+    return this;
+  }
+  
+  public byte getRgbReserved()
+  {
+    return accessor.getByteAt(rgbReserved_offset[mdIdx]);
+  }
+}

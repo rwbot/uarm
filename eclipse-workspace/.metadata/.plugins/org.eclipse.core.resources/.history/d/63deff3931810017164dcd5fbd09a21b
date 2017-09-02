@@ -1,0 +1,115 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class VmtxTable
+  implements Table
+{
+  private final DirectoryEntry _de;
+  private int[] _vMetrics = null;
+  private short[] _topSideBearing = null;
+  
+
+
+  protected VmtxTable(DirectoryEntry paramDirectoryEntry, DataInput paramDataInput, VheaTable paramVheaTable, MaxpTable paramMaxpTable)
+    throws IOException
+  {
+    _de = ((DirectoryEntry)paramDirectoryEntry.clone());
+    _vMetrics = new int[paramVheaTable.getNumberOfLongVerMetrics()];
+    for (int i = 0; i < paramVheaTable.getNumberOfLongVerMetrics(); i++)
+    {
+
+
+
+      _vMetrics[i] = (paramDataInput.readUnsignedByte() << 24 | paramDataInput.readUnsignedByte() << 16 | paramDataInput.readUnsignedByte() << 8 | paramDataInput.readUnsignedByte());
+    }
+    i = paramMaxpTable.getNumGlyphs() - paramVheaTable.getNumberOfLongVerMetrics();
+    _topSideBearing = new short[i];
+    for (int j = 0; j < i; j++) {
+      _topSideBearing[j] = paramDataInput.readShort();
+    }
+  }
+  
+  public int getAdvanceHeight(int paramInt) {
+    if (_vMetrics == null) {
+      return 0;
+    }
+    if (paramInt < _vMetrics.length) {
+      return _vMetrics[paramInt] >> 16;
+    }
+    return _vMetrics[(_vMetrics.length - 1)] >> 16;
+  }
+  
+  public short getTopSideBearing(int paramInt)
+  {
+    if (_vMetrics == null) {
+      return 0;
+    }
+    if (paramInt < _vMetrics.length) {
+      return (short)(_vMetrics[paramInt] & 0xFFFF);
+    }
+    return _topSideBearing[(paramInt - _vMetrics.length)];
+  }
+  
+
+  public int getType()
+  {
+    return 1986884728;
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("'vmtx' Table - Vertical Metrics\n-------------------------------\n");
+    localStringBuilder.append("Size = ").append(_de.getLength()).append(" bytes, ")
+      .append(_vMetrics.length).append(" entries\n");
+    for (int i = 0; i < _vMetrics.length; i++)
+    {
+
+
+      localStringBuilder.append("        ").append(i).append(". advHeight: ").append(getAdvanceHeight(i)).append(", TSdBear: ").append(getTopSideBearing(i)).append("\n");
+    }
+    for (i = 0; i < _topSideBearing.length; i++)
+    {
+
+      localStringBuilder.append("        TSdBear ").append(i + _vMetrics.length).append(": ").append(_topSideBearing[i]).append("\n");
+    }
+    return localStringBuilder.toString();
+  }
+  
+
+
+
+
+
+
+  public DirectoryEntry getDirectoryEntry()
+  {
+    return _de;
+  }
+}

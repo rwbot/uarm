@@ -1,0 +1,3444 @@
+package processing.core;
+
+import java.util.HashMap;
+import java.util.Map;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class PShape
+  implements PConstants
+{
+  protected String name;
+  protected Map<String, PShape> nameTable;
+  public static final int PRIMITIVE = 101;
+  public static final int PATH = 102;
+  public static final int GEOMETRY = 103;
+  protected int family;
+  protected int kind;
+  protected PMatrix matrix;
+  protected int textureMode;
+  protected PImage image;
+  public static final String OUTSIDE_BEGIN_END_ERROR = "%1$s can only be called between beginShape() and endShape()";
+  public static final String INSIDE_BEGIN_END_ERROR = "%1$s can only be called outside beginShape() and endShape()";
+  public static final String NO_SUCH_VERTEX_ERROR = "%1$s vertex index does not exist";
+  public static final String NO_VERTICES_ERROR = "getVertexCount() only works with PATH or GEOMETRY shapes";
+  public static final String NOT_A_SIMPLE_VERTEX = "%1$s can not be called on quadratic or bezier vertices";
+  public static final String PER_VERTEX_UNSUPPORTED = "This renderer does not support %1$s for individual vertices";
+  public float width;
+  public float height;
+  public float depth;
+  PGraphics g;
+  protected boolean visible = true;
+  
+
+  protected boolean openShape = false;
+  
+  protected boolean openContour = false;
+  
+  protected boolean stroke;
+  
+  protected int strokeColor;
+  
+  protected float strokeWeight;
+  
+  protected int strokeCap;
+  
+  protected int strokeJoin;
+  
+  protected boolean fill;
+  protected int fillColor;
+  protected boolean tint;
+  protected int tintColor;
+  protected int ambientColor;
+  protected boolean setAmbient;
+  protected int specularColor;
+  protected int emissiveColor;
+  protected float shininess;
+  protected int sphereDetailU;
+  protected int sphereDetailV;
+  protected int rectMode;
+  protected int ellipseMode;
+  protected boolean style = true;
+  
+  protected float[] params;
+  
+  protected int vertexCount;
+  
+  protected float[][] vertices;
+  
+  protected PShape parent;
+  
+  protected int childCount;
+  
+  protected PShape[] children;
+  
+  protected int vertexCodeCount;
+  
+  protected int[] vertexCodes;
+  
+  protected boolean close;
+  
+  protected float calcR;
+  
+  protected float calcG;
+  
+  protected float calcB;
+  
+  protected float calcA;
+  
+  protected int calcRi;
+  
+  protected int calcGi;
+  
+  protected int calcBi;
+  
+  protected int calcAi;
+  
+  protected int calcColor;
+  
+  protected boolean calcAlpha;
+  
+  public int colorMode;
+  
+  public float colorModeX;
+  
+  public float colorModeY;
+  
+  public float colorModeZ;
+  
+  public float colorModeA;
+  
+  boolean colorModeScale;
+  
+  boolean colorModeDefault;
+  
+  protected boolean is3D = false;
+  
+  protected boolean perVertexStyles = false;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public PShape()
+  {
+    family = 0;
+  }
+  
+
+
+
+  public PShape(int family)
+  {
+    this.family = family;
+  }
+  
+
+
+
+  public PShape(PGraphics g, int family)
+  {
+    this.g = g;
+    this.family = family;
+    
+
+    textureMode = textureMode;
+    
+    colorMode(colorMode, 
+      colorModeX, colorModeY, colorModeZ, colorModeA);
+    
+
+
+
+
+
+    fill = fill;
+    fillColor = fillColor;
+    
+    stroke = stroke;
+    strokeColor = strokeColor;
+    strokeWeight = strokeWeight;
+    strokeCap = strokeCap;
+    strokeJoin = strokeJoin;
+    
+    tint = tint;
+    tintColor = tintColor;
+    
+    setAmbient = setAmbient;
+    ambientColor = ambientColor;
+    specularColor = specularColor;
+    emissiveColor = emissiveColor;
+    shininess = shininess;
+    
+    sphereDetailU = sphereDetailU;
+    sphereDetailV = sphereDetailV;
+    
+
+
+
+
+    rectMode = rectMode;
+    ellipseMode = ellipseMode;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public PShape(PGraphics g, int kind, float... params)
+  {
+    this(g, 101);
+    setKind(kind);
+    setParams(params);
+  }
+  
+  public void setFamily(int family)
+  {
+    this.family = family;
+  }
+  
+  public void setKind(int kind)
+  {
+    this.kind = kind;
+  }
+  
+  public void setName(String name)
+  {
+    this.name = name;
+  }
+  
+  public String getName()
+  {
+    return name;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean isVisible()
+  {
+    return visible;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void setVisible(boolean visible)
+  {
+    this.visible = visible;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void disableStyle()
+  {
+    style = false;
+    
+    for (int i = 0; i < childCount; i++) {
+      children[i].disableStyle();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void enableStyle()
+  {
+    style = true;
+    
+    for (int i = 0; i < childCount; i++) {
+      children[i].enableStyle();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public float getWidth()
+  {
+    return width;
+  }
+  
+
+
+
+
+  public float getHeight()
+  {
+    return height;
+  }
+  
+
+
+
+
+
+  public float getDepth()
+  {
+    return depth;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean is2D()
+  {
+    return !is3D;
+  }
+  
+
+
+
+  public boolean is3D()
+  {
+    return is3D;
+  }
+  
+  public void set3D(boolean val)
+  {
+    is3D = val;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void textureMode(int mode)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "textureMode()" });
+      return;
+    }
+    
+    textureMode = mode;
+  }
+  
+  public void texture(PImage tex) {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "texture()" });
+      return;
+    }
+    
+    image = tex;
+  }
+  
+  public void noTexture() {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "noTexture()" });
+      return;
+    }
+    
+    image = null;
+  }
+  
+
+
+
+
+  protected void solid(boolean solid) {}
+  
+
+
+
+
+  public void beginContour()
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "beginContour()" });
+      return;
+    }
+    
+    if (family == 0) {
+      PGraphics.showWarning("Cannot begin contour in GROUP shapes");
+      return;
+    }
+    
+    if (openContour) {
+      PGraphics.showWarning("Already called beginContour().");
+      return;
+    }
+    openContour = true;
+    beginContourImpl();
+  }
+  
+  protected void beginContourImpl()
+  {
+    if (vertexCodes == null) {
+      vertexCodes = new int[10];
+    } else if (vertexCodes.length == vertexCodeCount) {
+      vertexCodes = PApplet.expand(vertexCodes);
+    }
+    vertexCodes[(vertexCodeCount++)] = 4;
+  }
+  
+
+
+
+
+
+  public void endContour()
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "endContour()" });
+      return;
+    }
+    
+    if (family == 0) {
+      PGraphics.showWarning("Cannot end contour in GROUP shapes");
+      return;
+    }
+    
+    if (!openContour) {
+      PGraphics.showWarning("Need to call beginContour() first.");
+      return;
+    }
+    endContourImpl();
+    openContour = false;
+  }
+  
+
+  protected void endContourImpl() {}
+  
+
+  public void vertex(float x, float y)
+  {
+    if (vertices == null) {
+      vertices = new float[10][2];
+    } else if (vertices.length == vertexCount) {
+      vertices = ((float[][])PApplet.expand(vertices));
+    }
+    vertices[(vertexCount++)] = { x, y };
+    
+    if (vertexCodes == null) {
+      vertexCodes = new int[10];
+    } else if (vertexCodes.length == vertexCodeCount) {
+      vertexCodes = PApplet.expand(vertexCodes);
+    }
+    vertexCodes[(vertexCodeCount++)] = 0;
+    
+    if (x > width) {
+      width = x;
+    }
+    if (y > height) {
+      height = y;
+    }
+  }
+  
+
+  public void vertex(float x, float y, float u, float v) {}
+  
+
+  public void vertex(float x, float y, float z)
+  {
+    vertex(x, y);
+  }
+  
+
+
+
+  public void vertex(float x, float y, float z, float u, float v) {}
+  
+
+
+
+  public void normal(float nx, float ny, float nz) {}
+  
+
+
+  public void attribPosition(String name, float x, float y, float z) {}
+  
+
+
+  public void attribNormal(String name, float nx, float ny, float nz) {}
+  
+
+
+  public void attribColor(String name, int color) {}
+  
+
+
+  public void attrib(String name, float... values) {}
+  
+
+
+  public void attrib(String name, int... values) {}
+  
+
+
+  public void attrib(String name, boolean... values) {}
+  
+
+
+  public void beginShape()
+  {
+    beginShape(20);
+  }
+  
+  public void beginShape(int kind)
+  {
+    this.kind = kind;
+    openShape = true;
+  }
+  
+
+
+
+
+  public void endShape()
+  {
+    endShape(1);
+  }
+  
+  public void endShape(int mode)
+  {
+    if (family == 0) {
+      PGraphics.showWarning("Cannot end GROUP shape");
+      return;
+    }
+    
+    if (!openShape) {
+      PGraphics.showWarning("Need to call beginShape() first");
+      return;
+    }
+    
+    close = (mode == 2);
+    
+
+    openShape = false;
+  }
+  
+
+
+
+
+
+  public void strokeWeight(float weight)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "strokeWeight()" });
+      return;
+    }
+    
+    strokeWeight = weight;
+  }
+  
+  public void strokeJoin(int join) {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "strokeJoin()" });
+      return;
+    }
+    
+    strokeJoin = join;
+  }
+  
+  public void strokeCap(int cap) {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "strokeCap()" });
+      return;
+    }
+    
+    strokeCap = cap;
+  }
+  
+
+
+
+
+
+  public void noFill()
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "noFill()" });
+      return;
+    }
+    
+    fill = false;
+    fillColor = 0;
+    
+    if (!setAmbient) {
+      ambientColor = fillColor;
+    }
+  }
+  
+  public void fill(int rgb)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "fill()" });
+      return;
+    }
+    
+    fill = true;
+    colorCalc(rgb);
+    fillColor = calcColor;
+    
+    if (!setAmbient) {
+      ambientColor = fillColor;
+    }
+  }
+  
+  public void fill(int rgb, float alpha)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "fill()" });
+      return;
+    }
+    
+    fill = true;
+    colorCalc(rgb, alpha);
+    fillColor = calcColor;
+    
+    if (!setAmbient) {
+      ambientColor = fillColor;
+    }
+  }
+  
+  public void fill(float gray)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "fill()" });
+      return;
+    }
+    
+    fill = true;
+    colorCalc(gray);
+    fillColor = calcColor;
+    
+    if (!setAmbient) {
+      ambientColor = fillColor;
+    }
+  }
+  
+  public void fill(float gray, float alpha)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "fill()" });
+      return;
+    }
+    
+    fill = true;
+    colorCalc(gray, alpha);
+    fillColor = calcColor;
+    
+    if (!setAmbient) {
+      ambient(fillColor);
+      setAmbient = false;
+    }
+    
+    if (!setAmbient) {
+      ambientColor = fillColor;
+    }
+  }
+  
+  public void fill(float x, float y, float z)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "fill()" });
+      return;
+    }
+    
+    fill = true;
+    colorCalc(x, y, z);
+    fillColor = calcColor;
+    
+    if (!setAmbient) {
+      ambientColor = fillColor;
+    }
+  }
+  
+  public void fill(float x, float y, float z, float a)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "fill()" });
+      return;
+    }
+    
+    fill = true;
+    colorCalc(x, y, z, a);
+    fillColor = calcColor;
+    
+    if (!setAmbient) {
+      ambientColor = fillColor;
+    }
+  }
+  
+
+
+
+
+
+  public void noStroke()
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "noStroke()" });
+      return;
+    }
+    
+    stroke = false;
+  }
+  
+  public void stroke(int rgb)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "stroke()" });
+      return;
+    }
+    
+    stroke = true;
+    colorCalc(rgb);
+    strokeColor = calcColor;
+  }
+  
+  public void stroke(int rgb, float alpha)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "stroke()" });
+      return;
+    }
+    
+    stroke = true;
+    colorCalc(rgb, alpha);
+    strokeColor = calcColor;
+  }
+  
+  public void stroke(float gray)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "stroke()" });
+      return;
+    }
+    
+    stroke = true;
+    colorCalc(gray);
+    strokeColor = calcColor;
+  }
+  
+  public void stroke(float gray, float alpha)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "stroke()" });
+      return;
+    }
+    
+    stroke = true;
+    colorCalc(gray, alpha);
+    strokeColor = calcColor;
+  }
+  
+  public void stroke(float x, float y, float z)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "stroke()" });
+      return;
+    }
+    
+    stroke = true;
+    colorCalc(x, y, z);
+    strokeColor = calcColor;
+  }
+  
+  public void stroke(float x, float y, float z, float alpha)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "stroke()" });
+      return;
+    }
+    
+    stroke = true;
+    colorCalc(x, y, z, alpha);
+    strokeColor = calcColor;
+  }
+  
+
+
+
+
+
+  public void noTint()
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "noTint()" });
+      return;
+    }
+    
+    tint = false;
+  }
+  
+  public void tint(int rgb)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "tint()" });
+      return;
+    }
+    
+    tint = true;
+    colorCalc(rgb);
+    tintColor = calcColor;
+  }
+  
+  public void tint(int rgb, float alpha)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "tint()" });
+      return;
+    }
+    
+    tint = true;
+    colorCalc(rgb, alpha);
+    tintColor = calcColor;
+  }
+  
+  public void tint(float gray)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "tint()" });
+      return;
+    }
+    
+    tint = true;
+    colorCalc(gray);
+    tintColor = calcColor;
+  }
+  
+  public void tint(float gray, float alpha)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "tint()" });
+      return;
+    }
+    
+    tint = true;
+    colorCalc(gray, alpha);
+    tintColor = calcColor;
+  }
+  
+  public void tint(float x, float y, float z)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "tint()" });
+      return;
+    }
+    
+    tint = true;
+    colorCalc(x, y, z);
+    tintColor = calcColor;
+  }
+  
+  public void tint(float x, float y, float z, float alpha)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "tint()" });
+      return;
+    }
+    
+    tint = true;
+    colorCalc(x, y, z, alpha);
+    tintColor = calcColor;
+  }
+  
+
+
+
+
+  public void ambient(int rgb)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "ambient()" });
+      return;
+    }
+    
+    setAmbient = true;
+    colorCalc(rgb);
+    ambientColor = calcColor;
+  }
+  
+  public void ambient(float gray)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "ambient()" });
+      return;
+    }
+    
+    setAmbient = true;
+    colorCalc(gray);
+    ambientColor = calcColor;
+  }
+  
+  public void ambient(float x, float y, float z)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "ambient()" });
+      return;
+    }
+    
+    setAmbient = true;
+    colorCalc(x, y, z);
+    ambientColor = calcColor;
+  }
+  
+
+
+
+
+  public void specular(int rgb)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "specular()" });
+      return;
+    }
+    
+    colorCalc(rgb);
+    specularColor = calcColor;
+  }
+  
+  public void specular(float gray)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "specular()" });
+      return;
+    }
+    
+    colorCalc(gray);
+    specularColor = calcColor;
+  }
+  
+  public void specular(float x, float y, float z)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "specular()" });
+      return;
+    }
+    
+    colorCalc(x, y, z);
+    specularColor = calcColor;
+  }
+  
+
+
+
+
+  public void emissive(int rgb)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "emissive()" });
+      return;
+    }
+    
+    colorCalc(rgb);
+    emissiveColor = calcColor;
+  }
+  
+  public void emissive(float gray)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "emissive()" });
+      return;
+    }
+    
+    colorCalc(gray);
+    emissiveColor = calcColor;
+  }
+  
+  public void emissive(float x, float y, float z)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "emissive()" });
+      return;
+    }
+    
+    colorCalc(x, y, z);
+    emissiveColor = calcColor;
+  }
+  
+
+
+
+
+  public void shininess(float shine)
+  {
+    if (!openShape) {
+      PGraphics.showWarning("%1$s can only be called between beginShape() and endShape()", new Object[] { "shininess()" });
+      return;
+    }
+    
+    shininess = shine;
+  }
+  
+
+
+
+
+
+  public void bezierDetail(int detail) {}
+  
+
+
+
+
+
+  public void bezierVertex(float x2, float y2, float x3, float y3, float x4, float y4)
+  {
+    if (vertices == null) {
+      vertices = new float[10][];
+    } else if (vertexCount + 2 >= vertices.length) {
+      vertices = ((float[][])PApplet.expand(vertices));
+    }
+    vertices[(vertexCount++)] = { x2, y2 };
+    vertices[(vertexCount++)] = { x3, y3 };
+    vertices[(vertexCount++)] = { x4, y4 };
+    
+
+    if (vertexCodes.length == vertexCodeCount) {
+      vertexCodes = PApplet.expand(vertexCodes);
+    }
+    vertexCodes[(vertexCodeCount++)] = 1;
+    
+    if (x4 > width) {
+      width = x4;
+    }
+    if (y4 > height) {
+      height = y4;
+    }
+  }
+  
+
+
+
+  public void bezierVertex(float x2, float y2, float z2, float x3, float y3, float z3, float x4, float y4, float z4) {}
+  
+
+
+  public void quadraticVertex(float cx, float cy, float x3, float y3)
+  {
+    if (vertices == null) {
+      vertices = new float[10][];
+    } else if (vertexCount + 1 >= vertices.length) {
+      vertices = ((float[][])PApplet.expand(vertices));
+    }
+    vertices[(vertexCount++)] = { cx, cy };
+    vertices[(vertexCount++)] = { x3, y3 };
+    
+
+    if (vertexCodes.length == vertexCodeCount) {
+      vertexCodes = PApplet.expand(vertexCodes);
+    }
+    vertexCodes[(vertexCodeCount++)] = 2;
+    
+    if (x3 > width) {
+      width = x3;
+    }
+    if (y3 > height) {
+      height = y3;
+    }
+  }
+  
+
+
+
+
+
+
+  public void quadraticVertex(float cx, float cy, float cz, float x3, float y3, float z3) {}
+  
+
+
+
+
+
+
+  public void curveDetail(int detail) {}
+  
+
+
+
+
+
+
+  public void curveTightness(float tightness) {}
+  
+
+
+
+
+
+
+  public void curveVertex(float x, float y) {}
+  
+
+
+
+
+
+  public void curveVertex(float x, float y, float z) {}
+  
+
+
+
+
+
+  protected void pre(PGraphics g)
+  {
+    if (matrix != null) {
+      g.pushMatrix();
+      g.applyMatrix(matrix);
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    if (style) {
+      g.pushStyle();
+      styles(g);
+    }
+  }
+  
+
+
+
+  protected void styles(PGraphics g)
+  {
+    if (stroke) {
+      g.stroke(strokeColor);
+      g.strokeWeight(strokeWeight);
+      g.strokeCap(strokeCap);
+      g.strokeJoin(strokeJoin);
+    } else {
+      g.noStroke();
+    }
+    
+    if (fill)
+    {
+      g.fill(fillColor);
+    } else {
+      g.noFill();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected void post(PGraphics g)
+  {
+    if (matrix != null) {
+      g.popMatrix();
+    }
+    
+    if (style) {
+      g.popStyle();
+    }
+  }
+  
+
+
+
+
+
+
+  protected static PShape createShape(PApplet parent, PShape src)
+  {
+    PShape dest = null;
+    if (family == 0) {
+      dest = parent.createShape(0);
+      copyGroup(parent, src, dest);
+    } else if (family == 101) {
+      dest = parent.createShape(kind, params);
+      copyPrimitive(src, dest);
+    } else if (family == 103) {
+      dest = parent.createShape(kind);
+      copyGeometry(src, dest);
+    } else if (family == 102) {
+      dest = parent.createShape(102);
+      copyPath(src, dest);
+    }
+    dest.setName(name);
+    return dest;
+  }
+  
+
+  protected static void copyGroup(PApplet parent, PShape src, PShape dest)
+  {
+    copyMatrix(src, dest);
+    copyStyles(src, dest);
+    copyImage(src, dest);
+    for (int i = 0; i < childCount; i++) {
+      PShape c = createShape(parent, children[i]);
+      dest.addChild(c);
+    }
+  }
+  
+
+  protected static void copyPrimitive(PShape src, PShape dest)
+  {
+    copyMatrix(src, dest);
+    copyStyles(src, dest);
+    copyImage(src, dest);
+  }
+  
+
+  protected static void copyGeometry(PShape src, PShape dest)
+  {
+    dest.beginShape(src.getKind());
+    
+    copyMatrix(src, dest);
+    copyStyles(src, dest);
+    copyImage(src, dest);
+    
+    if (style) {
+      for (int i = 0; i < vertexCount; i++) {
+        float[] vert = vertices[i];
+        
+        dest.fill((int)(vert[6] * 255.0F) << 24 | 
+          (int)(vert[3] * 255.0F) << 16 | 
+          (int)(vert[4] * 255.0F) << 8 | 
+          (int)(vert[5] * 255.0F));
+        
+
+
+
+
+
+
+        if (0.0F < PApplet.dist(vert[9], 
+          vert[10], 
+          vert[11], 0.0F, 0.0F, 0.0F)) {
+          dest.normal(vert[9], 
+            vert[10], 
+            vert[11]);
+        }
+        dest.vertex(vert[0], vert[1], vert[2], 
+          vert[7], 
+          vert[8]);
+      }
+    } else {
+      for (int i = 0; i < vertexCount; i++) {
+        float[] vert = vertices[i];
+        if (vert[2] == 0.0F) {
+          dest.vertex(vert[0], vert[1]);
+        } else {
+          dest.vertex(vert[0], vert[1], vert[2]);
+        }
+      }
+    }
+    
+    dest.endShape();
+  }
+  
+
+  protected static void copyPath(PShape src, PShape dest)
+  {
+    copyMatrix(src, dest);
+    copyStyles(src, dest);
+    copyImage(src, dest);
+    close = close;
+    dest.setPath(vertexCount, vertices, vertexCodeCount, vertexCodes);
+  }
+  
+
+  protected static void copyMatrix(PShape src, PShape dest)
+  {
+    if (matrix != null) {
+      dest.applyMatrix(matrix);
+    }
+  }
+  
+
+  protected static void copyStyles(PShape src, PShape dest)
+  {
+    ellipseMode = ellipseMode;
+    rectMode = rectMode;
+    
+    if (stroke) {
+      stroke = true;
+      strokeColor = strokeColor;
+      strokeWeight = strokeWeight;
+      strokeCap = strokeCap;
+      strokeJoin = strokeJoin;
+    } else {
+      stroke = false;
+    }
+    
+    if (fill) {
+      fill = true;
+      fillColor = fillColor;
+    } else {
+      fill = false;
+    }
+  }
+  
+
+  protected static void copyImage(PShape src, PShape dest)
+  {
+    if (image != null) {
+      dest.texture(image);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+  public void draw(PGraphics g)
+  {
+    if (visible) {
+      pre(g);
+      drawImpl(g);
+      post(g);
+    }
+  }
+  
+
+
+
+  protected void drawImpl(PGraphics g)
+  {
+    if (family == 0) {
+      drawGroup(g);
+    } else if (family == 101) {
+      drawPrimitive(g);
+    } else if (family == 103)
+    {
+      drawPath(g);
+    }
+    else if (family == 102) {
+      drawPath(g);
+    }
+  }
+  
+  protected void drawGroup(PGraphics g)
+  {
+    for (int i = 0; i < childCount; i++) {
+      children[i].draw(g);
+    }
+  }
+  
+  protected void drawPrimitive(PGraphics g)
+  {
+    if (kind == 2) {
+      g.point(params[0], params[1]);
+    }
+    else if (kind == 4) {
+      if (params.length == 4) {
+        g.line(params[0], params[1], 
+          params[2], params[3]);
+      } else {
+        g.line(params[0], params[1], params[2], 
+          params[3], params[4], params[5]);
+      }
+    }
+    else if (kind == 8) {
+      g.triangle(params[0], params[1], 
+        params[2], params[3], 
+        params[4], params[5]);
+    }
+    else if (kind == 16) {
+      g.quad(params[0], params[1], 
+        params[2], params[3], 
+        params[4], params[5], 
+        params[6], params[7]);
+    }
+    else if (kind == 30) {
+      if (image != null) {
+        int oldMode = imageMode;
+        g.imageMode(0);
+        g.image(image, params[0], params[1], params[2], params[3]);
+        g.imageMode(oldMode);
+      } else {
+        int oldMode = rectMode;
+        g.rectMode(rectMode);
+        if (params.length == 4) {
+          g.rect(params[0], params[1], 
+            params[2], params[3]);
+        } else if (params.length == 5) {
+          g.rect(params[0], params[1], 
+            params[2], params[3], 
+            params[4]);
+        } else if (params.length == 8) {
+          g.rect(params[0], params[1], 
+            params[2], params[3], 
+            params[4], params[5], 
+            params[6], params[7]);
+        }
+        g.rectMode(oldMode);
+      }
+    } else if (kind == 31) {
+      int oldMode = ellipseMode;
+      g.ellipseMode(ellipseMode);
+      g.ellipse(params[0], params[1], 
+        params[2], params[3]);
+      g.ellipseMode(oldMode);
+    }
+    else if (kind == 32) {
+      int oldMode = ellipseMode;
+      g.ellipseMode(ellipseMode);
+      if (params.length == 6) {
+        g.arc(params[0], params[1], 
+          params[2], params[3], 
+          params[4], params[5]);
+      } else if (params.length == 7) {
+        g.arc(params[0], params[1], 
+          params[2], params[3], 
+          params[4], params[5], 
+          (int)params[6]);
+      }
+      g.ellipseMode(oldMode);
+    }
+    else if (kind == 41) {
+      if (params.length == 1) {
+        g.box(params[0]);
+      } else {
+        g.box(params[0], params[1], params[2]);
+      }
+    }
+    else if (kind == 40) {
+      g.sphere(params[0]);
+    }
+  }
+  
+
+  protected void drawGeometry(PGraphics g)
+  {
+    g.beginShape(kind);
+    if (style) {
+      for (int i = 0; i < vertexCount; i++) {
+        g.vertex(vertices[i]);
+      }
+    } else {
+      for (int i = 0; i < vertexCount; i++) {
+        float[] vert = vertices[i];
+        if (vert[2] == 0.0F) {
+          g.vertex(vert[0], vert[1]);
+        } else {
+          g.vertex(vert[0], vert[1], vert[2]);
+        }
+      }
+    }
+    g.endShape(close ? 2 : 1);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected void drawPath(PGraphics g)
+  {
+    if (vertices == null) { return;
+    }
+    boolean insideContour = false;
+    g.beginShape();
+    
+    if (vertexCodeCount == 0) {
+      if (vertices[0].length == 2) {
+        for (int i = 0; i < vertexCount; i++) {
+          g.vertex(vertices[i][0], vertices[i][1]);
+        }
+      } else {
+        for (int i = 0; i < vertexCount; i++) {
+          g.vertex(vertices[i][0], vertices[i][1], vertices[i][2]);
+        }
+      }
+    }
+    else {
+      int index = 0;
+      
+      if (vertices[0].length == 2) {
+        for (int j = 0; j < vertexCodeCount; j++) {
+          switch (vertexCodes[j])
+          {
+          case 0: 
+            g.vertex(vertices[index][0], vertices[index][1]);
+            index++;
+            break;
+          
+          case 2: 
+            g.quadraticVertex(vertices[(index + 0)][0], vertices[(index + 0)][1], 
+              vertices[(index + 1)][0], vertices[(index + 1)][1]);
+            index += 2;
+            break;
+          
+          case 1: 
+            g.bezierVertex(vertices[(index + 0)][0], vertices[(index + 0)][1], 
+              vertices[(index + 1)][0], vertices[(index + 1)][1], 
+              vertices[(index + 2)][0], vertices[(index + 2)][1]);
+            index += 3;
+            break;
+          
+          case 3: 
+            g.curveVertex(vertices[index][0], vertices[index][1]);
+            index++;
+            break;
+          
+          case 4: 
+            if (insideContour) {
+              g.endContour();
+            }
+            g.beginContour();
+            insideContour = true;
+          }
+        }
+      } else {
+        for (int j = 0; j < vertexCodeCount; j++) {
+          switch (vertexCodes[j])
+          {
+          case 0: 
+            g.vertex(vertices[index][0], vertices[index][1], vertices[index][2]);
+            index++;
+            break;
+          
+          case 2: 
+            g.quadraticVertex(vertices[(index + 0)][0], vertices[(index + 0)][1], vertices[(index + 0)][2], 
+              vertices[(index + 1)][0], vertices[(index + 1)][1], vertices[(index + 0)][2]);
+            index += 2;
+            break;
+          
+
+          case 1: 
+            g.bezierVertex(vertices[(index + 0)][0], vertices[(index + 0)][1], vertices[(index + 0)][2], 
+              vertices[(index + 1)][0], vertices[(index + 1)][1], vertices[(index + 1)][2], 
+              vertices[(index + 2)][0], vertices[(index + 2)][1], vertices[(index + 2)][2]);
+            index += 3;
+            break;
+          
+          case 3: 
+            g.curveVertex(vertices[index][0], vertices[index][1], vertices[index][2]);
+            index++;
+            break;
+          
+          case 4: 
+            if (insideContour) {
+              g.endContour();
+            }
+            g.beginContour();
+            insideContour = true;
+          }
+        }
+      }
+    }
+    if (insideContour) {
+      g.endContour();
+    }
+    g.endShape(close ? 2 : 1);
+  }
+  
+
+
+
+  public PShape getParent()
+  {
+    return parent;
+  }
+  
+
+
+
+  public int getChildCount()
+  {
+    return childCount;
+  }
+  
+
+
+  protected void crop()
+  {
+    if (children.length != childCount) {
+      children = ((PShape[])PApplet.subset(children, 0, childCount));
+    }
+  }
+  
+  public PShape[] getChildren()
+  {
+    crop();
+    return children;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public PShape getChild(int index)
+  {
+    crop();
+    return children[index];
+  }
+  
+
+
+  public PShape getChild(String target)
+  {
+    if ((name != null) && (name.equals(target))) {
+      return this;
+    }
+    if (nameTable != null) {
+      PShape found = (PShape)nameTable.get(target);
+      if (found != null) return found;
+    }
+    for (int i = 0; i < childCount; i++) {
+      PShape found = children[i].getChild(target);
+      if (found != null) return found;
+    }
+    return null;
+  }
+  
+
+
+
+
+  public PShape findChild(String target)
+  {
+    if (parent == null) {
+      return getChild(target);
+    }
+    
+    return parent.findChild(target);
+  }
+  
+
+
+
+
+
+
+
+
+  public void addChild(PShape who)
+  {
+    if (children == null) {
+      children = new PShape[1];
+    }
+    if (childCount == children.length) {
+      children = ((PShape[])PApplet.expand(children));
+    }
+    children[(childCount++)] = who;
+    parent = this;
+    
+    if (who.getName() != null) {
+      addName(who.getName(), who);
+    }
+  }
+  
+
+
+
+
+  public void addChild(PShape who, int idx)
+  {
+    if (idx < childCount) {
+      if (childCount == children.length) {
+        children = ((PShape[])PApplet.expand(children));
+      }
+      
+
+      for (int i = childCount - 1; i >= idx; i--) {
+        children[(i + 1)] = children[i];
+      }
+      childCount += 1;
+      
+      children[idx] = who;
+      
+      parent = this;
+      
+      if (who.getName() != null) {
+        addName(who.getName(), who);
+      }
+    }
+  }
+  
+
+
+
+  public void removeChild(int idx)
+  {
+    if (idx < childCount) {
+      PShape child = children[idx];
+      
+
+      for (int i = idx; i < childCount - 1; i++) {
+        children[i] = children[(i + 1)];
+      }
+      childCount -= 1;
+      
+      if ((child.getName() != null) && (nameTable != null)) {
+        nameTable.remove(child.getName());
+      }
+    }
+  }
+  
+
+
+
+  public void addName(String nom, PShape shape)
+  {
+    if (parent != null) {
+      parent.addName(nom, shape);
+    } else {
+      if (nameTable == null) {
+        nameTable = new HashMap();
+      }
+      nameTable.put(nom, shape);
+    }
+  }
+  
+
+
+
+  public int getChildIndex(PShape who)
+  {
+    for (int i = 0; i < childCount; i++) {
+      if (children[i] == who) {
+        return i;
+      }
+    }
+    return -1;
+  }
+  
+  public PShape getTessellation()
+  {
+    return null;
+  }
+  
+
+
+
+
+  public int getFamily()
+  {
+    return family;
+  }
+  
+  public int getKind()
+  {
+    return kind;
+  }
+  
+  public float[] getParams()
+  {
+    return getParams(null);
+  }
+  
+  public float[] getParams(float[] target)
+  {
+    if ((target == null) || (target.length != params.length)) {
+      target = new float[params.length];
+    }
+    PApplet.arrayCopy(params, target);
+    return target;
+  }
+  
+  public float getParam(int index)
+  {
+    return params[index];
+  }
+  
+  protected void setParams(float[] source)
+  {
+    if (params == null) {
+      params = new float[source.length];
+    }
+    if (source.length != params.length) {
+      PGraphics.showWarning("Wrong number of parameters");
+      return;
+    }
+    PApplet.arrayCopy(source, params);
+  }
+  
+  public void setPath(int vcount, float[][] verts)
+  {
+    setPath(vcount, verts, 0, null);
+  }
+  
+  protected void setPath(int vcount, float[][] verts, int ccount, int[] codes)
+  {
+    if ((verts == null) || (verts.length < vcount)) return;
+    if ((ccount > 0) && ((codes == null) || (codes.length < ccount))) { return;
+    }
+    int ndim = verts[0].length;
+    vertexCount = vcount;
+    vertices = new float[vertexCount][ndim];
+    for (int i = 0; i < vertexCount; i++) {
+      PApplet.arrayCopy(verts[i], vertices[i]);
+    }
+    
+    vertexCodeCount = ccount;
+    if (vertexCodeCount > 0) {
+      vertexCodes = new int[vertexCodeCount];
+      PApplet.arrayCopy(codes, vertexCodes, vertexCodeCount);
+    }
+  }
+  
+
+
+
+
+
+  public int getVertexCount()
+  {
+    if ((family == 0) || (family == 101)) {
+      PGraphics.showWarning("getVertexCount() only works with PATH or GEOMETRY shapes");
+    }
+    return vertexCount;
+  }
+  
+
+
+
+
+
+
+
+  public PVector getVertex(int index)
+  {
+    return getVertex(index, null);
+  }
+  
+
+
+
+  public PVector getVertex(int index, PVector vec)
+  {
+    if (vec == null) {
+      vec = new PVector();
+    }
+    float[] vert = vertices[index];
+    x = vert[0];
+    y = vert[1];
+    if (vert.length > 2) {
+      z = vert[2];
+    } else {
+      z = 0.0F;
+    }
+    return vec;
+  }
+  
+  public float getVertexX(int index)
+  {
+    return vertices[index][0];
+  }
+  
+  public float getVertexY(int index)
+  {
+    return vertices[index][1];
+  }
+  
+  public float getVertexZ(int index)
+  {
+    return vertices[index][2];
+  }
+  
+
+
+
+
+
+
+
+
+
+  public void setVertex(int index, float x, float y)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setVertex()" });
+      return;
+    }
+    
+    vertices[index][0] = x;
+    vertices[index][1] = y;
+  }
+  
+
+
+
+  public void setVertex(int index, float x, float y, float z)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setVertex()" });
+      return;
+    }
+    
+    vertices[index][0] = x;
+    vertices[index][1] = y;
+    vertices[index][2] = z;
+  }
+  
+
+
+
+  public void setVertex(int index, PVector vec)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setVertex()" });
+      return;
+    }
+    
+    vertices[index][0] = x;
+    vertices[index][1] = y;
+    
+    if (vertices[index].length > 2) {
+      vertices[index][2] = z;
+    } else if ((z != 0.0F) && (z == z)) {
+      throw new IllegalArgumentException("Cannot set a z-coordinate on a 2D shape");
+    }
+  }
+  
+  public PVector getNormal(int index)
+  {
+    return getNormal(index, null);
+  }
+  
+  public PVector getNormal(int index, PVector vec)
+  {
+    if (vec == null) {
+      vec = new PVector();
+    }
+    x = vertices[index][9];
+    y = vertices[index][10];
+    z = vertices[index][11];
+    return vec;
+  }
+  
+  public float getNormalX(int index)
+  {
+    return vertices[index][9];
+  }
+  
+  public float getNormalY(int index)
+  {
+    return vertices[index][10];
+  }
+  
+  public float getNormalZ(int index)
+  {
+    return vertices[index][11];
+  }
+  
+  public void setNormal(int index, float nx, float ny, float nz)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setNormal()" });
+      return;
+    }
+    
+    vertices[index][9] = nx;
+    vertices[index][10] = ny;
+    vertices[index][11] = nz;
+  }
+  
+
+
+  public void setAttrib(String name, int index, float... values) {}
+  
+
+
+  public void setAttrib(String name, int index, int... values) {}
+  
+
+
+  public void setAttrib(String name, int index, boolean... values) {}
+  
+
+  public float getTextureU(int index)
+  {
+    return vertices[index][7];
+  }
+  
+  public float getTextureV(int index)
+  {
+    return vertices[index][8];
+  }
+  
+  public void setTextureUV(int index, float u, float v)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setTextureUV()" });
+      return;
+    }
+    
+
+    if ((vertices == null) || 
+      (index >= vertices.length)) {
+      PGraphics.showWarning("%1$s vertex index does not exist (" + index + ")", new Object[] { "setTextureUV()" });
+      return;
+    }
+    
+
+    vertices[index][7] = u;
+    vertices[index][8] = v;
+  }
+  
+  public void setTextureMode(int mode)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setTextureMode()" });
+      return;
+    }
+    
+    textureMode = mode;
+  }
+  
+  public void setTexture(PImage tex)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setTexture()" });
+      return;
+    }
+    
+    image = tex;
+  }
+  
+
+  public int getFill(int index)
+  {
+    if ((vertices == null) || 
+      (index >= vertices.length)) {
+      PGraphics.showWarning("%1$s vertex index does not exist (" + index + ")", new Object[] { "getFill()" });
+      return fillColor;
+    }
+    
+    if (image == null) {
+      int a = (int)(vertices[index][6] * 255.0F);
+      int r = (int)(vertices[index][3] * 255.0F);
+      int g = (int)(vertices[index][4] * 255.0F);
+      int b = (int)(vertices[index][5] * 255.0F);
+      return a << 24 | r << 16 | g << 8 | b;
+    }
+    return 0;
+  }
+  
+
+
+
+  public void setFill(boolean fill)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setFill()" });
+      return;
+    }
+    
+    this.fill = fill;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void setFill(int fill)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setFill()" });
+      return;
+    }
+    
+    fillColor = fill;
+    
+    if ((vertices != null) && (perVertexStyles)) {
+      for (int i = 0; i < vertexCount; i++) {
+        setFill(i, fill);
+      }
+    }
+  }
+  
+
+
+  public void setFill(int index, int fill)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setFill()" });
+      return;
+    }
+    
+    if (!perVertexStyles) {
+      PGraphics.showWarning("This renderer does not support %1$s for individual vertices", new Object[] { "setFill()" });
+      return;
+    }
+    
+
+    if ((vertices == null) || (index >= vertices.length)) {
+      PGraphics.showWarning("%1$s vertex index does not exist (" + index + ")", new Object[] { "getFill()" });
+      return;
+    }
+    
+    if (image == null) {
+      vertices[index][6] = ((fill >> 24 & 0xFF) / 255.0F);
+      vertices[index][3] = ((fill >> 16 & 0xFF) / 255.0F);
+      vertices[index][4] = ((fill >> 8 & 0xFF) / 255.0F);
+      vertices[index][5] = ((fill >> 0 & 0xFF) / 255.0F);
+    }
+  }
+  
+
+  public int getTint(int index)
+  {
+    if ((vertices == null) || (index >= vertices.length)) {
+      PGraphics.showWarning("%1$s vertex index does not exist (" + index + ")", new Object[] { "getTint()" });
+      return tintColor;
+    }
+    
+    if (image != null) {
+      int a = (int)(vertices[index][6] * 255.0F);
+      int r = (int)(vertices[index][3] * 255.0F);
+      int g = (int)(vertices[index][4] * 255.0F);
+      int b = (int)(vertices[index][5] * 255.0F);
+      return a << 24 | r << 16 | g << 8 | b;
+    }
+    return 0;
+  }
+  
+
+  public void setTint(boolean tint)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setTint()" });
+      return;
+    }
+    
+    this.tint = tint;
+  }
+  
+  public void setTint(int fill)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setTint()" });
+      return;
+    }
+    
+    tintColor = fill;
+    
+    if (vertices != null) {
+      for (int i = 0; i < vertices.length; i++) {
+        setFill(i, fill);
+      }
+    }
+  }
+  
+  public void setTint(int index, int tint)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setTint()" });
+      return;
+    }
+    
+
+    if ((vertices == null) || 
+      (index >= vertices.length)) {
+      PGraphics.showWarning("%1$s vertex index does not exist (" + index + ")", new Object[] { "setTint()" });
+      return;
+    }
+    
+    if (image != null) {
+      vertices[index][6] = ((tint >> 24 & 0xFF) / 255.0F);
+      vertices[index][3] = ((tint >> 16 & 0xFF) / 255.0F);
+      vertices[index][4] = ((tint >> 8 & 0xFF) / 255.0F);
+      vertices[index][5] = ((tint >> 0 & 0xFF) / 255.0F);
+    }
+  }
+  
+
+  public int getStroke(int index)
+  {
+    if ((vertices == null) || 
+      (index >= vertices.length)) {
+      PGraphics.showWarning("%1$s vertex index does not exist (" + index + ")", new Object[] { "getStroke()" });
+      return strokeColor;
+    }
+    
+    int a = (int)(vertices[index][16] * 255.0F);
+    int r = (int)(vertices[index][13] * 255.0F);
+    int g = (int)(vertices[index][14] * 255.0F);
+    int b = (int)(vertices[index][15] * 255.0F);
+    return a << 24 | r << 16 | g << 8 | b;
+  }
+  
+
+
+  public void setStroke(boolean stroke)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setStroke()" });
+      return;
+    }
+    
+    this.stroke = stroke;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void setStroke(int stroke)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setStroke()" });
+      return;
+    }
+    
+    strokeColor = stroke;
+    
+    if ((vertices != null) && (perVertexStyles)) {
+      for (int i = 0; i < vertices.length; i++) {
+        setStroke(i, stroke);
+      }
+    }
+  }
+  
+
+
+  public void setStroke(int index, int stroke)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setStroke()" });
+      return;
+    }
+    
+    if (!perVertexStyles) {
+      PGraphics.showWarning("This renderer does not support %1$s for individual vertices", new Object[] { "setStroke()" });
+      return;
+    }
+    
+
+    if ((vertices == null) || (index >= vertices.length)) {
+      PGraphics.showWarning("%1$s vertex index does not exist (" + index + ")", new Object[] { "setStroke()" });
+      return;
+    }
+    
+    vertices[index][16] = ((stroke >> 24 & 0xFF) / 255.0F);
+    vertices[index][13] = ((stroke >> 16 & 0xFF) / 255.0F);
+    vertices[index][14] = ((stroke >> 8 & 0xFF) / 255.0F);
+    vertices[index][15] = ((stroke >> 0 & 0xFF) / 255.0F);
+  }
+  
+
+  public float getStrokeWeight(int index)
+  {
+    if ((vertices == null) || (index >= vertices.length)) {
+      PGraphics.showWarning("%1$s vertex index does not exist (" + index + ")", new Object[] { "getStrokeWeight()" });
+      return strokeWeight;
+    }
+    
+    return vertices[index][17];
+  }
+  
+  public void setStrokeWeight(float weight)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setStrokeWeight()" });
+      return;
+    }
+    
+    strokeWeight = weight;
+    
+    if ((vertices != null) && (perVertexStyles)) {
+      for (int i = 0; i < vertexCount; i++) {
+        setStrokeWeight(i, weight);
+      }
+    }
+  }
+  
+  public void setStrokeWeight(int index, float weight)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setStrokeWeight()" });
+      return;
+    }
+    
+    if (!perVertexStyles) {
+      PGraphics.showWarning("This renderer does not support %1$s for individual vertices", new Object[] { "setStrokeWeight()" });
+      return;
+    }
+    
+
+    if ((vertices == null) || (index >= vertices.length)) {
+      PGraphics.showWarning("%1$s vertex index does not exist (" + index + ")", new Object[] { "setStrokeWeight()" });
+      return;
+    }
+    
+    vertices[index][17] = weight;
+  }
+  
+  public void setStrokeJoin(int join)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setStrokeJoin()" });
+      return;
+    }
+    
+    strokeJoin = join;
+  }
+  
+  public void setStrokeCap(int cap)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setStrokeCap()" });
+      return;
+    }
+    
+    strokeCap = cap;
+  }
+  
+
+  public int getAmbient(int index)
+  {
+    if ((vertices == null) || (index >= vertices.length)) {
+      PGraphics.showWarning("%1$s vertex index does not exist (" + index + ")", new Object[] { "getAmbient()" });
+      return ambientColor;
+    }
+    
+    int r = (int)(vertices[index][25] * 255.0F);
+    int g = (int)(vertices[index][26] * 255.0F);
+    int b = (int)(vertices[index][27] * 255.0F);
+    return 0xFF000000 | r << 16 | g << 8 | b;
+  }
+  
+  public void setAmbient(int ambient)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setAmbient()" });
+      return;
+    }
+    
+    ambientColor = ambient;
+    
+    if (vertices != null) {
+      for (int i = 0; i < vertices.length; i++) {
+        setAmbient(i, ambient);
+      }
+    }
+  }
+  
+  public void setAmbient(int index, int ambient)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setAmbient()" });
+      return;
+    }
+    
+
+    if ((vertices == null) || (index >= vertices.length)) {
+      PGraphics.showWarning("%1$s vertex index does not exist (" + index + ")", new Object[] { "setAmbient()" });
+      return;
+    }
+    
+    vertices[index][25] = ((ambient >> 16 & 0xFF) / 255.0F);
+    vertices[index][26] = ((ambient >> 8 & 0xFF) / 255.0F);
+    vertices[index][27] = ((ambient >> 0 & 0xFF) / 255.0F);
+  }
+  
+
+  public int getSpecular(int index)
+  {
+    if ((vertices == null) || (index >= vertices.length)) {
+      PGraphics.showWarning("%1$s vertex index does not exist (" + index + ")", new Object[] { "getSpecular()" });
+      return specularColor;
+    }
+    
+    int r = (int)(vertices[index][28] * 255.0F);
+    int g = (int)(vertices[index][29] * 255.0F);
+    int b = (int)(vertices[index][30] * 255.0F);
+    return 0xFF000000 | r << 16 | g << 8 | b;
+  }
+  
+  public void setSpecular(int specular)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setSpecular()" });
+      return;
+    }
+    
+    specularColor = specular;
+    
+    if (vertices != null) {
+      for (int i = 0; i < vertices.length; i++) {
+        setSpecular(i, specular);
+      }
+    }
+  }
+  
+  public void setSpecular(int index, int specular)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setSpecular()" });
+      return;
+    }
+    
+
+    if ((vertices == null) || (index >= vertices.length)) {
+      PGraphics.showWarning("%1$s vertex index does not exist (" + index + ")", new Object[] { "setSpecular()" });
+      return;
+    }
+    
+    vertices[index][28] = ((specular >> 16 & 0xFF) / 255.0F);
+    vertices[index][29] = ((specular >> 8 & 0xFF) / 255.0F);
+    vertices[index][30] = ((specular >> 0 & 0xFF) / 255.0F);
+  }
+  
+
+  public int getEmissive(int index)
+  {
+    if ((vertices == null) || (index >= vertices.length)) {
+      PGraphics.showWarning("%1$s vertex index does not exist (" + index + ")", new Object[] { "getEmissive()" });
+      return emissiveColor;
+    }
+    
+    int r = (int)(vertices[index][32] * 255.0F);
+    int g = (int)(vertices[index][33] * 255.0F);
+    int b = (int)(vertices[index][34] * 255.0F);
+    return 0xFF000000 | r << 16 | g << 8 | b;
+  }
+  
+  public void setEmissive(int emissive)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setEmissive()" });
+      return;
+    }
+    
+    emissiveColor = emissive;
+    
+    if (vertices != null) {
+      for (int i = 0; i < vertices.length; i++) {
+        setEmissive(i, emissive);
+      }
+    }
+  }
+  
+  public void setEmissive(int index, int emissive)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setEmissive()" });
+      return;
+    }
+    
+
+    if ((vertices == null) || 
+      (index >= vertices.length)) {
+      PGraphics.showWarning("%1$s vertex index does not exist (" + index + ")", new Object[] { "setEmissive()" });
+      return;
+    }
+    
+    vertices[index][32] = ((emissive >> 16 & 0xFF) / 255.0F);
+    vertices[index][33] = ((emissive >> 8 & 0xFF) / 255.0F);
+    vertices[index][34] = ((emissive >> 0 & 0xFF) / 255.0F);
+  }
+  
+
+  public float getShininess(int index)
+  {
+    if ((vertices == null) || 
+      (index >= vertices.length)) {
+      PGraphics.showWarning("%1$s vertex index does not exist (" + index + ")", new Object[] { "getShininess()" });
+      return shininess;
+    }
+    
+    return vertices[index][31];
+  }
+  
+  public void setShininess(float shine)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setShininess()" });
+      return;
+    }
+    
+    shininess = shine;
+    
+    if (vertices != null) {
+      for (int i = 0; i < vertices.length; i++) {
+        setShininess(i, shine);
+      }
+    }
+  }
+  
+  public void setShininess(int index, float shine)
+  {
+    if (openShape) {
+      PGraphics.showWarning("%1$s can only be called outside beginShape() and endShape()", new Object[] { "setShininess()" });
+      return;
+    }
+    
+
+    if ((vertices == null) || 
+      (index >= vertices.length)) {
+      PGraphics.showWarning("%1$s vertex index does not exist (" + index + ")", new Object[] { "setShininess()" });
+      return;
+    }
+    
+
+    vertices[index][31] = shine;
+  }
+  
+  public int[] getVertexCodes()
+  {
+    if (vertexCodes == null) {
+      return null;
+    }
+    if (vertexCodes.length != vertexCodeCount) {
+      vertexCodes = PApplet.subset(vertexCodes, 0, vertexCodeCount);
+    }
+    return vertexCodes;
+  }
+  
+  public int getVertexCodeCount()
+  {
+    return vertexCodeCount;
+  }
+  
+
+
+
+  public int getVertexCode(int index)
+  {
+    return vertexCodes[index];
+  }
+  
+  public boolean isClosed()
+  {
+    return close;
+  }
+  
+
+
+
+
+  public boolean contains(float x, float y)
+  {
+    if (family == 102) {
+      boolean c = false;
+      int i = 0; for (int j = vertexCount - 1; i < vertexCount; j = i++) {
+        if ((vertices[i][1] > y ? 1 : 0) != (vertices[j][1] > y ? 1 : 0))
+        {
+          if (x < (vertices[j][0] - vertices[i][0]) * (
+            y - vertices[i][1]) / (
+            vertices[j][1] - vertices[i][1]) + 
+            vertices[i][0])
+            c = !c;
+        }
+      }
+      return c;
+    }
+    throw new IllegalArgumentException("The contains() method is only implemented for paths.");
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void translate(float x, float y)
+  {
+    checkMatrix(2);
+    matrix.translate(x, y);
+  }
+  
+
+
+  public void translate(float x, float y, float z)
+  {
+    checkMatrix(3);
+    matrix.translate(x, y, z);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void rotateX(float angle)
+  {
+    rotate(angle, 1.0F, 0.0F, 0.0F);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void rotateY(float angle)
+  {
+    rotate(angle, 0.0F, 1.0F, 0.0F);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void rotateZ(float angle)
+  {
+    rotate(angle, 0.0F, 0.0F, 1.0F);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void rotate(float angle)
+  {
+    checkMatrix(2);
+    matrix.rotate(angle);
+  }
+  
+
+
+  public void rotate(float angle, float v0, float v1, float v2)
+  {
+    checkMatrix(3);
+    float norm2 = v0 * v0 + v1 * v1 + v2 * v2;
+    if (Math.abs(norm2 - 1.0F) > 1.0E-4F)
+    {
+      float norm = PApplet.sqrt(norm2);
+      v0 /= norm;
+      v1 /= norm;
+      v2 /= norm;
+    }
+    matrix.rotate(angle, v0, v1, v2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void scale(float s)
+  {
+    checkMatrix(2);
+    matrix.scale(s);
+  }
+  
+  public void scale(float x, float y)
+  {
+    checkMatrix(2);
+    matrix.scale(x, y);
+  }
+  
+
+
+
+
+  public void scale(float x, float y, float z)
+  {
+    checkMatrix(3);
+    matrix.scale(x, y, z);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void resetMatrix()
+  {
+    checkMatrix(2);
+    matrix.reset();
+  }
+  
+  public void applyMatrix(PMatrix source)
+  {
+    if ((source instanceof PMatrix2D)) {
+      applyMatrix((PMatrix2D)source);
+    } else if ((source instanceof PMatrix3D)) {
+      applyMatrix((PMatrix3D)source);
+    }
+  }
+  
+  public void applyMatrix(PMatrix2D source)
+  {
+    applyMatrix(m00, m01, 0.0F, m02, 
+      m10, m11, 0.0F, m12, 
+      0.0F, 0.0F, 1.0F, 0.0F, 
+      0.0F, 0.0F, 0.0F, 1.0F);
+  }
+  
+
+  public void applyMatrix(float n00, float n01, float n02, float n10, float n11, float n12)
+  {
+    checkMatrix(2);
+    matrix.apply(n00, n01, n02, 
+      n10, n11, n12);
+  }
+  
+  public void applyMatrix(PMatrix3D source)
+  {
+    applyMatrix(m00, m01, m02, m03, 
+      m10, m11, m12, m13, 
+      m20, m21, m22, m23, 
+      m30, m31, m32, m33);
+  }
+  
+
+
+
+  public void applyMatrix(float n00, float n01, float n02, float n03, float n10, float n11, float n12, float n13, float n20, float n21, float n22, float n23, float n30, float n31, float n32, float n33)
+  {
+    checkMatrix(3);
+    matrix.apply(n00, n01, n02, n03, 
+      n10, n11, n12, n13, 
+      n20, n21, n22, n23, 
+      n30, n31, n32, n33);
+  }
+  
+
+
+
+
+
+
+
+  protected void checkMatrix(int dimensions)
+  {
+    if (matrix == null) {
+      if (dimensions == 2) {
+        matrix = new PMatrix2D();
+      } else {
+        matrix = new PMatrix3D();
+      }
+    } else if ((dimensions == 3) && ((matrix instanceof PMatrix2D)))
+    {
+      matrix = new PMatrix3D(matrix);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void colorMode(int mode)
+  {
+    colorMode(mode, colorModeX, colorModeY, colorModeZ, colorModeA);
+  }
+  
+
+
+  public void colorMode(int mode, float max)
+  {
+    colorMode(mode, max, max, max, max);
+  }
+  
+
+
+
+
+
+  public void colorMode(int mode, float maxX, float maxY, float maxZ)
+  {
+    colorMode(mode, maxX, maxY, maxZ, colorModeA);
+  }
+  
+
+
+
+  public void colorMode(int mode, float maxX, float maxY, float maxZ, float maxA)
+  {
+    colorMode = mode;
+    
+    colorModeX = maxX;
+    colorModeY = maxY;
+    colorModeZ = maxZ;
+    colorModeA = maxA;
+    
+
+    colorModeScale = 
+      ((maxA != 1.0F) || (maxX != maxY) || (maxY != maxZ) || (maxZ != maxA));
+    
+
+
+    colorModeDefault = ((colorMode == 1) && 
+      (colorModeA == 255.0F) && (colorModeX == 255.0F) && 
+      (colorModeY == 255.0F) && (colorModeZ == 255.0F));
+  }
+  
+  protected void colorCalc(int rgb)
+  {
+    if (((rgb & 0xFF000000) == 0) && (rgb <= colorModeX)) {
+      colorCalc(rgb);
+    }
+    else {
+      colorCalcARGB(rgb, colorModeA);
+    }
+  }
+  
+  protected void colorCalc(int rgb, float alpha)
+  {
+    if (((rgb & 0xFF000000) == 0) && (rgb <= colorModeX)) {
+      colorCalc(rgb, alpha);
+    }
+    else {
+      colorCalcARGB(rgb, alpha);
+    }
+  }
+  
+  protected void colorCalc(float gray)
+  {
+    colorCalc(gray, colorModeA);
+  }
+  
+  protected void colorCalc(float gray, float alpha)
+  {
+    if (gray > colorModeX) gray = colorModeX;
+    if (alpha > colorModeA) { alpha = colorModeA;
+    }
+    if (gray < 0.0F) gray = 0.0F;
+    if (alpha < 0.0F) { alpha = 0.0F;
+    }
+    calcR = (colorModeScale ? gray / colorModeX : gray);
+    calcG = calcR;
+    calcB = calcR;
+    calcA = (colorModeScale ? alpha / colorModeA : alpha);
+    
+    calcRi = ((int)(calcR * 255.0F));calcGi = ((int)(calcG * 255.0F));
+    calcBi = ((int)(calcB * 255.0F));calcAi = ((int)(calcA * 255.0F));
+    calcColor = (calcAi << 24 | calcRi << 16 | calcGi << 8 | calcBi);
+    calcAlpha = (calcAi != 255);
+  }
+  
+  protected void colorCalc(float x, float y, float z)
+  {
+    colorCalc(x, y, z, colorModeA);
+  }
+  
+  protected void colorCalc(float x, float y, float z, float a)
+  {
+    if (x > colorModeX) x = colorModeX;
+    if (y > colorModeY) y = colorModeY;
+    if (z > colorModeZ) z = colorModeZ;
+    if (a > colorModeA) { a = colorModeA;
+    }
+    if (x < 0.0F) x = 0.0F;
+    if (y < 0.0F) y = 0.0F;
+    if (z < 0.0F) z = 0.0F;
+    if (a < 0.0F) { a = 0.0F;
+    }
+    switch (colorMode) {
+    case 1: 
+      if (colorModeScale) {
+        calcR = (x / colorModeX);
+        calcG = (y / colorModeY);
+        calcB = (z / colorModeZ);
+        calcA = (a / colorModeA);
+      } else {
+        calcR = x;calcG = y;calcB = z;calcA = a;
+      }
+      break;
+    
+    case 3: 
+      x /= colorModeX;
+      y /= colorModeY;
+      z /= colorModeZ;
+      
+      calcA = (colorModeScale ? a / colorModeA : a);
+      
+      if (y == 0.0F) {
+        calcR = (this.calcG = this.calcB = z);
+      }
+      else {
+        float which = (x - (int)x) * 6.0F;
+        float f = which - (int)which;
+        float p = z * (1.0F - y);
+        float q = z * (1.0F - y * f);
+        float t = z * (1.0F - y * (1.0F - f));
+        
+        switch ((int)which) {
+        case 0:  calcR = z;calcG = t;calcB = p; break;
+        case 1:  calcR = q;calcG = z;calcB = p; break;
+        case 2:  calcR = p;calcG = z;calcB = t; break;
+        case 3:  calcR = p;calcG = q;calcB = z; break;
+        case 4:  calcR = t;calcG = p;calcB = z; break;
+        case 5:  calcR = z;calcG = p;calcB = q;
+        }
+      }
+      break;
+    }
+    calcRi = ((int)(255.0F * calcR));calcGi = ((int)(255.0F * calcG));
+    calcBi = ((int)(255.0F * calcB));calcAi = ((int)(255.0F * calcA));
+    calcColor = (calcAi << 24 | calcRi << 16 | calcGi << 8 | calcBi);
+    calcAlpha = (calcAi != 255);
+  }
+  
+  protected void colorCalcARGB(int argb, float alpha)
+  {
+    if (alpha == colorModeA) {
+      calcAi = (argb >> 24 & 0xFF);
+      calcColor = argb;
+    } else {
+      calcAi = ((int)((argb >> 24 & 0xFF) * (alpha / colorModeA)));
+      calcColor = (calcAi << 24 | argb & 0xFFFFFF);
+    }
+    calcRi = (argb >> 16 & 0xFF);
+    calcGi = (argb >> 8 & 0xFF);
+    calcBi = (argb & 0xFF);
+    calcA = (calcAi / 255.0F);
+    calcR = (calcRi / 255.0F);
+    calcG = (calcGi / 255.0F);
+    calcB = (calcBi / 255.0F);
+    calcAlpha = (calcAi != 255);
+  }
+}

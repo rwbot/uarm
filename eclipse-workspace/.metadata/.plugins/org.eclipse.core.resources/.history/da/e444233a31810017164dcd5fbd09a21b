@@ -1,0 +1,173 @@
+package jogamp.opengl.egl;
+
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.VisualIDHolder.VIDType;
+import com.jogamp.nativewindow.egl.EGLGraphicsDevice;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class EGLGLCapabilities
+  extends GLCapabilities
+{
+  private long eglcfg;
+  private final int eglcfgid;
+  private final int renderableType;
+  private final int nativeVisualID;
+  
+  public EGLGLCapabilities(long paramLong, int paramInt1, int paramInt2, GLProfile paramGLProfile, int paramInt3)
+  {
+    super(paramGLProfile);
+    eglcfg = paramLong;
+    eglcfgid = paramInt1;
+    if (!isCompatible(paramGLProfile, paramInt3))
+    {
+      throw new GLException("Requested GLProfile " + paramGLProfile + " not compatible with EGL-RenderableType[" + renderableTypeToString(null, paramInt3) + "]");
+    }
+    renderableType = paramInt3;
+    nativeVisualID = paramInt2;
+  }
+  
+  public Object cloneMutable()
+  {
+    return clone();
+  }
+  
+  public Object clone()
+  {
+    try {
+      return super.clone();
+    } catch (RuntimeException localRuntimeException) {
+      throw new GLException(localRuntimeException);
+    }
+  }
+  
+  protected final void setEGLConfig(long paramLong) { eglcfg = paramLong; }
+  public final long getEGLConfig() { return eglcfg; }
+  public final int getEGLConfigID() { return eglcfgid; }
+  public final int getRenderableType() { return renderableType; }
+  public final int getNativeVisualID() { return nativeVisualID; }
+  
+  public final int getVisualID(VisualIDHolder.VIDType paramVIDType) throws NativeWindowException
+  {
+    switch (1.$SwitchMap$com$jogamp$nativewindow$VisualIDHolder$VIDType[paramVIDType.ordinal()]) {
+    case 1: 
+    case 2: 
+      return getEGLConfigID();
+    case 3: 
+      return getNativeVisualID();
+    }
+    throw new NativeWindowException("Invalid type <" + paramVIDType + ">");
+  }
+  
+  public static boolean isCompatible(GLProfile paramGLProfile, int paramInt)
+  {
+    if (null == paramGLProfile) {
+      return true;
+    }
+    if ((0 != (paramInt & 0x40)) && (paramGLProfile.usesNativeGLES3())) {
+      return true;
+    }
+    if ((0 != (paramInt & 0x4)) && (paramGLProfile.usesNativeGLES2())) {
+      return true;
+    }
+    if ((0 != (paramInt & 0x1)) && (paramGLProfile.usesNativeGLES1())) {
+      return true;
+    }
+    if ((0 != (paramInt & 0x8)) && (!paramGLProfile.usesNativeGLES())) {
+      return true;
+    }
+    return false;
+  }
+  
+  public static GLProfile getCompatible(EGLGraphicsDevice paramEGLGraphicsDevice, int paramInt) {
+    if ((0 != (paramInt & 0x40)) && (GLProfile.isAvailable(paramEGLGraphicsDevice, "GLES3"))) {
+      return GLProfile.get(paramEGLGraphicsDevice, "GLES3");
+    }
+    if ((0 != (paramInt & 0x4)) && (GLProfile.isAvailable(paramEGLGraphicsDevice, "GLES2"))) {
+      return GLProfile.get(paramEGLGraphicsDevice, "GLES2");
+    }
+    if ((0 != (paramInt & 0x1)) && (GLProfile.isAvailable(paramEGLGraphicsDevice, "GLES1"))) {
+      return GLProfile.get(paramEGLGraphicsDevice, "GLES1");
+    }
+    if (0 != (paramInt & 0x8)) {
+      return GLProfile.getDefault(paramEGLGraphicsDevice);
+    }
+    return null;
+  }
+  
+  public static StringBuilder renderableTypeToString(StringBuilder paramStringBuilder, int paramInt) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    int i = 1;
+    paramStringBuilder.append("0x").append(Integer.toHexString(paramInt)).append(": ");
+    if (0 != (paramInt & 0x8)) {
+      paramStringBuilder.append("GL");i = 0;
+    }
+    if (0 != (paramInt & 0x1)) {
+      if (i == 0) paramStringBuilder.append(", "); paramStringBuilder.append("GLES1");i = 0;
+    }
+    if (0 != (paramInt & 0x4)) {
+      if (i == 0) paramStringBuilder.append(", "); paramStringBuilder.append("GLES2");i = 0;
+    }
+    if (0 != (paramInt & 0x40)) {
+      if (i == 0) paramStringBuilder.append(", "); paramStringBuilder.append("GLES3");i = 0;
+    }
+    if (0 != (paramInt & 0x30A1)) {
+      if (i == 0) paramStringBuilder.append(", "); paramStringBuilder.append("VG");i = 0;
+    }
+    return paramStringBuilder;
+  }
+  
+  public StringBuilder toString(StringBuilder paramStringBuilder)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    paramStringBuilder.append("egl cfg 0x").append(Integer.toHexString(eglcfgid));
+    paramStringBuilder.append(", vid 0x").append(Integer.toHexString(nativeVisualID)).append(": ");
+    super.toString(paramStringBuilder);
+    paramStringBuilder.append(", [");
+    renderableTypeToString(paramStringBuilder, renderableType);
+    return paramStringBuilder.append("]");
+  }
+}

@@ -1,0 +1,407 @@
+package jogamp.newt.driver.awt;
+
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.os.Platform.OSType;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindow;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.awt.AWTGraphicsConfiguration;
+import com.jogamp.nativewindow.awt.AWTGraphicsDevice;
+import com.jogamp.nativewindow.awt.AWTGraphicsScreen;
+import com.jogamp.newt.Screen;
+import com.jogamp.newt.event.WindowEvent;
+import com.jogamp.newt.event.WindowListener;
+import com.jogamp.newt.event.WindowUpdateEvent;
+import com.jogamp.newt.event.awt.AWTKeyAdapter;
+import com.jogamp.newt.event.awt.AWTMouseAdapter;
+import com.jogamp.newt.event.awt.AWTWindowAdapter;
+import java.awt.BorderLayout;
+import java.awt.Container;
+import java.awt.Dimension;
+import java.awt.Frame;
+import java.awt.Insets;
+import java.io.PrintStream;
+import jogamp.nativewindow.awt.AWTMisc;
+import jogamp.newt.WindowImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class WindowDriver
+  extends WindowImpl
+{
+  private boolean owningFrame;
+  
+  public WindowDriver()
+  {
+    this(null);
+  }
+  
+  public static Class<?>[] getCustomConstructorArgumentTypes() {
+    return new Class[] { Container.class };
+  }
+  
+  public WindowDriver(Container paramContainer)
+  {
+    withinLocalDispose = false;
+    addWindowListener(0, new NEWTWindowListener());
+    awtContainer = paramContainer;
+    if ((paramContainer instanceof Frame)) {
+      awtFrame = ((Frame)paramContainer);
+    }
+  }
+  
+
+  private Container awtContainer = null;
+  
+  private Frame awtFrame = null;
+  private AWTCanvas awtCanvas;
+  private volatile boolean withinLocalDispose;
+  
+  protected void requestFocusImpl(boolean paramBoolean)
+  {
+    awtContainer.requestFocus();
+  }
+  
+  protected void setTitleImpl(String paramString)
+  {
+    if (awtFrame != null) {
+      awtFrame.setTitle(paramString);
+    }
+  }
+  
+  private final AWTCanvas.UpstreamScalable upstreamScalable = new AWTCanvas.UpstreamScalable()
+  {
+    public float[] getReqPixelScale() {
+      return reqPixelScale;
+    }
+    
+    public void setHasPixelScale(float[] paramAnonymousArrayOfFloat)
+    {
+      System.arraycopy(paramAnonymousArrayOfFloat, 0, hasPixelScale, 0, 2);
+    }
+  };
+  
+  protected void createNativeImpl()
+  {
+    if (withinLocalDispose) {
+      setupHandleAndGC();
+      definePosition(getX(), getY());
+      visibleChanged(false, true);
+      withinLocalDispose = false;
+    } else {
+      if (0L != getParentWindowHandle()) {
+        throw new RuntimeException("Window parenting not supported in AWT, use AWTWindow(Frame) cstr for wrapping instead");
+      }
+      
+      if (null == awtContainer) {
+        awtFrame = new Frame();
+        awtContainer = awtFrame;
+        owningFrame = true;
+      } else {
+        owningFrame = false;
+        defineSize(awtContainer.getWidth(), awtContainer.getHeight());
+        definePosition(awtContainer.getX(), awtContainer.getY());
+      }
+      if (null != awtFrame) {
+        awtFrame.setTitle(getTitle());
+      }
+      awtContainer.setLayout(new BorderLayout());
+      
+      if (null == awtCanvas) {
+        awtCanvas = new AWTCanvas(this, capsRequested, capabilitiesChooser, upstreamScalable);
+        
+
+        awtContainer.add(awtCanvas, "Center");
+        
+
+        new AWTMouseAdapter(this).addTo(awtCanvas);
+        new AWTKeyAdapter(this).addTo(awtCanvas);
+        
+
+        new AWTWindowAdapter(new AWTWindowListener(), this).addTo(awtCanvas);
+      } else {
+        awtContainer.add(awtCanvas, "Center");
+      }
+      reconfigureWindowImpl(getX(), getY(), getWidth(), getHeight(), getReconfigureMask(-1879048192, true));
+    }
+  }
+  
+
+
+  private void setupHandleAndGC()
+  {
+    if (null != awtCanvas) {
+      NativeWindow localNativeWindow = awtCanvas.getNativeWindow();
+      if (null != localNativeWindow) {
+        setGraphicsConfiguration(awtCanvas.getAWTGraphicsConfiguration());
+        setWindowHandle(localNativeWindow.getWindowHandle());
+      }
+    }
+  }
+  
+  void localCreate() {
+    if (withinLocalDispose) {
+      setVisible(true);
+    } else {
+      setupHandleAndGC();
+    }
+  }
+  
+  void localDestroy() {
+    withinLocalDispose = true;
+    super.destroy();
+  }
+  
+  protected void closeNativeImpl()
+  {
+    setWindowHandle(0L);
+    if (withinLocalDispose) {
+      if (null != awtCanvas) {
+        awtCanvas.dispose();
+      }
+    } else {
+      if (null != awtContainer) {
+        awtContainer.setVisible(false);
+        awtContainer.remove(awtCanvas);
+        awtContainer.setEnabled(false);
+        awtCanvas.setEnabled(false);
+        awtCanvas.dispose();
+      }
+      if ((owningFrame) && (null != awtFrame)) {
+        awtFrame.dispose();
+        owningFrame = false;
+      }
+      awtCanvas = null;
+      awtFrame = null;
+      awtContainer = null;
+    }
+  }
+  
+  public boolean hasDeviceChanged()
+  {
+    boolean bool = awtCanvas.hasDeviceChanged();
+    if (bool) {
+      AWTGraphicsConfiguration localAWTGraphicsConfiguration = awtCanvas.getAWTGraphicsConfiguration();
+      if (null == localAWTGraphicsConfiguration) {
+        throw new NativeWindowException("Error Device change null GraphicsConfiguration: " + this);
+      }
+      setGraphicsConfiguration(localAWTGraphicsConfiguration);
+      
+
+      ((ScreenDriver)getScreen()).setAWTGraphicsScreen((AWTGraphicsScreen)localAWTGraphicsConfiguration.getScreen());
+      ((DisplayDriver)getScreen().getDisplay()).setAWTGraphicsDevice((AWTGraphicsDevice)localAWTGraphicsConfiguration.getScreen().getDevice());
+      
+      ((ScreenDriver)getScreen()).updateVirtualScreenOriginAndSize();
+    }
+    return bool;
+  }
+  
+  private void setCanvasSizeImpl(int paramInt1, int paramInt2) {
+    Dimension localDimension1 = new Dimension(paramInt1, paramInt2);
+    java.awt.Window localWindow = AWTMisc.getWindow(awtCanvas);
+    Container localContainer = null != localWindow ? localWindow : awtContainer;
+    awtCanvas.setMinimumSize(localDimension1);
+    awtCanvas.setPreferredSize(localDimension1);
+    if (DEBUG_IMPLEMENTATION) {
+      Insets localInsets = localContainer.getInsets();
+      Dimension localDimension2 = new Dimension(paramInt1 + left + right, paramInt2 + top + bottom);
+      
+      System.err.println(getThreadName() + ": AWTWindow setCanvasSize: szClient " + localDimension1 + ", szCont " + localDimension2 + ", insets " + localInsets);
+    }
+    awtCanvas.setSize(localDimension1);
+    awtCanvas.invalidate();
+    if (null != localWindow) {
+      localWindow.pack();
+    } else
+      awtContainer.validate();
+  }
+  
+  private void setFrameSizeImpl(int paramInt1, int paramInt2) {
+    Insets localInsets = awtContainer.getInsets();
+    Dimension localDimension1 = new Dimension(paramInt1 + left + right, paramInt2 + top + bottom);
+    
+    if (DEBUG_IMPLEMENTATION) {
+      Dimension localDimension2 = new Dimension(paramInt1, paramInt2);
+      System.err.println(getThreadName() + ": AWTWindow setFrameSize: szClient " + localDimension2 + ", szCont " + localDimension1 + ", insets " + localInsets);
+    }
+    awtContainer.setSize(localDimension1);
+    awtCanvas.invalidate();
+    awtContainer.validate();
+  }
+  
+  protected final int getSupportedReconfigMaskImpl()
+  {
+    return 2057;
+  }
+  
+  protected boolean reconfigureWindowImpl(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5)
+  {
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("AWTWindow reconfig: " + paramInt1 + "/" + paramInt2 + " " + paramInt3 + "x" + paramInt4 + ", " + 
+        getReconfigStateMaskString(paramInt5));
+    }
+    if ((0 != (0x10000000 & paramInt5)) && (null != awtFrame)) {
+      if (!awtContainer.isDisplayable()) {
+        awtFrame.setUndecorated(isUndecorated());
+      }
+      else if (DEBUG_IMPLEMENTATION) {
+        System.err.println(getThreadName() + ": AWTWindow can't undecorate already created frame");
+      }
+    }
+    
+    Object localObject;
+    if (0 != (0x80000000 & paramInt5)) {
+      if (0 != (0x1 & paramInt5)) {
+        setCanvasSizeImpl(paramInt3, paramInt4);
+        awtContainer.setVisible(true);
+        localObject = awtContainer.getInsets();
+        insetsChanged(false, left, right, top, bottom);
+      } else {
+        awtContainer.setVisible(false);
+      }
+    } else if ((awtCanvas.getWidth() != paramInt3) || (awtCanvas.getHeight() != paramInt4)) {
+      if ((Platform.OSType.MACOS == Platform.getOSType()) && (awtCanvas.isOffscreenLayerSurfaceEnabled())) {
+        setFrameSizeImpl(paramInt3, paramInt4);
+      } else {
+        setCanvasSizeImpl(paramInt3, paramInt4);
+      }
+    }
+    defineSize(paramInt3, paramInt4);
+    
+    if ((awtContainer.getX() != paramInt1) || (awtContainer.getY() != paramInt2)) {
+      awtContainer.setLocation(paramInt1, paramInt2);
+    }
+    definePosition(paramInt1, paramInt2);
+    
+    if (0 != (0x80000000 & paramInt5)) {
+      if ((0 != (0x1 & paramInt5)) && 
+        (!hasDeviceChanged()))
+      {
+        localObject = awtCanvas.getAWTGraphicsConfiguration();
+        if (null == localObject) {
+          throw new NativeWindowException("Error: !hasDeviceChanged && null == GraphicsConfiguration: " + this);
+        }
+        setGraphicsConfiguration((AbstractGraphicsConfiguration)localObject);
+      }
+      
+      visibleChanged(false, 0 != (0x1 & paramInt5));
+    }
+    if (isVisible()) {
+      windowRepaint(false, 0, 0, getSurfaceWidth(), getSurfaceHeight());
+    }
+    
+    return true;
+  }
+  
+  protected com.jogamp.nativewindow.util.Point getLocationOnScreenImpl(int paramInt1, int paramInt2)
+  {
+    java.awt.Point localPoint = awtCanvas.getLocationOnScreen();
+    localPoint.translate(paramInt1, paramInt2);
+    return new com.jogamp.nativewindow.util.Point((int)(localPoint.getX() + 0.5D), (int)(localPoint.getY() + 0.5D));
+  }
+  
+
+
+  public NativeSurface getWrappedSurface() { return null != awtCanvas ? awtCanvas.getNativeWindow() : null; }
+  
+  class AWTWindowListener implements WindowListener {
+    AWTWindowListener() {}
+    
+    public void windowMoved(WindowEvent paramWindowEvent) {
+      if (null != awtContainer) {
+        positionChanged(false, awtContainer.getX(), awtContainer.getY());
+      }
+    }
+    
+    public void windowResized(WindowEvent paramWindowEvent) {
+      if (null != awtCanvas) {
+        if (com.jogamp.newt.Window.DEBUG_IMPLEMENTATION) {
+          System.err.println("Window Resized: " + awtCanvas);
+        }
+        sizeChanged(false, awtCanvas.getWidth(), awtCanvas.getHeight(), true);
+        windowRepaint(false, 0, 0, getSurfaceWidth(), getSurfaceHeight());
+      }
+    }
+    
+    public void windowDestroyNotify(WindowEvent paramWindowEvent) {
+      windowDestroyNotify(false);
+    }
+    
+
+    public void windowDestroyed(WindowEvent paramWindowEvent) {}
+    
+    public void windowGainedFocus(WindowEvent paramWindowEvent)
+    {
+      focusChanged(false, true);
+    }
+    
+    public void windowLostFocus(WindowEvent paramWindowEvent) {
+      focusChanged(false, false);
+    }
+    
+    public void windowRepaint(WindowUpdateEvent paramWindowUpdateEvent) {
+      if (null != awtCanvas) {
+        if (com.jogamp.newt.Window.DEBUG_IMPLEMENTATION) {
+          System.err.println("Window Repaint: " + awtCanvas);
+        }
+        windowRepaint(false, 0, 0, getSurfaceWidth(), getSurfaceHeight());
+      }
+    }
+  }
+  
+  class NEWTWindowListener implements WindowListener { NEWTWindowListener() {}
+    
+    public void windowMoved(WindowEvent paramWindowEvent) {}
+    
+    public void windowResized(WindowEvent paramWindowEvent) {}
+    
+    public void windowDestroyNotify(WindowEvent paramWindowEvent) { if (withinLocalDispose) {
+        paramWindowEvent.setConsumed(true);
+      }
+    }
+    
+    public void windowDestroyed(WindowEvent paramWindowEvent) {
+      if (withinLocalDispose) {
+        paramWindowEvent.setConsumed(true);
+      }
+    }
+    
+    public void windowGainedFocus(WindowEvent paramWindowEvent) {}
+    
+    public void windowLostFocus(WindowEvent paramWindowEvent) {}
+    
+    public void windowRepaint(WindowUpdateEvent paramWindowUpdateEvent) {}
+  }
+}

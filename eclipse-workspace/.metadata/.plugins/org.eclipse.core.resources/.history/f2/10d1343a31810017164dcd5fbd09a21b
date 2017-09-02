@@ -1,0 +1,566 @@
+package jogamp.opengl.x11.glx;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.PointerBuffer;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.GraphicsConfigurationFactory;
+import com.jogamp.nativewindow.VisualIDHolder.VIDType;
+import com.jogamp.nativewindow.x11.X11GraphicsConfiguration;
+import com.jogamp.nativewindow.x11.X11GraphicsDevice;
+import com.jogamp.nativewindow.x11.X11GraphicsScreen;
+import com.jogamp.opengl.DefaultGLCapabilitiesChooser;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLCapabilitiesChooser;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import java.io.PrintStream;
+import java.nio.IntBuffer;
+import java.util.ArrayList;
+import java.util.List;
+import jogamp.nativewindow.x11.X11Lib;
+import jogamp.nativewindow.x11.XRenderDirectFormat;
+import jogamp.nativewindow.x11.XRenderPictFormat;
+import jogamp.nativewindow.x11.XVisualInfo;
+import jogamp.opengl.GLGraphicsConfigurationUtil;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class X11GLXGraphicsConfiguration
+  extends X11GraphicsConfiguration
+  implements Cloneable
+{
+  public static final int MAX_ATTRIBS = 128;
+  private final GLCapabilitiesChooser chooser;
+  
+  X11GLXGraphicsConfiguration(X11GraphicsScreen paramX11GraphicsScreen, X11GLCapabilities paramX11GLCapabilities, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser)
+  {
+    super(paramX11GraphicsScreen, paramX11GLCapabilities, paramGLCapabilitiesImmutable, paramX11GLCapabilities.getXVisualInfo());
+    chooser = paramGLCapabilitiesChooser;
+  }
+  
+  public Object clone()
+  {
+    return super.clone();
+  }
+  
+  public final long getFBConfig() {
+    return ((X11GLCapabilities)capabilitiesChosen).getFBConfig();
+  }
+  
+  public final int getFBConfigID() { return ((X11GLCapabilities)capabilitiesChosen).getFBConfigID(); }
+  
+  public final boolean hasFBConfig() {
+    return ((X11GLCapabilities)capabilitiesChosen).hasFBConfig();
+  }
+  
+  void updateGraphicsConfiguration() {
+    CapabilitiesImmutable localCapabilitiesImmutable = getChosenCapabilities();
+    if ((!(localCapabilitiesImmutable instanceof X11GLCapabilities)) || (0 == localCapabilitiesImmutable.getVisualID(VisualIDHolder.VIDType.X11_XVISUAL)))
+    {
+
+
+      X11GLXGraphicsConfiguration localX11GLXGraphicsConfiguration = (X11GLXGraphicsConfiguration)GraphicsConfigurationFactory.getFactory(getScreen().getDevice(), localCapabilitiesImmutable).chooseGraphicsConfiguration(localCapabilitiesImmutable, 
+        getRequestedCapabilities(), chooser, getScreen(), 0);
+      if (null != localX11GLXGraphicsConfiguration)
+      {
+        setXVisualInfo(localX11GLXGraphicsConfiguration.getXVisualInfo());
+        setChosenCapabilities(localX11GLXGraphicsConfiguration.getChosenCapabilities());
+        if (DEBUG) {
+          System.err.println("X11GLXGraphicsConfiguration.updateGraphicsConfiguration updated:" + this);
+        }
+      } else {
+        throw new GLException("No native VisualID pre-chosen and update failed: " + this);
+      }
+    } else if (DEBUG) {
+      System.err.println("X11GLXGraphicsConfiguration.updateGraphicsConfiguration kept:" + this);
+    }
+  }
+  
+  static X11GLXGraphicsConfiguration create(GLProfile paramGLProfile, X11GraphicsScreen paramX11GraphicsScreen, int paramInt) {
+    X11GraphicsDevice localX11GraphicsDevice = (X11GraphicsDevice)paramX11GraphicsScreen.getDevice();
+    long l1 = localX11GraphicsDevice.getHandle();
+    if (0L == l1) {
+      throw new GLException("Display null of " + paramX11GraphicsScreen);
+    }
+    int i = paramX11GraphicsScreen.getIndex();
+    long l2 = glXFBConfigID2FBConfig(l1, i, paramInt);
+    if (0L == l2) {
+      throw new GLException("FBConfig null of " + toHexString(paramInt));
+    }
+    if (null == paramGLProfile) {
+      paramGLProfile = GLProfile.getDefault(paramX11GraphicsScreen.getDevice());
+    }
+    X11GLXDrawableFactory localX11GLXDrawableFactory = (X11GLXDrawableFactory)GLDrawableFactory.getDesktopFactory();
+    X11GLCapabilities localX11GLCapabilities = GLXFBConfig2GLCapabilities(localX11GraphicsDevice, paramGLProfile, l2, 15, localX11GLXDrawableFactory.isGLXMultisampleAvailable(localX11GraphicsDevice));
+    if (null == localX11GLCapabilities) {
+      throw new GLException("GLCapabilities null of " + toHexString(l2));
+    }
+    return new X11GLXGraphicsConfiguration(paramX11GraphicsScreen, localX11GLCapabilities, localX11GLCapabilities, new DefaultGLCapabilitiesChooser());
+  }
+  
+
+
+
+
+  static IntBuffer GLCapabilities2AttribList(GLCapabilitiesImmutable paramGLCapabilitiesImmutable, boolean paramBoolean1, boolean paramBoolean2, long paramLong, int paramInt)
+  {
+    int i = paramGLCapabilitiesImmutable.getRedBits() + paramGLCapabilitiesImmutable.getGreenBits() + paramGLCapabilitiesImmutable.getBlueBits();
+    if (i < 15) {
+      throw new GLException("Bit depths < 15 (i.e., non-true-color) not supported");
+    }
+    IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(128);
+    int j = 0;
+    
+    if (paramBoolean1) {
+      localIntBuffer.put(j++, 32784);
+      
+      int k;
+      if (paramGLCapabilitiesImmutable.isOnscreen()) {
+        k = 1;
+      } else if (paramGLCapabilitiesImmutable.isFBO()) {
+        k = 1;
+      } else if (paramGLCapabilitiesImmutable.isPBuffer()) {
+        k = 4;
+      } else if (paramGLCapabilitiesImmutable.isBitmap()) {
+        k = 2;
+      } else {
+        throw new GLException("no surface type set in caps: " + paramGLCapabilitiesImmutable);
+      }
+      localIntBuffer.put(j++, k);
+      
+      localIntBuffer.put(j++, 32785);
+      localIntBuffer.put(j++, 1);
+    } else {
+      localIntBuffer.put(j++, 4);
+    }
+    
+
+    if (paramBoolean1) {
+      localIntBuffer.put(j++, 5);
+      localIntBuffer.put(j++, paramGLCapabilitiesImmutable.getDoubleBuffered() ? 1 : 0);
+      localIntBuffer.put(j++, 6);
+      localIntBuffer.put(j++, paramGLCapabilitiesImmutable.getStereo() ? 1 : 0);
+      localIntBuffer.put(j++, 35);
+      localIntBuffer.put(j++, 32768);
+
+
+
+
+
+    }
+    else
+    {
+
+
+
+
+
+      if (paramGLCapabilitiesImmutable.getDoubleBuffered()) {
+        localIntBuffer.put(j++, 5);
+      }
+      if (paramGLCapabilitiesImmutable.getStereo()) {
+        localIntBuffer.put(j++, 6);
+      }
+    }
+    
+    localIntBuffer.put(j++, 8);
+    localIntBuffer.put(j++, paramGLCapabilitiesImmutable.getRedBits());
+    localIntBuffer.put(j++, 9);
+    localIntBuffer.put(j++, paramGLCapabilitiesImmutable.getGreenBits());
+    localIntBuffer.put(j++, 10);
+    localIntBuffer.put(j++, paramGLCapabilitiesImmutable.getBlueBits());
+    if (paramGLCapabilitiesImmutable.getAlphaBits() > 0) {
+      localIntBuffer.put(j++, 11);
+      localIntBuffer.put(j++, paramGLCapabilitiesImmutable.getAlphaBits());
+    }
+    if (paramGLCapabilitiesImmutable.getStencilBits() > 0) {
+      localIntBuffer.put(j++, 13);
+      localIntBuffer.put(j++, paramGLCapabilitiesImmutable.getStencilBits());
+    }
+    localIntBuffer.put(j++, 12);
+    localIntBuffer.put(j++, paramGLCapabilitiesImmutable.getDepthBits());
+    if ((paramGLCapabilitiesImmutable.getAccumRedBits() > 0) || 
+      (paramGLCapabilitiesImmutable.getAccumGreenBits() > 0) || 
+      (paramGLCapabilitiesImmutable.getAccumBlueBits() > 0) || 
+      (paramGLCapabilitiesImmutable.getAccumAlphaBits() > 0)) {
+      localIntBuffer.put(j++, 14);
+      localIntBuffer.put(j++, paramGLCapabilitiesImmutable.getAccumRedBits());
+      localIntBuffer.put(j++, 15);
+      localIntBuffer.put(j++, paramGLCapabilitiesImmutable.getAccumGreenBits());
+      localIntBuffer.put(j++, 16);
+      localIntBuffer.put(j++, paramGLCapabilitiesImmutable.getAccumBlueBits());
+      localIntBuffer.put(j++, 17);
+      localIntBuffer.put(j++, paramGLCapabilitiesImmutable.getAccumAlphaBits());
+    }
+    if ((paramBoolean2) && (paramGLCapabilitiesImmutable.getSampleBuffers())) {
+      localIntBuffer.put(j++, 100000);
+      localIntBuffer.put(j++, 1);
+      localIntBuffer.put(j++, 100001);
+      localIntBuffer.put(j++, paramGLCapabilitiesImmutable.getNumSamples());
+    }
+    localIntBuffer.put(j++, 0);
+    return localIntBuffer;
+  }
+  
+
+  static boolean GLXFBConfigIDValid(long paramLong, int paramInt1, int paramInt2)
+  {
+    long l = glXFBConfigID2FBConfig(paramLong, paramInt1, paramInt2);
+    return 0L != l ? GLXFBConfigValid(paramLong, l) : false;
+  }
+  
+  static boolean GLXFBConfigValid(long paramLong1, long paramLong2) {
+    IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(1);
+    if (2 == GLX.glXGetFBConfigAttrib(paramLong1, paramLong2, 32785, localIntBuffer)) {
+      return false;
+    }
+    return true;
+  }
+  
+  static int FBCfgDrawableTypeBits(X11GraphicsDevice paramX11GraphicsDevice, long paramLong) {
+    int i = 0;
+    
+    IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(1);
+    if (!glXGetFBConfig(paramX11GraphicsDevice.getHandle(), paramLong, 32784, localIntBuffer)) {
+      if (DEBUG) {
+        System.err.println("X11GLXGraphicsConfiguration.FBCfgDrawableTypeBits: FBConfig invalid: fbcfg: " + toHexString(paramLong));
+      }
+      return 0;
+    }
+    int j = localIntBuffer.get(0);
+    
+    if (0 != (j & 0x1)) {
+      i |= 0x9;
+    }
+    
+    if (0 != (j & 0x2)) {
+      i |= 0x2;
+    }
+    if (0 != (j & 0x4)) {
+      i |= 0x4;
+    }
+    return i;
+  }
+  
+  static X11GLCapabilities GLXFBConfig2GLCapabilities(X11GraphicsDevice paramX11GraphicsDevice, GLProfile paramGLProfile, long paramLong, int paramInt, boolean paramBoolean)
+  {
+    IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(1);
+    XRenderPictFormat localXRenderPictFormat = XRenderPictFormat.create();
+    return GLXFBConfig2GLCapabilities(paramX11GraphicsDevice, paramGLProfile, paramLong, paramInt, paramBoolean, localIntBuffer, localXRenderPictFormat);
+  }
+  
+  static List<GLCapabilitiesImmutable> GLXFBConfig2GLCapabilities(X11GraphicsDevice paramX11GraphicsDevice, GLProfile paramGLProfile, PointerBuffer paramPointerBuffer, int paramInt, boolean paramBoolean1, boolean paramBoolean2)
+  {
+    IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(1);
+    XRenderPictFormat localXRenderPictFormat = XRenderPictFormat.create();
+    ArrayList localArrayList = new ArrayList();
+    for (int i = 0; i < paramPointerBuffer.limit(); i++) {
+      long l = paramPointerBuffer.get(i);
+      X11GLCapabilities localX11GLCapabilities = GLXFBConfig2GLCapabilities(paramX11GraphicsDevice, paramGLProfile, l, paramInt, paramBoolean1, localIntBuffer, localXRenderPictFormat);
+      if (null != localX11GLCapabilities) {
+        localArrayList.add(localX11GLCapabilities);
+        if (paramBoolean2) {
+          break;
+        }
+      }
+    }
+    return localArrayList;
+  }
+  
+  static X11GLCapabilities GLXFBConfig2GLCapabilities(X11GraphicsDevice paramX11GraphicsDevice, GLProfile paramGLProfile, long paramLong, int paramInt, boolean paramBoolean, IntBuffer paramIntBuffer, XRenderPictFormat paramXRenderPictFormat)
+  {
+    long l = paramX11GraphicsDevice.getHandle();
+    int i = FBCfgDrawableTypeBits(paramX11GraphicsDevice, paramLong);
+    int j = paramInt & i;
+    if ((0 == i) || (0 == j)) {
+      if (DEBUG) {
+        System.err.println("X11GLXGraphicsConfiguration.GLXFBConfig2GLCapabilities: zero drawablebits: allDrawableTypeBits: " + toHexString(i) + ", drawableTypeBits " + toHexString(j));
+      }
+      return null;
+    }
+    int k = glXFBConfig2FBConfigID(l, paramLong);
+    if (0 == k) {
+      if (DEBUG) {
+        System.err.println("X11GLXGraphicsConfiguration.GLXFBConfig2GLCapabilities: FBConfig invalid (0): fbcfg: " + toHexString(paramLong));
+      }
+      return null;
+    }
+    XVisualInfo localXVisualInfo = GLX.glXGetVisualFromFBConfig(l, paramLong);
+    if (null == localXVisualInfo) {
+      if (DEBUG) {
+        System.err.println("X11GLXGraphicsConfiguration.GLXFBConfig2GLCapabilities: Null XVisualInfo for FBConfigID 0x" + Integer.toHexString(k));
+      }
+      
+      j &= 0xFFFFFFF6;
+    }
+    if (0 == j) {
+      if (DEBUG) {
+        System.err.println("X11GLXGraphicsConfiguration.GLXFBConfig2GLCapabilities: zero drawablebits: winattrmask: " + toHexString(paramInt) + ", offscreen " + (null == localXVisualInfo));
+      }
+      return null;
+    }
+    
+    if (2 == GLX.glXGetFBConfigAttrib(l, paramLong, 32785, paramIntBuffer)) {
+      if (DEBUG) {
+        System.err.println("X11GLXGraphicsConfiguration.GLXFBConfig2GLCapabilities: FBConfig invalid (1): fbcfg: " + toHexString(paramLong));
+      }
+      return null;
+    }
+    if (0 == (0x1 & paramIntBuffer.get(0)))
+    {
+      if (DEBUG) {
+        System.err.println("X11GLXGraphicsConfiguration.GLXFBConfig2GLCapabilities: FBConfig not RGBA (2): fbcfg: " + toHexString(paramLong));
+      }
+      return null;
+    }
+    
+    X11GLCapabilities localX11GLCapabilities = new X11GLCapabilities(localXVisualInfo, paramLong, k, paramGLProfile);
+    
+
+    Object localObject = null != localXVisualInfo ? XVisual2XRenderMask(l, localXVisualInfo.getVisual(), paramXRenderPictFormat) : null;
+    
+
+    int[] arrayOfInt = { 100000, 100001, 5, 6, 32, 8, 9, 10, 11, 14, 15, 16, 17, 12, 13 };
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    int m = paramBoolean ? 0 : 2;
+    IntBuffer localIntBuffer1 = Buffers.newDirectIntBuffer(arrayOfInt);
+    localIntBuffer1.position(m);
+    IntBuffer localIntBuffer2 = Buffers.newDirectIntBuffer(localIntBuffer1.remaining());
+    int n = GLX.glXGetFBConfigAttributes(l, paramLong, localIntBuffer1, localIntBuffer2);
+    if (0 != n) {
+      throw new GLException("glXGetFBConfig(" + toHexString(localIntBuffer1.get(m + localIntBuffer2.get(0))) + ") failed: error code " + glXGetFBConfigErrorCode(n));
+    }
+    int i1 = 0;
+    if (paramBoolean) {
+      localX11GLCapabilities.setSampleBuffers(localIntBuffer2.get(i1++) != 0);
+      localX11GLCapabilities.setNumSamples(localIntBuffer2.get(i1++));
+    }
+    int i2 = null != localObject ? localObject.getAlphaMask() : 0;
+    localX11GLCapabilities.setBackgroundOpaque(0 >= i2);
+    if (!localX11GLCapabilities.isBackgroundOpaque()) {
+      localX11GLCapabilities.setTransparentRedValue(localObject.getRedMask());
+      localX11GLCapabilities.setTransparentGreenValue(localObject.getGreenMask());
+      localX11GLCapabilities.setTransparentBlueValue(localObject.getBlueMask());
+      localX11GLCapabilities.setTransparentAlphaValue(i2);
+    }
+    
+    localX11GLCapabilities.setDoubleBuffered(localIntBuffer2.get(i1++) != 0);
+    localX11GLCapabilities.setStereo(localIntBuffer2.get(i1++) != 0);
+    localX11GLCapabilities.setHardwareAccelerated(localIntBuffer2.get(i1++) != 32769);
+    localX11GLCapabilities.setRedBits(localIntBuffer2.get(i1++));
+    localX11GLCapabilities.setGreenBits(localIntBuffer2.get(i1++));
+    localX11GLCapabilities.setBlueBits(localIntBuffer2.get(i1++));
+    localX11GLCapabilities.setAlphaBits(localIntBuffer2.get(i1++));
+    localX11GLCapabilities.setAccumRedBits(localIntBuffer2.get(i1++));
+    localX11GLCapabilities.setAccumGreenBits(localIntBuffer2.get(i1++));
+    localX11GLCapabilities.setAccumBlueBits(localIntBuffer2.get(i1++));
+    localX11GLCapabilities.setAccumAlphaBits(localIntBuffer2.get(i1++));
+    localX11GLCapabilities.setDepthBits(localIntBuffer2.get(i1++));
+    localX11GLCapabilities.setStencilBits(localIntBuffer2.get(i1++));
+    
+    return (X11GLCapabilities)GLGraphicsConfigurationUtil.fixWinAttribBitsAndHwAccel(paramX11GraphicsDevice, j, localX11GLCapabilities);
+  }
+  
+  private static String glXGetFBConfigErrorCode(int paramInt) {
+    switch (paramInt) {
+    case 3:  return "GLX_NO_EXTENSION";
+    case 2:  return "GLX_BAD_ATTRIBUTE"; }
+    return "Unknown error code " + paramInt;
+  }
+  
+  static boolean glXGetFBConfig(long paramLong1, long paramLong2, int paramInt, IntBuffer paramIntBuffer)
+  {
+    if (paramLong1 == 0L) {
+      throw new GLException("No display connection");
+    }
+    boolean bool = 2 != GLX.glXGetFBConfigAttrib(paramLong1, paramLong2, paramInt, paramIntBuffer);
+    if ((!bool) && 
+      (DEBUG)) {
+      System.err.println("X11GLXGraphicsConfiguration.glXGetFBConfig: FBConfig invalid: fbcfg: " + toHexString(paramLong2));
+    }
+    
+    return bool;
+  }
+  
+  static int glXFBConfig2FBConfigID(long paramLong1, long paramLong2) {
+    IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(1);
+    if (glXGetFBConfig(paramLong1, paramLong2, 32787, localIntBuffer)) {
+      return localIntBuffer.get(0);
+    }
+    return 0;
+  }
+  
+  static long glXFBConfigID2FBConfig(long paramLong, int paramInt1, int paramInt2)
+  {
+    IntBuffer localIntBuffer1 = Buffers.newDirectIntBuffer(new int[] { 32787, paramInt2, 0 });
+    IntBuffer localIntBuffer2 = Buffers.newDirectIntBuffer(1);
+    localIntBuffer2.put(0, -1);
+    PointerBuffer localPointerBuffer = GLX.glXChooseFBConfig(paramLong, paramInt1, localIntBuffer1, localIntBuffer2);
+    if ((localPointerBuffer == null) || (localPointerBuffer.limit() < 1)) {
+      return 0L;
+    }
+    return localPointerBuffer.get(0);
+  }
+  
+
+  static XVisualInfo XVisualID2XVisualInfo(long paramLong1, long paramLong2)
+  {
+    int[] arrayOfInt = new int[1];
+    XVisualInfo localXVisualInfo1 = XVisualInfo.create();
+    localXVisualInfo1.setVisualid(paramLong2);
+    XVisualInfo[] arrayOfXVisualInfo = X11Lib.XGetVisualInfo(paramLong1, 1L, localXVisualInfo1, arrayOfInt, 0);
+    if ((arrayOfXVisualInfo == null) || (arrayOfXVisualInfo.length == 0)) {
+      return null;
+    }
+    XVisualInfo localXVisualInfo2 = XVisualInfo.create(arrayOfXVisualInfo[0]);
+    if (DEBUG) {
+      System.err.println("Fetched XVisualInfo for visual ID " + toHexString(paramLong2));
+      System.err.println("Resulting XVisualInfo: visualid = " + toHexString(localXVisualInfo2.getVisualid()));
+    }
+    return localXVisualInfo2;
+  }
+  
+
+
+
+
+  static X11GLCapabilities XVisualInfo2GLCapabilities(X11GraphicsDevice paramX11GraphicsDevice, GLProfile paramGLProfile, XVisualInfo paramXVisualInfo, int paramInt, boolean paramBoolean)
+  {
+    int i = paramInt & 0xB;
+    
+    if (0 == i) {
+      return null;
+    }
+    
+    long l = paramX11GraphicsDevice.getHandle();
+    IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(1);
+    int j = glXGetConfig(l, paramXVisualInfo, 1, localIntBuffer);
+    if (j == 0) {
+      if (DEBUG) {
+        System.err.println("Visual (" + toHexString(paramXVisualInfo.getVisualid()) + ") does not support OpenGL");
+      }
+      return null;
+    }
+    j = glXGetConfig(l, paramXVisualInfo, 4, localIntBuffer);
+    if (j == 0) {
+      if (DEBUG) {
+        System.err.println("Visual (" + toHexString(paramXVisualInfo.getVisualid()) + ") does not support RGBA");
+      }
+      return null;
+    }
+    
+    X11GLCapabilities localX11GLCapabilities = new X11GLCapabilities(paramXVisualInfo, paramGLProfile);
+    
+    localX11GLCapabilities.setDoubleBuffered(glXGetConfig(l, paramXVisualInfo, 5, localIntBuffer) != 0);
+    localX11GLCapabilities.setStereo(glXGetConfig(l, paramXVisualInfo, 6, localIntBuffer) != 0);
+    
+
+
+
+    if (paramBoolean) {
+      localX11GLCapabilities.setSampleBuffers(glXGetConfig(l, paramXVisualInfo, 100000, localIntBuffer) != 0);
+      localX11GLCapabilities.setNumSamples(glXGetConfig(l, paramXVisualInfo, 100001, localIntBuffer));
+    }
+    
+    Object localObject = null != paramXVisualInfo ? XVisual2XRenderMask(l, paramXVisualInfo.getVisual()) : null;
+    
+    int k = null != localObject ? localObject.getAlphaMask() : 0;
+    localX11GLCapabilities.setBackgroundOpaque(0 >= k);
+    if (!localX11GLCapabilities.isBackgroundOpaque()) {
+      localX11GLCapabilities.setTransparentRedValue(localObject.getRedMask());
+      localX11GLCapabilities.setTransparentGreenValue(localObject.getGreenMask());
+      localX11GLCapabilities.setTransparentBlueValue(localObject.getBlueMask());
+      localX11GLCapabilities.setTransparentAlphaValue(k);
+    }
+    
+    localX11GLCapabilities.setHardwareAccelerated(true);
+    localX11GLCapabilities.setDepthBits(glXGetConfig(l, paramXVisualInfo, 12, localIntBuffer));
+    localX11GLCapabilities.setStencilBits(glXGetConfig(l, paramXVisualInfo, 13, localIntBuffer));
+    localX11GLCapabilities.setRedBits(glXGetConfig(l, paramXVisualInfo, 8, localIntBuffer));
+    localX11GLCapabilities.setGreenBits(glXGetConfig(l, paramXVisualInfo, 9, localIntBuffer));
+    localX11GLCapabilities.setBlueBits(glXGetConfig(l, paramXVisualInfo, 10, localIntBuffer));
+    localX11GLCapabilities.setAlphaBits(glXGetConfig(l, paramXVisualInfo, 11, localIntBuffer));
+    localX11GLCapabilities.setAccumRedBits(glXGetConfig(l, paramXVisualInfo, 14, localIntBuffer));
+    localX11GLCapabilities.setAccumGreenBits(glXGetConfig(l, paramXVisualInfo, 15, localIntBuffer));
+    localX11GLCapabilities.setAccumBlueBits(glXGetConfig(l, paramXVisualInfo, 16, localIntBuffer));
+    localX11GLCapabilities.setAccumAlphaBits(glXGetConfig(l, paramXVisualInfo, 17, localIntBuffer));
+    
+    return (X11GLCapabilities)GLGraphicsConfigurationUtil.fixWinAttribBitsAndHwAccel(paramX11GraphicsDevice, i, localX11GLCapabilities);
+  }
+  
+  private static String glXGetConfigErrorCode(int paramInt) {
+    switch (paramInt) {
+    case 3:  return "GLX_NO_EXTENSION";
+    case 1:  return "GLX_BAD_SCREEN";
+    case 2:  return "GLX_BAD_ATTRIBUTE";
+    case 4:  return "GLX_BAD_VISUAL"; }
+    return "Unknown error code " + paramInt;
+  }
+  
+  static int glXGetConfig(long paramLong, XVisualInfo paramXVisualInfo, int paramInt, IntBuffer paramIntBuffer)
+  {
+    if (paramLong == 0L) {
+      throw new GLException("No display connection");
+    }
+    int i = GLX.glXGetConfig(paramLong, paramXVisualInfo, paramInt, paramIntBuffer);
+    if (i != 0) {
+      throw new GLException("glXGetConfig(" + toHexString(paramInt) + ") failed: error code " + glXGetConfigErrorCode(i));
+    }
+    return paramIntBuffer.get(paramIntBuffer.position());
+  }
+  
+
+
+  public String toString()
+  {
+    return "X11GLXGraphicsConfiguration[" + getScreen() + ", visualID " + toHexString(getXVisualID()) + ", fbConfigID " + toHexString(getFBConfigID()) + ",\n\trequested " + getRequestedCapabilities() + ",\n\tchosen    " + getChosenCapabilities() + "]";
+  }
+}

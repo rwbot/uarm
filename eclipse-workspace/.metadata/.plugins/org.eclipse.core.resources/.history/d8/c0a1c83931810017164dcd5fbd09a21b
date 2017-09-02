@@ -1,0 +1,163 @@
+package g4p_controls;
+
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.PrintStream;
+import java.lang.reflect.Method;
+import javax.swing.Timer;
+import processing.core.PApplet;
+
+public class GTimer
+  implements GConstantsInternal
+{
+  protected final PApplet app;
+  protected Object eventHandlerObject = null;
+  protected Method eventHandlerMethod = null;
+  protected String eventHandlerMethodName;
+  protected int nbrRepeats = -1;
+  protected Timer timer = null;
+  
+  public GTimer(PApplet paramPApplet, Object paramObject, String paramString, int paramInt)
+  {
+    this(paramPApplet, paramObject, paramString, paramInt, paramInt);
+  }
+  
+  public GTimer(PApplet paramPApplet, Object paramObject, String paramString, int paramInt1, int paramInt2)
+  {
+    app = paramPApplet;
+    createEventHandler(paramObject, paramString);
+    if (eventHandlerObject != null)
+    {
+      timer = new Timer(paramInt1, new ActionListener()
+      {
+        public void actionPerformed(ActionEvent paramAnonymousActionEvent)
+        {
+          fireEvent();
+        }
+      });
+      timer.setInitialDelay(paramInt2);
+      timer.setDelay(paramInt1);
+      timer.stop();
+    }
+  }
+  
+  protected void createEventHandler(Object paramObject, String paramString)
+  {
+    try
+    {
+      eventHandlerMethod = paramObject.getClass().getMethod(paramString, new Class[] { GTimer.class });
+      eventHandlerObject = paramObject;
+      eventHandlerMethodName = paramString;
+    }
+    catch (Exception localException)
+    {
+      GMessenger.message(Integer.valueOf(-16777214), new Object[] { this, paramString, { GTimer.class } });
+      eventHandlerObject = null;
+    }
+  }
+  
+  protected void fireEvent()
+  {
+    if (eventHandlerMethod != null) {
+      try
+      {
+        eventHandlerMethod.invoke(eventHandlerObject, new Object[] { this });
+        if (--nbrRepeats == 0) {
+          stop();
+        }
+      }
+      catch (Exception localException)
+      {
+        GMessenger.message(Integer.valueOf(-16777211), new Object[] { eventHandlerObject, eventHandlerMethodName, localException });
+        System.out.println("Disabling " + eventHandlerMethod.getName() + " due to an unknown error");
+        eventHandlerMethod = null;
+        eventHandlerObject = null;
+      }
+    }
+  }
+  
+  public void start()
+  {
+    nbrRepeats = -1;
+    if (timer != null) {
+      timer.start();
+    }
+  }
+  
+  public void start(int paramInt)
+  {
+    nbrRepeats = paramInt;
+    if (timer != null) {
+      timer.start();
+    }
+  }
+  
+  public void stop()
+  {
+    if (timer != null) {
+      timer.stop();
+    }
+  }
+  
+  public boolean isRunning()
+  {
+    if (timer != null) {
+      return timer.isRunning();
+    }
+    return false;
+  }
+  
+  public void setInterval(int paramInt)
+  {
+    if (timer != null) {
+      timer.setDelay(paramInt);
+    }
+  }
+  
+  public void setInitialDelay(int paramInt)
+  {
+    if (timer != null) {
+      timer.setInitialDelay(paramInt);
+    }
+  }
+  
+  public void setDelay(int paramInt)
+  {
+    if (timer != null)
+    {
+      timer.setInitialDelay(paramInt);
+      timer.setDelay(paramInt);
+    }
+  }
+  
+  public int getInterval()
+  {
+    if (timer != null) {
+      return timer.getDelay();
+    }
+    return -1;
+  }
+  
+  public int getInitialDelay()
+  {
+    if (timer != null) {
+      return timer.getInitialDelay();
+    }
+    return -1;
+  }
+  
+  public int getNbrRepeats()
+  {
+    return nbrRepeats;
+  }
+  
+  public void setNbrRepeats(int paramInt)
+  {
+    nbrRepeats = paramInt;
+  }
+  
+  public boolean isValid()
+  {
+    return (eventHandlerObject != null) && (timer != null);
+  }
+}

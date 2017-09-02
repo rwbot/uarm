@@ -1,0 +1,147 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class NameRecord
+{
+  private final short _platformId;
+  private final short _encodingId;
+  private final short _languageId;
+  private final short _nameId;
+  private final short _stringLength;
+  private final short _stringOffset;
+  private String _record;
+  
+  protected NameRecord(DataInput paramDataInput)
+    throws IOException
+  {
+    _platformId = paramDataInput.readShort();
+    _encodingId = paramDataInput.readShort();
+    _languageId = paramDataInput.readShort();
+    _nameId = paramDataInput.readShort();
+    _stringLength = paramDataInput.readShort();
+    _stringOffset = paramDataInput.readShort();
+  }
+  
+  public short getEncodingId() {
+    return _encodingId;
+  }
+  
+  public short getLanguageId() {
+    return _languageId;
+  }
+  
+  public short getNameId() {
+    return _nameId;
+  }
+  
+  public short getPlatformId() {
+    return _platformId;
+  }
+  
+  public StringBuilder getRecordString(StringBuilder paramStringBuilder) {
+    paramStringBuilder.append(_record);
+    return paramStringBuilder;
+  }
+  
+  protected void loadString(DataInput paramDataInput) throws IOException {
+    StringBuilder localStringBuilder = new StringBuilder();
+    paramDataInput.skipBytes(_stringOffset);
+    int i; if (_platformId == 0)
+    {
+
+      for (i = 0; i < _stringLength / 2; i++) {
+        localStringBuilder.append(paramDataInput.readChar());
+      }
+    } else if (_platformId == 1)
+    {
+
+      for (i = 0; i < _stringLength; i++) {
+        localStringBuilder.append((char)paramDataInput.readByte());
+      }
+    } else if (_platformId == 2)
+    {
+
+      for (i = 0; i < _stringLength; i++) {
+        localStringBuilder.append((char)paramDataInput.readByte());
+      }
+    } else if (_platformId == 3)
+    {
+
+
+      for (int j = 0; j < _stringLength / 2; j++) {
+        i = paramDataInput.readChar();
+        localStringBuilder.append(i);
+      }
+    }
+    _record = localStringBuilder.toString();
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    
+    localStringBuilder.append("             Platform ID:       ").append(_platformId)
+      .append("\n             Specific ID:       ").append(_encodingId)
+      .append("\n             Language ID:       ").append(_languageId)
+      .append("\n             Name ID:           ").append(_nameId)
+      .append("\n             Length:            ").append(_stringLength)
+      .append("\n             Offset:            ").append(_stringOffset)
+      .append("\n\n").append(_record);
+    
+    return localStringBuilder.toString();
+  }
+}

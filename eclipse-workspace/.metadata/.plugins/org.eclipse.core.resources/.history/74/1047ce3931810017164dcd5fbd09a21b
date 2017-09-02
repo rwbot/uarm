@@ -1,0 +1,174 @@
+package com.jogamp.common.os;
+
+import com.jogamp.common.util.IntObjectHashMap;
+import com.jogamp.common.util.ReflectionUtil;
+import java.lang.reflect.Field;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AndroidVersion
+{
+  public static final boolean isAvailable;
+  public static final String CPU_ABI;
+  public static final Platform.CPUType CPU_TYPE;
+  public static final Platform.ABIType ABI_TYPE;
+  public static final String CPU_ABI2;
+  public static final Platform.CPUType CPU_TYPE2;
+  public static final Platform.ABIType ABI_TYPE2;
+  public static final String CODENAME;
+  public static final String INCREMENTAL;
+  public static final String RELEASE;
+  public static final int SDK_INT;
+  public static final String SDK_NAME;
+  private static final String androidBuild = "android.os.Build";
+  private static final String androidBuildVersion = "android.os.Build$VERSION";
+  private static final String androidBuildVersionCodes = "android.os.Build$VERSION_CODES";
+  
+  static
+  {
+    ClassLoader localClassLoader = AndroidVersion.class.getClassLoader();
+    Class localClass1 = null;
+    Object localObject1 = null;
+    Class localClass2 = null;
+    Object localObject2 = null;
+    Class localClass3 = null;
+    Object localObject3 = null;
+    try {
+      localClass1 = ReflectionUtil.getClass("android.os.Build", true, localClassLoader);
+      localObject1 = localClass1.newInstance();
+      localClass2 = ReflectionUtil.getClass("android.os.Build$VERSION", true, localClassLoader);
+      localObject2 = localClass2.newInstance();
+      localClass3 = ReflectionUtil.getClass("android.os.Build$VERSION_CODES", true, localClassLoader);
+      localObject3 = localClass3.newInstance();
+    } catch (Exception localException) {}
+    isAvailable = (null != localObject1) && (null != localObject2);
+    if (isAvailable) {
+      CPU_ABI = getString(localClass1, localObject1, "CPU_ABI", true);
+      CPU_ABI2 = getString(localClass1, localObject1, "CPU_ABI2", true);
+      CODENAME = getString(localClass2, localObject2, "CODENAME", false);
+      INCREMENTAL = getString(localClass2, localObject2, "INCREMENTAL", false);
+      RELEASE = getString(localClass2, localObject2, "RELEASE", false);
+      SDK_INT = getInt(localClass2, localObject2, "SDK_INT");
+      String str;
+      if (null != localObject3) {
+        IntObjectHashMap localIntObjectHashMap = getVersionCodes(localClass3, localObject3);
+        str = (String)localIntObjectHashMap.get(SDK_INT);
+      } else {
+        str = null;
+      }
+      SDK_NAME = "SDK_" + SDK_INT;
+      
+
+
+
+
+
+
+
+
+
+
+
+
+      CPU_TYPE = Platform.CPUType.query(CPU_ABI);
+      ABI_TYPE = Platform.ABIType.query(CPU_TYPE, CPU_ABI);
+      if ((null != CPU_ABI2) && (CPU_ABI2.length() > 0)) {
+        CPU_TYPE2 = Platform.CPUType.query(CPU_ABI2);
+        ABI_TYPE2 = Platform.ABIType.query(CPU_TYPE2, CPU_ABI2);
+      } else {
+        CPU_TYPE2 = null;
+        ABI_TYPE2 = null;
+      }
+    } else {
+      CPU_ABI = null;
+      CPU_ABI2 = null;
+      CODENAME = null;
+      INCREMENTAL = null;
+      RELEASE = null;
+      SDK_INT = -1;
+      SDK_NAME = null;
+      CPU_TYPE = null;
+      ABI_TYPE = null;
+      CPU_TYPE2 = null;
+      ABI_TYPE2 = null;
+    }
+  }
+  
+  private static final IntObjectHashMap getVersionCodes(Class<?> paramClass, Object paramObject) {
+    Field[] arrayOfField = paramClass.getFields();
+    IntObjectHashMap localIntObjectHashMap = new IntObjectHashMap(3 * arrayOfField.length / 2, 0.75F);
+    for (int i = 0; i < arrayOfField.length; i++)
+      try {
+        int j = arrayOfField[i].getInt(paramObject);
+        String str = arrayOfField[i].getName();
+        
+        localIntObjectHashMap.put(new Integer(j).intValue(), str);
+      } catch (Exception localException) { localException.printStackTrace();
+      }
+    return localIntObjectHashMap;
+  }
+  
+  private static final String getString(Class<?> paramClass, Object paramObject, String paramString, boolean paramBoolean) {
+    try {
+      Field localField = paramClass.getField(paramString);
+      String str = (String)localField.get(paramObject);
+      if ((paramBoolean) && (null != str)) {
+        return str.toLowerCase();
+      }
+      return str;
+    } catch (Exception localException) {
+      localException.printStackTrace(); }
+    return null;
+  }
+  
+  private static final int getInt(Class<?> paramClass, Object paramObject, String paramString) {
+    try {
+      Field localField = paramClass.getField(paramString);
+      return localField.getInt(paramObject);
+    } catch (Exception localException) { localException.printStackTrace(); }
+    return -1;
+  }
+  
+  public AndroidVersion() {}
+}

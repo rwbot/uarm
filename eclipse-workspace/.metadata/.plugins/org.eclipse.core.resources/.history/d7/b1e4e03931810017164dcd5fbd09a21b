@@ -1,0 +1,414 @@
+package com.jogamp.nativewindow;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Capabilities
+  implements CapabilitiesImmutable, Cloneable
+{
+  protected static final String na_str = "----";
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private int redBits = 8;
+  private int greenBits = 8;
+  private int blueBits = 8;
+  private int alphaBits = 0;
+  
+
+  private boolean backgroundOpaque = true;
+  private int transparentValueRed = 0;
+  private int transparentValueGreen = 0;
+  private int transparentValueBlue = 0;
+  private int transparentValueAlpha = 0;
+  
+
+  private boolean onscreen = true;
+  
+
+  private boolean isBitmap = false;
+  
+  protected static final String ESEP = "/";
+  protected static final String CSEP = ", ";
+  
+  public Capabilities() {}
+  
+  public Object cloneMutable()
+  {
+    return clone();
+  }
+  
+  public Object clone()
+  {
+    try {
+      return super.clone();
+    } catch (CloneNotSupportedException localCloneNotSupportedException) {
+      throw new NativeWindowException(localCloneNotSupportedException);
+    }
+  }
+  
+
+
+
+
+  public Capabilities copyFrom(CapabilitiesImmutable paramCapabilitiesImmutable)
+  {
+    redBits = paramCapabilitiesImmutable.getRedBits();
+    greenBits = paramCapabilitiesImmutable.getGreenBits();
+    blueBits = paramCapabilitiesImmutable.getBlueBits();
+    alphaBits = paramCapabilitiesImmutable.getAlphaBits();
+    backgroundOpaque = paramCapabilitiesImmutable.isBackgroundOpaque();
+    onscreen = paramCapabilitiesImmutable.isOnscreen();
+    isBitmap = paramCapabilitiesImmutable.isBitmap();
+    transparentValueRed = paramCapabilitiesImmutable.getTransparentRedValue();
+    transparentValueGreen = paramCapabilitiesImmutable.getTransparentGreenValue();
+    transparentValueBlue = paramCapabilitiesImmutable.getTransparentBlueValue();
+    transparentValueAlpha = paramCapabilitiesImmutable.getTransparentAlphaValue();
+    return this;
+  }
+  
+
+  public int hashCode()
+  {
+    int i = 31 + redBits;
+    i = (i << 5) - i + (onscreen ? 1 : 0);
+    i = (i << 5) - i + (isBitmap ? 1 : 0);
+    i = (i << 5) - i + greenBits;
+    i = (i << 5) - i + blueBits;
+    i = (i << 5) - i + alphaBits;
+    i = (i << 5) - i + (backgroundOpaque ? 1 : 0);
+    i = (i << 5) - i + transparentValueRed;
+    i = (i << 5) - i + transparentValueGreen;
+    i = (i << 5) - i + transparentValueBlue;
+    i = (i << 5) - i + transparentValueAlpha;
+    return i;
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    if (this == paramObject) return true;
+    if (!(paramObject instanceof CapabilitiesImmutable)) {
+      return false;
+    }
+    CapabilitiesImmutable localCapabilitiesImmutable = (CapabilitiesImmutable)paramObject;
+    
+
+
+
+
+
+    boolean bool = (localCapabilitiesImmutable.getRedBits() == redBits) && (localCapabilitiesImmutable.getGreenBits() == greenBits) && (localCapabilitiesImmutable.getBlueBits() == blueBits) && (localCapabilitiesImmutable.getAlphaBits() == alphaBits) && (localCapabilitiesImmutable.isBackgroundOpaque() == backgroundOpaque) && (localCapabilitiesImmutable.isOnscreen() == onscreen) && (localCapabilitiesImmutable.isBitmap() == isBitmap);
+    if ((bool) && (!backgroundOpaque))
+    {
+
+
+      bool = (localCapabilitiesImmutable.getTransparentRedValue() == transparentValueRed) && (localCapabilitiesImmutable.getTransparentGreenValue() == transparentValueGreen) && (localCapabilitiesImmutable.getTransparentBlueValue() == transparentValueBlue) && (localCapabilitiesImmutable.getTransparentAlphaValue() == transparentValueAlpha);
+    }
+    
+    return bool;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public int compareTo(CapabilitiesImmutable paramCapabilitiesImmutable)
+  {
+    int i = redBits * greenBits * blueBits * (alphaBits + 1);
+    
+    int j = paramCapabilitiesImmutable.getRedBits() * paramCapabilitiesImmutable.getGreenBits() * paramCapabilitiesImmutable.getBlueBits() * (paramCapabilitiesImmutable.getAlphaBits() + 1);
+    
+    if (i > j)
+      return 1;
+    if (i < j) {
+      return -1;
+    }
+    
+    return 0;
+  }
+  
+  public int getVisualID(VisualIDHolder.VIDType paramVIDType) throws NativeWindowException
+  {
+    switch (1.$SwitchMap$com$jogamp$nativewindow$VisualIDHolder$VIDType[paramVIDType.ordinal()]) {
+    case 1: 
+    case 2: 
+      return 0;
+    }
+    throw new NativeWindowException("Invalid type <" + paramVIDType + ">");
+  }
+  
+
+  public final int getRedBits()
+  {
+    return redBits;
+  }
+  
+
+
+  public void setRedBits(int paramInt)
+  {
+    redBits = paramInt;
+  }
+  
+  public final int getGreenBits()
+  {
+    return greenBits;
+  }
+  
+
+
+  public void setGreenBits(int paramInt)
+  {
+    greenBits = paramInt;
+  }
+  
+  public final int getBlueBits()
+  {
+    return blueBits;
+  }
+  
+
+
+  public void setBlueBits(int paramInt)
+  {
+    blueBits = paramInt;
+  }
+  
+  public final int getAlphaBits()
+  {
+    return alphaBits;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public void setAlphaBits(int paramInt)
+  {
+    alphaBits = paramInt;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void setBackgroundOpaque(boolean paramBoolean)
+  {
+    backgroundOpaque = paramBoolean;
+    if ((!paramBoolean) && (getAlphaBits() == 0)) {
+      setAlphaBits(1);
+    }
+  }
+  
+  public final boolean isBackgroundOpaque()
+  {
+    return backgroundOpaque;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public void setOnscreen(boolean paramBoolean)
+  {
+    onscreen = paramBoolean;
+  }
+  
+  public final boolean isOnscreen()
+  {
+    return onscreen;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public void setBitmap(boolean paramBoolean)
+  {
+    if (paramBoolean) {
+      setOnscreen(false);
+    }
+    isBitmap = paramBoolean;
+  }
+  
+  public boolean isBitmap()
+  {
+    return isBitmap;
+  }
+  
+  public final int getTransparentRedValue() {
+    return transparentValueRed;
+  }
+  
+  public final int getTransparentGreenValue() { return transparentValueGreen; }
+  
+  public final int getTransparentBlueValue() {
+    return transparentValueBlue;
+  }
+  
+  public final int getTransparentAlphaValue() { return transparentValueAlpha; }
+  
+
+
+
+  public void setTransparentRedValue(int paramInt)
+  {
+    transparentValueRed = paramInt;
+  }
+  
+
+
+  public void setTransparentGreenValue(int paramInt)
+  {
+    transparentValueGreen = paramInt;
+  }
+  
+
+
+  public void setTransparentBlueValue(int paramInt)
+  {
+    transparentValueBlue = paramInt;
+  }
+  
+
+
+  public void setTransparentAlphaValue(int paramInt)
+  {
+    transparentValueAlpha = paramInt;
+  }
+  
+  public StringBuilder toString(StringBuilder paramStringBuilder) {
+    return toString(paramStringBuilder, true);
+  }
+  
+
+
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("Caps[");
+    toString(localStringBuilder);
+    localStringBuilder.append("]");
+    return localStringBuilder.toString();
+  }
+  
+  protected StringBuilder onoffScreenToString(StringBuilder paramStringBuilder)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    if (onscreen) {
+      paramStringBuilder.append("on-scr");
+    } else {
+      paramStringBuilder.append("offscr[");
+    }
+    if (isBitmap) {
+      paramStringBuilder.append("bitmap");
+    } else if (onscreen) {
+      paramStringBuilder.append(".");
+    } else {
+      paramStringBuilder.append("auto-cfg");
+    }
+    paramStringBuilder.append("]");
+    
+    return paramStringBuilder;
+  }
+  
+
+
+
+
+  protected StringBuilder toString(StringBuilder paramStringBuilder, boolean paramBoolean)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    paramStringBuilder.append("rgba ").append(redBits).append("/").append(greenBits).append("/").append(blueBits).append("/").append(alphaBits);
+    if (backgroundOpaque) {
+      paramStringBuilder.append(", opaque");
+    } else {
+      paramStringBuilder.append(", trans-rgba 0x").append(toHexString(transparentValueRed)).append("/").append(toHexString(transparentValueGreen)).append("/").append(toHexString(transparentValueBlue)).append("/").append(toHexString(transparentValueAlpha));
+    }
+    if (paramBoolean) {
+      paramStringBuilder.append(", ");
+      onoffScreenToString(paramStringBuilder);
+    }
+    return paramStringBuilder;
+  }
+  
+  protected final String toHexString(int paramInt) { return Integer.toHexString(paramInt); }
+}

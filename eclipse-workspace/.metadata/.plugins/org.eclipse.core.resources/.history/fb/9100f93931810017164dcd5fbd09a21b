@@ -1,0 +1,203 @@
+package jogamp.graph.font;
+
+import com.jogamp.common.net.Uri;
+import com.jogamp.common.net.Uri.Encoded;
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.util.IOUtil;
+import com.jogamp.common.util.IntObjectHashMap;
+import com.jogamp.common.util.JarUtil;
+import com.jogamp.common.util.cache.TempJarCache;
+import com.jogamp.graph.font.Font;
+import com.jogamp.graph.font.FontFactory;
+import com.jogamp.graph.font.FontSet;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
+import java.net.URL;
+import java.net.URLConnection;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class UbuntuFontLoader
+  implements FontSet
+{
+  private static final IntObjectHashMap fontMap = new IntObjectHashMap();
+  
+  private static final Uri.Encoded jarSubDir = Uri.Encoded.cast("atomic/");
+  private static final Uri.Encoded jarName = Uri.Encoded.cast("jogl-fonts-p0.jar");
+  
+  private static final String absFontPath = "jogamp/graph/font/fonts/ubuntu/";
+  
+  private static final FontSet fontLoader = new UbuntuFontLoader();
+  
+  public static final FontSet get() {
+    return fontLoader;
+  }
+  
+  static final String[] availableFontFileNames = { "Ubuntu-R.ttf", "Ubuntu-RI.ttf", "Ubuntu-B.ttf", "Ubuntu-BI.ttf", "Ubuntu-L.ttf", "Ubuntu-LI.ttf", "Ubuntu-M.ttf", "Ubuntu-MI.ttf" };
+  
+
+
+
+
+
+
+  private UbuntuFontLoader() {}
+  
+
+
+
+
+
+  static boolean is(int paramInt1, int paramInt2)
+  {
+    return 0 != (paramInt1 & paramInt2);
+  }
+  
+  public Font getDefault() throws IOException
+  {
+    return get(0, 0);
+  }
+  
+  public Font get(int paramInt1, int paramInt2) throws IOException
+  {
+    Font localFont = (Font)fontMap.get(paramInt1 << 8 | paramInt2);
+    if (localFont != null) {
+      return localFont;
+    }
+    
+    switch (paramInt1) {
+    case 0: 
+    case 3: 
+    case 4: 
+      if (is(paramInt2, 4)) {
+        if (is(paramInt2, 8)) {
+          localFont = abspath(availableFontFileNames[3], paramInt1, paramInt2);
+        } else {
+          localFont = abspath(availableFontFileNames[2], paramInt1, paramInt2);
+        }
+      } else if (is(paramInt2, 8)) {
+        localFont = abspath(availableFontFileNames[1], paramInt1, paramInt2);
+      } else {
+        localFont = abspath(availableFontFileNames[0], paramInt1, paramInt2);
+      }
+      break;
+    
+    case 1: 
+      if (is(paramInt2, 8)) {
+        localFont = abspath(availableFontFileNames[5], paramInt1, paramInt2);
+      } else {
+        localFont = abspath(availableFontFileNames[4], paramInt1, paramInt2);
+      }
+      break;
+    
+    case 2: 
+      if (is(paramInt2, 8)) {
+        localFont = abspath(availableFontFileNames[6], paramInt1, paramInt2);
+      } else {
+        localFont = abspath(availableFontFileNames[7], paramInt1, paramInt2);
+      }
+      break;
+    }
+    
+    return localFont;
+  }
+  
+  private static boolean attemptedJARLoading = false;
+  private static boolean useTempJARCache = false;
+  
+  private synchronized Font abspath(String paramString, int paramInt1, int paramInt2) throws IOException {
+    if (!attemptedJARLoading) {
+      attemptedJARLoading = true;
+      Platform.initSingleton();
+      if (TempJarCache.isInitialized()) {
+        try {
+          final Uri localUri = JarUtil.getRelativeOf(UbuntuFontLoader.class, jarSubDir, jarName);
+          Exception localException3 = (Exception)AccessController.doPrivileged(new PrivilegedAction()
+          {
+            public Exception run() {
+              try {
+                TempJarCache.addResources(UbuntuFontLoader.class, localUri);
+                UbuntuFontLoader.access$002(true);
+                return null;
+              } catch (Exception localException) {
+                return localException;
+              }
+            } });
+          if (null != localException3) {
+            throw localException3;
+          }
+        } catch (Exception localException1) {
+          System.err.println("Caught " + localException1.getMessage());
+          localException1.printStackTrace();
+        }
+      }
+    }
+    try {
+      Font localFont = abspathImpl("jogamp/graph/font/fonts/ubuntu/" + paramString, paramInt1, paramInt2);
+      if (null != localFont) {
+        return localFont;
+      }
+      throw new IOException(String.format("Problem loading font %s, stream %s%s", new Object[] { paramString, "jogamp/graph/font/fonts/ubuntu/", paramString }));
+    } catch (Exception localException2) {
+      throw new IOException(String.format("Problem loading font %s, stream %s%s", new Object[] { paramString, "jogamp/graph/font/fonts/ubuntu/", paramString }), localException2);
+    } }
+  
+  private Font abspathImpl(final String paramString, int paramInt1, int paramInt2) throws IOException { Object localObject;
+    InputStream localInputStream;
+    if (useTempJARCache) {
+      localObject = new Exception[] { null };
+      localInputStream = (InputStream)AccessController.doPrivileged(new PrivilegedAction()
+      {
+        public InputStream run() {
+          try {
+            Uri localUri = TempJarCache.getResourceUri(paramString);
+            return null != localUri ? localUri.toURL().openConnection().getInputStream() : null;
+          } catch (Exception localException) {
+            val$privErr[0] = localException; }
+          return null;
+        }
+      });
+      if (null != localObject[0]) {
+        throw new IOException(localObject[0]);
+      }
+    } else {
+      localObject = IOUtil.getResource(paramString, getClass().getClassLoader(), null);
+      localInputStream = null != localObject ? ((URLConnection)localObject).getInputStream() : null;
+    }
+    if (null != localInputStream) {
+      localObject = FontFactory.get(localInputStream, true);
+      if (null != localObject) {
+        fontMap.put(paramInt1 << 8 | paramInt2, localObject);
+        return localObject;
+      }
+    }
+    return null;
+  }
+}

@@ -1,0 +1,105 @@
+package jogamp.opengl.util.stereo;
+
+import com.jogamp.opengl.util.stereo.EyeParameter;
+import com.jogamp.opengl.util.stereo.generic.GenericStereoDeviceConfig;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class DistortionMesh
+{
+  final DistortionVertex[] vertices;
+  final int vertexCount;
+  final short[] indices;
+  final int indexCount;
+  
+  public static class DistortionVertex
+  {
+    public static final int def_pos_size = 2;
+    public static final int def_vignetteFactor_size = 1;
+    public static final int def_timewarpFactor_size = 1;
+    public static final int def_texR_size = 2;
+    public static final int def_texG_size = 2;
+    public static final int def_texB_size = 2;
+    public static final int def_total_size = 10;
+    final float[] data;
+    final int pos_size;
+    final int vignetteFactor_size;
+    final int timewarpFactor_size;
+    final int texR_size;
+    final int texG_size;
+    final int texB_size;
+    
+    public DistortionVertex(float[] paramArrayOfFloat, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6)
+    {
+      data = paramArrayOfFloat;
+      pos_size = paramInt1;
+      vignetteFactor_size = paramInt2;
+      timewarpFactor_size = paramInt3;
+      texR_size = paramInt4;
+      texG_size = paramInt5;
+      texB_size = paramInt6;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public DistortionMesh(DistortionVertex[] paramArrayOfDistortionVertex, int paramInt1, short[] paramArrayOfShort, int paramInt2)
+  {
+    vertices = paramArrayOfDistortionVertex;
+    vertexCount = paramInt1;
+    indices = paramArrayOfShort;
+    indexCount = paramInt2;
+  }
+  
+  public static abstract interface Producer
+  {
+    public abstract void init(GenericStereoDeviceConfig paramGenericStereoDeviceConfig, float[] paramArrayOfFloat)
+      throws IllegalStateException;
+    
+    public abstract DistortionMesh create(EyeParameter paramEyeParameter, int paramInt);
+  }
+}

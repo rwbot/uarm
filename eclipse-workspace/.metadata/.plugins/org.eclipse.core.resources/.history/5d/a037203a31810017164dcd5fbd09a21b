@@ -1,0 +1,520 @@
+package jogamp.opengl;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.util.IntObjectHashMap;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLBufferStorage;
+import com.jogamp.opengl.GLException;
+import java.io.PrintStream;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLBufferObjectTracker
+{
+  public static abstract interface UnmapBufferDispatch
+  {
+    public abstract boolean unmap(int paramInt);
+  }
+  
+  public static abstract interface MapBufferAllDispatch
+    extends GLBufferObjectTracker.MapBufferDispatch
+  {
+    public abstract long mapBuffer(int paramInt1, int paramInt2);
+  }
+  
+  public static abstract interface MapBufferRangeDispatch
+    extends GLBufferObjectTracker.MapBufferDispatch
+  {
+    public abstract long mapBuffer(int paramInt1, long paramLong1, long paramLong2, int paramInt2);
+  }
+  
+  public static abstract interface MapBufferDispatch
+  {
+    public abstract ByteBuffer allocNioByteBuffer(long paramLong1, long paramLong2);
+  }
+  
+  protected static final boolean DEBUG = PropertyAccess.isPropertyDefined("jogl.debug.GLBufferObjectTracker", true);
+  
+  public static abstract interface CreateStorageDispatch { public abstract void create(int paramInt1, long paramLong, Buffer paramBuffer, int paramInt2);
+  }
+  
+  static final class GLBufferStorageImpl extends GLBufferStorage { GLBufferStorageImpl(int paramInt1, long paramLong, int paramInt2, int paramInt3) { super(paramLong, paramInt2, paramInt3); }
+    
+    protected final void reset(long paramLong, int paramInt1, int paramInt2) {
+      super.reset(paramLong, paramInt1, paramInt2);
+    }
+    
+    protected final void setMappedBuffer(ByteBuffer paramByteBuffer) { super.setMappedBuffer(paramByteBuffer); }
+  }
+  
+
+
+
+
+
+  public GLBufferObjectTracker()
+  {
+    bufferName2StorageMap = new IntObjectHashMap();
+    bufferName2StorageMap.setKeyNotFoundValue(null);
+  }
+  
+
+
+
+  private final IntObjectHashMap bufferName2StorageMap;
+  
+
+
+  private static final String GL_INVALID_OPERATION = "GL_INVALID_OPERATION";
+  
+
+
+  private static final String GL_INVALID_VALUE = "GL_INVALID_VALUE";
+  
+
+
+  private static final String warning = "WARNING";
+  
+
+
+  public final synchronized void createBufferStorage(GLBufferStateTracker paramGLBufferStateTracker, GL paramGL, int paramInt1, long paramLong, Buffer paramBuffer, int paramInt2, int paramInt3, CreateStorageDispatch paramCreateStorageDispatch)
+    throws GLException
+  {
+    int i = paramGL.glGetError();
+    if ((DEBUG) && (0 != i)) {
+      System.err.printf("%s.%s glerr-pre 0x%X%n", new Object[] { "GLBufferObjectTracker", "createBoundBufferStorage()", Integer.valueOf(i) });
+    }
+    int j = paramGLBufferStateTracker.getBoundBufferObject(paramInt1, paramGL);
+    if (0 == j) {
+      throw new GLException(String.format("%s: Buffer for target 0x%X not bound", new Object[] { "GL_INVALID_OPERATION", Integer.valueOf(paramInt1) }));
+    }
+    int k = 0 != paramInt2 ? 1 : 0;
+    int m = ((k != 0) && (0L > paramLong)) || ((k == 0) && (0L >= paramLong)) ? 1 : 0;
+    
+    if (m != 0) {
+      throw new GLException(String.format("%s: Invalid size %d for buffer %d on target 0x%X", new Object[] { "GL_INVALID_VALUE", Long.valueOf(paramLong), Integer.valueOf(j), Integer.valueOf(paramInt1) }));
+    }
+    
+    paramCreateStorageDispatch.create(paramInt1, paramLong, paramBuffer, k != 0 ? paramInt2 : paramInt3);
+    int n = paramGL.glGetError();
+    if (0 != n) {
+      throw new GLException(String.format("GL-Error 0x%X while creating %s storage for target 0x%X -> buffer %d of size %d with data %s", new Object[] {
+        Integer.valueOf(n), k != 0 ? "mutable" : "immutable", Integer.valueOf(paramInt1), Integer.valueOf(j), Long.valueOf(paramLong), paramBuffer }));
+    }
+    GLBufferStorageImpl localGLBufferStorageImpl1 = (GLBufferStorageImpl)bufferName2StorageMap.get(j);
+    if (null != localGLBufferStorageImpl1) {
+      localGLBufferStorageImpl1.reset(paramLong, paramInt2, paramInt3);
+      if (DEBUG) {
+        System.err.printf("%s.%s target: 0x%X -> reset %d: %s%n", new Object[] { "GLBufferObjectTracker", "createBoundBufferStorage()", Integer.valueOf(paramInt1), Integer.valueOf(j), localGLBufferStorageImpl1 });
+      }
+    } else {
+      GLBufferStorageImpl localGLBufferStorageImpl2 = new GLBufferStorageImpl(j, paramLong, paramInt2, paramInt3);
+      bufferName2StorageMap.put(j, localGLBufferStorageImpl2);
+      if (DEBUG) {
+        System.err.printf("%s.%s target: 0x%X -> new %d: %s%n", new Object[] { "GLBufferObjectTracker", "createBoundBufferStorage()", Integer.valueOf(paramInt1), Integer.valueOf(j), localGLBufferStorageImpl2 });
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final synchronized void createBufferStorage(GL paramGL, int paramInt1, long paramLong, Buffer paramBuffer, int paramInt2, int paramInt3, CreateStorageDispatch paramCreateStorageDispatch)
+    throws GLException
+  {
+    int i = paramGL.glGetError();
+    if ((DEBUG) && (0 != i)) {
+      System.err.printf("%s.%s glerr-pre 0x%X%n", new Object[] { "GLBufferObjectTracker", "createNamedBufferStorage()", Integer.valueOf(i) });
+    }
+    if (0L > paramLong) {
+      throw new GLException(String.format("%s: Invalid size %d for buffer %d", new Object[] { "GL_INVALID_VALUE", Long.valueOf(paramLong), Integer.valueOf(paramInt1) }));
+    }
+    int j = 0 != paramInt2 ? 1 : 0;
+    if (j == 0) {
+      throw new InternalError("Immutable glNamedBufferStorage not supported yet");
+    }
+    paramCreateStorageDispatch.create(paramInt1, paramLong, paramBuffer, paramInt2);
+    int k = paramGL.glGetError();
+    if (0 != k) {
+      throw new GLException(String.format("GL-Error 0x%X while creating %s storage for buffer %d of size %d with data %s", new Object[] {
+        Integer.valueOf(k), "mutable", Integer.valueOf(paramInt1), Long.valueOf(paramLong), paramBuffer }));
+    }
+    GLBufferStorageImpl localGLBufferStorageImpl1 = (GLBufferStorageImpl)bufferName2StorageMap.get(paramInt1);
+    if (null != localGLBufferStorageImpl1) {
+      localGLBufferStorageImpl1.reset(paramLong, paramInt2, paramInt3);
+      if (DEBUG) {
+        System.err.printf("%s.%s direct: reset %d: %s%n", new Object[] { "GLBufferObjectTracker", "createNamedBufferStorage()", Integer.valueOf(paramInt1), localGLBufferStorageImpl1 });
+      }
+    } else {
+      GLBufferStorageImpl localGLBufferStorageImpl2 = new GLBufferStorageImpl(paramInt1, paramLong, paramInt2, paramInt3);
+      bufferName2StorageMap.put(paramInt1, localGLBufferStorageImpl2);
+      if (DEBUG) {
+        System.err.printf("%s.%s direct: new %d: %s%n", new Object[] { "GLBufferObjectTracker", "createNamedBufferStorage()", Integer.valueOf(paramInt1), localGLBufferStorageImpl2 });
+      }
+    }
+  }
+  
+
+
+
+
+
+  public final synchronized void notifyBuffersDeleted(int paramInt1, int[] paramArrayOfInt, int paramInt2)
+  {
+    for (int i = 0; i < paramInt1; i++) {
+      notifyBufferDeleted(paramArrayOfInt[(i + paramInt2)], i, paramInt1);
+    }
+  }
+  
+
+
+
+  public final synchronized void notifyBuffersDeleted(int paramInt, IntBuffer paramIntBuffer)
+  {
+    int i = paramIntBuffer.position();
+    for (int j = 0; j < paramInt; j++) {
+      notifyBufferDeleted(paramIntBuffer.get(j + i), j, paramInt);
+    }
+  }
+  
+
+
+
+
+  private final synchronized void notifyBufferDeleted(int paramInt1, int paramInt2, int paramInt3)
+  {
+    GLBufferStorageImpl localGLBufferStorageImpl = (GLBufferStorageImpl)bufferName2StorageMap.put(paramInt1, null);
+    if (DEBUG) {
+      System.err.printf("%s.notifyBuffersDeleted()[%d/%d]: %d: %s -> null%n", new Object[] { "GLBufferObjectTracker", Integer.valueOf(paramInt2 + 1), Integer.valueOf(paramInt3), Integer.valueOf(paramInt1), localGLBufferStorageImpl });
+    }
+    if (null == localGLBufferStorageImpl) {
+      if (DEBUG) {
+        System.err.printf("%s: %s.notifyBuffersDeleted()[%d/%d]: Buffer %d not tracked%n", new Object[] { "WARNING", "GLBufferObjectTracker", Integer.valueOf(paramInt2 + 1), Integer.valueOf(paramInt3), Integer.valueOf(paramInt1) });
+        ExceptionUtils.dumpStack(System.err);
+      }
+      return;
+    }
+    localGLBufferStorageImpl.setMappedBuffer(null);
+  }
+  
+
+
+
+  private static final String msgClazzName = "GLBufferObjectTracker";
+  
+
+
+  private static final String msgUnmapped = "notifyBufferUnmapped()";
+  
+
+
+  private static final String msgCreateBound = "createBoundBufferStorage()";
+  
+
+  private static final String msgCreateNamed = "createNamedBufferStorage()";
+  
+
+  private static final String msgMapBuffer = "mapBuffer()";
+  
+
+  public final synchronized GLBufferStorage mapBuffer(GLBufferStateTracker paramGLBufferStateTracker, GL paramGL, int paramInt1, int paramInt2, MapBufferAllDispatch paramMapBufferAllDispatch)
+    throws GLException
+  {
+    return mapBufferImpl(paramGLBufferStateTracker, paramGL, paramInt1, false, 0L, 0L, paramInt2, paramMapBufferAllDispatch);
+  }
+  
+
+
+
+
+
+
+
+  public final synchronized GLBufferStorage mapBuffer(GLBufferStateTracker paramGLBufferStateTracker, GL paramGL, int paramInt1, long paramLong1, long paramLong2, int paramInt2, MapBufferRangeDispatch paramMapBufferRangeDispatch)
+    throws GLException
+  {
+    return mapBufferImpl(paramGLBufferStateTracker, paramGL, paramInt1, true, paramLong1, paramLong2, paramInt2, paramMapBufferRangeDispatch);
+  }
+  
+
+
+
+  public final synchronized GLBufferStorage mapBuffer(int paramInt1, int paramInt2, MapBufferAllDispatch paramMapBufferAllDispatch)
+    throws GLException
+  {
+    return mapBufferImpl(0, paramInt1, true, false, 0L, 0L, paramInt2, paramMapBufferAllDispatch);
+  }
+  
+
+
+
+
+  public final synchronized GLBufferStorage mapBuffer(int paramInt1, long paramLong1, long paramLong2, int paramInt2, MapBufferRangeDispatch paramMapBufferRangeDispatch)
+    throws GLException
+  {
+    return mapBufferImpl(0, paramInt1, true, true, paramLong1, paramLong2, paramInt2, paramMapBufferRangeDispatch);
+  }
+  
+
+
+
+
+
+
+
+  private final synchronized GLBufferStorage mapBufferImpl(GLBufferStateTracker paramGLBufferStateTracker, GL paramGL, int paramInt1, boolean paramBoolean, long paramLong1, long paramLong2, int paramInt2, MapBufferDispatch paramMapBufferDispatch)
+    throws GLException
+  {
+    int i = paramGLBufferStateTracker.getBoundBufferObject(paramInt1, paramGL);
+    if (0 == i) {
+      throw new GLException(String.format("%s.%s: %s Buffer for target 0x%X not bound", new Object[] { "GLBufferObjectTracker", "mapBuffer()", "GL_INVALID_OPERATION", Integer.valueOf(paramInt1) }));
+    }
+    return mapBufferImpl(paramInt1, i, false, paramBoolean, paramLong1, paramLong2, paramInt2, paramMapBufferDispatch);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  private final synchronized GLBufferStorage mapBufferImpl(int paramInt1, int paramInt2, boolean paramBoolean1, boolean paramBoolean2, long paramLong1, long paramLong2, int paramInt3, MapBufferDispatch paramMapBufferDispatch)
+    throws GLException
+  {
+    GLBufferStorageImpl localGLBufferStorageImpl = (GLBufferStorageImpl)bufferName2StorageMap.get(paramInt2);
+    if (null == localGLBufferStorageImpl) {
+      throw new GLException("Buffer with name " + paramInt2 + " not tracked");
+    }
+    if (null != localGLBufferStorageImpl.getMappedBuffer()) {
+      throw new GLException(String.format("%s.%s: %s Buffer storage of target 0x%X -> %d: %s is already mapped", new Object[] { "GLBufferObjectTracker", "mapBuffer()", "GL_INVALID_OPERATION", Integer.valueOf(paramInt1), Integer.valueOf(paramInt2), localGLBufferStorageImpl }));
+    }
+    long l1 = localGLBufferStorageImpl.getSize();
+    if (0L > l1) {
+      throw new GLException(String.format("%s.%s: %s Buffer storage of target 0x%X -> %d: %s is of less-than zero", new Object[] { "GLBufferObjectTracker", "mapBuffer()", "GL_INVALID_OPERATION", Integer.valueOf(paramInt1), Integer.valueOf(paramInt2), localGLBufferStorageImpl }));
+    }
+    if (!paramBoolean2) {
+      paramLong2 = l1;
+      paramLong1 = 0L;
+    }
+    if (paramLong2 + paramLong1 > l1) {
+      throw new GLException(String.format("%s.%s: %s Out of range: offset %d, length %d, buffer storage of target 0x%X -> %d: %s", new Object[] { "GLBufferObjectTracker", "mapBuffer()", "GL_INVALID_VALUE", Long.valueOf(paramLong1), Long.valueOf(paramLong2), Integer.valueOf(paramInt1), Integer.valueOf(paramInt2), localGLBufferStorageImpl }));
+    }
+    if ((0L >= paramLong2) || (0L > paramLong1)) {
+      throw new GLException(String.format("%s.%s: %s Invalid values: offset %d, length %d, buffer storage of target 0x%X -> %d: %s", new Object[] { "GLBufferObjectTracker", "mapBuffer()", "GL_INVALID_VALUE", Long.valueOf(paramLong1), Long.valueOf(paramLong2), Integer.valueOf(paramInt1), Integer.valueOf(paramInt2), localGLBufferStorageImpl }));
+    }
+    if (0L == l1) {
+      return localGLBufferStorageImpl;
+    }
+    long l2;
+    if (paramBoolean1) {
+      if (paramBoolean2) {
+        l2 = ((MapBufferRangeDispatch)paramMapBufferDispatch).mapBuffer(paramInt2, paramLong1, paramLong2, paramInt3);
+      } else {
+        l2 = ((MapBufferAllDispatch)paramMapBufferDispatch).mapBuffer(paramInt2, paramInt3);
+      }
+    }
+    else if (paramBoolean2) {
+      l2 = ((MapBufferRangeDispatch)paramMapBufferDispatch).mapBuffer(paramInt1, paramLong1, paramLong2, paramInt3);
+    } else {
+      l2 = ((MapBufferAllDispatch)paramMapBufferDispatch).mapBuffer(paramInt1, paramInt3);
+    }
+    
+
+
+    if (0L == l2) {
+      if (DEBUG) {
+        System.err.printf("%s.%s: %s MapBuffer null result for target 0x%X -> %d: %s, off %d, len %d, acc 0x%X%n", new Object[] { "GLBufferObjectTracker", "mapBuffer()", "WARNING", Integer.valueOf(paramInt1), Integer.valueOf(paramInt2), localGLBufferStorageImpl, Long.valueOf(paramLong1), Long.valueOf(paramLong2), Integer.valueOf(paramInt3) });
+        ExceptionUtils.dumpStack(System.err);
+      }
+    }
+    else {
+      ByteBuffer localByteBuffer = paramMapBufferDispatch.allocNioByteBuffer(l2, paramLong2);
+      Buffers.nativeOrder(localByteBuffer);
+      if (DEBUG) {
+        System.err.printf("%s.%s: Target 0x%X -> %d: %s, off %d, len %d, acc 0x%X%n", new Object[] { "GLBufferObjectTracker", "GLBufferObjectTracker", Integer.valueOf(paramInt1), Integer.valueOf(paramInt2), localGLBufferStorageImpl.toString(false), Long.valueOf(paramLong1), Long.valueOf(paramLong2), Integer.valueOf(paramInt3) });
+      }
+      localGLBufferStorageImpl.setMappedBuffer(localByteBuffer);
+    }
+    return localGLBufferStorageImpl;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public final synchronized boolean unmapBuffer(GLBufferStateTracker paramGLBufferStateTracker, GL paramGL, int paramInt, UnmapBufferDispatch paramUnmapBufferDispatch)
+  {
+    int i = paramGLBufferStateTracker.getBoundBufferObject(paramInt, paramGL);
+    GLBufferStorageImpl localGLBufferStorageImpl;
+    if (0 == i) {
+      if (DEBUG) {
+        System.err.printf("%s: %s.%s: Buffer for target 0x%X not bound%n", new Object[] { "WARNING", "GLBufferObjectTracker", "notifyBufferUnmapped()", Integer.valueOf(paramInt) });
+        ExceptionUtils.dumpStack(System.err);
+      }
+      localGLBufferStorageImpl = null;
+    } else {
+      localGLBufferStorageImpl = (GLBufferStorageImpl)bufferName2StorageMap.get(i);
+      if ((DEBUG) && (null == localGLBufferStorageImpl)) {
+        System.err.printf("%s: %s.%s: Buffer %d not tracked%n", new Object[] { "WARNING", "GLBufferObjectTracker", "notifyBufferUnmapped()", Integer.valueOf(i) });
+        ExceptionUtils.dumpStack(System.err);
+      }
+    }
+    boolean bool = paramUnmapBufferDispatch.unmap(paramInt);
+    if ((bool) && (null != localGLBufferStorageImpl)) {
+      localGLBufferStorageImpl.setMappedBuffer(null);
+    }
+    if (DEBUG) {
+      System.err.printf("%s.%s %s target: 0x%X -> %d: %s%n", new Object[] { "GLBufferObjectTracker", "notifyBufferUnmapped()", bool ? "OK" : "Failed", Integer.valueOf(paramInt), Integer.valueOf(i), localGLBufferStorageImpl.toString(false) });
+      if (!bool) {
+        ExceptionUtils.dumpStack(System.err);
+      }
+    }
+    return bool;
+  }
+  
+
+
+
+
+
+
+  public final synchronized boolean unmapBuffer(int paramInt, UnmapBufferDispatch paramUnmapBufferDispatch)
+  {
+    GLBufferStorageImpl localGLBufferStorageImpl = (GLBufferStorageImpl)bufferName2StorageMap.get(paramInt);
+    if ((DEBUG) && (null == localGLBufferStorageImpl)) {
+      System.err.printf("%s: %s.%s: Buffer %d not tracked%n", new Object[] { "WARNING", "GLBufferObjectTracker", "notifyBufferUnmapped()", Integer.valueOf(paramInt) });
+      ExceptionUtils.dumpStack(System.err);
+    }
+    boolean bool = paramUnmapBufferDispatch.unmap(paramInt);
+    if ((bool) && (null != localGLBufferStorageImpl)) {
+      localGLBufferStorageImpl.setMappedBuffer(null);
+    }
+    if (DEBUG) {
+      System.err.printf("%s.%s %s %d: %s%n", new Object[] { "GLBufferObjectTracker", "notifyBufferUnmapped()", bool ? "OK" : "Failed", Integer.valueOf(paramInt), localGLBufferStorageImpl.toString(false) });
+      if (!bool) {
+        ExceptionUtils.dumpStack(System.err);
+      }
+    }
+    return bool;
+  }
+  
+  public final synchronized GLBufferStorage getBufferStorage(int paramInt) {
+    return (GLBufferStorageImpl)bufferName2StorageMap.get(paramInt);
+  }
+  
+
+
+
+
+
+
+  public final synchronized void clear()
+  {
+    if (DEBUG) {
+      System.err.printf("%s.clear() - Thread %s%n", new Object[] { "GLBufferObjectTracker", Thread.currentThread().getName() });
+    }
+    
+    bufferName2StorageMap.clear();
+  }
+  
+  static {}
+}

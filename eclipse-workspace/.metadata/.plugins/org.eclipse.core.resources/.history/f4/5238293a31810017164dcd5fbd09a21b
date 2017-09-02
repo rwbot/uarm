@@ -1,0 +1,1287 @@
+package jogamp.opengl.macosx.cgl;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.PointerBuffer;
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.gluegen.runtime.ProcAddressTable;
+import com.jogamp.gluegen.runtime.opengl.GLProcAddressResolver;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.OffscreenLayerSurface;
+import com.jogamp.nativewindow.ProxySurface;
+import com.jogamp.opengl.FBObject.Colorbuffer;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL3ES3;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.GLRendererQuirks;
+import com.jogamp.opengl.GLUniformData;
+import com.jogamp.opengl.util.PMVMatrix;
+import com.jogamp.opengl.util.glsl.ShaderCode;
+import com.jogamp.opengl.util.glsl.ShaderProgram;
+import java.io.PrintStream;
+import java.nio.IntBuffer;
+import java.util.HashMap;
+import java.util.Map;
+import jogamp.common.os.PlatformPropsImpl.OSXVersion;
+import jogamp.nativewindow.macosx.OSXUtil;
+import jogamp.opengl.GLContextImpl;
+import jogamp.opengl.GLDrawableImpl;
+import jogamp.opengl.GLDynamicLookupHelper;
+import jogamp.opengl.GLFBODrawableImpl;
+import jogamp.opengl.GLFBODrawableImpl.SwapBufferContext;
+import jogamp.opengl.GLGraphicsConfigurationUtil;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class MacOSXCGLContext
+  extends GLContextImpl
+{
+  static final boolean isTigerOrLater;
+  static final boolean isLionOrLater;
+  static final boolean isMavericksOrLater;
+  private static final String shaderBasename = "texture01_xxx";
+  
+  protected static abstract interface GLBackendImpl
+  {
+    public abstract boolean isNSContext();
+    
+    public abstract boolean isUsingCALayer();
+    
+    public abstract long create(long paramLong, int paramInt1, int paramInt2, int paramInt3);
+    
+    public abstract boolean destroy(long paramLong);
+    
+    public abstract void associateDrawable(boolean paramBoolean);
+    
+    public abstract boolean copyImpl(long paramLong, int paramInt);
+    
+    public abstract boolean makeCurrent(long paramLong);
+    
+    public abstract boolean release(long paramLong);
+    
+    public abstract boolean detachPBuffer();
+    
+    public abstract boolean setSwapInterval(int paramInt);
+    
+    public abstract boolean swapBuffers();
+  }
+  
+  static
+  {
+    VersionNumber localVersionNumber = Platform.getOSVersionNumber();
+    isTigerOrLater = localVersionNumber.compareTo(PlatformPropsImpl.OSXVersion.Tiger) >= 0;
+    isLionOrLater = localVersionNumber.compareTo(PlatformPropsImpl.OSXVersion.Lion) >= 0;
+    isMavericksOrLater = localVersionNumber.compareTo(PlatformPropsImpl.OSXVersion.Mavericks) >= 0;
+  }
+  
+  static boolean isGLProfileSupported(int paramInt1, int paramInt2, int paramInt3) {
+    if (0 != (0x8 & paramInt1)) {
+      return false;
+    }
+    int i = 0 != (0x2 & paramInt1) ? 1 : 0;
+    int j = 0 != (0x4 & paramInt1) ? 1 : 0;
+    
+
+    if ((3 < paramInt2) || ((3 == paramInt2) && (1 <= paramInt3))) {
+      if ((i != 0) || (j == 0))
+      {
+
+        return false;
+      }
+      if (!isLionOrLater)
+      {
+        return false;
+      }
+      if ((3 < paramInt2) && (!isMavericksOrLater))
+      {
+        return false;
+      }
+      
+
+      return true; }
+    if (paramInt2 < 3)
+    {
+      return true;
+    }
+    return false;
+  }
+  
+  static int GLProfile2CGLOGLProfileValue(AbstractGraphicsDevice paramAbstractGraphicsDevice, int paramInt1, int paramInt2, int paramInt3) { if (!isGLProfileSupported(paramInt1, paramInt2, paramInt3)) {
+      throw new GLException("OpenGL profile not supported: " + getGLVersion(paramInt2, paramInt3, paramInt1, "@GLProfile2CGLOGLProfileVersion"));
+    }
+    int i = 0 != (0x4 & paramInt1) ? 1 : 0;
+    
+    if ((paramInt2 == 4) && (i != 0)) {
+      if (GLRendererQuirks.existStickyDeviceQuirk(paramAbstractGraphicsDevice, 13))
+      {
+
+        return 12800;
+      }
+      return 16640;
+    }
+    if ((paramInt2 == 3) && (paramInt3 >= 1) && (i != 0)) {
+      return 12800;
+    }
+    return 4096;
+  }
+  
+
+
+
+  private static ShaderProgram createCALayerShader(GL3ES3 paramGL3ES3)
+  {
+    ShaderProgram localShaderProgram = new ShaderProgram();
+    ShaderCode localShaderCode1 = ShaderCode.create(paramGL3ES3, 35633, MacOSXCGLContext.class, "../../shader", "../../shader/bin", "texture01_xxx", true);
+    
+    ShaderCode localShaderCode2 = ShaderCode.create(paramGL3ES3, 35632, MacOSXCGLContext.class, "../../shader", "../../shader/bin", "texture01_xxx", true);
+    
+    localShaderCode1.defaultShaderCustomization(paramGL3ES3, true, true);
+    localShaderCode2.defaultShaderCustomization(paramGL3ES3, true, true);
+    localShaderProgram.add(localShaderCode1);
+    localShaderProgram.add(localShaderCode2);
+    if (!localShaderProgram.link(paramGL3ES3, System.err)) {
+      throw new GLException("Couldn't link program: " + localShaderProgram);
+    }
+    localShaderProgram.useProgram(paramGL3ES3, true);
+    
+
+    PMVMatrix localPMVMatrix = new PMVMatrix();
+    localPMVMatrix.glMatrixMode(5889);
+    localPMVMatrix.glLoadIdentity();
+    localPMVMatrix.glMatrixMode(5888);
+    localPMVMatrix.glLoadIdentity();
+    GLUniformData localGLUniformData = new GLUniformData("mgl_PMVMatrix", 4, 4, localPMVMatrix.glGetPMvMatrixf());
+    localGLUniformData.setLocation(paramGL3ES3, localShaderProgram.program());
+    paramGL3ES3.glUniform(localGLUniformData);
+    
+    localShaderProgram.useProgram(paramGL3ES3, false);
+    return localShaderProgram;
+  }
+  
+
+  private boolean haveSetOpenGLMode = false;
+  private MacOSXCGLDrawable.GLBackendType openGLMode = MacOSXCGLDrawable.GLBackendType.NSOPENGL;
+  
+
+  protected GLBackendImpl impl;
+  
+  private CGLExt _cglExt;
+  
+  private CGLExtProcAddressTable cglExtProcAddressTable;
+  
+
+  private long updateHandle = 0L;
+  private int lastWidth;
+  private int lastHeight;
+  
+  protected MacOSXCGLContext(GLDrawableImpl paramGLDrawableImpl, GLContext paramGLContext) {
+    super(paramGLDrawableImpl, paramGLContext);
+    initOpenGLImpl(getOpenGLMode());
+  }
+  
+
+  protected void resetStates(boolean paramBoolean)
+  {
+    cglExtProcAddressTable = null;
+    super.resetStates(paramBoolean);
+  }
+  
+  public Object getPlatformGLExtensions()
+  {
+    return getCGLExt();
+  }
+  
+  protected boolean isNSContext() {
+    return openGLMode == MacOSXCGLDrawable.GLBackendType.NSOPENGL ? true : null != impl ? impl.isNSContext() : false;
+  }
+  
+  public CGLExt getCGLExt() {
+    if (_cglExt == null) {
+      _cglExt = new CGLExtImpl(this);
+    }
+    return _cglExt;
+  }
+  
+  public final ProcAddressTable getPlatformExtProcAddressTable()
+  {
+    return getCGLExtProcAddressTable();
+  }
+  
+  public final CGLExtProcAddressTable getCGLExtProcAddressTable() {
+    return cglExtProcAddressTable;
+  }
+  
+  protected Map<String, String> getFunctionNameMap() {
+    return null;
+  }
+  
+  protected Map<String, String> getExtensionNameMap() { return null; }
+  
+  protected long createContextARBImpl(long paramLong, boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3)
+  {
+    if (!isGLProfileSupported(paramInt1, paramInt2, paramInt3)) {
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": createContextARBImpl: Not supported " + getGLVersion(paramInt2, paramInt3, paramInt1, new StringBuilder().append("@creation on OSX ").append(Platform.getOSVersionNumber()).toString()));
+      }
+      return 0L;
+    }
+    
+
+    long l = impl.create(paramLong, paramInt1, paramInt2, paramInt3);
+    if (0L != l) {
+      if (!impl.makeCurrent(l)) {
+        if (DEBUG) {
+          System.err.println(getThreadName() + ": createContextARB couldn't make current " + getGLVersion(paramInt2, paramInt3, paramInt1, "@creation"));
+        }
+        impl.release(l);
+        impl.destroy(l);
+        l = 0L;
+      } else if (DEBUG) {
+        System.err.println(getThreadName() + ": createContextARBImpl: OK " + getGLVersion(paramInt2, paramInt3, paramInt1, "@creation") + ", share " + paramLong + ", direct " + paramBoolean + " on OSX " + Platform.getOSVersionNumber());
+      }
+    } else if (DEBUG) {
+      System.err.println(getThreadName() + ": createContextARBImpl: NO " + getGLVersion(paramInt2, paramInt3, paramInt1, new StringBuilder().append("@creation on OSX ").append(Platform.getOSVersionNumber()).toString()));
+    }
+    return l;
+  }
+  
+  protected void destroyContextARBImpl(long paramLong)
+  {
+    impl.release(paramLong);
+    impl.destroy(paramLong);
+  }
+  
+  public final boolean isGLReadDrawableAvailable()
+  {
+    return false;
+  }
+  
+  protected boolean createImpl(long paramLong) throws GLException
+  {
+    MacOSXCGLGraphicsConfiguration localMacOSXCGLGraphicsConfiguration = (MacOSXCGLGraphicsConfiguration)drawable.getNativeSurface().getGraphicsConfiguration();
+    AbstractGraphicsDevice localAbstractGraphicsDevice = localMacOSXCGLGraphicsConfiguration.getScreen().getDevice();
+    GLCapabilitiesImmutable localGLCapabilitiesImmutable = (GLCapabilitiesImmutable)localMacOSXCGLGraphicsConfiguration.getChosenCapabilities();
+    GLProfile localGLProfile = localGLCapabilitiesImmutable.getGLProfile();
+    boolean bool = isCreateContextARBAvail(localAbstractGraphicsDevice);
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": MacOSXCGLContext.createImpl: START " + localGLCapabilitiesImmutable + ", share " + toHexString(paramLong));
+      System.err.println(getThreadName() + ": Use ARB[avail[" + getCreateContextARBAvailStr(localAbstractGraphicsDevice) + "] -> " + bool + "]]");
+    }
+    
+    if ((localGLProfile.isGLES()) || 
+      ((localGLProfile.isGL3()) && (!isLionOrLater)) || ((localGLProfile.isGL4()) && (!isMavericksOrLater))) {
+      throw new GLException("OpenGL profile not supported on MacOSX " + Platform.getOSVersionNumber() + ": " + localGLProfile);
+    }
+    if ((0L != paramLong) && (MacOSXCGLDrawable.GLBackendType.NSOPENGL != getOpenGLMode())) {
+      throw new GLException("Context sharing only supported in mode " + MacOSXCGLDrawable.GLBackendType.NSOPENGL + ": " + this);
+    }
+    contextHandle = createContextARB(paramLong, true);
+    return 0L != contextHandle;
+  }
+  
+
+
+
+
+  protected void makeCurrentImpl()
+    throws GLException
+  {
+    if (!impl.makeCurrent(contextHandle)) {
+      throw new GLException("Error making Context current: " + this);
+    }
+    drawableUpdatedNotify();
+  }
+  
+  protected void releaseImpl() throws GLException
+  {
+    if (!impl.release(contextHandle)) {
+      throw new GLException("Error releasing OpenGL Context: " + this);
+    }
+  }
+  
+  protected void destroyImpl() throws GLException
+  {
+    releaseUpdateHandle();
+    if (!impl.destroy(contextHandle)) {
+      throw new GLException("Error destroying OpenGL Context: " + this);
+    }
+  }
+  
+  private final long getUpdateHandle() {
+    if (0L == updateHandle) {
+      lastWidth = -1;
+      lastHeight = -1;
+      if ((isCreated()) && (drawable.getChosenGLCapabilities().isOnscreen()) && (isNSContext()))
+      {
+        NativeSurface localNativeSurface = drawable.getNativeSurface();
+        boolean bool; if ((localNativeSurface instanceof ProxySurface)) {
+          bool = ((ProxySurface)localNativeSurface).containsUpstreamOptionBits(256);
+        } else {
+          bool = false;
+        }
+        if (!bool) {
+          updateHandle = CGL.updateContextRegister(contextHandle, drawable.getHandle());
+          if (0L == updateHandle) {
+            throw new InternalError("XXX2");
+          }
+        }
+      }
+    }
+    return updateHandle;
+  }
+  
+  private final void releaseUpdateHandle() {
+    if (0L != updateHandle) {
+      CGL.updateContextUnregister(updateHandle);
+      updateHandle = 0L;
+    }
+  }
+  
+  protected void drawableUpdatedNotify() throws GLException
+  {
+    if (drawable.getChosenGLCapabilities().isOnscreen()) {
+      long l = getUpdateHandle();
+      int i = drawable.getSurfaceWidth();
+      int j = drawable.getSurfaceHeight();
+      int k = ((0L != l) && (CGL.updateContextNeedsUpdate(l))) || (i != lastWidth) || (j != lastHeight) ? 1 : 0;
+      
+      if (k != 0) {
+        lastWidth = i;
+        lastHeight = j;
+        if (contextHandle == 0L) {
+          throw new GLException("Context not created");
+        }
+        CGL.updateContext(contextHandle);
+      }
+    }
+  }
+  
+
+  protected void associateDrawable(boolean paramBoolean)
+  {
+    if (paramBoolean) {
+      super.associateDrawable(true);
+      impl.associateDrawable(true);
+      getUpdateHandle();
+    } else {
+      releaseUpdateHandle();
+      impl.associateDrawable(false);
+      super.associateDrawable(false);
+    }
+  }
+  
+  void detachPBuffer() {
+    impl.detachPBuffer();
+  }
+  
+  protected void copyImpl(GLContext paramGLContext, int paramInt)
+    throws GLException
+  {
+    if (isNSContext() != ((MacOSXCGLContext)paramGLContext).isNSContext()) {
+      throw new GLException("Source/Destination OpenGL Context type mismatch: source " + paramGLContext + ", dest: " + this);
+    }
+    if (!impl.copyImpl(paramGLContext.getHandle(), paramInt)) {
+      throw new GLException("Error copying OpenGL Context: source " + paramGLContext + ", dest: " + this);
+    }
+  }
+  
+  protected void swapBuffers()
+  {
+    if (!impl.swapBuffers()) {
+      throw new GLException("Error swapping buffers: " + this);
+    }
+  }
+  
+  protected final Integer setSwapIntervalImpl2(int paramInt)
+  {
+    if ((!impl.isUsingCALayer()) && (!drawable.getChosenGLCapabilities().isOnscreen())) {
+      return null;
+    }
+    int i;
+    if (0 > paramInt) {
+      i = Math.abs(paramInt);
+    } else {
+      i = paramInt;
+    }
+    if (impl.setSwapInterval(i)) {
+      return Integer.valueOf(i);
+    }
+    return null;
+  }
+  
+
+
+
+
+
+
+  protected final void updateGLXProcAddressTable(String paramString, GLDynamicLookupHelper paramGLDynamicLookupHelper)
+  {
+    if (null == paramGLDynamicLookupHelper) {
+      throw new GLException("No GLDynamicLookupHelper for " + this);
+    }
+    AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = drawable.getNativeSurface().getGraphicsConfiguration();
+    AbstractGraphicsDevice localAbstractGraphicsDevice = localAbstractGraphicsConfiguration.getScreen().getDevice();
+    String str = "MacOSX-" + localAbstractGraphicsDevice.getUniqueID();
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": Initializing CGL extension address table: " + str);
+    }
+    ProcAddressTable localProcAddressTable = null;
+    synchronized (mappedContextTypeObjectLock) {
+      localProcAddressTable = (ProcAddressTable)mappedGLXProcAddress.get(str);
+    }
+    if (null != localProcAddressTable) {
+      cglExtProcAddressTable = ((CGLExtProcAddressTable)localProcAddressTable);
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": GLContext CGL ProcAddressTable reusing key(" + str + ") -> " + toHexString(localProcAddressTable.hashCode()));
+      }
+    } else {
+      cglExtProcAddressTable = new CGLExtProcAddressTable(new GLProcAddressResolver());
+      resetProcAddressTable(getCGLExtProcAddressTable(), paramGLDynamicLookupHelper);
+      synchronized (mappedContextTypeObjectLock) {
+        mappedGLXProcAddress.put(str, getCGLExtProcAddressTable());
+        if (DEBUG) {
+          System.err.println(getThreadName() + ": GLContext CGL ProcAddressTable mapping key(" + str + ") -> " + toHexString(getCGLExtProcAddressTable().hashCode()));
+        }
+      }
+    }
+  }
+  
+  protected final StringBuilder getPlatformExtensionsStringImpl()
+  {
+    return new StringBuilder();
+  }
+  
+  public void setOpenGLMode(MacOSXCGLDrawable.GLBackendType paramGLBackendType)
+  {
+    if (paramGLBackendType == openGLMode) {
+      return;
+    }
+    if (haveSetOpenGLMode) {
+      throw new GLException("Can't switch between using NSOpenGLPixelBuffer and CGLPBufferObj more than once");
+    }
+    destroyImpl();
+    ((MacOSXCGLDrawable)drawable).setOpenGLMode(paramGLBackendType);
+    if (DEBUG) {
+      System.err.println("MacOSXCGLContext: Switching context mode " + openGLMode + " -> " + paramGLBackendType);
+    }
+    initOpenGLImpl(paramGLBackendType);
+    openGLMode = paramGLBackendType;
+    haveSetOpenGLMode = true; }
+  
+  public final MacOSXCGLDrawable.GLBackendType getOpenGLMode() { return openGLMode; }
+  
+  protected void initOpenGLImpl(MacOSXCGLDrawable.GLBackendType paramGLBackendType) {
+    switch (1.$SwitchMap$jogamp$opengl$macosx$cgl$MacOSXCGLDrawable$GLBackendType[paramGLBackendType.ordinal()]) {
+    case 1: 
+      impl = new NSOpenGLImpl();
+      break;
+    case 2: 
+      impl = new CGLImpl();
+      break;
+    default: 
+      throw new InternalError("Illegal implementation mode " + paramGLBackendType);
+    }
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append(getClass().getSimpleName());
+    localStringBuilder.append(" [");
+    super.append(localStringBuilder);
+    localStringBuilder.append(", mode ");
+    localStringBuilder.append(openGLMode);
+    localStringBuilder.append("] ");
+    return localStringBuilder.toString();
+  }
+  
+  class NSOpenGLImpl implements MacOSXCGLContext.GLBackendImpl { NSOpenGLImpl() {}
+    
+    private OffscreenLayerSurface backingLayerHost = null;
+    
+    private long pixelFormat = 0L;
+    
+    private int screenVSyncTimeout = 16666;
+    
+    private volatile int vsyncTimeout = 17666;
+    private int lastWidth = 0; private int lastHeight = 0;
+    private boolean needsSetContextPBuffer = false;
+    private ShaderProgram gl3ShaderProgram = null;
+    
+    public boolean isNSContext() {
+      return true; }
+    
+    public boolean isUsingCALayer() {
+      return null != backingLayerHost;
+    }
+    
+    private long getNSViewHandle(boolean[] paramArrayOfBoolean1, boolean[] paramArrayOfBoolean2, boolean[] paramArrayOfBoolean3) {
+      long l1;
+      if ((drawable instanceof GLFBODrawableImpl)) {
+        l1 = 0L;
+        paramArrayOfBoolean1[0] = false;
+        paramArrayOfBoolean2[0] = true;
+        paramArrayOfBoolean3[0] = false;
+        if (GLContext.DEBUG) {
+          System.err.println("NS viewHandle.1: GLFBODrawableImpl drawable: isFBO " + paramArrayOfBoolean2[0] + ", isPBuffer " + paramArrayOfBoolean1[0] + ", isSurfaceless " + paramArrayOfBoolean3[0] + ", " + drawable.getClass().getName() + ",\n\t" + drawable);
+        }
+      } else {
+        long l2 = drawable.getHandle();
+        boolean bool1 = OSXUtil.isNSView(l2);
+        boolean bool2 = OSXUtil.isNSWindow(l2);
+        paramArrayOfBoolean1[0] = CGL.isNSOpenGLPixelBuffer(l2);
+        paramArrayOfBoolean2[0] = false;
+        paramArrayOfBoolean3[0] = false;
+        
+        if (bool1) {
+          l1 = l2;
+        } else if (bool2) {
+          l1 = OSXUtil.GetNSView(l2);
+        } else if (paramArrayOfBoolean1[0] != 0) {
+          l1 = 0L;
+        } else if (isSurfaceless()) {
+          paramArrayOfBoolean3[0] = true;
+          l1 = 0L;
+        } else {
+          throw new GLException("Drawable's handle neither NSView, NSWindow nor PBuffer: drawableHandle " + MacOSXCGLContext.toHexString(l2) + ", isNSView " + bool1 + ", isNSWindow " + bool2 + ", isFBO " + paramArrayOfBoolean2[0] + ", isPBuffer " + paramArrayOfBoolean1[0] + ", " + drawable.getClass().getName() + ",\n\t" + drawable);
+        }
+        if (GLContext.DEBUG) {
+          System.err.println("NS viewHandle.2: drawableHandle " + MacOSXCGLContext.toHexString(l2) + " -> nsViewHandle " + MacOSXCGLContext.toHexString(l1) + ": isNSView " + bool1 + ", isNSWindow " + bool2 + ", isFBO " + paramArrayOfBoolean2[0] + ", isPBuffer " + paramArrayOfBoolean1[0] + ", isSurfaceless " + paramArrayOfBoolean3[0] + ", " + drawable.getClass().getName() + ",\n\t" + drawable);
+        }
+      }
+      needsSetContextPBuffer = paramArrayOfBoolean1[0];
+      return l1;
+    }
+    
+    public long create(long paramLong, int paramInt1, int paramInt2, int paramInt3)
+    {
+      long l1 = 0L;
+      NativeSurface localNativeSurface = drawable.getNativeSurface();
+      MacOSXCGLGraphicsConfiguration localMacOSXCGLGraphicsConfiguration = (MacOSXCGLGraphicsConfiguration)localNativeSurface.getGraphicsConfiguration();
+      GLCapabilitiesImmutable localGLCapabilitiesImmutable = (GLCapabilitiesImmutable)localMacOSXCGLGraphicsConfiguration.getChosenCapabilities();
+      
+
+
+
+
+      Object localObject1 = { false };
+      boolean[] arrayOfBoolean = { false };
+      Object localObject2 = { false };
+      long l2 = getNSViewHandle((boolean[])localObject1, arrayOfBoolean, (boolean[])localObject2);
+      int i = localObject1[0];
+      int j = arrayOfBoolean[0];
+      int k = localObject2[0];
+      
+      localObject1 = NativeWindowFactory.getOffscreenLayerSurface(localNativeSurface, true);
+      
+      boolean bool = null != localObject1;
+      if ((!bool) && ((localNativeSurface instanceof ProxySurface))) {
+        bool = ((ProxySurface)localNativeSurface).containsUpstreamOptionBits(256);
+      }
+      
+
+      if (j != 0)
+      {
+        localObject2 = new GLCapabilities(localGLCapabilitiesImmutable.getGLProfile());
+      } else {
+        localObject2 = localGLCapabilitiesImmutable;
+      }
+      pixelFormat = MacOSXCGLGraphicsConfiguration.GLCapabilities2NSPixelFormat(localMacOSXCGLGraphicsConfiguration.getScreen().getDevice(), (GLCapabilitiesImmutable)localObject2, paramInt1, paramInt2, paramInt3);
+      
+      if (pixelFormat == 0L) {
+        if (GLContext.DEBUG) {
+          System.err.println("Unable to allocate pixel format with requested GLCapabilities: " + localGLCapabilitiesImmutable);
+        }
+        return 0L;
+      }
+      
+      if (j != 0)
+      {
+        localObject2 = localGLCapabilitiesImmutable;
+      } else {
+        GLCapabilities localGLCapabilities = MacOSXCGLGraphicsConfiguration.NSPixelFormat2GLCapabilities(localGLCapabilitiesImmutable.getGLProfile(), pixelFormat);
+        if ((!localGLCapabilities.isPBuffer()) && (i != 0)) {
+          throw new InternalError("handle is PBuffer, fixedCaps not: " + drawable);
+        }
+        
+        localGLCapabilities.setPBuffer(i);
+        localGLCapabilities.setBitmap(false);
+        localGLCapabilities.setOnscreen((j == 0) && (i == 0) && (k == 0));
+        localObject2 = GLGraphicsConfigurationUtil.fixOpaqueGLCapabilities(localGLCapabilities, localGLCapabilitiesImmutable.isBackgroundOpaque());
+      }
+      int m = OSXUtil.GetScreenRefreshRate(drawable.getNativeSurface().getGraphicsConfiguration().getScreen().getIndex());
+      if (0 < m) {
+        screenVSyncTimeout = (1000000 / m);
+      }
+      if (GLContext.DEBUG) {
+        System.err.println("NS create OSX>=lion " + MacOSXCGLContext.isLionOrLater + ", OSX>=mavericks " + MacOSXCGLContext.isMavericksOrLater);
+        System.err.println("NS create incompleteView: " + bool);
+        System.err.println("NS create backingLayerHost: " + localObject1);
+        System.err.println("NS create share: " + paramLong);
+        System.err.println("NS create drawable type: " + drawable.getClass().getName());
+        System.err.println("NS create drawable handle: isPBuffer " + i + ", isFBO " + j + ", isSurfaceless " + k);
+        System.err.println("NS create pixelFormat: " + MacOSXCGLContext.toHexString(pixelFormat));
+        System.err.println("NS create chosenCaps: " + localGLCapabilitiesImmutable);
+        System.err.println("NS create fixedCaps: " + localObject2);
+        System.err.println("NS create drawable native-handle: " + MacOSXCGLContext.toHexString(drawable.getHandle()));
+        System.err.println("NS create drawable NSView-handle: " + MacOSXCGLContext.toHexString(l2));
+        System.err.println("NS create screen refresh-rate: " + m + " hz, " + screenVSyncTimeout + " micros");
+      }
+      
+      localMacOSXCGLGraphicsConfiguration.setChosenCapabilities((CapabilitiesImmutable)localObject2);
+      
+      IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(1);
+      
+      l1 = CGL.createContext(paramLong, l2, bool, pixelFormat, localGLCapabilitiesImmutable
+        .isBackgroundOpaque(), localIntBuffer);
+      if (0L == l1) {
+        if (GLContext.DEBUG) {
+          System.err.println("NS create failed: viewNotReady: " + (1 == localIntBuffer.get(0)));
+        }
+        return 0L;
+      }
+      
+      if ((localGLCapabilitiesImmutable.isOnscreen()) && (!localGLCapabilitiesImmutable.isBackgroundOpaque()))
+      {
+        CGL.setContextOpacity(l1, 0);
+      }
+      return l1;
+    }
+    
+    public boolean destroy(long paramLong)
+    {
+      if (0L != pixelFormat) {
+        CGL.deletePixelFormat(pixelFormat);
+        pixelFormat = 0L;
+      }
+      return CGL.deleteContext(paramLong, true);
+    }
+    
+
+    class AttachGLLayerCmd
+      implements Runnable
+    {
+      final OffscreenLayerSurface ols;
+      
+      final long ctx;
+      
+      final int shaderProgram;
+      
+      final long pfmt;
+      
+      final long pbuffer;
+      
+      final int texID;
+      
+      final boolean isOpaque;
+      
+      final int texWidth;
+      
+      final int texHeight;
+      
+      final int winWidth;
+      
+      final int winHeight;
+      long nsOpenGLLayer;
+      boolean valid;
+      
+      AttachGLLayerCmd(OffscreenLayerSurface paramOffscreenLayerSurface, long paramLong1, int paramInt1, long paramLong2, long paramLong3, int paramInt2, boolean paramBoolean, int paramInt3, int paramInt4, int paramInt5, int paramInt6)
+      {
+        ols = paramOffscreenLayerSurface;
+        ctx = paramLong1;
+        shaderProgram = paramInt1;
+        pfmt = paramLong2;
+        pbuffer = paramLong3;
+        texID = paramInt2;
+        isOpaque = paramBoolean;
+        texWidth = paramInt3;
+        texHeight = paramInt4;
+        winWidth = paramInt5;
+        winHeight = paramInt6;
+        valid = false;
+        nsOpenGLLayer = 0L;
+      }
+      
+      public final String contentToString() {
+        return "valid " + valid + ", size tex[" + texWidth + "x" + texHeight + "], win[" + winWidth + "x" + winHeight + "], ctx " + MacOSXCGLContext.toHexString(ctx) + ", opaque " + isOpaque + ", texID " + texID + ", pbuffer " + MacOSXCGLContext.toHexString(pbuffer) + ", nsOpenGLLayer " + MacOSXCGLContext.toHexString(nsOpenGLLayer);
+      }
+      
+      public final String toString()
+      {
+        return "AttachGLLayerCmd[" + contentToString() + "]";
+      }
+      
+      public void run()
+      {
+        synchronized (this) {
+          if (!valid) {
+            try {
+              int i = screenVSyncTimeout / 2000;
+              RecursiveLock localRecursiveLock = ols.getLock();
+              if (localRecursiveLock.tryLock(i)) {
+                try {
+                  if (lock.tryLock(i)) {
+                    try {
+                      nsOpenGLLayer = CGL.createNSOpenGLLayer(ctx, shaderProgram, pfmt, pbuffer, texID, isOpaque, texWidth, texHeight, winWidth, winHeight);
+                      
+                      ols.attachSurfaceLayer(nsOpenGLLayer);
+                      int j = getSwapInterval();
+                      int k = 0 <= j ? j : 1;
+                      MacOSXCGLContext.NSOpenGLImpl.this.setSwapIntervalImpl(nsOpenGLLayer, k);
+                      valid = true;
+                      if (GLContext.DEBUG) {
+                        System.err.println("NSOpenGLLayer.Attach: OK, layer " + MacOSXCGLContext.toHexString(nsOpenGLLayer) + " w/ pbuffer " + MacOSXCGLContext.toHexString(pbuffer) + ", texID " + texID + ", texSize " + lastWidth + "x" + lastHeight + ", drawableHandle " + MacOSXCGLContext.toHexString(drawable.getHandle()) + " - " + MacOSXCGLContext.access$3200());
+                      }
+                    } finally {
+                      lock.unlock();
+                    }
+                  }
+                } finally {
+                  localRecursiveLock.unlock();
+                }
+              }
+            } catch (InterruptedException localInterruptedException) {
+              localInterruptedException.printStackTrace();
+            }
+            if (!valid)
+            {
+              if (GLContext.DEBUG) {
+                System.err.println("NSOpenGLLayer.Attach: Re-Queue, drawableHandle " + MacOSXCGLContext.toHexString(drawable.getHandle()) + " - " + MacOSXCGLContext.access$3600());
+              }
+              OSXUtil.RunLater(true, this, 1);
+            }
+          }
+        }
+      } }
+    
+    AttachGLLayerCmd attachGLLayerCmd = null;
+    
+    class DetachGLLayerCmd implements Runnable {
+      final MacOSXCGLContext.NSOpenGLImpl.AttachGLLayerCmd cmd;
+      
+      DetachGLLayerCmd(MacOSXCGLContext.NSOpenGLImpl.AttachGLLayerCmd paramAttachGLLayerCmd) {
+        cmd = paramAttachGLLayerCmd;
+      }
+      
+      public final String toString()
+      {
+        return "DetachGLLayerCmd[" + cmd.contentToString() + "]";
+      }
+      
+      public void run()
+      {
+        synchronized (cmd) {
+          if (cmd.valid)
+          {
+            try {
+              OffscreenLayerSurface localOffscreenLayerSurface = cmd.ols;
+              long l = localOffscreenLayerSurface.getAttachedSurfaceLayer();
+              if (0L != l) {
+                localOffscreenLayerSurface.detachSurfaceLayer();
+              }
+            } catch (Throwable localThrowable) {
+              System.err.println("Caught exception on thread " + MacOSXCGLContext.access$3700());
+              localThrowable.printStackTrace();
+            }
+            CGL.releaseNSOpenGLLayer(cmd.nsOpenGLLayer);
+            if (GLContext.DEBUG) {
+              System.err.println("NSOpenGLLayer.Detach: OK, layer " + MacOSXCGLContext.toHexString(cmd.nsOpenGLLayer) + " - " + MacOSXCGLContext.access$3900());
+            }
+            cmd.nsOpenGLLayer = 0L;
+            cmd.valid = false;
+          } else if (GLContext.DEBUG) {
+            System.err.println("NSOpenGLLayer.Detach: Skipped " + MacOSXCGLContext.toHexString(cmd.nsOpenGLLayer) + " - " + MacOSXCGLContext.access$4100());
+          }
+        }
+      }
+    }
+    
+    public void associateDrawable(boolean paramBoolean)
+    {
+      backingLayerHost = NativeWindowFactory.getOffscreenLayerSurface(drawable.getNativeSurface(), true);
+      
+      if (GLContext.DEBUG) {
+        System.err.println("MaxOSXCGLContext.NSOpenGLImpl.associateDrawable: " + paramBoolean + ", ctx " + MacOSXCGLContext.toHexString(contextHandle) + ", hasBackingLayerHost " + (null != backingLayerHost) + ", attachGLLayerCmd " + attachGLLayerCmd);
+      }
+      
+      Object localObject1;
+      Object localObject2;
+      if (paramBoolean) {
+        if (null != backingLayerHost)
+        {
+
+
+
+
+
+
+
+
+          localObject1 = drawable.getChosenGLCapabilities();
+          long l1 = getHandle();
+          long l3 = drawable.getHandle();
+          int i; long l2; if ((drawable instanceof GLFBODrawableImpl)) {
+            localObject3 = (GLFBODrawableImpl)drawable;
+            i = ((GLFBODrawableImpl)localObject3).getColorbuffer(1028).getName();
+            l2 = 0L;
+            ((GLFBODrawableImpl)localObject3).setSwapBufferContext(new GLFBODrawableImpl.SwapBufferContext()
+            {
+
+              public void swapBuffers(boolean paramAnonymousBoolean) { swapBuffers(); }
+            });
+          } else if (CGL.isNSOpenGLPixelBuffer(l3)) {
+            i = 0;
+            l2 = l3;
+            if (0L != l3) {
+              CGL.setContextPBuffer(l1, l2);
+              needsSetContextPBuffer = false;
+            }
+          } else {
+            throw new GLException("BackingLayerHost w/ unknown handle (!FBO, !PBuffer): " + drawable);
+          }
+          lastWidth = drawable.getSurfaceWidth();
+          lastHeight = drawable.getSurfaceHeight();
+          if ((0 >= lastWidth) || (0 >= lastHeight) || (!drawable.isRealized()))
+            throw new GLException("Drawable not realized yet or invalid texture size, texSize " + lastWidth + "x" + lastHeight + ", " + drawable);
+          int j;
+          if (isGL3core()) {
+            if (null == gl3ShaderProgram) {
+              gl3ShaderProgram = MacOSXCGLContext.createCALayerShader(gl.getGL3ES3());
+            }
+            j = gl3ShaderProgram.program();
+          } else {
+            j = 0;
+          }
+          
+
+          Object localObject3 = drawable.getNativeSurface().convertToWindowUnits(new int[] { lastWidth, lastHeight });
+          
+
+          attachGLLayerCmd = new AttachGLLayerCmd(backingLayerHost, l1, j, pixelFormat, l2, i, ((GLCapabilitiesImmutable)localObject1).isBackgroundOpaque(), lastWidth, lastHeight, localObject3[0], localObject3[1]);
+          if (GLContext.DEBUG) {
+            System.err.println("MaxOSXCGLContext.NSOpenGLImpl.associateDrawable(true): " + attachGLLayerCmd);
+          }
+          OSXUtil.RunOnMainThread(false, false, attachGLLayerCmd);
+        } else {
+          lastWidth = drawable.getSurfaceWidth();
+          lastHeight = drawable.getSurfaceHeight();
+          localObject1 = new boolean[] { false };
+          boolean[] arrayOfBoolean = { false };
+          localObject2 = new boolean[] { false };
+          CGL.setContextView(contextHandle, getNSViewHandle((boolean[])localObject1, arrayOfBoolean, (boolean[])localObject2));
+        }
+      } else {
+        if (null != backingLayerHost) {
+          localObject1 = attachGLLayerCmd;
+          attachGLLayerCmd = null;
+          if (null == localObject1) {
+            throw new GLException("Null attachGLLayerCmd: " + drawable);
+          }
+          if (0L != pbuffer) {
+            CGL.setContextPBuffer(contextHandle, 0L);
+          }
+          synchronized (localObject1) {
+            if (!valid) {
+              valid = true;
+            }
+            else {
+              localObject2 = new DetachGLLayerCmd((AttachGLLayerCmd)localObject1);
+              if (GLContext.DEBUG) {
+                System.err.println("MaxOSXCGLContext.NSOpenGLImpl.associateDrawable(false): " + localObject2);
+              }
+              OSXUtil.RunOnMainThread(false, true, (Runnable)localObject2);
+              if (null != gl3ShaderProgram) {
+                gl3ShaderProgram.destroy(gl.getGL3());
+                gl3ShaderProgram = null;
+              }
+            }
+          }
+        }
+        CGL.clearDrawable(contextHandle);
+        backingLayerHost = null;
+      }
+    }
+    
+    private final void validatePBufferConfig(long paramLong) {
+      long l = drawable.getHandle();
+      if ((needsSetContextPBuffer) && (0L != l) && (CGL.isNSOpenGLPixelBuffer(l)))
+      {
+        needsSetContextPBuffer = false;
+        CGL.setContextPBuffer(paramLong, l);
+        if (GLContext.DEBUG) {
+          System.err.println("NS.validateDrawableConfig bind pbuffer " + MacOSXCGLContext.toHexString(l) + " -> ctx " + MacOSXCGLContext.toHexString(paramLong));
+        }
+      }
+    }
+    
+    private final boolean validateDrawableSizeConfig(long paramLong)
+    {
+      int i = drawable.getSurfaceWidth();
+      int j = drawable.getSurfaceHeight();
+      if ((lastWidth != i) || (lastHeight != j)) {
+        lastWidth = drawable.getSurfaceWidth();
+        lastHeight = drawable.getSurfaceHeight();
+        if (GLContext.DEBUG) {
+          System.err.println("NS.validateDrawableConfig size changed");
+        }
+        return true;
+      }
+      return false;
+    }
+    
+    public boolean copyImpl(long paramLong, int paramInt)
+    {
+      CGL.copyContext(contextHandle, paramLong, paramInt);
+      return true;
+    }
+    
+    public boolean makeCurrent(long paramLong)
+    {
+      long l = CGL.getCGLContext(paramLong);
+      if (0L == l) {
+        throw new InternalError("Null CGLContext for: " + this);
+      }
+      int i = CGL.CGLLockContext(l);
+      if (0 == i) {
+        validatePBufferConfig(paramLong);
+        return CGL.makeCurrentContext(paramLong); }
+      if (GLContext.DEBUG) {
+        System.err.println("NSGL: Could not lock context: err 0x" + Integer.toHexString(i) + ": " + this);
+      }
+      return false;
+    }
+    
+    public boolean release(long paramLong)
+    {
+      try {
+        if ((hasRendererQuirk(7)) && (null != getGLProcAddressTable())) {
+          gl.glFlush();
+        }
+      } catch (GLException localGLException) {
+        if (GLContext.DEBUG) {
+          System.err.println("MacOSXCGLContext.NSOpenGLImpl.release: INFO: glFlush() caught exception:");
+          localGLException.printStackTrace();
+        }
+      }
+      boolean bool = CGL.clearCurrentContext(paramLong);
+      long l = CGL.getCGLContext(paramLong);
+      if (0L == l) {
+        throw new InternalError("Null CGLContext for: " + this);
+      }
+      int i = CGL.CGLUnlockContext(l);
+      if ((GLContext.DEBUG) && (0 != i)) {
+        System.err.println("CGL: Could not unlock context: err 0x" + Integer.toHexString(i) + ": " + this);
+      }
+      return (bool) && (0 == i);
+    }
+    
+    public boolean detachPBuffer()
+    {
+      needsSetContextPBuffer = true;
+      
+      return true;
+    }
+    
+    public boolean setSwapInterval(int paramInt)
+    {
+      AttachGLLayerCmd localAttachGLLayerCmd = attachGLLayerCmd;
+      if (null != localAttachGLLayerCmd) {
+        synchronized (localAttachGLLayerCmd) {
+          if ((valid) && (0L != nsOpenGLLayer)) {
+            setSwapIntervalImpl(nsOpenGLLayer, paramInt);
+            return true;
+          }
+        }
+      }
+      setSwapIntervalImpl(0L, paramInt);
+      return true;
+    }
+    
+    private void setSwapIntervalImpl(long paramLong, int paramInt) {
+      if (0L != paramLong) {
+        CGL.setNSOpenGLLayerSwapInterval(paramLong, paramInt);
+        if (0 < paramInt) {
+          vsyncTimeout = (paramInt * screenVSyncTimeout + 1000);
+        } else {
+          vsyncTimeout = (1 * screenVSyncTimeout + 1000);
+        }
+        if (GLContext.DEBUG) System.err.println("NS setSwapInterval: " + paramInt + " -> " + vsyncTimeout + " micros");
+      }
+      if (GLContext.DEBUG) System.err.println("CGL setSwapInterval: " + paramInt);
+      CGL.setSwapInterval(contextHandle, paramInt);
+    }
+    
+    private int skipSync = 0;
+    
+
+
+
+
+
+
+
+
+    public boolean swapBuffers()
+    {
+      AttachGLLayerCmd localAttachGLLayerCmd = attachGLLayerCmd;
+      if (null != localAttachGLLayerCmd) {
+        synchronized (localAttachGLLayerCmd) {
+          if ((valid) && (0L != nsOpenGLLayer)) {
+            if (validateDrawableSizeConfig(contextHandle))
+            {
+
+              skipSync = 10;
+            }
+            
+
+
+
+            boolean bool2 = drawable instanceof GLFBODrawableImpl;
+            int i; int j; if (bool2) {
+              i = ((GLFBODrawableImpl)drawable).getColorbuffer(1028).getName();
+              j = 0 != i ? 1 : 0;
+            } else {
+              i = 0;
+              j = 0L != drawable.getHandle() ? 1 : 0; }
+            boolean bool1;
+            if (j != 0) {
+              bool1 = CGL.flushBuffer(contextHandle);
+              if (bool1) {
+                if (0 == skipSync)
+                {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                  gl.glFinish();
+                  
+
+
+
+                  CGL.waitUntilNSOpenGLLayerIsReady(nsOpenGLLayer, vsyncTimeout);
+                } else {
+                  skipSync -= 1;
+                }
+                if (bool2)
+                {
+                  CGL.setNSOpenGLLayerNeedsDisplayFBO(nsOpenGLLayer, i);
+                }
+                else {
+                  CGL.setNSOpenGLLayerNeedsDisplayPBuffer(nsOpenGLLayer, drawable.getHandle());
+                }
+              }
+            }
+            else {
+              bool1 = true;
+            }
+            return bool1;
+          }
+        }
+      }
+      return CGL.flushBuffer(contextHandle);
+    }
+  }
+  
+  class CGLImpl implements MacOSXCGLContext.GLBackendImpl {
+    CGLImpl() {}
+    
+    public boolean isNSContext() { return false; }
+    
+    public boolean isUsingCALayer() {
+      return false;
+    }
+    
+    public long create(long paramLong, int paramInt1, int paramInt2, int paramInt3) {
+      long l1 = 0L;
+      MacOSXCGLGraphicsConfiguration localMacOSXCGLGraphicsConfiguration = (MacOSXCGLGraphicsConfiguration)drawable.getNativeSurface().getGraphicsConfiguration();
+      GLCapabilitiesImmutable localGLCapabilitiesImmutable = (GLCapabilitiesImmutable)localMacOSXCGLGraphicsConfiguration.getChosenCapabilities();
+      long l2 = MacOSXCGLGraphicsConfiguration.GLCapabilities2CGLPixelFormat(localMacOSXCGLGraphicsConfiguration.getScreen().getDevice(), localGLCapabilitiesImmutable, paramInt1, paramInt2, paramInt3);
+      
+      if (l2 == 0L) {
+        throw new GLException("Unable to allocate pixel format with requested GLCapabilities");
+      }
+      try
+      {
+        PointerBuffer localPointerBuffer = PointerBuffer.allocateDirect(1);
+        if (GLContext.DEBUG) {
+          System.err.println("Share context for CGL-based pbuffer context is " + MacOSXCGLContext.toHexString(paramLong));
+        }
+        int i = CGL.CGLCreateContext(l2, paramLong, localPointerBuffer);
+        if (i != 0) {
+          throw new GLException("Error code " + i + " while creating context");
+        }
+        l1 = localPointerBuffer.get(0);
+        
+        if (0L != l1) {
+          GLCapabilities localGLCapabilities = MacOSXCGLGraphicsConfiguration.CGLPixelFormat2GLCapabilities(l2);
+          localGLCapabilities = GLGraphicsConfigurationUtil.fixOpaqueGLCapabilities(localGLCapabilities, localGLCapabilitiesImmutable.isBackgroundOpaque());
+          
+          localGLCapabilities.setFBO(false);
+          localGLCapabilities.setPBuffer((localGLCapabilities.isPBuffer()) && (!localGLCapabilitiesImmutable.isOnscreen()));
+          localGLCapabilities.setBitmap(false);
+          localGLCapabilities.setOnscreen(!localGLCapabilities.isPBuffer());
+          
+          localMacOSXCGLGraphicsConfiguration.setChosenCapabilities(localGLCapabilities);
+          if (GLContext.DEBUG) {
+            System.err.println("CGL create fixedCaps: " + localGLCapabilities);
+          }
+          if (localGLCapabilities.isPBuffer())
+          {
+            i = CGL.CGLSetPBuffer(l1, drawable.getHandle(), 0, 0, 0);
+            if (i != 0) {
+              throw new GLException("Error code " + i + " while attaching context to pbuffer");
+            }
+          }
+        }
+      } finally {
+        CGL.CGLDestroyPixelFormat(l2);
+      }
+      return l1;
+    }
+    
+    public boolean destroy(long paramLong)
+    {
+      return CGL.CGLDestroyContext(paramLong) == 0;
+    }
+    
+
+    public void associateDrawable(boolean paramBoolean) {}
+    
+
+    public boolean copyImpl(long paramLong, int paramInt)
+    {
+      CGL.CGLCopyContext(paramLong, contextHandle, paramInt);
+      return true;
+    }
+    
+    public boolean makeCurrent(long paramLong)
+    {
+      int i = CGL.CGLLockContext(paramLong);
+      if (0 == i) {
+        i = CGL.CGLSetCurrentContext(paramLong);
+        if (0 == i)
+          return true;
+        if (GLContext.DEBUG) {
+          System.err.println("CGL: Could not make context current: err 0x" + Integer.toHexString(i) + ": " + this);
+        }
+      } else if (GLContext.DEBUG) {
+        System.err.println("CGL: Could not lock context: err 0x" + Integer.toHexString(i) + ": " + this);
+      }
+      return false;
+    }
+    
+    public boolean release(long paramLong)
+    {
+      try {
+        if ((hasRendererQuirk(7)) && (null != getGLProcAddressTable())) {
+          gl.glFlush();
+        }
+      } catch (GLException localGLException) {
+        if (GLContext.DEBUG) {
+          System.err.println("MacOSXCGLContext.CGLImpl.release: INFO: glFlush() caught exception:");
+          localGLException.printStackTrace();
+        }
+      }
+      int i = CGL.CGLSetCurrentContext(0L);
+      if ((GLContext.DEBUG) && (0 != i)) {
+        System.err.println("CGL: Could not release current context: err 0x" + Integer.toHexString(i) + ": " + this);
+      }
+      int j = CGL.CGLUnlockContext(paramLong);
+      if ((GLContext.DEBUG) && (0 != j)) {
+        System.err.println("CGL: Could not unlock context: err 0x" + Integer.toHexString(j) + ": " + this);
+      }
+      return (0 == i) && (0 == j);
+    }
+    
+
+
+
+
+
+    public boolean detachPBuffer()
+    {
+      return true;
+    }
+    
+    public boolean setSwapInterval(int paramInt)
+    {
+      IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(1);
+      localIntBuffer.put(0, paramInt);
+      CGL.CGLSetParameter(contextHandle, 222, localIntBuffer);
+      return true;
+    }
+    
+    public boolean swapBuffers() {
+      return 0 == CGL.CGLFlushDrawable(contextHandle);
+    }
+  }
+}

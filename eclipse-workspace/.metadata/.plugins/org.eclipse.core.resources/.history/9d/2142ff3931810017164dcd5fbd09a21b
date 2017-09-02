@@ -1,0 +1,85 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class RangeRecord
+{
+  private final int _start;
+  private final int _end;
+  private final int _startCoverageIndex;
+  
+  public RangeRecord(DataInput paramDataInput)
+    throws IOException
+  {
+    _start = paramDataInput.readUnsignedShort();
+    _end = paramDataInput.readUnsignedShort();
+    _startCoverageIndex = paramDataInput.readUnsignedShort();
+  }
+  
+  public boolean isInRange(int paramInt) {
+    return (_start <= paramInt) && (paramInt <= _end);
+  }
+  
+  public int getCoverageIndex(int paramInt) {
+    if (isInRange(paramInt)) {
+      return _startCoverageIndex + paramInt - _start;
+    }
+    return -1;
+  }
+}

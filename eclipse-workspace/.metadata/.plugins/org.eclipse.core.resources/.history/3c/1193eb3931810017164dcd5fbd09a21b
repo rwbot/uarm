@@ -1,0 +1,527 @@
+package com.jogamp.opengl;
+
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.common.util.ReflectionUtil;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.ProxySurface;
+import com.jogamp.nativewindow.UpstreamSurfaceHook;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.List;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class GLDrawableFactory
+{
+  protected static final boolean DEBUG = Debug.debug("GLDrawable");
+  
+  private static volatile boolean isInit = false;
+  
+  private static GLDrawableFactory eglFactory;
+  private static GLDrawableFactory nativeOSFactory;
+  private static ArrayList<GLDrawableFactory> glDrawableFactories = new ArrayList();
+  
+
+
+  public static final void initSingleton()
+  {
+    if (!isInit)
+      synchronized (GLDrawableFactory.class) {
+        if (!isInit) {
+          isInit = true;
+          initSingletonImpl();
+        }
+      }
+  }
+  
+  private static final void initSingletonImpl() {
+    NativeWindowFactory.initSingleton();
+    NativeWindowFactory.addCustomShutdownHook(false, new Runnable()
+    {
+
+      public void run() {}
+
+
+    });
+    String str1 = NativeWindowFactory.getNativeWindowType(true);
+    GLDrawableFactory localGLDrawableFactory = null;
+    String str2 = PropertyAccess.getProperty("jogl.gldrawablefactory.class.name", true);
+    ClassLoader localClassLoader = GLDrawableFactory.class.getClassLoader();
+    if (null == str2) {
+      if (str1 == NativeWindowFactory.TYPE_X11) {
+        str2 = "jogamp.opengl.x11.glx.X11GLXDrawableFactory";
+      } else if (str1 == NativeWindowFactory.TYPE_WINDOWS) {
+        str2 = "jogamp.opengl.windows.wgl.WindowsWGLDrawableFactory";
+      } else if (str1 == NativeWindowFactory.TYPE_MACOSX) {
+        str2 = "jogamp.opengl.macosx.cgl.MacOSXCGLDrawableFactory";
+
+      }
+      else if ((DEBUG) || (GLProfile.DEBUG)) {
+        System.err.println("GLDrawableFactory.static - No native Windowing Factory for: " + str1 + "; May use EGLDrawableFactory, if available.");
+      }
+    }
+    
+    if (!GLProfile.disableOpenGLDesktop) {
+      if (null != str2) {
+        if ((DEBUG) || (GLProfile.DEBUG)) {
+          System.err.println("GLDrawableFactory.static - Native OS Factory for: " + str1 + ": " + str2);
+        }
+        try {
+          localGLDrawableFactory = (GLDrawableFactory)ReflectionUtil.createInstance(str2, localClassLoader);
+        } catch (Exception localException1) {
+          if ((DEBUG) || (GLProfile.DEBUG)) {
+            System.err.println("Info: GLDrawableFactory.static - Native Platform: " + str1 + " - not available: " + str2);
+            localException1.printStackTrace();
+          }
+        }
+        if ((null != localGLDrawableFactory) && (localGLDrawableFactory.isComplete())) {
+          nativeOSFactory = localGLDrawableFactory;
+        }
+        localGLDrawableFactory = null;
+      } else if ((DEBUG) || (GLProfile.DEBUG)) {
+        System.err.println("Info: GLDrawableFactory.static - Desktop GLDrawableFactory unspecified!");
+      }
+    } else if ((DEBUG) || (GLProfile.DEBUG)) {
+      System.err.println("Info: GLDrawableFactory.static - Desktop GLDrawableFactory - disabled!");
+    }
+    
+    if (!GLProfile.disableOpenGLES) {
+      try {
+        localGLDrawableFactory = (GLDrawableFactory)ReflectionUtil.createInstance("jogamp.opengl.egl.EGLDrawableFactory", localClassLoader);
+      } catch (Exception localException2) {
+        if ((DEBUG) || (GLProfile.DEBUG)) {
+          System.err.println("Info: GLDrawableFactory.static - EGLDrawableFactory - not available");
+          localException2.printStackTrace();
+        }
+      }
+      if ((null != localGLDrawableFactory) && (localGLDrawableFactory.isComplete())) {
+        eglFactory = localGLDrawableFactory;
+      }
+    } else if ((DEBUG) || (GLProfile.DEBUG)) {
+      System.err.println("Info: GLDrawableFactory.static - EGLDrawableFactory - disabled!");
+    }
+  }
+  
+  protected static void shutdown() {
+    if (isInit) {
+      synchronized (GLDrawableFactory.class) {
+        if (isInit) {
+          isInit = false;
+          shutdown0();
+        }
+      }
+    }
+  }
+  
+
+
+  private static void shutdown0()
+  {
+    synchronized (glDrawableFactories) {
+      int i = glDrawableFactories.size();
+      if (DEBUG) {
+        System.err.println("GLDrawableFactory.shutdownAll " + i + " instances, on thread " + getThreadName());
+      }
+      for (int j = 0; j < i; j++) {
+        GLDrawableFactory localGLDrawableFactory = (GLDrawableFactory)glDrawableFactories.get(j);
+        if (DEBUG) {
+          System.err.println("GLDrawableFactory.shutdownAll[" + (j + 1) + "/" + i + "]:  " + localGLDrawableFactory.getClass().getName());
+        }
+        try {
+          localGLDrawableFactory.resetAllDisplayGammaNoSync();
+          localGLDrawableFactory.shutdownImpl();
+        } catch (Throwable localThrowable) {
+          System.err.println("GLDrawableFactory.shutdownImpl: Caught " + localThrowable.getClass().getName() + " during factory shutdown #" + (j + 1) + "/" + i + " " + localGLDrawableFactory.getClass().getName());
+          if (DEBUG) {
+            localThrowable.printStackTrace();
+          }
+        }
+      }
+      glDrawableFactories.clear();
+      
+
+      nativeOSFactory = null;
+      eglFactory = null;
+    }
+    GLContext.shutdown();
+    if (DEBUG) {
+      System.err.println("GLDrawableFactory.shutdownAll.X on thread " + getThreadName());
+    }
+  }
+  
+  protected GLDrawableFactory() {
+    synchronized (glDrawableFactories) {
+      glDrawableFactories.add(this);
+    }
+  }
+  
+  protected static String getThreadName() { return Thread.currentThread().getName(); }
+  
+
+
+
+
+
+
+
+  protected abstract boolean isComplete();
+  
+
+
+
+
+
+
+
+  protected void enterThreadCriticalZone() {}
+  
+
+
+
+
+
+
+
+  protected void leaveThreadCriticalZone() {}
+  
+
+
+
+
+
+
+
+  protected abstract void shutdownImpl();
+  
+
+
+
+
+
+
+
+  public abstract boolean setDisplayGamma(NativeSurface paramNativeSurface, float paramFloat1, float paramFloat2, float paramFloat3)
+    throws IllegalArgumentException;
+  
+
+
+
+
+
+
+
+  public abstract void resetDisplayGamma(NativeSurface paramNativeSurface);
+  
+
+
+
+
+
+
+
+  public abstract void resetAllDisplayGamma();
+  
+
+
+
+
+
+
+
+  protected abstract void resetAllDisplayGammaNoSync();
+  
+
+
+
+
+
+
+  public abstract AbstractGraphicsDevice getDefaultDevice();
+  
+
+
+
+
+
+
+  public abstract boolean getIsDeviceCompatible(AbstractGraphicsDevice paramAbstractGraphicsDevice);
+  
+
+
+
+
+
+
+  protected final AbstractGraphicsDevice validateDevice(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    if (null == paramAbstractGraphicsDevice) {
+      paramAbstractGraphicsDevice = getDefaultDevice();
+      if (null == paramAbstractGraphicsDevice) {
+        throw new InternalError("no default device available");
+      }
+      if (GLProfile.DEBUG) {
+        System.err.println("Info: " + getClass().getSimpleName() + ".validateDevice: using default device : " + paramAbstractGraphicsDevice);
+      }
+    }
+    
+
+
+    if (!getIsDeviceCompatible(paramAbstractGraphicsDevice)) {
+      if (GLProfile.DEBUG) {
+        System.err.println("Info: " + getClass().getSimpleName() + ".validateDevice: device not compatible : " + paramAbstractGraphicsDevice);
+      }
+      return null;
+    }
+    return paramAbstractGraphicsDevice;
+  }
+  
+
+
+
+
+
+
+
+
+  protected abstract Thread getSharedResourceThread();
+  
+
+
+
+
+
+
+
+
+  protected final boolean createSharedResource(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    return createSharedResourceImpl(paramAbstractGraphicsDevice);
+  }
+  
+
+
+
+
+
+
+
+
+  protected abstract boolean createSharedResourceImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice);
+  
+
+
+
+
+
+
+
+  public final boolean hasRendererQuirk(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLProfile paramGLProfile, int paramInt)
+  {
+    GLRendererQuirks localGLRendererQuirks = getRendererQuirks(paramAbstractGraphicsDevice, paramGLProfile);
+    return null != localGLRendererQuirks ? localGLRendererQuirks.exist(paramInt) : false;
+  }
+  
+
+
+
+
+
+
+  public abstract GLRendererQuirks getRendererQuirks(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLProfile paramGLProfile);
+  
+
+
+
+
+
+
+  public abstract boolean hasOpenGLDesktopSupport();
+  
+
+
+
+
+
+
+  public abstract boolean hasOpenGLESSupport();
+  
+
+
+
+
+
+
+  public static GLDrawableFactory getDesktopFactory()
+  {
+    GLProfile.initSingleton();
+    return nativeOSFactory;
+  }
+  
+
+
+  public static GLDrawableFactory getEGLFactory()
+  {
+    GLProfile.initSingleton();
+    return eglFactory;
+  }
+  
+
+
+
+
+  public static GLDrawableFactory getFactory(GLProfile paramGLProfile)
+    throws GLException
+  {
+    return getFactoryImpl(paramGLProfile.getImplName());
+  }
+  
+  protected static GLDrawableFactory getFactoryImpl(String paramString) throws GLException {
+    if (GLProfile.usesNativeGLES(paramString)) {
+      if (null != eglFactory) {
+        return eglFactory;
+      }
+    } else if (null != nativeOSFactory) {
+      return nativeOSFactory;
+    }
+    throw new GLException("No GLDrawableFactory available for profile: " + paramString);
+  }
+  
+  protected static GLDrawableFactory getFactoryImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice) throws GLException {
+    if ((null != nativeOSFactory) && (nativeOSFactory.getIsDeviceCompatible(paramAbstractGraphicsDevice))) {
+      return nativeOSFactory;
+    }
+    if ((null != eglFactory) && (eglFactory.getIsDeviceCompatible(paramAbstractGraphicsDevice))) {
+      return eglFactory;
+    }
+    throw new GLException("No native platform GLDrawableFactory, nor EGLDrawableFactory available: " + paramAbstractGraphicsDevice);
+  }
+  
+
+
+
+
+
+
+
+
+  public final List<GLCapabilitiesImmutable> getAvailableCapabilities(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    paramAbstractGraphicsDevice = validateDevice(paramAbstractGraphicsDevice);
+    if (null != paramAbstractGraphicsDevice) {
+      return getAvailableCapabilitiesImpl(paramAbstractGraphicsDevice);
+    }
+    return null;
+  }
+  
+  protected abstract List<GLCapabilitiesImmutable> getAvailableCapabilitiesImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice);
+  
+  public abstract GLDrawable createGLDrawable(NativeSurface paramNativeSurface)
+    throws IllegalArgumentException, GLException;
+  
+  public abstract GLOffscreenAutoDrawable createOffscreenAutoDrawable(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser, int paramInt1, int paramInt2)
+    throws GLException;
+  
+  public abstract GLAutoDrawable createDummyAutoDrawable(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser);
+  
+  public abstract GLDrawable createOffscreenDrawable(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser, int paramInt1, int paramInt2)
+    throws GLException;
+  
+  public abstract GLDrawable createDummyDrawable(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser);
+  
+  public abstract ProxySurface createProxySurface(AbstractGraphicsDevice paramAbstractGraphicsDevice, int paramInt, long paramLong, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser, UpstreamSurfaceHook paramUpstreamSurfaceHook);
+  
+  public abstract boolean canCreateFBO(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLProfile paramGLProfile);
+  
+  public abstract boolean canCreateGLPbuffer(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLProfile paramGLProfile);
+  
+  public abstract GLContext createExternalGLContext()
+    throws GLException;
+  
+  public abstract boolean canCreateExternalGLDrawable(AbstractGraphicsDevice paramAbstractGraphicsDevice);
+  
+  public abstract GLDrawable createExternalGLDrawable()
+    throws GLException;
+}

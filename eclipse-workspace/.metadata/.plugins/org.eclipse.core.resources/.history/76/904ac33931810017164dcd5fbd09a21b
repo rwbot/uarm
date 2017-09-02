@@ -1,0 +1,384 @@
+package g4p_controls;
+
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.font.TextLayout;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import processing.awt.PGraphicsJava2D;
+import processing.core.PApplet;
+import processing.core.PGraphics;
+import processing.event.MouseEvent;
+
+public class GDropList
+  extends GTextBase
+{
+  protected static int LIST_SURFACE = 1;
+  protected static int CLOSED_SURFACE = 2;
+  protected static final int FORE_COLOR = 2;
+  protected static final int BACK_COLOR = 5;
+  protected static final int ITEM_FORE_COLOR = 3;
+  protected static final int ITEM_BACK_COLOR = 6;
+  protected static final int OVER_ITEM_FORE_COLOR = 15;
+  private GScrollbar vsb;
+  private GButton showList;
+  protected LinkedList<String> itemlist = new LinkedList();
+  protected StyledString[] sitems;
+  protected StyledString selText;
+  protected int selItem = 0;
+  protected int startItem = 0;
+  protected int lastOverItem = -1;
+  protected int currOverItem = lastOverItem;
+  protected int dropListMaxSize = 4;
+  protected int dropListActualSize = 4;
+  protected float itemHeight;
+  protected float buttonWidth;
+  protected boolean expanded = false;
+  
+  public GDropList(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    this(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4, 4);
+  }
+  
+  public GDropList(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, int paramInt)
+  {
+    super(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+    children = new LinkedList();
+    dropListMaxSize = Math.max(paramInt, 3);
+    itemHeight = (height / (paramInt + 1));
+    G4P.pushStyle();
+    G4P.showMessages = false;
+    vsb = new GScrollbar(paramPApplet, 0.0F, 0.0F, height - itemHeight - 2.0F, 10.0F);
+    vsb.addEventHandler(this, "vsbEventHandler");
+    vsb.setAutoHide(true);
+    vsb.setVisible(false);
+    buttonWidth = 10.0F;
+    showList = new GButton(paramPApplet, 0.0F, 0.0F, buttonWidth, itemHeight, ":");
+    showList.addEventHandler(this, "buttonShowListHandler");
+    z = 48;
+    G4P.control_mode = GControlMode.CORNER;
+    addControl(vsb, width, itemHeight + 1.0F, 1.5707964F);
+    addControl(showList, width - buttonWidth, 0.0F, 0.0F);
+    G4P.popStyle();
+    hotspots = new HotSpot[] { new HotSpot.HSrect(LIST_SURFACE, 0.0F, itemHeight + 1.0F, width - 11.0F, height - itemHeight - 1.0F), new HotSpot.HSrect(CLOSED_SURFACE, 0.0F, 0.0F, width - buttonWidth, itemHeight) };
+    createEventHandler(G4P.sketchWindow, "handleDropListEvents", new Class[] { GDropList.class, GEvent.class }, new String[] { "list", "event" });
+    registeredMethods = 3;
+    cursorOver = 12;
+    G4P.registerControl(this);
+  }
+  
+  public void setItems(String[] paramArrayOfString, int paramInt)
+  {
+    if (paramArrayOfString == null) {
+      return;
+    }
+    ArrayList localArrayList = new ArrayList();
+    for (String str : paramArrayOfString) {
+      localArrayList.add(str);
+    }
+    if (cleanupList(localArrayList)) {
+      setItemsImpl(paramInt);
+    }
+  }
+  
+  public void setItems(List<String> paramList, int paramInt)
+  {
+    if (paramList == null) {
+      return;
+    }
+    if (cleanupList(paramList)) {
+      setItemsImpl(paramInt);
+    }
+  }
+  
+  private boolean cleanupList(List<String> paramList)
+  {
+    Iterator localIterator = paramList.iterator();
+    while (localIterator.hasNext())
+    {
+      String str = (String)localIterator.next();
+      if ((str == null) || (str.length() == 0)) {
+        localIterator.remove();
+      }
+    }
+    if (paramList.size() > 0)
+    {
+      itemlist.clear();
+      itemlist.addAll(paramList);
+      return true;
+    }
+    return false;
+  }
+  
+  private void setItemsImpl(int paramInt)
+  {
+    sitems = new StyledString[itemlist.size()];
+    for (int i = 0; i < sitems.length; i++) {
+      sitems[i] = new StyledString((String)itemlist.get(i));
+    }
+    selItem = PApplet.constrain(paramInt, 0, sitems.length - 1);
+    startItem = (selItem >= dropListMaxSize ? selItem - dropListMaxSize + 1 : 0);
+    sitems[selItem].addAttribute(WEIGHT, WEIGHT_BOLD);
+    selText = new StyledString(sitems[selItem].getPlainText());
+    dropListActualSize = Math.min(sitems.length, dropListMaxSize);
+    if (sitems.length > dropListActualSize)
+    {
+      float f1 = dropListMaxSize / sitems.length;
+      float f2 = startItem / sitems.length;
+      vsb.setValue(f2, f1);
+      vsb.setVisible(false);
+    }
+    bufferInvalid = true;
+  }
+  
+  public boolean removeItem(int paramInt)
+  {
+    if ((itemlist.size() <= 1) || (paramInt < 0) || (paramInt >= itemlist.size())) {
+      return false;
+    }
+    int i = paramInt > selItem ? selItem : selItem - 1;
+    itemlist.remove(paramInt);
+    setItemsImpl(i);
+    return true;
+  }
+  
+  public boolean insertItem(int paramInt, String paramString)
+  {
+    if ((paramInt < 0) || (paramString == null) || (paramString.length() > 0)) {
+      return false;
+    }
+    if (paramInt >= itemlist.size()) {
+      itemlist.addLast(paramString);
+    } else {
+      itemlist.add(paramInt, paramString);
+    }
+    int i = paramInt <= selItem ? selItem + 1 : selItem;
+    setItemsImpl(i);
+    return true;
+  }
+  
+  public boolean addItem(String paramString)
+  {
+    if (paramString == null) {
+      return false;
+    }
+    itemlist.addLast(paramString);
+    return true;
+  }
+  
+  public void setSelected(int paramInt)
+  {
+    if ((paramInt >= 0) && (paramInt < sitems.length))
+    {
+      selItem = paramInt;
+      startItem = (selItem >= dropListMaxSize ? selItem - dropListMaxSize + 1 : 0);
+      for (StyledString localStyledString : sitems) {
+        localStyledString.clearAttributes();
+      }
+      sitems[selItem].addAttribute(WEIGHT, WEIGHT_BOLD);
+      selText = new StyledString(sitems[selItem].getPlainText());
+      bufferInvalid = true;
+    }
+  }
+  
+  public int getSelectedIndex()
+  {
+    return selItem;
+  }
+  
+  public String getSelectedText()
+  {
+    return sitems[selItem].getPlainText();
+  }
+  
+  public void setLocalColorScheme(int paramInt)
+  {
+    super.setLocalColorScheme(paramInt);
+    if (showList != null) {
+      showList.setLocalColorScheme(localColorScheme);
+    }
+    if (vsb != null) {
+      vsb.setLocalColorScheme(localColorScheme);
+    }
+  }
+  
+  public boolean isOver(float paramFloat1, float paramFloat2)
+  {
+    calcTransformedOrigin(winApp.mouseX, winApp.mouseY);
+    currSpot = whichHotSpot(ox, oy);
+    return !expanded ? 0 : currSpot == CLOSED_SURFACE ? 1 : (currSpot == CLOSED_SURFACE ? 1 : 0) | (currSpot == LIST_SURFACE ? 1 : 0);
+  }
+  
+  public void mouseEvent(MouseEvent paramMouseEvent)
+  {
+    if ((!visible) || (!enabled) || (!available)) {
+      return;
+    }
+    calcTransformedOrigin(winApp.mouseX, winApp.mouseY);
+    currSpot = whichHotSpot(ox, oy);
+    if ((currSpot >= 0) || (focusIsWith == this)) {
+      cursorIsOver = this;
+    } else if (cursorIsOver == this) {
+      cursorIsOver = null;
+    }
+    switch (paramMouseEvent.getAction())
+    {
+    case 3: 
+      if (focusIsWith == this)
+      {
+        loseFocus(null);
+        vsb.setVisible(false);
+        expanded = false;
+        bufferInvalid = true;
+        if ((currOverItem >= 0) && (currOverItem != selItem))
+        {
+          setSelected(currOverItem);
+          fireEvent(new Object[] { this, GEvent.SELECTED });
+        }
+        currOverItem = (this.lastOverItem = -1);
+      }
+      break;
+    case 5: 
+      if (focusIsWith == this)
+      {
+        if (currSpot == LIST_SURFACE) {
+          currOverItem = (startItem + (int)(oy / itemHeight) - 1);
+        } else {
+          currOverItem = -1;
+        }
+        if (currOverItem != lastOverItem)
+        {
+          lastOverItem = currOverItem;
+          bufferInvalid = true;
+        }
+      }
+      break;
+    }
+  }
+  
+  public void draw()
+  {
+    if (!visible) {
+      return;
+    }
+    updateBuffer();
+    winApp.pushStyle();
+    winApp.pushMatrix();
+    winApp.translate(cx, cy);
+    winApp.rotate(rotAngle);
+    winApp.pushMatrix();
+    winApp.translate(-halfWidth, -halfHeight);
+    winApp.imageMode(0);
+    if (alphaLevel < 255) {
+      winApp.tint(255, alphaLevel);
+    }
+    winApp.image(buffer, 0.0F, 0.0F);
+    winApp.popMatrix();
+    if (children != null)
+    {
+      Iterator localIterator = children.iterator();
+      while (localIterator.hasNext())
+      {
+        GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+        localGAbstractControl.draw();
+      }
+    }
+    winApp.popMatrix();
+    winApp.popStyle();
+  }
+  
+  public PGraphics getSnapshot()
+  {
+    updateBuffer();
+    PGraphics localPGraphics = winApp.createGraphics(buffer.width, buffer.height, "processing.awt.PGraphicsJava2D");
+    localPGraphics.beginDraw();
+    localPGraphics.image(buffer, 0.0F, 0.0F);
+    localPGraphics.pushMatrix();
+    localPGraphics.image(showList.getBuffer(), width - showList.getWidth() - 1.0F, 1.0F);
+    localPGraphics.translate(width, itemHeight + 1.0F);
+    localPGraphics.rotate(1.5707964F);
+    localPGraphics.image(vsb.getBuffer(), 0.0F, 0.0F);
+    localPGraphics.popMatrix();
+    localPGraphics.endDraw();
+    return localPGraphics;
+  }
+  
+  protected void updateBuffer()
+  {
+    if (bufferInvalid)
+    {
+      bufferInvalid = false;
+      buffer.beginDraw();
+      Graphics2D localGraphics2D = buffer.g2;
+      localGraphics2D.setFont(localFont);
+      buffer.clear();
+      buffer.noStroke();
+      buffer.fill(palette[5].getRGB());
+      buffer.rect(0.0F, 0.0F, width, itemHeight);
+      if (expanded)
+      {
+        buffer.fill(palette[6].getRGB());
+        buffer.rect(0.0F, itemHeight, width, itemHeight * dropListActualSize);
+      }
+      float f1 = 2.0F;
+      TextLayout localTextLayout = selText.getLines(localGraphics2D).getFirst()).layout;
+      float f2 = (itemHeight + localTextLayout.getAscent() - localTextLayout.getDescent()) / 2.0F;
+      localGraphics2D.setColor(palette[2]);
+      localTextLayout.draw(localGraphics2D, f1, f2);
+      if (expanded) {
+        for (int i = 0; i < dropListActualSize; i++)
+        {
+          f2 += itemHeight;
+          if (currOverItem == startItem + i) {
+            localGraphics2D.setColor(palette[15]);
+          } else {
+            localGraphics2D.setColor(palette[3]);
+          }
+          localTextLayout = sitems[(startItem + i)].getLines(localGraphics2D).getFirst()).layout;
+          localTextLayout.draw(localGraphics2D, f1, f2);
+        }
+      }
+      buffer.endDraw();
+    }
+  }
+  
+  protected void loseFocus(GAbstractControl paramGAbstractControl)
+  {
+    if (paramGAbstractControl != vsb)
+    {
+      expanded = false;
+      vsb.setVisible(false);
+      bufferInvalid = true;
+    }
+    if (cursorIsOver == this) {
+      cursorIsOver = null;
+    }
+    focusIsWith = paramGAbstractControl;
+  }
+  
+  public void vsbEventHandler(GScrollbar paramGScrollbar, GEvent paramGEvent)
+  {
+    int i = Math.round(vsb.getValue() * sitems.length);
+    startItem = i;
+    bufferInvalid = true;
+  }
+  
+  public void buttonShowListHandler(GButton paramGButton, GEvent paramGEvent)
+  {
+    if (expanded)
+    {
+      loseFocus(null);
+      vsb.setVisible(false);
+      expanded = false;
+    }
+    else
+    {
+      takeFocus();
+      vsb.setVisible(sitems.length > dropListActualSize);
+      expanded = true;
+    }
+    bufferInvalid = true;
+  }
+}

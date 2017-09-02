@@ -1,0 +1,588 @@
+package com.jogamp.common.util;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ArrayHashSet<E>
+  implements Cloneable, Collection<E>, List<E>
+{
+  public static final float DEFAULT_LOAD_FACTOR = 0.75F;
+  public static final int DEFAULT_INITIAL_CAPACITY = 16;
+  private final HashMap<E, E> map;
+  private final ArrayList<E> data;
+  private final boolean supportNullValue;
+  
+  /**
+   * @deprecated
+   */
+  public ArrayHashSet()
+  {
+    this(true, 16, 0.75F);
+  }
+  
+  /**
+   * @deprecated
+   */
+  public ArrayHashSet(int paramInt)
+  {
+    this(true, paramInt, 0.75F);
+  }
+  
+
+  /**
+   * @deprecated
+   */
+  public ArrayHashSet(int paramInt, float paramFloat)
+  {
+    this(true, paramInt, paramFloat);
+  }
+  
+
+
+
+
+
+
+
+
+  public ArrayHashSet(boolean paramBoolean, int paramInt, float paramFloat)
+  {
+    map = new HashMap(paramInt, paramFloat);
+    data = new ArrayList(paramInt);
+    supportNullValue = paramBoolean;
+  }
+  
+
+
+  public ArrayHashSet(ArrayHashSet<E> paramArrayHashSet)
+  {
+    map = new HashMap(map);
+    data = new ArrayList(data);
+    supportNullValue = supportNullValue;
+  }
+  
+
+
+
+
+
+
+  public final boolean supportsNullValue()
+  {
+    return supportNullValue;
+  }
+  
+
+
+
+
+
+
+  public final Object clone()
+  {
+    return new ArrayHashSet(this);
+  }
+  
+
+  public final ArrayList<E> getData() { return data; }
+  
+  public final HashMap<E, E> getMap() { return map; }
+  
+  public final String toString() {
+    return data.toString();
+  }
+  
+
+
+
+  public final void clear()
+  {
+    data.clear();
+    map.clear();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean add(E paramE)
+    throws NullPointerException
+  {
+    if (!supportNullValue) {
+      checkNull(paramE);
+    }
+    if (!map.containsKey(paramE))
+    {
+      if (null != map.put(paramE, paramE))
+      {
+        throw new InternalError("Already existing, but checked before: " + paramE);
+      }
+      if (!data.add(paramE)) {
+        throw new InternalError("Couldn't add element: " + paramE);
+      }
+      return true;
+    }
+    return false;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean remove(Object paramObject)
+    throws NullPointerException
+  {
+    if (supportNullValue) {
+      if (map.containsKey(paramObject))
+      {
+        map.remove(paramObject);
+        if (!data.remove(paramObject)) {
+          throw new InternalError("Couldn't remove prev mapped element: " + paramObject);
+        }
+        return true;
+      }
+    } else {
+      checkNull(paramObject);
+      if (null != map.remove(paramObject))
+      {
+        if (!data.remove(paramObject)) {
+          throw new InternalError("Couldn't remove prev mapped element: " + paramObject);
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean addAll(Collection<? extends E> paramCollection)
+  {
+    boolean bool = false;
+    for (Object localObject : paramCollection) {
+      bool |= add(localObject);
+    }
+    return bool;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean contains(Object paramObject)
+  {
+    return map.containsKey(paramObject);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean containsAll(Collection<?> paramCollection)
+  {
+    for (Object localObject : paramCollection) {
+      if (!contains(localObject)) {
+        return false;
+      }
+    }
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean removeAll(Collection<?> paramCollection)
+  {
+    boolean bool = false;
+    for (Object localObject : paramCollection) {
+      bool |= remove(localObject);
+    }
+    return bool;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean retainAll(Collection<?> paramCollection)
+  {
+    boolean bool = false;
+    for (Object localObject : paramCollection) {
+      if (!paramCollection.contains(localObject)) {
+        bool |= remove(localObject);
+      }
+    }
+    return bool;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final boolean equals(Object paramObject)
+  {
+    if (!(paramObject instanceof ArrayHashSet)) {
+      return false;
+    }
+    return data.equals(data);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final int hashCode()
+  {
+    return data.hashCode();
+  }
+  
+  public final boolean isEmpty()
+  {
+    return data.isEmpty();
+  }
+  
+  public final Iterator<E> iterator()
+  {
+    return data.iterator();
+  }
+  
+  public final int size()
+  {
+    return data.size();
+  }
+  
+  public final Object[] toArray()
+  {
+    return data.toArray();
+  }
+  
+  public final <T> T[] toArray(T[] paramArrayOfT)
+  {
+    return data.toArray(paramArrayOfT);
+  }
+  
+
+
+
+
+  public final E get(int paramInt)
+  {
+    return data.get(paramInt);
+  }
+  
+  public final int indexOf(Object paramObject)
+  {
+    return data.indexOf(paramObject);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final void add(int paramInt, E paramE)
+    throws IllegalArgumentException, NullPointerException
+  {
+    if (!supportNullValue) {
+      checkNull(paramE);
+    }
+    if (map.containsKey(paramE)) {
+      throw new IllegalArgumentException("Element " + paramE + " is already contained");
+    }
+    if (null != map.put(paramE, paramE))
+    {
+      throw new InternalError("Already existing, but checked before: " + paramE);
+    }
+    
+    data.add(paramInt, paramE);
+  }
+  
+
+
+
+
+
+  public final boolean addAll(int paramInt, Collection<? extends E> paramCollection)
+    throws UnsupportedOperationException
+  {
+    throw new UnsupportedOperationException("Not supported yet.");
+  }
+  
+
+
+
+
+
+  public final E set(int paramInt, E paramE)
+  {
+    Object localObject = remove(paramInt);
+    if (null != localObject) {
+      add(paramInt, paramE);
+    }
+    return localObject;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final E remove(int paramInt)
+  {
+    Object localObject = get(paramInt);
+    if ((null != localObject) && (remove(localObject))) {
+      return localObject;
+    }
+    return null;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final int lastIndexOf(Object paramObject)
+  {
+    return indexOf(paramObject);
+  }
+  
+  public final ListIterator<E> listIterator()
+  {
+    return data.listIterator();
+  }
+  
+  public final ListIterator<E> listIterator(int paramInt)
+  {
+    return data.listIterator(paramInt);
+  }
+  
+  public final List<E> subList(int paramInt1, int paramInt2)
+  {
+    return data.subList(paramInt1, paramInt2);
+  }
+  
+
+
+
+
+
+
+  public final ArrayList<E> toArrayList()
+  {
+    return new ArrayList(data);
+  }
+  
+
+
+
+
+
+
+
+
+  public final E get(Object paramObject)
+  {
+    return map.get(paramObject);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final E getOrAdd(E paramE)
+    throws NullPointerException
+  {
+    if (supportNullValue) {
+      if (map.containsKey(paramE))
+      {
+        return map.get(paramE);
+      }
+    } else {
+      checkNull(paramE);
+      Object localObject = map.get(paramE);
+      if (null != localObject)
+      {
+        return localObject;
+      }
+    }
+    
+    if (!add(paramE)) {
+      throw new InternalError("Element not mapped, but contained in list: " + paramE);
+    }
+    return paramE;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean containsSafe(Object paramObject)
+  {
+    return data.contains(paramObject);
+  }
+  
+  private static final void checkNull(Object paramObject) throws NullPointerException {
+    if (null == paramObject) {
+      throw new NullPointerException("Null element not supported");
+    }
+  }
+}

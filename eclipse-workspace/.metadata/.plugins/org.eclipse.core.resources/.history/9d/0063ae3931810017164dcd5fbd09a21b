@@ -1,0 +1,68 @@
+package de.voidplus.leapmotion;
+
+import processing.core.PApplet;
+import processing.core.PImage;
+
+public class Image
+  extends PImage
+  implements RawAccess<com.leapmotion.leap.Image>
+{
+  protected PApplet parent;
+  protected LeapMotion leap;
+  private com.leapmotion.leap.Image _image;
+  protected int id;
+  
+  public Image(PApplet paramPApplet, LeapMotion paramLeapMotion, com.leapmotion.leap.Image paramImage)
+  {
+    super(paramImage.width(), paramImage.height(), 1);
+    parent = paramPApplet;
+    leap = paramLeapMotion;
+    _image = paramImage;
+    id = paramImage.id();
+    loadPixels();
+    byte[] arrayOfByte = _image.data();
+    for (int m = 0; m < paramImage.width() * paramImage.height(); m++)
+    {
+      int i = (arrayOfByte[m] & 0xFF) << 16;
+      int j = (arrayOfByte[m] & 0xFF) << 8;
+      int k = arrayOfByte[m] & 0xFF;
+      pixels[m] = (i | j | k);
+    }
+    updatePixels();
+  }
+  
+  public boolean isValid()
+  {
+    return _image.isValid();
+  }
+  
+  public com.leapmotion.leap.Image getRaw()
+  {
+    return _image;
+  }
+  
+  public int getWidth()
+  {
+    return width;
+  }
+  
+  public int getHeight()
+  {
+    return height;
+  }
+  
+  public int getId()
+  {
+    return id;
+  }
+  
+  public boolean isLeft()
+  {
+    return getId() == 1;
+  }
+  
+  public boolean isRight()
+  {
+    return getId() == 0;
+  }
+}

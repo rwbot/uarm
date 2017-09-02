@@ -1,0 +1,468 @@
+package com.jogamp.common.util;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.JogampRuntimeException;
+import java.io.PrintStream;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import jogamp.common.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public final class ReflectionUtil
+{
+  public static final boolean DEBUG;
+  public static final boolean DEBUG_STATS_FORNAME;
+  private static final Object forNameLock;
+  private static final Map<String, ClassNameLookup> forNameStats;
+  private static int forNameCount = 0;
+  private static long forNameNanoCosts = 0L;
+  
+  static {
+    Debug.initSingleton();
+    DEBUG = Debug.debug("ReflectionUtil");
+    DEBUG_STATS_FORNAME = PropertyAccess.isPropertyDefined("jogamp.debug.ReflectionUtil.forNameStats", true);
+    if (DEBUG_STATS_FORNAME) {
+      forNameLock = new Object();
+      forNameStats = new HashMap();
+    } else {
+      forNameLock = null;
+      forNameStats = null;
+    } }
+  
+  public static class AWTNames { public static final String ComponentClass = "java.awt.Component";
+    public static final String GraphicsEnvironmentClass = "java.awt.GraphicsEnvironment";
+    public static final String isHeadlessMethod = "isHeadless";
+    
+    public AWTNames() {} }
+  
+  private static final Class<?>[] zeroTypes = new Class[0];
+  
+  private static class ClassNameLookup {
+    public ClassNameLookup(String paramString) {
+      name = paramString;
+      nanoCosts = 0L;
+      count = 0;
+    }
+    
+
+    public final String name;
+    public long nanoCosts;
+    public int count;
+    public String toString() { return String.format("%8.3f ms, %03d invoc, %s", new Object[] { Double.valueOf(nanoCosts / 1000000.0D), Integer.valueOf(count), name }); }
+  }
+  
+  public static void resetForNameCount() {
+    if (DEBUG_STATS_FORNAME)
+      synchronized (forNameLock) {
+        forNameCount = 0;
+        forNameNanoCosts = 0L;
+        forNameStats.clear();
+      }
+  }
+  
+  public static StringBuilder getForNameStats(StringBuilder paramStringBuilder) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    if (DEBUG_STATS_FORNAME) {
+      synchronized (forNameLock) {
+        paramStringBuilder.append(String.format("ReflectionUtil.forName: %8.3f ms, %03d invoc%n", new Object[] { Double.valueOf(forNameNanoCosts / 1000000.0D), Integer.valueOf(forNameCount) }));
+        Set localSet = forNameStats.entrySet();
+        int i = 0;
+        for (Iterator localIterator = localSet.iterator(); localIterator.hasNext(); i++) {
+          Map.Entry localEntry = (Map.Entry)localIterator.next();
+          paramStringBuilder.append(String.format("ReflectionUtil.forName[%03d]: %s%n", new Object[] { Integer.valueOf(i), localEntry.getValue() }));
+        }
+      }
+    }
+    return paramStringBuilder;
+  }
+  
+  private static Class<?> getClassImpl(String paramString, boolean paramBoolean, ClassLoader paramClassLoader) throws ClassNotFoundException {
+    if (DEBUG_STATS_FORNAME) {
+      long l1 = System.nanoTime();
+      Class localClass = Class.forName(paramString, paramBoolean, paramClassLoader);
+      long l2 = System.nanoTime();
+      long l3 = l2 - l1;
+      synchronized (forNameLock) {
+        forNameCount += 1;
+        forNameNanoCosts += l3;
+        ClassNameLookup localClassNameLookup = (ClassNameLookup)forNameStats.get(paramString);
+        if (null == localClassNameLookup) {
+          localClassNameLookup = new ClassNameLookup(paramString);
+          forNameStats.put(paramString, localClassNameLookup);
+        }
+        count += 1;
+        nanoCosts += l3;
+        System.err.printf("ReflectionUtil.getClassImpl.%03d: %8.3f ms, init %b, [%s]@ Thread %s%n", new Object[] {
+          Integer.valueOf(forNameCount), Double.valueOf(l3 / 1000000.0D), Boolean.valueOf(paramBoolean), localClassNameLookup.toString(), Thread.currentThread().getName() });
+        if (DEBUG) {
+          ExceptionUtils.dumpStack(System.err);
+        }
+      }
+      return localClass;
+    }
+    return Class.forName(paramString, paramBoolean, paramClassLoader);
+  }
+  
+
+
+  public static final boolean isClassAvailable(String paramString, ClassLoader paramClassLoader)
+  {
+    try
+    {
+      return null != getClassImpl(paramString, false, paramClassLoader);
+    } catch (ClassNotFoundException localClassNotFoundException) {}
+    return false;
+  }
+  
+
+
+
+  public static final Class<?> getClass(String paramString, boolean paramBoolean, ClassLoader paramClassLoader)
+    throws JogampRuntimeException
+  {
+    try
+    {
+      return getClassImpl(paramString, paramBoolean, paramClassLoader);
+    } catch (ClassNotFoundException localClassNotFoundException) {
+      throw new JogampRuntimeException(paramString + " not available", localClassNotFoundException);
+    }
+  }
+  
+
+
+  public static final Constructor<?> getConstructor(String paramString, Class<?>[] paramArrayOfClass, boolean paramBoolean, ClassLoader paramClassLoader)
+    throws JogampRuntimeException
+  {
+    try
+    {
+      return getConstructor(getClassImpl(paramString, paramBoolean, paramClassLoader), paramArrayOfClass);
+    } catch (ClassNotFoundException localClassNotFoundException) {
+      throw new JogampRuntimeException(paramString + " not available", localClassNotFoundException);
+    }
+  }
+  
+  static final String asString(Class<?>[] paramArrayOfClass) {
+    StringBuilder localStringBuilder = new StringBuilder();
+    int i = 0;
+    if (null != paramArrayOfClass) {
+      for (int j = 0; j < paramArrayOfClass.length; j++) {
+        if (i != 0) {
+          localStringBuilder.append(", ");
+        }
+        localStringBuilder.append(paramArrayOfClass[j].getName());
+        i = 1;
+      }
+    }
+    return localStringBuilder.toString();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final Constructor<?> getConstructor(Class<?> paramClass, Class<?>... paramVarArgs)
+    throws JogampRuntimeException
+  {
+    if (null == paramVarArgs) {
+      paramVarArgs = zeroTypes;
+    }
+    Object localObject = null;
+    try {
+      localObject = paramClass.getDeclaredConstructor(paramVarArgs);
+    }
+    catch (NoSuchMethodException localNoSuchMethodException) {}
+    
+    if (null == localObject) {
+      Constructor[] arrayOfConstructor = paramClass.getConstructors();
+      for (int i = 0; (null == localObject) && (i < arrayOfConstructor.length); i++) {
+        Constructor localConstructor = arrayOfConstructor[i];
+        Class[] arrayOfClass = localConstructor.getParameterTypes();
+        if (arrayOfClass.length == paramVarArgs.length)
+        {
+          for (int j = 0; j < arrayOfClass.length; j++) {
+            if (!arrayOfClass[j].isAssignableFrom(paramVarArgs[j])) {
+              break;
+            }
+          }
+          if (arrayOfClass.length == j) {
+            localObject = localConstructor;
+          }
+        }
+      }
+    }
+    if (null == localObject) {
+      throw new JogampRuntimeException("Constructor: '" + paramClass.getName() + "(" + asString(paramVarArgs) + ")' not found");
+    }
+    return localObject;
+  }
+  
+  public static final Constructor<?> getConstructor(String paramString, ClassLoader paramClassLoader) throws JogampRuntimeException
+  {
+    return getConstructor(paramString, null, true, paramClassLoader);
+  }
+  
+
+
+  public static final Object createInstance(Constructor<?> paramConstructor, Object... paramVarArgs)
+    throws JogampRuntimeException, RuntimeException
+  {
+    try
+    {
+      return paramConstructor.newInstance(paramVarArgs);
+    } catch (Exception localException) {
+      Object localObject = localException;
+      if ((localObject instanceof InvocationTargetException)) {
+        localObject = ((InvocationTargetException)localObject).getTargetException();
+      }
+      if ((localObject instanceof Error)) {
+        throw ((Error)localObject);
+      }
+      if ((localObject instanceof RuntimeException)) {
+        throw ((RuntimeException)localObject);
+      }
+      throw new JogampRuntimeException("can not create instance of " + paramConstructor.getName(), (Throwable)localObject);
+    }
+  }
+  
+
+
+
+  public static final Object createInstance(Class<?> paramClass, Class<?>[] paramArrayOfClass, Object... paramVarArgs)
+    throws JogampRuntimeException, RuntimeException
+  {
+    return createInstance(getConstructor(paramClass, paramArrayOfClass), paramVarArgs);
+  }
+  
+  public static final Object createInstance(Class<?> paramClass, Object... paramVarArgs)
+    throws JogampRuntimeException, RuntimeException
+  {
+    Class[] arrayOfClass = null;
+    if (null != paramVarArgs) {
+      arrayOfClass = new Class[paramVarArgs.length];
+      for (int i = 0; i < paramVarArgs.length; i++) {
+        arrayOfClass[i] = paramVarArgs[i].getClass();
+      }
+    }
+    return createInstance(paramClass, arrayOfClass, paramVarArgs);
+  }
+  
+  public static final Object createInstance(String paramString, Class<?>[] paramArrayOfClass, Object[] paramArrayOfObject, ClassLoader paramClassLoader) throws JogampRuntimeException, RuntimeException
+  {
+    try
+    {
+      return createInstance(getClassImpl(paramString, true, paramClassLoader), paramArrayOfClass, paramArrayOfObject);
+    } catch (ClassNotFoundException localClassNotFoundException) {
+      throw new JogampRuntimeException(paramString + " not available", localClassNotFoundException);
+    }
+  }
+  
+  public static final Object createInstance(String paramString, Object[] paramArrayOfObject, ClassLoader paramClassLoader)
+    throws JogampRuntimeException, RuntimeException
+  {
+    Class[] arrayOfClass = null;
+    if (null != paramArrayOfObject) {
+      arrayOfClass = new Class[paramArrayOfObject.length];
+      for (int i = 0; i < paramArrayOfObject.length; i++) {
+        arrayOfClass[i] = paramArrayOfObject[i].getClass();
+      }
+    }
+    return createInstance(paramString, arrayOfClass, paramArrayOfObject, paramClassLoader);
+  }
+  
+  public static final Object createInstance(String paramString, ClassLoader paramClassLoader)
+    throws JogampRuntimeException, RuntimeException
+  {
+    return createInstance(paramString, null, null, paramClassLoader);
+  }
+  
+
+  public static final boolean instanceOf(Object paramObject, String paramString) { return instanceOf(paramObject.getClass(), paramString); }
+  
+  public static final boolean instanceOf(Class<?> paramClass, String paramString) {
+    do {
+      if (paramClass.getName().equals(paramString)) {
+        return true;
+      }
+      paramClass = paramClass.getSuperclass();
+    } while (paramClass != null);
+    return false;
+  }
+  
+
+  public static final boolean implementationOf(Object paramObject, String paramString) { return implementationOf(paramObject.getClass(), paramString); }
+  
+  public static final boolean implementationOf(Class<?> paramClass, String paramString) {
+    do {
+      Class[] arrayOfClass = paramClass.getInterfaces();
+      for (int i = arrayOfClass.length - 1; i >= 0; i--) {
+        Class localClass = arrayOfClass[i];
+        if (localClass.getName().equals(paramString)) {
+          return true;
+        }
+      }
+      paramClass = paramClass.getSuperclass();
+    } while (paramClass != null);
+    return false;
+  }
+  
+  public static boolean isAWTComponent(Object paramObject) {
+    return instanceOf(paramObject, "java.awt.Component");
+  }
+  
+  public static boolean isAWTComponent(Class<?> paramClass) {
+    return instanceOf(paramClass, "java.awt.Component");
+  }
+  
+
+
+
+  public static final Method getMethod(Class<?> paramClass, String paramString, Class<?>... paramVarArgs)
+    throws JogampRuntimeException, RuntimeException
+  {
+    Object localObject = null;
+    Method localMethod = null;
+    try {
+      localMethod = paramClass.getDeclaredMethod(paramString, paramVarArgs);
+    } catch (NoClassDefFoundError localNoClassDefFoundError) {
+      localObject = localNoClassDefFoundError;
+    } catch (NoSuchMethodException localNoSuchMethodException) {
+      localObject = localNoSuchMethodException;
+    }
+    if (null != localObject) {
+      throw new JogampRuntimeException("Method: '" + paramClass + "." + paramString + "(" + asString(paramVarArgs) + ")' not found", localObject);
+    }
+    return localMethod;
+  }
+  
+
+
+  public static final Method getMethod(String paramString1, String paramString2, Class<?>[] paramArrayOfClass, ClassLoader paramClassLoader)
+    throws JogampRuntimeException, RuntimeException
+  {
+    try
+    {
+      return getMethod(getClassImpl(paramString1, true, paramClassLoader), paramString2, paramArrayOfClass);
+    } catch (ClassNotFoundException localClassNotFoundException) {
+      throw new JogampRuntimeException(paramString1 + " not available", localClassNotFoundException);
+    }
+  }
+  
+
+
+
+
+
+
+
+  public static final Object callMethod(Object paramObject, Method paramMethod, Object... paramVarArgs)
+    throws JogampRuntimeException, RuntimeException
+  {
+    try
+    {
+      return paramMethod.invoke(paramObject, paramVarArgs);
+    } catch (Exception localException) {
+      Object localObject = localException;
+      if ((localObject instanceof InvocationTargetException)) {
+        localObject = ((InvocationTargetException)localObject).getTargetException();
+      }
+      if ((localObject instanceof Error)) {
+        throw ((Error)localObject);
+      }
+      if ((localObject instanceof RuntimeException)) {
+        throw ((RuntimeException)localObject);
+      }
+      throw new JogampRuntimeException("calling " + paramMethod + " failed", (Throwable)localObject);
+    }
+  }
+  
+
+
+
+
+
+  public static final Object callStaticMethod(String paramString1, String paramString2, Class<?>[] paramArrayOfClass, Object[] paramArrayOfObject, ClassLoader paramClassLoader)
+    throws JogampRuntimeException, RuntimeException { return callMethod(null, getMethod(paramString1, paramString2, paramArrayOfClass, paramClassLoader), paramArrayOfObject); }
+  
+  public ReflectionUtil() {}
+  
+  public static class MethodAccessor {
+    Method m = null;
+    
+    public MethodAccessor(Class<?> paramClass, String paramString, Class<?>... paramVarArgs)
+    {
+      try {
+        m = ReflectionUtil.getMethod(paramClass, paramString, paramVarArgs);
+      }
+      catch (JogampRuntimeException localJogampRuntimeException) {}
+    }
+    
+    public boolean available() {
+      return null != m;
+    }
+    
+
+
+
+    public Object callMethod(Object paramObject, Object... paramVarArgs)
+    {
+      if (null == m) {
+        throw new JogampRuntimeException("Method not available. Instance: " + paramObject);
+      }
+      return ReflectionUtil.callMethod(paramObject, m, paramVarArgs);
+    }
+  }
+}

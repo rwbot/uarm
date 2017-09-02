@@ -1,0 +1,4837 @@
+package processing.data;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.io.RandomAccessFile;
+import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.nio.charset.Charset;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
+import javax.xml.parsers.ParserConfigurationException;
+import org.xml.sax.SAXException;
+import processing.core.PApplet;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Table
+{
+  protected int rowCount;
+  protected int allocCount;
+  protected String missingString = null;
+  protected int missingInt = 0;
+  protected long missingLong = 0L;
+  protected float missingFloat = NaN.0F;
+  protected double missingDouble = NaN.0D;
+  protected int missingCategory = -1;
+  
+  String[] columnTitles;
+  
+  HashMapBlows[] columnCategories;
+  
+  HashMap<String, Integer> columnIndices;
+  
+  protected Object[] columns;
+  
+  public static final int STRING = 0;
+  
+  public static final int INT = 1;
+  
+  public static final int LONG = 2;
+  
+  public static final int FLOAT = 3;
+  
+  public static final int DOUBLE = 4;
+  
+  public static final int CATEGORY = 5;
+  
+  int[] columnTypes;
+  protected RowIterator rowIterator;
+  protected int expandIncrement;
+  
+  public Table()
+  {
+    init();
+  }
+  
+
+  public Table(File file)
+    throws IOException
+  {
+    this(file, null);
+  }
+  
+
+
+
+
+
+
+  public Table(File file, String options)
+    throws IOException
+  {
+    init();
+    parse(PApplet.createInput(file), 
+      extensionOptions(true, file.getName(), options));
+  }
+  
+
+  public Table(InputStream input)
+    throws IOException
+  {
+    this(input, null);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public Table(InputStream input, String options)
+    throws IOException
+  {
+    init();
+    parse(input, options);
+  }
+  
+  public Table(Iterable<TableRow> rows)
+  {
+    init();
+    
+    int row = 0;
+    int alloc = 10;
+    
+    for (TableRow incoming : rows) {
+      if (row == 0) {
+        setColumnTypes(incoming.getColumnTypes());
+        setColumnTitles(incoming.getColumnTitles());
+        
+
+        setRowCount(alloc);
+        
+        setColumnCount(incoming.getColumnCount());
+      }
+      else if (row == alloc)
+      {
+        alloc *= 2;
+        setRowCount(alloc);
+      }
+      
+
+
+      setRow(row++, incoming);
+    }
+    
+
+
+
+
+
+
+    if (row != alloc) {
+      setRowCount(row);
+    }
+  }
+  
+
+
+
+  public Table(ResultSet rs)
+  {
+    init();
+    try {
+      ResultSetMetaData rsmd = rs.getMetaData();
+      
+      int columnCount = rsmd.getColumnCount();
+      setColumnCount(columnCount);
+      
+      for (int col = 0; col < columnCount; col++) {
+        setColumnTitle(col, rsmd.getColumnName(col + 1));
+        
+        int type = rsmd.getColumnType(col + 1);
+        switch (type) {
+        case -6: 
+        case 4: 
+        case 5: 
+          setColumnType(col, 1);
+          break;
+        case -5: 
+          setColumnType(col, 2);
+          break;
+        case 6: 
+          setColumnType(col, 3);
+          break;
+        case 3: 
+        case 7: 
+        case 8: 
+          setColumnType(col, 4);
+        }
+        
+      }
+      
+      int row = 0;
+      while (rs.next()) {
+        for (int col = 0; col < columnCount; col++) {
+          switch (columnTypes[col]) {
+          case 0:  setString(row, col, rs.getString(col + 1)); break;
+          case 1:  setInt(row, col, rs.getInt(col + 1)); break;
+          case 2:  setLong(row, col, rs.getLong(col + 1)); break;
+          case 3:  setFloat(row, col, rs.getFloat(col + 1)); break;
+          case 4:  setDouble(row, col, rs.getDouble(col + 1)); break;
+          default:  throw new IllegalArgumentException("column type " + columnTypes[col] + " not supported.");
+          }
+        }
+        row++;
+
+      }
+      
+
+    }
+    catch (SQLException s)
+    {
+
+      throw new RuntimeException(s);
+    }
+  }
+  
+  public Table typedParse(InputStream input, String options) throws IOException
+  {
+    Table table = new Table();
+    table.setColumnTypes(this);
+    table.parse(input, options);
+    return table;
+  }
+  
+  protected void init()
+  {
+    columns = new Object[0];
+    columnTypes = new int[0];
+    columnCategories = new HashMapBlows[0];
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  static final String[] loadExtensions = { "csv", "tsv", "ods", "bin" };
+  static final String[] saveExtensions = { "csv", "tsv", "ods", "bin", "html" };
+  CommaSeparatedLine csl;
+  
+  public static String extensionOptions(boolean loading, String filename, String options) { String extension = PApplet.checkExtension(filename);
+    if (extension != null) {
+      for (String possible : loading ? loadExtensions : saveExtensions) {
+        if (extension.equals(possible)) {
+          if (options == null) {
+            return extension;
+          }
+          
+
+          return extension + "," + options;
+        }
+      }
+    }
+    
+    return options;
+  }
+  
+  protected void parse(InputStream input, String options)
+    throws IOException
+  {
+    boolean header = false;
+    String extension = null;
+    boolean binary = false;
+    String encoding = "UTF-8";
+    
+    String worksheet = null;
+    
+
+    String[] opts = null;
+    if (options != null) {
+      opts = PApplet.trim(PApplet.split(options, ','));
+      for (String opt : opts) {
+        if (opt.equals("tsv")) {
+          extension = "tsv";
+        } else if (opt.equals("csv")) {
+          extension = "csv";
+        } else if (opt.equals("ods")) {
+          extension = "ods";
+        } else { if (opt.equals("newlines"))
+          {
+
+            throw new IllegalArgumentException("The 'newlines' option is no longer necessary."); }
+          if (opt.equals("bin")) {
+            binary = true;
+            extension = "bin";
+          } else if (opt.equals("header")) {
+            header = true;
+          } else if (opt.startsWith("worksheet=")) {
+            worksheet = opt.substring("worksheet=".length());
+          } else if (!opt.startsWith("dictionary="))
+          {
+            if (opt.startsWith("encoding=")) {
+              encoding = opt.substring(9);
+            } else
+              throw new IllegalArgumentException("'" + opt + "' is not a valid option for loading a Table");
+          }
+        }
+      }
+    }
+    if (extension == null) {
+      throw new IllegalArgumentException("No extension specified for this Table");
+    }
+    
+    if (binary) {
+      loadBinary(input);
+    }
+    else if (extension.equals("ods")) {
+      odsParse(input, worksheet, header);
+    }
+    else {
+      InputStreamReader isr = new InputStreamReader(input, encoding);
+      BufferedReader reader = new BufferedReader(isr);
+      
+
+
+
+
+
+
+
+
+      parseBasic(reader, header, "tsv".equals(extension));
+    }
+  }
+  
+  protected void parseBasic(BufferedReader reader, boolean header, boolean tsv)
+    throws IOException
+  {
+    String line = null;
+    int row = 0;
+    if (rowCount == 0) {
+      setRowCount(10);
+    }
+    try
+    {
+      while ((line = reader.readLine()) != null) {
+        if (row == getRowCount()) {
+          setRowCount(row << 1);
+        }
+        if ((row == 0) && (header)) {
+          setColumnTitles(tsv ? PApplet.split(line, '\t') : splitLineCSV(line, reader));
+          header = false;
+        } else {
+          setRow(row, tsv ? PApplet.split(line, '\t') : splitLineCSV(line, reader));
+          row++;
+        }
+        
+        if (row % 10000 == 0)
+        {
+
+
+
+
+          try
+          {
+
+
+
+
+
+            Thread.sleep(10L);
+          } catch (InterruptedException e) {
+            e.printStackTrace();
+          }
+        }
+      }
+    } catch (Exception e) {
+      throw new RuntimeException("Error reading table on line " + row, e);
+    }
+    
+    if (row != getRowCount()) {
+      setRowCount(row);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  static class CommaSeparatedLine
+  {
+    char[] c;
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    String[] pieces;
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    int pieceCount;
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    int start;
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    CommaSeparatedLine() {}
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    String[] handle(String line, BufferedReader reader)
+      throws IOException
+    {
+      start = 0;
+      pieceCount = 0;
+      c = line.toCharArray();
+      
+
+      int cols = 1;
+      boolean quote = false;
+      for (int i = 0; i < c.length; i++) {
+        if ((!quote) && (c[i] == ',')) {
+          cols++;
+        } else if (c[i] == '"')
+        {
+
+          quote = !quote;
+        }
+      }
+      pieces = new String[cols];
+      
+
+
+      while (start < c.length) {
+        boolean enough = ingest();
+        if (!enough)
+        {
+          String nextLine = reader.readLine();
+          
+          if (nextLine == null)
+          {
+            throw new IOException("Found a quoted line that wasn't terminated properly.");
+          }
+          
+
+
+          char[] temp = new char[c.length + 1 + nextLine.length()];
+          PApplet.arrayCopy(c, temp, c.length);
+          
+          temp[c.length] = '\n';
+          nextLine.getChars(0, nextLine.length(), temp, c.length + 1);
+          
+          return handle(new String(temp), reader);
+        }
+      }
+      
+
+
+
+
+
+
+      for (int i = pieceCount; i < pieces.length; i++) {
+        pieces[i] = "";
+      }
+      
+      return pieces;
+    }
+    
+    protected void addPiece(int start, int stop, boolean quotes) {
+      if (quotes) {
+        int dest = start;
+        for (int i = start; i < stop; i++) {
+          if (c[i] == '"') {
+            i++;
+          }
+          if (i != dest) {
+            c[dest] = c[i];
+          }
+          dest++;
+        }
+        pieces[(pieceCount++)] = new String(c, start, dest - start);
+      }
+      else {
+        pieces[(pieceCount++)] = new String(c, start, stop - start);
+      }
+    }
+    
+
+
+
+
+
+    protected boolean ingest()
+    {
+      boolean hasEscapedQuotes = false;
+      
+
+
+
+      boolean quoted = c[start] == '"';
+      if (quoted) {
+        start += 1;
+      }
+      int i = start;
+      while (i < c.length)
+      {
+        if (c[i] == '"')
+        {
+          if (quoted) {
+            if (i == c.length - 1)
+            {
+              addPiece(start, i, hasEscapedQuotes);
+              start = c.length;
+              return true;
+            }
+            if (c[(i + 1)] == '"')
+            {
+              hasEscapedQuotes = true;
+              i += 2;
+            }
+            else if (c[(i + 1)] == ',')
+            {
+              addPiece(start, i, hasEscapedQuotes);
+              start = (i + 2);
+              return true;
+            }
+          }
+          else {
+            if (i == c.length - 1)
+            {
+              throw new RuntimeException("Unterminated quote at end of line");
+            }
+            if (c[(i + 1)] == '"')
+            {
+              hasEscapedQuotes = true;
+              i += 2;
+            }
+            else {
+              throw new RuntimeException("Unterminated quoted field mid-line");
+            }
+          }
+        } else { if ((!quoted) && (c[i] == ',')) {
+            addPiece(start, i, hasEscapedQuotes);
+            start = (i + 1);
+            return true;
+          }
+          if ((!quoted) && (i == c.length - 1)) {
+            addPiece(start, c.length, hasEscapedQuotes);
+            start = c.length;
+            return true;
+          }
+          
+          i++;
+        }
+      }
+      
+
+
+
+
+
+
+
+
+
+
+      if (quoted) {
+        return false;
+      }
+      
+
+
+
+      throw new RuntimeException("not sure how...");
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  protected String[] splitLineCSV(String line, BufferedReader reader)
+    throws IOException
+  {
+    if (csl == null) {
+      csl = new CommaSeparatedLine();
+    }
+    return csl.handle(line, reader);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private InputStream odsFindContentXML(InputStream input)
+  {
+    ZipInputStream zis = new ZipInputStream(input);
+    ZipEntry entry = null;
+    try {
+      while ((entry = zis.getNextEntry()) != null) {
+        if (entry.getName().equals("content.xml")) {
+          return zis;
+        }
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
+  
+  protected void odsParse(InputStream input, String worksheet, boolean header)
+  {
+    try {
+      InputStream contentStream = odsFindContentXML(input);
+      XML xml = new XML(contentStream);
+      
+
+
+
+
+      XML[] sheets = 
+        xml.getChildren("office:body/office:spreadsheet/table:table");
+      
+      boolean found = false;
+      for (XML sheet : sheets)
+      {
+        if ((worksheet == null) || (worksheet.equals(sheet.getString("table:name")))) {
+          odsParseSheet(sheet, header);
+          found = true;
+          if (worksheet == null) {
+            break;
+          }
+        }
+      }
+      if (!found) {
+        if (worksheet == null) {
+          throw new RuntimeException("No worksheets found in the ODS file.");
+        }
+        throw new RuntimeException("No worksheet named " + worksheet + 
+          " found in the ODS file.");
+      }
+    }
+    catch (UnsupportedEncodingException e) {
+      e.printStackTrace();
+    } catch (IOException e) {
+      e.printStackTrace();
+    } catch (ParserConfigurationException e) {
+      e.printStackTrace();
+    } catch (SAXException e) {
+      e.printStackTrace();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  private void odsParseSheet(XML sheet, boolean header)
+  {
+    XML[] rows = sheet.getChildren("table:table-row");
+    
+
+    int rowIndex = 0;
+    for (XML row : rows) {
+      int rowRepeat = row.getInt("table:number-rows-repeated", 1);
+      
+
+
+      boolean rowNotNull = false;
+      XML[] cells = row.getChildren();
+      int columnIndex = 0;
+      
+      for (XML cell : cells) {
+        int cellRepeat = cell.getInt("table:number-columns-repeated", 1);
+        
+
+
+
+
+        String cellData = cell.getString("office:value");
+        
+
+        if (cellData == null) {
+          int cellKids = cell.getChildCount();
+          if (cellKids != 0) {
+            XML[] paragraphElements = cell.getChildren("text:p");
+            if (paragraphElements.length != 1) {
+              for (XML el : paragraphElements) {
+                System.err.println(el.toString());
+              }
+              throw new RuntimeException("found more than one text:p element");
+            }
+            XML textp = paragraphElements[0];
+            String textpContent = textp.getContent();
+            
+
+            if (textpContent != null) {
+              cellData = textpContent;
+            } else {
+              XML[] textpKids = textp.getChildren();
+              StringBuilder cellBuffer = new StringBuilder();
+              for (XML kid : textpKids) {
+                String kidName = kid.getName();
+                if (kidName == null) {
+                  odsAppendNotNull(kid, cellBuffer);
+                }
+                else if (kidName.equals("text:s")) {
+                  int spaceCount = kid.getInt("text:c", 1);
+                  for (int space = 0; space < spaceCount; space++) {
+                    cellBuffer.append(' ');
+                  }
+                } else if (kidName.equals("text:span")) {
+                  odsAppendNotNull(kid, cellBuffer);
+                }
+                else if (kidName.equals("text:a"))
+                {
+
+                  cellBuffer.append(kid.getString("xlink:href"));
+
+                }
+                else
+                {
+
+                  odsAppendNotNull(kid, cellBuffer);
+                  System.err.println(getClass().getName() + ": don't understand: " + kid);
+                }
+              }
+              
+              cellData = cellBuffer.toString();
+            }
+          }
+        }
+        
+
+        for (int r = 0; r < cellRepeat; r++) {
+          if (cellData != null)
+          {
+            setString(rowIndex, columnIndex, cellData);
+          }
+          columnIndex++;
+          if (cellData != null)
+          {
+
+
+            rowNotNull = true;
+          }
+        }
+      }
+      if (header) {
+        removeTitleRow();
+        header = false;
+      }
+      else {
+        if ((rowNotNull) && (rowRepeat > 1)) {
+          String[] rowStrings = getStringRow(rowIndex);
+          for (int r = 1; r < rowRepeat; r++) {
+            addRow(rowStrings);
+          }
+        }
+        rowIndex += rowRepeat;
+      }
+    }
+  }
+  
+  private void odsAppendNotNull(XML kid, StringBuilder buffer)
+  {
+    String content = kid.getContent();
+    if (content != null) {
+      buffer.append(content);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void parseInto(Object enclosingObject, String fieldName)
+  {
+    Class<?> target = null;
+    Object outgoing = null;
+    Field targetField = null;
+    
+
+    try
+    {
+      Class<?> sketchClass = enclosingObject.getClass();
+      targetField = sketchClass.getDeclaredField(fieldName);
+      
+      Class<?> targetArray = targetField.getType();
+      if (targetArray.isArray())
+      {
+
+        target = targetArray.getComponentType();
+        outgoing = Array.newInstance(target, getRowCount());
+      }
+    } catch (NoSuchFieldException e) {
+      e.printStackTrace();
+    } catch (SecurityException e) {
+      e.printStackTrace();
+    }
+    
+
+
+    Class<?> enclosingClass = target.getEnclosingClass();
+    Constructor<?> con = null;
+    try
+    {
+      if (enclosingClass == null) {
+        con = target.getDeclaredConstructor(new Class[0]);
+      }
+      else {
+        con = target.getDeclaredConstructor(new Class[] { enclosingClass });
+      }
+      
+      if (!con.isAccessible())
+      {
+        con.setAccessible(true);
+      }
+    } catch (SecurityException e) {
+      e.printStackTrace();
+    } catch (NoSuchMethodException e) {
+      e.printStackTrace();
+    }
+    
+    Field[] fields = target.getDeclaredFields();
+    ArrayList<Field> inuse = new ArrayList();
+    for (Field field : fields) {
+      String name = field.getName();
+      if (getColumnIndex(name, false) != -1)
+      {
+        if (!field.isAccessible())
+        {
+          field.setAccessible(true);
+        }
+        inuse.add(field);
+      }
+    }
+    
+
+
+    int index = 0;
+    try {
+      for (TableRow row : rows()) {
+        Object item = null;
+        if (enclosingClass == null)
+        {
+          item = con.newInstance(new Object[0]);
+        } else {
+          item = con.newInstance(new Object[] { enclosingObject });
+        }
+        
+        for (Field field : inuse) {
+          String name = field.getName();
+          
+
+          if (field.getType() == String.class) {
+            field.set(item, row.getString(name));
+          }
+          else if (field.getType() == Integer.TYPE) {
+            field.setInt(item, row.getInt(name));
+          }
+          else if (field.getType() == Long.TYPE) {
+            field.setLong(item, row.getLong(name));
+          }
+          else if (field.getType() == Float.TYPE) {
+            field.setFloat(item, row.getFloat(name));
+          }
+          else if (field.getType() == Double.TYPE) {
+            field.setDouble(item, row.getDouble(name));
+          }
+          else if (field.getType() == Boolean.TYPE) {
+            String content = row.getString(name);
+            if (content != null)
+            {
+
+              if ((content.toLowerCase().equals("true")) || 
+                (content.equals("1"))) {
+                field.setBoolean(item, true);
+
+
+              }
+              
+
+
+            }
+            
+
+
+          }
+          else if (field.getType() == Character.TYPE) {
+            String content = row.getString(name);
+            if ((content != null) && (content.length() > 0))
+            {
+              field.setChar(item, content.charAt(0));
+            }
+          }
+        }
+        
+        Array.set(outgoing, index++, item);
+      }
+      if (!targetField.isAccessible())
+      {
+        targetField.setAccessible(true);
+      }
+      
+
+      targetField.set(enclosingObject, outgoing);
+    }
+    catch (InstantiationException e) {
+      e.printStackTrace();
+    } catch (IllegalAccessException e) {
+      e.printStackTrace();
+    } catch (IllegalArgumentException e) {
+      e.printStackTrace();
+    } catch (InvocationTargetException e) {
+      e.printStackTrace();
+    }
+  }
+  
+  public boolean save(File file, String options) throws IOException
+  {
+    return save(PApplet.createOutput(file), 
+      extensionOptions(false, file.getName(), options));
+  }
+  
+  public boolean save(OutputStream output, String options)
+  {
+    PrintWriter writer = PApplet.createWriter(output);
+    String extension = null;
+    if (options == null) {
+      throw new IllegalArgumentException("No extension specified for saving this Table");
+    }
+    
+    String[] opts = PApplet.trim(PApplet.split(options, ','));
+    
+    extension = opts[(opts.length - 1)];
+    boolean found = false;
+    for (String ext : saveExtensions) {
+      if (extension.equals(ext)) {
+        found = true;
+        break;
+      }
+    }
+    
+    if (!found) {
+      throw new IllegalArgumentException("'" + extension + "' not available for Table");
+    }
+    
+    if (extension.equals("csv")) {
+      writeCSV(writer);
+    } else if (extension.equals("tsv")) {
+      writeTSV(writer);
+    } else if (extension.equals("ods")) {
+      try {
+        saveODS(output);
+      } catch (IOException e) {
+        e.printStackTrace();
+        return false;
+      }
+    } else if (extension.equals("html")) {
+      writeHTML(writer);
+    } else if (extension.equals("bin")) {
+      try {
+        saveBinary(output);
+      } catch (IOException e) {
+        e.printStackTrace();
+        return false;
+      }
+    }
+    writer.flush();
+    writer.close();
+    return true;
+  }
+  
+  protected void writeTSV(PrintWriter writer)
+  {
+    if (columnTitles != null) {
+      for (int col = 0; col < columns.length; col++) {
+        if (col != 0) {
+          writer.print('\t');
+        }
+        if (columnTitles[col] != null) {
+          writer.print(columnTitles[col]);
+        }
+      }
+      writer.println();
+    }
+    for (int row = 0; row < rowCount; row++) {
+      for (int col = 0; col < getColumnCount(); col++) {
+        if (col != 0) {
+          writer.print('\t');
+        }
+        String entry = getString(row, col);
+        
+
+        if (entry != null) {
+          writer.print(entry);
+        }
+      }
+      writer.println();
+    }
+    writer.flush();
+  }
+  
+  protected void writeCSV(PrintWriter writer)
+  {
+    if (columnTitles != null) {
+      for (int col = 0; col < getColumnCount(); col++) {
+        if (col != 0) {
+          writer.print(',');
+        }
+        try {
+          if (columnTitles[col] != null) {
+            writeEntryCSV(writer, columnTitles[col]);
+          }
+        } catch (ArrayIndexOutOfBoundsException e) {
+          PApplet.printArray(columnTitles);
+          PApplet.printArray(columns);
+          throw e;
+        }
+      }
+      writer.println();
+    }
+    for (int row = 0; row < rowCount; row++) {
+      for (int col = 0; col < getColumnCount(); col++) {
+        if (col != 0) {
+          writer.print(',');
+        }
+        String entry = getString(row, col);
+        
+
+        if (entry != null) {
+          writeEntryCSV(writer, entry);
+        }
+      }
+      
+      writer.println();
+    }
+    writer.flush();
+  }
+  
+  protected void writeEntryCSV(PrintWriter writer, String entry)
+  {
+    if (entry != null) {
+      if (entry.indexOf('"') != -1) {
+        char[] c = entry.toCharArray();
+        writer.print('"');
+        for (int i = 0; i < c.length; i++) {
+          if (c[i] == '"') {
+            writer.print("\"\"");
+          } else {
+            writer.print(c[i]);
+          }
+        }
+        writer.print('"');
+
+      }
+      else if ((entry.indexOf(',') != -1) || 
+        (entry.indexOf('\n') != -1) || 
+        (entry.indexOf('\r') != -1)) {
+        writer.print('"');
+        writer.print(entry);
+        writer.print('"');
+
+
+      }
+      else if ((entry.length() > 0) && (
+        (entry.charAt(0) == ' ') || 
+        (entry.charAt(entry.length() - 1) == ' '))) {
+        writer.print('"');
+        writer.print(entry);
+        writer.print('"');
+      }
+      else {
+        writer.print(entry);
+      }
+    }
+  }
+  
+  protected void writeHTML(PrintWriter writer)
+  {
+    writer.println("<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 3.2//EN\">");
+    
+
+
+    writer.println("<html>");
+    writer.println("<head>");
+    writer.println("  <meta http-equiv=\"content-type\" content=\"text/html;charset=utf-8\" />");
+    writer.println("</head>");
+    
+    writer.println("<body>");
+    writer.println("  <table>");
+    
+    if (hasColumnTitles()) {
+      writer.println("  <tr>");
+      for (String entry : getColumnTitles()) {
+        writer.print("      <th>");
+        if (entry != null) {
+          writeEntryHTML(writer, entry);
+        }
+        writer.println("</th>");
+      }
+      writer.println("  </tr>");
+    }
+    
+    for (int row = 0; row < getRowCount(); row++) {
+      writer.println("    <tr>");
+      for (int col = 0; col < getColumnCount(); col++) {
+        String entry = getString(row, col);
+        writer.print("      <td>");
+        if (entry != null)
+        {
+
+
+
+          writeEntryHTML(writer, entry);
+        }
+        
+        writer.println("</td>");
+      }
+      writer.println("    </tr>");
+    }
+    writer.println("  </table>");
+    writer.println("</body>");
+    
+    writer.println("</html>");
+    writer.flush();
+  }
+  
+
+  protected void writeEntryHTML(PrintWriter writer, String entry)
+  {
+    for (char c : entry.toCharArray()) {
+      if (c == '<') {
+        writer.print("&lt;");
+      } else if (c == '>') {
+        writer.print("&gt;");
+      } else if (c == '&') {
+        writer.print("&amp;");
+
+      }
+      else if (c == '"') {
+        writer.print("&quot;");
+      }
+      else if ((c < ' ') || (c > '')) {
+        writer.print("&#");
+        writer.print(c);
+        writer.print(';');
+      }
+      else {
+        writer.print(c);
+      }
+    }
+  }
+  
+  protected void saveODS(OutputStream os) throws IOException
+  {
+    ZipOutputStream zos = new ZipOutputStream(os);
+    
+
+
+    ZipEntry entry = new ZipEntry("META-INF/manifest.xml");
+    String[] lines = {
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>", 
+      "<manifest:manifest xmlns:manifest=\"urn:oasis:names:tc:opendocument:xmlns:manifest:1.0\">", 
+      "  <manifest:file-entry manifest:media-type=\"application/vnd.oasis.opendocument.spreadsheet\" manifest:version=\"1.2\" manifest:full-path=\"/\"/>", 
+      "  <manifest:file-entry manifest:media-type=\"text/xml\" manifest:full-path=\"content.xml\"/>", 
+      "  <manifest:file-entry manifest:media-type=\"text/xml\" manifest:full-path=\"styles.xml\"/>", 
+      "  <manifest:file-entry manifest:media-type=\"text/xml\" manifest:full-path=\"meta.xml\"/>", 
+      "  <manifest:file-entry manifest:media-type=\"text/xml\" manifest:full-path=\"settings.xml\"/>", 
+      "</manifest:manifest>" };
+    
+    zos.putNextEntry(entry);
+    zos.write(PApplet.join(lines, "\n").getBytes());
+    zos.closeEntry();
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    String[] dummyFiles = {
+      "meta.xml", "settings.xml", "styles.xml" };
+    
+    lines = new String[] {
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>", 
+      "<office:document-meta office:version=\"1.0\" xmlns:office=\"urn:oasis:names:tc:opendocument:xmlns:office:1.0\" />" };
+    
+
+    byte[] dummyBytes = PApplet.join(lines, "\n").getBytes();
+    for (String filename : dummyFiles) {
+      entry = new ZipEntry(filename);
+      zos.putNextEntry(entry);
+      zos.write(dummyBytes);
+      zos.closeEntry();
+    }
+    
+
+
+    entry = new ZipEntry("mimetype");
+    zos.putNextEntry(entry);
+    zos.write("application/vnd.oasis.opendocument.spreadsheet".getBytes());
+    zos.closeEntry();
+    
+
+
+    entry = new ZipEntry("content.xml");
+    zos.putNextEntry(entry);
+    
+    writeUTF(zos, new String[] {
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>", 
+      "<office:document-content xmlns:office=\"urn:oasis:names:tc:opendocument:xmlns:office:1.0\" xmlns:text=\"urn:oasis:names:tc:opendocument:xmlns:text:1.0\" xmlns:table=\"urn:oasis:names:tc:opendocument:xmlns:table:1.0\" office:version=\"1.2\">", 
+      
+
+
+
+      "  <office:body>", 
+      "    <office:spreadsheet>", 
+      "      <table:table table:name=\"Sheet1\" table:print=\"false\">" });
+    
+
+
+    byte[] rowStart = "        <table:table-row>\n".getBytes();
+    byte[] rowStop = "        </table:table-row>\n".getBytes();
+    
+    if (hasColumnTitles()) {
+      zos.write(rowStart);
+      for (int i = 0; i < getColumnCount(); i++) {
+        saveStringODS(zos, columnTitles[i]);
+      }
+      zos.write(rowStop);
+    }
+    
+    for (??? = rows().iterator(); ((Iterator)???).hasNext();) { TableRow row = (TableRow)((Iterator)???).next();
+      zos.write(rowStart);
+      for (int i = 0; i < getColumnCount(); i++) {
+        if ((columnTypes[i] == 0) || (columnTypes[i] == 5)) {
+          saveStringODS(zos, row.getString(i));
+        } else {
+          saveNumberODS(zos, row.getString(i));
+        }
+      }
+      zos.write(rowStop);
+    }
+    
+
+    writeUTF(zos, new String[] {
+      "      </table:table>", 
+      "    </office:spreadsheet>", 
+      "  </office:body>", 
+      "</office:document-content>" });
+    
+
+    zos.closeEntry();
+    
+    zos.flush();
+    zos.close();
+  }
+  
+
+
+  void saveStringODS(OutputStream output, String text)
+    throws IOException
+  {
+    StringBuilder sanitized = new StringBuilder();
+    if (text != null) {
+      char[] array = text.toCharArray();
+      for (char c : array) {
+        if (c == '&') {
+          sanitized.append("&amp;");
+        } else if (c == '\'') {
+          sanitized.append("&apos;");
+        } else if (c == '"') {
+          sanitized.append("&quot;");
+        } else if (c == '<') {
+          sanitized.append("&lt;");
+        } else if (c == '>') {
+          sanitized.append("&rt;");
+        } else if ((c < ' ') || (c > '')) {
+          sanitized.append("&#" + c + ";");
+        } else {
+          sanitized.append(c);
+        }
+      }
+    }
+    
+    writeUTF(output, new String[] {
+      "          <table:table-cell office:value-type=\"string\">", 
+      "            <text:p>" + sanitized + "</text:p>", 
+      "          </table:table-cell>" });
+  }
+  
+  void saveNumberODS(OutputStream output, String text) throws IOException
+  {
+    writeUTF(output, new String[] {
+      "          <table:table-cell office:value-type=\"float\" office:value=\"" + text + "\">", 
+      "            <text:p>" + text + "</text:p>", 
+      "          </table:table-cell>" });
+  }
+  
+
+  static void writeUTF(OutputStream output, String... lines)
+    throws IOException
+  {
+    if (utf8 == null) {
+      utf8 = Charset.forName("UTF-8");
+    }
+    for (String str : lines) {
+      output.write(str.getBytes(utf8));
+      output.write(10);
+    }
+  }
+  
+  protected void saveBinary(OutputStream os) throws IOException
+  {
+    DataOutputStream output = new DataOutputStream(new BufferedOutputStream(os));
+    output.writeInt(-1878545634);
+    output.writeInt(getRowCount());
+    output.writeInt(getColumnCount());
+    if (columnTitles != null) {
+      output.writeBoolean(true);
+      for (String title : columnTitles) {
+        output.writeUTF(title);
+      }
+    } else {
+      output.writeBoolean(false);
+    }
+    for (int i = 0; i < getColumnCount(); i++)
+    {
+      output.writeInt(columnTypes[i]);
+    }
+    
+    for (int i = 0; i < getColumnCount(); i++) {
+      if (columnTypes[i] == 5) {
+        columnCategories[i].write(output);
+      }
+    }
+    if (missingString == null) {
+      output.writeBoolean(false);
+    } else {
+      output.writeBoolean(true);
+      output.writeUTF(missingString);
+    }
+    output.writeInt(missingInt);
+    output.writeLong(missingLong);
+    output.writeFloat(missingFloat);
+    output.writeDouble(missingDouble);
+    output.writeInt(missingCategory);
+    int col;
+    for (Iterator localIterator = rows().iterator(); localIterator.hasNext(); 
+        col < getColumnCount())
+    {
+      TableRow row = (TableRow)localIterator.next();
+      col = 0; continue;
+      switch (columnTypes[col]) {
+      case 0: 
+        String str = row.getString(col);
+        if (str == null) {
+          output.writeBoolean(false);
+        } else {
+          output.writeBoolean(true);
+          output.writeUTF(str);
+        }
+        break;
+      case 1: 
+        output.writeInt(row.getInt(col));
+        break;
+      case 2: 
+        output.writeLong(row.getLong(col));
+        break;
+      case 3: 
+        output.writeFloat(row.getFloat(col));
+        break;
+      case 4: 
+        output.writeDouble(row.getDouble(col));
+        break;
+      case 5: 
+        String peace = row.getString(col);
+        if (peace.equals(missingString)) {
+          output.writeInt(missingCategory);
+        } else {
+          output.writeInt(columnCategories[col].index(peace));
+        }
+        break;
+      }
+      col++;
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    output.flush();
+    output.close();
+  }
+  
+  protected void loadBinary(InputStream is) throws IOException
+  {
+    DataInputStream input = new DataInputStream(new BufferedInputStream(is));
+    
+    int magic = input.readInt();
+    if (magic != -1878545634) {
+      throw new IOException("Not a compatible binary table (magic was " + PApplet.hex(magic) + ")");
+    }
+    int rowCount = input.readInt();
+    setRowCount(rowCount);
+    int columnCount = input.readInt();
+    setColumnCount(columnCount);
+    
+    boolean hasTitles = input.readBoolean();
+    if (hasTitles) {
+      columnTitles = new String[getColumnCount()];
+      for (int i = 0; i < columnCount; i++)
+      {
+        setColumnTitle(i, input.readUTF());
+      }
+    }
+    for (int column = 0; column < columnCount; column++) {
+      int newType = input.readInt();
+      columnTypes[column] = newType;
+      switch (newType) {
+      case 1: 
+        columns[column] = new int[rowCount];
+        break;
+      case 2: 
+        columns[column] = new long[rowCount];
+        break;
+      case 3: 
+        columns[column] = new float[rowCount];
+        break;
+      case 4: 
+        columns[column] = new double[rowCount];
+        break;
+      case 0: 
+        columns[column] = new String[rowCount];
+        break;
+      case 5: 
+        columns[column] = new int[rowCount];
+        break;
+      default: 
+        throw new IllegalArgumentException(newType + " is not a valid column type.");
+      }
+      
+    }
+    for (int i = 0; i < columnCount; i++) {
+      if (columnTypes[i] == 5) {
+        columnCategories[i] = new HashMapBlows(input);
+      }
+    }
+    
+    if (input.readBoolean()) {
+      missingString = input.readUTF();
+    } else {
+      missingString = null;
+    }
+    missingInt = input.readInt();
+    missingLong = input.readLong();
+    missingFloat = input.readFloat();
+    missingDouble = input.readDouble();
+    missingCategory = input.readInt();
+    
+    for (int row = 0; row < rowCount; row++) {
+      for (int col = 0; col < columnCount; col++) {
+        switch (columnTypes[col]) {
+        case 0: 
+          String str = null;
+          if (input.readBoolean()) {
+            str = input.readUTF();
+          }
+          setString(row, col, str);
+          break;
+        case 1: 
+          setInt(row, col, input.readInt());
+          break;
+        case 2: 
+          setLong(row, col, input.readLong());
+          break;
+        case 3: 
+          setFloat(row, col, input.readFloat());
+          break;
+        case 4: 
+          setDouble(row, col, input.readDouble());
+          break;
+        case 5: 
+          int index = input.readInt();
+          
+          setInt(row, col, index);
+        }
+        
+      }
+    }
+    
+    input.close();
+  }
+  
+
+
+
+
+
+
+
+
+  public void addColumn()
+  {
+    addColumn(null, 0);
+  }
+  
+
+
+
+  public void addColumn(String title)
+  {
+    addColumn(title, 0);
+  }
+  
+
+
+
+  public void addColumn(String title, int type)
+  {
+    insertColumn(columns.length, title, type);
+  }
+  
+  public void insertColumn(int index)
+  {
+    insertColumn(index, null, 0);
+  }
+  
+  public void insertColumn(int index, String title)
+  {
+    insertColumn(index, title, 0);
+  }
+  
+  public void insertColumn(int index, String title, int type)
+  {
+    if ((title != null) && (columnTitles == null)) {
+      columnTitles = new String[columns.length];
+    }
+    if (columnTitles != null) {
+      columnTitles = PApplet.splice(columnTitles, title, index);
+      columnIndices = null;
+    }
+    columnTypes = PApplet.splice(columnTypes, type, index);
+    
+
+
+    HashMapBlows[] catTemp = new HashMapBlows[columns.length + 1];
+    
+    for (int i = 0; i < index; i++) {
+      catTemp[i] = columnCategories[i];
+    }
+    catTemp[index] = new HashMapBlows();
+    for (int i = index; i < columns.length; i++) {
+      catTemp[(i + 1)] = columnCategories[i];
+    }
+    columnCategories = catTemp;
+    
+    Object[] temp = new Object[columns.length + 1];
+    System.arraycopy(columns, 0, temp, 0, index);
+    System.arraycopy(columns, index, temp, index + 1, columns.length - index);
+    columns = temp;
+    
+    switch (type) {
+    case 1:  columns[index] = new int[rowCount]; break;
+    case 2:  columns[index] = new long[rowCount]; break;
+    case 3:  columns[index] = new float[rowCount]; break;
+    case 4:  columns[index] = new double[rowCount]; break;
+    case 0:  columns[index] = new String[rowCount]; break;
+    case 5:  columns[index] = new int[rowCount];
+    }
+    
+  }
+  
+
+
+
+
+  public void removeColumn(String columnName)
+  {
+    removeColumn(getColumnIndex(columnName));
+  }
+  
+
+
+  public void removeColumn(int column)
+  {
+    int newCount = columns.length - 1;
+    
+    Object[] columnsTemp = new Object[newCount];
+    HashMapBlows[] catTemp = new HashMapBlows[newCount];
+    
+    for (int i = 0; i < column; i++) {
+      columnsTemp[i] = columns[i];
+      catTemp[i] = columnCategories[i];
+    }
+    for (int i = column; i < newCount; i++) {
+      columnsTemp[i] = columns[(i + 1)];
+      catTemp[i] = columnCategories[(i + 1)];
+    }
+    
+    columns = columnsTemp;
+    columnCategories = catTemp;
+    
+    if (columnTitles != null) {
+      String[] titlesTemp = new String[newCount];
+      for (int i = 0; i < column; i++) {
+        titlesTemp[i] = columnTitles[i];
+      }
+      for (int i = column; i < newCount; i++) {
+        titlesTemp[i] = columnTitles[(i + 1)];
+      }
+      columnTitles = titlesTemp;
+      columnIndices = null;
+    }
+  }
+  
+
+
+
+
+
+  public int getColumnCount()
+  {
+    return columns.length;
+  }
+  
+
+
+
+
+
+
+  public void setColumnCount(int newCount)
+  {
+    int oldCount = columns.length;
+    if (oldCount != newCount) {
+      columns = ((Object[])PApplet.expand(columns, newCount));
+      
+      for (int c = oldCount; c < newCount; c++) {
+        columns[c] = new String[rowCount];
+      }
+      
+      if (columnTitles != null) {
+        columnTitles = PApplet.expand(columnTitles, newCount);
+      }
+      columnTypes = PApplet.expand(columnTypes, newCount);
+      columnCategories = ((HashMapBlows[])
+        PApplet.expand(columnCategories, newCount));
+    }
+  }
+  
+  public void setColumnType(String columnName, String columnType)
+  {
+    setColumnType(checkColumnIndex(columnName), columnType);
+  }
+  
+  static int parseColumnType(String columnType)
+  {
+    columnType = columnType.toLowerCase();
+    int type = -1;
+    if (columnType.equals("string")) {
+      type = 0;
+    } else if (columnType.equals("int")) {
+      type = 1;
+    } else if (columnType.equals("long")) {
+      type = 2;
+    } else if (columnType.equals("float")) {
+      type = 3;
+    } else if (columnType.equals("double")) {
+      type = 4;
+    } else if (columnType.equals("category")) {
+      type = 5;
+    } else {
+      throw new IllegalArgumentException("'" + columnType + "' is not a valid column type.");
+    }
+    return type;
+  }
+  
+
+
+
+
+
+  public void setColumnType(int column, String columnType)
+  {
+    setColumnType(column, parseColumnType(columnType));
+  }
+  
+  public void setColumnType(String columnName, int newType)
+  {
+    setColumnType(checkColumnIndex(columnName), newType);
+  }
+  
+
+
+
+
+
+
+  public void setColumnType(int column, int newType)
+  {
+    switch (newType) {
+    case 1: 
+      int[] intData = new int[rowCount];
+      for (int row = 0; row < rowCount; row++) {
+        String s = getString(row, column);
+        intData[row] = (s == null ? missingInt : PApplet.parseInt(s, missingInt));
+      }
+      columns[column] = intData;
+      break;
+    
+    case 2: 
+      long[] longData = new long[rowCount];
+      for (int row = 0; row < rowCount; row++) {
+        String s = getString(row, column);
+        try {
+          longData[row] = (s == null ? missingLong : Long.parseLong(s));
+        } catch (NumberFormatException localNumberFormatException1) {
+          longData[row] = missingLong;
+        }
+      }
+      columns[column] = longData;
+      break;
+    
+    case 3: 
+      float[] floatData = new float[rowCount];
+      for (int row = 0; row < rowCount; row++) {
+        String s = getString(row, column);
+        floatData[row] = (s == null ? missingFloat : PApplet.parseFloat(s, missingFloat));
+      }
+      columns[column] = floatData;
+      break;
+    
+    case 4: 
+      double[] doubleData = new double[rowCount];
+      for (int row = 0; row < rowCount; row++) {
+        String s = getString(row, column);
+        try {
+          doubleData[row] = (s == null ? missingDouble : Double.parseDouble(s));
+        } catch (NumberFormatException localNumberFormatException2) {
+          doubleData[row] = missingDouble;
+        }
+      }
+      columns[column] = doubleData;
+      break;
+    
+    case 0: 
+      if (columnTypes[column] != 0) {
+        String[] stringData = new String[rowCount];
+        for (int row = 0; row < rowCount; row++) {
+          stringData[row] = getString(row, column);
+        }
+        columns[column] = stringData;
+      }
+      break;
+    
+    case 5: 
+      int[] indexData = new int[rowCount];
+      HashMapBlows categories = new HashMapBlows();
+      for (int row = 0; row < rowCount; row++) {
+        String s = getString(row, column);
+        indexData[row] = categories.index(s);
+      }
+      columnCategories[column] = categories;
+      columns[column] = indexData;
+      break;
+    
+    default: 
+      throw new IllegalArgumentException("That's not a valid column type.");
+    }
+    
+    
+    columnTypes[column] = newType;
+  }
+  
+
+
+
+  public void setTableType(String type)
+  {
+    for (int col = 0; col < getColumnCount(); col++) {
+      setColumnType(col, type);
+    }
+  }
+  
+  public void setColumnTypes(int[] types)
+  {
+    ensureColumn(types.length - 1);
+    for (int col = 0; col < types.length; col++) {
+      setColumnType(col, types[col]);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public void setColumnTypes(Table dictionary)
+  {
+    ensureColumn(dictionary.getRowCount() - 1);
+    int titleCol = 0;
+    int typeCol = 1;
+    if (dictionary.hasColumnTitles()) {
+      titleCol = dictionary.getColumnIndex("title", true);
+      typeCol = dictionary.getColumnIndex("type", true);
+    }
+    setColumnTitles(dictionary.getStringColumn(titleCol));
+    final String[] typeNames = dictionary.getStringColumn(typeCol);
+    
+    if (dictionary.getColumnCount() > 1) {
+      if (getRowCount() > 1000) {
+        int proc = Runtime.getRuntime().availableProcessors();
+        ExecutorService pool = Executors.newFixedThreadPool(proc / 2);
+        for (int i = 0; i < dictionary.getRowCount(); i++) {
+          final int col = i;
+          pool.execute(new Runnable() {
+            public void run() {
+              setColumnType(col, typeNames[col]);
+            }
+          });
+        }
+        pool.shutdown();
+        while (!pool.isTerminated()) {
+          Thread.yield();
+        }
+      }
+      else {
+        for (int col = 0; col < dictionary.getRowCount(); col++)
+        {
+          setColumnType(col, typeNames[col]);
+        }
+      }
+    }
+  }
+  
+  public int getColumnType(String columnName)
+  {
+    return getColumnType(getColumnIndex(columnName));
+  }
+  
+
+  public int getColumnType(int column)
+  {
+    return columnTypes[column];
+  }
+  
+  public int[] getColumnTypes()
+  {
+    return columnTypes;
+  }
+  
+
+
+
+
+
+
+
+  @Deprecated
+  public String[] removeTitleRow()
+  {
+    String[] titles = getStringRow(0);
+    removeRow(0);
+    setColumnTitles(titles);
+    return titles;
+  }
+  
+  public void setColumnTitles(String[] titles)
+  {
+    if (titles != null) {
+      ensureColumn(titles.length - 1);
+    }
+    columnTitles = titles;
+    columnIndices = null;
+  }
+  
+  public void setColumnTitle(int column, String title)
+  {
+    ensureColumn(column);
+    if (columnTitles == null) {
+      columnTitles = new String[getColumnCount()];
+    }
+    columnTitles[column] = title;
+    columnIndices = null;
+  }
+  
+  public boolean hasColumnTitles()
+  {
+    return columnTitles != null;
+  }
+  
+  public String[] getColumnTitles()
+  {
+    return columnTitles;
+  }
+  
+  public String getColumnTitle(int col)
+  {
+    return columnTitles == null ? null : columnTitles[col];
+  }
+  
+  public int getColumnIndex(String columnName)
+  {
+    return getColumnIndex(columnName, true);
+  }
+  
+
+
+
+
+
+
+  protected int getColumnIndex(String name, boolean report)
+  {
+    if (columnTitles == null) {
+      if (report) {
+        throw new IllegalArgumentException("This table has no header, so no column titles are set.");
+      }
+      return -1;
+    }
+    
+
+    if (columnIndices == null) {
+      columnIndices = new HashMap();
+      for (int col = 0; col < columns.length; col++) {
+        columnIndices.put(columnTitles[col], Integer.valueOf(col));
+      }
+    }
+    Integer index = (Integer)columnIndices.get(name);
+    if (index == null) {
+      if (report)
+      {
+
+        throw new IllegalArgumentException("This table has no column named '" + name + "'");
+      }
+      return -1;
+    }
+    return index.intValue();
+  }
+  
+
+
+
+
+
+
+
+
+  public int checkColumnIndex(String title)
+  {
+    int index = getColumnIndex(title, false);
+    if (index != -1) {
+      return index;
+    }
+    addColumn(title);
+    return getColumnCount() - 1;
+  }
+  
+
+
+
+
+
+
+
+  public int getRowCount()
+  {
+    return rowCount;
+  }
+  
+  public int lastRowIndex()
+  {
+    return getRowCount() - 1;
+  }
+  
+
+
+
+
+
+
+  public void clearRows()
+  {
+    setRowCount(0);
+  }
+  
+  public void setRowCount(int newCount)
+  {
+    if (newCount != rowCount) {
+      if (newCount > 1000000) {
+        System.out.print("Note: setting maximum row count to " + PApplet.nfc(newCount));
+      }
+      long t = System.currentTimeMillis();
+      for (int col = 0; col < columns.length; col++) {
+        switch (columnTypes[col]) {
+        case 1:  columns[col] = PApplet.expand((int[])columns[col], newCount); break;
+        case 2:  columns[col] = PApplet.expand((long[])columns[col], newCount); break;
+        case 3:  columns[col] = PApplet.expand((float[])columns[col], newCount); break;
+        case 4:  columns[col] = PApplet.expand((double[])columns[col], newCount); break;
+        case 0:  columns[col] = PApplet.expand((String[])columns[col], newCount); break;
+        case 5:  columns[col] = PApplet.expand((int[])columns[col], newCount);
+        }
+        if (newCount > 1000000) {
+          try {
+            Thread.sleep(10L);
+          } catch (InterruptedException e) {
+            e.printStackTrace();
+          }
+        }
+      }
+      if (newCount > 1000000) {
+        int ms = (int)(System.currentTimeMillis() - t);
+        System.out.println(" (resize took " + PApplet.nfc(ms) + " ms)");
+      }
+    }
+    rowCount = newCount;
+  }
+  
+
+
+
+
+
+
+
+  public TableRow addRow()
+  {
+    setRowCount(rowCount + 1);
+    return new RowPointer(this, rowCount - 1);
+  }
+  
+
+
+
+  public TableRow addRow(TableRow source)
+  {
+    return setRow(rowCount, source);
+  }
+  
+
+  public TableRow setRow(int row, TableRow source)
+  {
+    ensureBounds(row, source.getColumnCount() - 1);
+    
+    for (int col = 0; col < Math.min(source.getColumnCount(), columns.length); col++) {
+      switch (columnTypes[col]) {
+      case 1: 
+        setInt(row, col, source.getInt(col));
+        break;
+      case 2: 
+        setLong(row, col, source.getLong(col));
+        break;
+      case 3: 
+        setFloat(row, col, source.getFloat(col));
+        break;
+      case 4: 
+        setDouble(row, col, source.getDouble(col));
+        break;
+      case 0: 
+        setString(row, col, source.getString(col));
+        break;
+      case 5: 
+        int index = source.getInt(col);
+        setInt(row, col, index);
+        if (!columnCategories[col].hasCategory(index)) {
+          columnCategories[col].setCategory(index, source.getString(col));
+        }
+        break;
+      
+      default: 
+        throw new RuntimeException("no types");
+      }
+    }
+    return new RowPointer(this, row);
+  }
+  
+
+
+
+  public TableRow addRow(Object[] columnData)
+  {
+    setRow(getRowCount(), columnData);
+    return new RowPointer(this, rowCount - 1);
+  }
+  
+  public void addRows(Table source)
+  {
+    int index = getRowCount();
+    setRowCount(index + source.getRowCount());
+    for (TableRow row : source.rows()) {
+      setRow(index++, row);
+    }
+  }
+  
+  public void insertRow(int insert, Object[] columnData)
+  {
+    for (int col = 0; col < columns.length; col++) {
+      switch (columnTypes[col]) {
+      case 1: 
+      case 5: 
+        int[] intTemp = new int[rowCount + 1];
+        System.arraycopy(columns[col], 0, intTemp, 0, insert);
+        System.arraycopy(columns[col], insert, intTemp, insert + 1, rowCount - insert);
+        columns[col] = intTemp;
+        break;
+      
+      case 2: 
+        long[] longTemp = new long[rowCount + 1];
+        System.arraycopy(columns[col], 0, longTemp, 0, insert);
+        System.arraycopy(columns[col], insert, longTemp, insert + 1, rowCount - insert);
+        columns[col] = longTemp;
+        break;
+      
+      case 3: 
+        float[] floatTemp = new float[rowCount + 1];
+        System.arraycopy(columns[col], 0, floatTemp, 0, insert);
+        System.arraycopy(columns[col], insert, floatTemp, insert + 1, rowCount - insert);
+        columns[col] = floatTemp;
+        break;
+      
+      case 4: 
+        double[] doubleTemp = new double[rowCount + 1];
+        System.arraycopy(columns[col], 0, doubleTemp, 0, insert);
+        System.arraycopy(columns[col], insert, doubleTemp, insert + 1, rowCount - insert);
+        columns[col] = doubleTemp;
+        break;
+      
+      case 0: 
+        String[] stringTemp = new String[rowCount + 1];
+        System.arraycopy(columns[col], 0, stringTemp, 0, insert);
+        System.arraycopy(columns[col], insert, stringTemp, insert + 1, rowCount - insert);
+        columns[col] = stringTemp;
+      }
+      
+    }
+    
+    setRow(insert, columnData);
+    rowCount += 1;
+  }
+  
+
+
+
+
+
+
+  public void removeRow(int row)
+  {
+    for (int col = 0; col < columns.length; col++) {
+      switch (columnTypes[col]) {
+      case 1: 
+      case 5: 
+        int[] intTemp = new int[rowCount - 1];
+        
+
+
+        System.arraycopy(columns[col], 0, intTemp, 0, row);
+        System.arraycopy(columns[col], row + 1, intTemp, row, rowCount - row - 1);
+        columns[col] = intTemp;
+        break;
+      
+      case 2: 
+        long[] longTemp = new long[rowCount - 1];
+        
+
+
+        System.arraycopy(columns[col], 0, longTemp, 0, row);
+        System.arraycopy(columns[col], row + 1, longTemp, row, rowCount - row - 1);
+        columns[col] = longTemp;
+        break;
+      
+      case 3: 
+        float[] floatTemp = new float[rowCount - 1];
+        
+
+
+        System.arraycopy(columns[col], 0, floatTemp, 0, row);
+        System.arraycopy(columns[col], row + 1, floatTemp, row, rowCount - row - 1);
+        columns[col] = floatTemp;
+        break;
+      
+      case 4: 
+        double[] doubleTemp = new double[rowCount - 1];
+        
+
+
+        System.arraycopy(columns[col], 0, doubleTemp, 0, row);
+        System.arraycopy(columns[col], row + 1, doubleTemp, row, rowCount - row - 1);
+        columns[col] = doubleTemp;
+        break;
+      
+      case 0: 
+        String[] stringTemp = new String[rowCount - 1];
+        System.arraycopy(columns[col], 0, stringTemp, 0, row);
+        System.arraycopy(columns[col], row + 1, stringTemp, row, rowCount - row - 1);
+        columns[col] = stringTemp;
+      }
+      
+    }
+    rowCount -= 1;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void setRow(int row, Object[] pieces)
+  {
+    ensureBounds(row, pieces.length - 1);
+    
+    for (int col = 0; col < pieces.length; col++) {
+      setRowCol(row, col, pieces[col]);
+    }
+  }
+  
+  protected void setRowCol(int row, int col, Object piece)
+  {
+    switch (columnTypes[col]) {
+    case 0: 
+      String[] stringData = (String[])columns[col];
+      if (piece == null) {
+        stringData[row] = null;
+
+      }
+      else
+      {
+        stringData[row] = String.valueOf(piece);
+      }
+      break;
+    case 1: 
+      int[] intData = (int[])columns[col];
+      
+      if (piece == null) {
+        intData[row] = missingInt;
+      } else if ((piece instanceof Integer)) {
+        intData[row] = ((Integer)piece).intValue();
+      } else {
+        intData[row] = PApplet.parseInt(String.valueOf(piece), missingInt);
+      }
+      break;
+    case 2: 
+      long[] longData = (long[])columns[col];
+      if (piece == null) {
+        longData[row] = missingLong;
+      } else if ((piece instanceof Long)) {
+        longData[row] = ((Long)piece).longValue();
+      } else {
+        try {
+          longData[row] = Long.parseLong(String.valueOf(piece));
+        } catch (NumberFormatException localNumberFormatException1) {
+          longData[row] = missingLong;
+        }
+      }
+      break;
+    case 3: 
+      float[] floatData = (float[])columns[col];
+      if (piece == null) {
+        floatData[row] = missingFloat;
+      } else if ((piece instanceof Float)) {
+        floatData[row] = ((Float)piece).floatValue();
+      } else {
+        floatData[row] = PApplet.parseFloat(String.valueOf(piece), missingFloat);
+      }
+      break;
+    case 4: 
+      double[] doubleData = (double[])columns[col];
+      if (piece == null) {
+        doubleData[row] = missingDouble;
+      } else if ((piece instanceof Double)) {
+        doubleData[row] = ((Double)piece).doubleValue();
+      } else {
+        try {
+          doubleData[row] = Double.parseDouble(String.valueOf(piece));
+        } catch (NumberFormatException localNumberFormatException2) {
+          doubleData[row] = missingDouble;
+        }
+      }
+      break;
+    case 5: 
+      int[] indexData = (int[])columns[col];
+      if (piece == null) {
+        indexData[row] = missingCategory;
+      } else {
+        String peace = String.valueOf(piece);
+        if (peace.equals(missingString)) {
+          indexData[row] = missingCategory;
+        } else {
+          indexData[row] = columnCategories[col].index(peace);
+        }
+      }
+      break;
+    default: 
+      throw new IllegalArgumentException("That's not a valid column type.");
+    }
+    
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public TableRow getRow(int row)
+  {
+    return new RowPointer(this, row);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public Iterable<TableRow> rows()
+  {
+    new Iterable() {
+      public Iterator<TableRow> iterator() {
+        if (rowIterator == null) {
+          rowIterator = new Table.RowIterator(Table.this);
+        } else {
+          rowIterator.reset();
+        }
+        return rowIterator;
+      }
+    };
+  }
+  
+
+
+  public Iterable<TableRow> rows(final int[] indices)
+  {
+    new Iterable() {
+      public Iterator<TableRow> iterator() {
+        return new Table.RowIndexIterator(Table.this, indices);
+      }
+    };
+  }
+  
+
+  static class RowPointer
+    implements TableRow
+  {
+    Table table;
+    int row;
+    
+    public RowPointer(Table table, int row)
+    {
+      this.table = table;
+      this.row = row;
+    }
+    
+    public void setRow(int row) {
+      this.row = row;
+    }
+    
+    public String getString(int column) {
+      return table.getString(row, column);
+    }
+    
+    public String getString(String columnName) {
+      return table.getString(row, columnName);
+    }
+    
+    public int getInt(int column) {
+      return table.getInt(row, column);
+    }
+    
+    public int getInt(String columnName) {
+      return table.getInt(row, columnName);
+    }
+    
+    public long getLong(int column) {
+      return table.getLong(row, column);
+    }
+    
+    public long getLong(String columnName) {
+      return table.getLong(row, columnName);
+    }
+    
+    public float getFloat(int column) {
+      return table.getFloat(row, column);
+    }
+    
+    public float getFloat(String columnName) {
+      return table.getFloat(row, columnName);
+    }
+    
+    public double getDouble(int column) {
+      return table.getDouble(row, column);
+    }
+    
+    public double getDouble(String columnName) {
+      return table.getDouble(row, columnName);
+    }
+    
+    public void setString(int column, String value) {
+      table.setString(row, column, value);
+    }
+    
+    public void setString(String columnName, String value) {
+      table.setString(row, columnName, value);
+    }
+    
+    public void setInt(int column, int value) {
+      table.setInt(row, column, value);
+    }
+    
+    public void setInt(String columnName, int value) {
+      table.setInt(row, columnName, value);
+    }
+    
+    public void setLong(int column, long value) {
+      table.setLong(row, column, value);
+    }
+    
+    public void setLong(String columnName, long value) {
+      table.setLong(row, columnName, value);
+    }
+    
+    public void setFloat(int column, float value) {
+      table.setFloat(row, column, value);
+    }
+    
+    public void setFloat(String columnName, float value) {
+      table.setFloat(row, columnName, value);
+    }
+    
+    public void setDouble(int column, double value) {
+      table.setDouble(row, column, value);
+    }
+    
+    public void setDouble(String columnName, double value) {
+      table.setDouble(row, columnName, value);
+    }
+    
+    public int getColumnCount() {
+      return table.getColumnCount();
+    }
+    
+    public int getColumnType(String columnName) {
+      return table.getColumnType(columnName);
+    }
+    
+    public int getColumnType(int column) {
+      return table.getColumnType(column);
+    }
+    
+    public int[] getColumnTypes() {
+      return table.getColumnTypes();
+    }
+    
+    public String getColumnTitle(int column) {
+      return table.getColumnTitle(column);
+    }
+    
+    public String[] getColumnTitles() {
+      return table.getColumnTitles();
+    }
+    
+    public void print() {
+      write(new PrintWriter(System.out));
+    }
+    
+    public void write(PrintWriter writer) {
+      for (int i = 0; i < getColumnCount(); i++) {
+        if (i != 0) {
+          writer.print('\t');
+        }
+        writer.print(getString(i));
+      }
+    }
+  }
+  
+  static class RowIterator implements Iterator<TableRow>
+  {
+    Table table;
+    Table.RowPointer rp;
+    int row;
+    
+    public RowIterator(Table table) {
+      this.table = table;
+      row = -1;
+      rp = new Table.RowPointer(table, row);
+    }
+    
+    public void remove() {
+      table.removeRow(row);
+    }
+    
+    public TableRow next() {
+      rp.setRow(++row);
+      return rp;
+    }
+    
+    public boolean hasNext() {
+      return row + 1 < table.getRowCount();
+    }
+    
+    public void reset() {
+      row = -1;
+    }
+  }
+  
+  static class RowIndexIterator implements Iterator<TableRow>
+  {
+    Table table;
+    Table.RowPointer rp;
+    int[] indices;
+    int index;
+    
+    public RowIndexIterator(Table table, int[] indices) {
+      this.table = table;
+      this.indices = indices;
+      index = -1;
+      
+      rp = new Table.RowPointer(table, -1);
+    }
+    
+    public void remove() {
+      table.removeRow(indices[index]);
+    }
+    
+    public TableRow next() {
+      rp.setRow(indices[(++index)]);
+      return rp;
+    }
+    
+    public boolean hasNext()
+    {
+      return index + 1 < indices.length;
+    }
+    
+    public void reset() {
+      index = -1;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  static Charset utf8;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public int getInt(int row, int column)
+  {
+    checkBounds(row, column);
+    if ((columnTypes[column] == 1) || 
+      (columnTypes[column] == 5)) {
+      int[] intData = (int[])columns[column];
+      return intData[row];
+    }
+    String str = getString(row, column);
+    return (str == null) || (str.equals(missingString)) ? 
+      missingInt : PApplet.parseInt(str, missingInt);
+  }
+  
+
+
+  public int getInt(int row, String columnName)
+  {
+    return getInt(row, getColumnIndex(columnName));
+  }
+  
+  public void setMissingInt(int value)
+  {
+    missingInt = value;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void setInt(int row, int column, int value)
+  {
+    if (columnTypes[column] == 0) {
+      setString(row, column, String.valueOf(value));
+    }
+    else {
+      ensureBounds(row, column);
+      if ((columnTypes[column] != 1) && 
+        (columnTypes[column] != 5)) {
+        throw new IllegalArgumentException("Column " + column + " is not an int column.");
+      }
+      int[] intData = (int[])columns[column];
+      intData[row] = value;
+    }
+  }
+  
+
+
+  public void setInt(int row, String columnName, int value)
+  {
+    setInt(row, getColumnIndex(columnName), value);
+  }
+  
+
+  public int[] getIntColumn(String name)
+  {
+    int col = getColumnIndex(name);
+    return col == -1 ? null : getIntColumn(col);
+  }
+  
+  public int[] getIntColumn(int col)
+  {
+    int[] outgoing = new int[rowCount];
+    for (int row = 0; row < rowCount; row++) {
+      outgoing[row] = getInt(row, col);
+    }
+    return outgoing;
+  }
+  
+  public int[] getIntRow(int row)
+  {
+    int[] outgoing = new int[columns.length];
+    for (int col = 0; col < columns.length; col++) {
+      outgoing[col] = getInt(row, col);
+    }
+    return outgoing;
+  }
+  
+
+
+
+  public long getLong(int row, int column)
+  {
+    checkBounds(row, column);
+    if (columnTypes[column] == 2) {
+      long[] longData = (long[])columns[column];
+      return longData[row];
+    }
+    String str = getString(row, column);
+    if ((str == null) || (str.equals(missingString))) {
+      return missingLong;
+    }
+    try {
+      return Long.parseLong(str);
+    } catch (NumberFormatException localNumberFormatException) {}
+    return missingLong;
+  }
+  
+
+  public long getLong(int row, String columnName)
+  {
+    return getLong(row, getColumnIndex(columnName));
+  }
+  
+  public void setMissingLong(long value)
+  {
+    missingLong = value;
+  }
+  
+  public void setLong(int row, int column, long value)
+  {
+    if (columnTypes[column] == 0) {
+      setString(row, column, String.valueOf(value));
+    }
+    else {
+      ensureBounds(row, column);
+      if (columnTypes[column] != 2) {
+        throw new IllegalArgumentException("Column " + column + " is not a 'long' column.");
+      }
+      long[] longData = (long[])columns[column];
+      longData[row] = value;
+    }
+  }
+  
+  public void setLong(int row, String columnName, long value)
+  {
+    setLong(row, getColumnIndex(columnName), value);
+  }
+  
+  public long[] getLongColumn(String name)
+  {
+    int col = getColumnIndex(name);
+    return col == -1 ? null : getLongColumn(col);
+  }
+  
+  public long[] getLongColumn(int col)
+  {
+    long[] outgoing = new long[rowCount];
+    for (int row = 0; row < rowCount; row++) {
+      outgoing[row] = getLong(row, col);
+    }
+    return outgoing;
+  }
+  
+  public long[] getLongRow(int row)
+  {
+    long[] outgoing = new long[columns.length];
+    for (int col = 0; col < columns.length; col++) {
+      outgoing[col] = getLong(row, col);
+    }
+    return outgoing;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public float getFloat(int row, int column)
+  {
+    checkBounds(row, column);
+    if (columnTypes[column] == 3) {
+      float[] floatData = (float[])columns[column];
+      return floatData[row];
+    }
+    String str = getString(row, column);
+    if ((str == null) || (str.equals(missingString))) {
+      return missingFloat;
+    }
+    return PApplet.parseFloat(str, missingFloat);
+  }
+  
+
+
+  public float getFloat(int row, String columnName)
+  {
+    return getFloat(row, getColumnIndex(columnName));
+  }
+  
+  public void setMissingFloat(float value)
+  {
+    missingFloat = value;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void setFloat(int row, int column, float value)
+  {
+    if (columnTypes[column] == 0) {
+      setString(row, column, String.valueOf(value));
+    }
+    else {
+      ensureBounds(row, column);
+      if (columnTypes[column] != 3) {
+        throw new IllegalArgumentException("Column " + column + " is not a float column.");
+      }
+      float[] longData = (float[])columns[column];
+      longData[row] = value;
+    }
+  }
+  
+
+
+  public void setFloat(int row, String columnName, float value)
+  {
+    setFloat(row, getColumnIndex(columnName), value);
+  }
+  
+  public float[] getFloatColumn(String name)
+  {
+    int col = getColumnIndex(name);
+    return col == -1 ? null : getFloatColumn(col);
+  }
+  
+  public float[] getFloatColumn(int col)
+  {
+    float[] outgoing = new float[rowCount];
+    for (int row = 0; row < rowCount; row++) {
+      outgoing[row] = getFloat(row, col);
+    }
+    return outgoing;
+  }
+  
+  public float[] getFloatRow(int row)
+  {
+    float[] outgoing = new float[columns.length];
+    for (int col = 0; col < columns.length; col++) {
+      outgoing[col] = getFloat(row, col);
+    }
+    return outgoing;
+  }
+  
+
+
+
+  public double getDouble(int row, int column)
+  {
+    checkBounds(row, column);
+    if (columnTypes[column] == 4) {
+      double[] doubleData = (double[])columns[column];
+      return doubleData[row];
+    }
+    String str = getString(row, column);
+    if ((str == null) || (str.equals(missingString))) {
+      return missingDouble;
+    }
+    try {
+      return Double.parseDouble(str);
+    } catch (NumberFormatException localNumberFormatException) {}
+    return missingDouble;
+  }
+  
+
+  public double getDouble(int row, String columnName)
+  {
+    return getDouble(row, getColumnIndex(columnName));
+  }
+  
+  public void setMissingDouble(double value)
+  {
+    missingDouble = value;
+  }
+  
+  public void setDouble(int row, int column, double value)
+  {
+    if (columnTypes[column] == 0) {
+      setString(row, column, String.valueOf(value));
+    }
+    else {
+      ensureBounds(row, column);
+      if (columnTypes[column] != 4) {
+        throw new IllegalArgumentException("Column " + column + " is not a 'double' column.");
+      }
+      double[] doubleData = (double[])columns[column];
+      doubleData[row] = value;
+    }
+  }
+  
+  public void setDouble(int row, String columnName, double value)
+  {
+    setDouble(row, getColumnIndex(columnName), value);
+  }
+  
+  public double[] getDoubleColumn(String name)
+  {
+    int col = getColumnIndex(name);
+    return col == -1 ? null : getDoubleColumn(col);
+  }
+  
+  public double[] getDoubleColumn(int col)
+  {
+    double[] outgoing = new double[rowCount];
+    for (int row = 0; row < rowCount; row++) {
+      outgoing[row] = getDouble(row, col);
+    }
+    return outgoing;
+  }
+  
+  public double[] getDoubleRow(int row)
+  {
+    double[] outgoing = new double[columns.length];
+    for (int col = 0; col < columns.length; col++) {
+      outgoing[col] = getDouble(row, col);
+    }
+    return outgoing;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public String getString(int row, int column)
+  {
+    checkBounds(row, column);
+    if (columnTypes[column] == 0) {
+      String[] stringData = (String[])columns[column];
+      return stringData[row]; }
+    if (columnTypes[column] == 5) {
+      int cat = getInt(row, column);
+      if (cat == missingCategory) {
+        return missingString;
+      }
+      return columnCategories[column].key(cat); }
+    if (columnTypes[column] == 3) {
+      if (Float.isNaN(getFloat(row, column))) {
+        return null;
+      }
+    } else if ((columnTypes[column] == 4) && 
+      (Double.isNaN(getFloat(row, column)))) {
+      return null;
+    }
+    
+    return String.valueOf(Array.get(columns[column], row));
+  }
+  
+
+
+
+  public String getString(int row, String columnName)
+  {
+    return getString(row, getColumnIndex(columnName));
+  }
+  
+
+
+
+  public void setMissingString(String value)
+  {
+    missingString = value;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void setString(int row, int column, String value)
+  {
+    ensureBounds(row, column);
+    if (columnTypes[column] != 0) {
+      throw new IllegalArgumentException("Column " + column + " is not a String column.");
+    }
+    String[] stringData = (String[])columns[column];
+    stringData[row] = value;
+  }
+  
+
+
+  public void setString(int row, String columnName, String value)
+  {
+    int column = checkColumnIndex(columnName);
+    setString(row, column, value);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public String[] getStringColumn(String columnName)
+  {
+    int col = getColumnIndex(columnName);
+    return col == -1 ? null : getStringColumn(col);
+  }
+  
+
+
+
+  public String[] getStringColumn(int column)
+  {
+    String[] outgoing = new String[rowCount];
+    for (int i = 0; i < rowCount; i++) {
+      outgoing[i] = getString(i, column);
+    }
+    return outgoing;
+  }
+  
+  public String[] getStringRow(int row)
+  {
+    String[] outgoing = new String[columns.length];
+    for (int col = 0; col < columns.length; col++) {
+      outgoing[col] = getString(row, col);
+    }
+    return outgoing;
+  }
+  
+
+
+
+
+
+
+
+
+  public int findRowIndex(String value, int column)
+  {
+    checkColumn(column);
+    if (columnTypes[column] == 0) {
+      String[] stringData = (String[])columns[column];
+      if (value == null) {
+        for (int row = 0; row < rowCount; row++) {
+          if (stringData[row] == null) return row;
+        }
+      } else {
+        for (int row = 0; row < rowCount; row++) {
+          if ((stringData[row] != null) && (stringData[row].equals(value))) {
+            return row;
+          }
+        }
+      }
+    } else {
+      for (int row = 0; row < rowCount; row++) {
+        String str = getString(row, column);
+        if (str == null) {
+          if (value == null) {
+            return row;
+          }
+        } else if (str.equals(value)) {
+          return row;
+        }
+      }
+    }
+    return -1;
+  }
+  
+
+
+
+
+
+  public int findRowIndex(String value, String columnName)
+  {
+    return findRowIndex(value, getColumnIndex(columnName));
+  }
+  
+
+
+
+
+
+
+  public int[] findRowIndices(String value, int column)
+  {
+    int[] outgoing = new int[rowCount];
+    int count = 0;
+    
+    checkColumn(column);
+    if (columnTypes[column] == 0) {
+      String[] stringData = (String[])columns[column];
+      if (value == null) {
+        for (int row = 0; row < rowCount; row++) {
+          if (stringData[row] == null) {
+            outgoing[(count++)] = row;
+          }
+        }
+      } else {
+        for (int row = 0; row < rowCount; row++) {
+          if ((stringData[row] != null) && (stringData[row].equals(value))) {
+            outgoing[(count++)] = row;
+          }
+        }
+      }
+    } else {
+      for (int row = 0; row < rowCount; row++) {
+        String str = getString(row, column);
+        if (str == null) {
+          if (value == null) {
+            outgoing[(count++)] = row;
+          }
+        } else if (str.equals(value)) {
+          outgoing[(count++)] = row;
+        }
+      }
+    }
+    return PApplet.subset(outgoing, 0, count);
+  }
+  
+
+
+
+
+
+
+  public int[] findRowIndices(String value, String columnName)
+  {
+    return findRowIndices(value, getColumnIndex(columnName));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public TableRow findRow(String value, int column)
+  {
+    int row = findRowIndex(value, column);
+    return row == -1 ? null : new RowPointer(this, row);
+  }
+  
+
+
+
+  public TableRow findRow(String value, String columnName)
+  {
+    return findRow(value, getColumnIndex(columnName));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public Iterable<TableRow> findRows(final String value, final int column)
+  {
+    new Iterable() {
+      public Iterator<TableRow> iterator() {
+        return findRowIterator(value, column);
+      }
+    };
+  }
+  
+
+
+
+  public Iterable<TableRow> findRows(String value, String columnName)
+  {
+    return findRows(value, getColumnIndex(columnName));
+  }
+  
+
+
+
+
+
+  public Iterator<TableRow> findRowIterator(String value, int column)
+  {
+    return new RowIndexIterator(this, findRowIndices(value, column));
+  }
+  
+
+
+
+  public Iterator<TableRow> findRowIterator(String value, String columnName)
+  {
+    return findRowIterator(value, getColumnIndex(columnName));
+  }
+  
+
+
+
+
+
+
+
+
+  public int matchRowIndex(String regexp, int column)
+  {
+    checkColumn(column);
+    if (columnTypes[column] == 0) {
+      String[] stringData = (String[])columns[column];
+      for (int row = 0; row < rowCount; row++) {
+        if ((stringData[row] != null) && 
+          (PApplet.match(stringData[row], regexp) != null)) {
+          return row;
+        }
+      }
+    } else {
+      for (int row = 0; row < rowCount; row++) {
+        String str = getString(row, column);
+        if ((str != null) && 
+          (PApplet.match(str, regexp) != null)) {
+          return row;
+        }
+      }
+    }
+    return -1;
+  }
+  
+
+
+
+
+
+  public int matchRowIndex(String what, String columnName)
+  {
+    return matchRowIndex(what, getColumnIndex(columnName));
+  }
+  
+
+
+
+
+
+
+  public int[] matchRowIndices(String regexp, int column)
+  {
+    int[] outgoing = new int[rowCount];
+    int count = 0;
+    
+    checkColumn(column);
+    if (columnTypes[column] == 0) {
+      String[] stringData = (String[])columns[column];
+      for (int row = 0; row < rowCount; row++) {
+        if ((stringData[row] != null) && 
+          (PApplet.match(stringData[row], regexp) != null)) {
+          outgoing[(count++)] = row;
+        }
+      }
+    } else {
+      for (int row = 0; row < rowCount; row++) {
+        String str = getString(row, column);
+        if ((str != null) && 
+          (PApplet.match(str, regexp) != null)) {
+          outgoing[(count++)] = row;
+        }
+      }
+    }
+    return PApplet.subset(outgoing, 0, count);
+  }
+  
+
+
+
+
+
+
+  public int[] matchRowIndices(String what, String columnName)
+  {
+    return matchRowIndices(what, getColumnIndex(columnName));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public TableRow matchRow(String regexp, int column)
+  {
+    int row = matchRowIndex(regexp, column);
+    return row == -1 ? null : new RowPointer(this, row);
+  }
+  
+
+
+
+  public TableRow matchRow(String regexp, String columnName)
+  {
+    return matchRow(regexp, getColumnIndex(columnName));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public Iterable<TableRow> matchRows(final String regexp, final int column)
+  {
+    new Iterable() {
+      public Iterator<TableRow> iterator() {
+        return matchRowIterator(regexp, column);
+      }
+    };
+  }
+  
+
+
+
+  public Iterable<TableRow> matchRows(String regexp, String columnName)
+  {
+    return matchRows(regexp, getColumnIndex(columnName));
+  }
+  
+
+
+
+
+
+
+  public Iterator<TableRow> matchRowIterator(String value, int column)
+  {
+    return new RowIndexIterator(this, matchRowIndices(value, column));
+  }
+  
+
+
+
+  public Iterator<TableRow> matchRowIterator(String value, String columnName)
+  {
+    return matchRowIterator(value, getColumnIndex(columnName));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public void replace(String orig, String replacement)
+  {
+    for (int col = 0; col < columns.length; col++) {
+      replace(orig, replacement, col);
+    }
+  }
+  
+  public void replace(String orig, String replacement, int col)
+  {
+    if (columnTypes[col] == 0) {
+      String[] stringData = (String[])columns[col];
+      
+      if (orig != null) {
+        for (int row = 0; row < rowCount; row++) {
+          if (orig.equals(stringData[row])) {
+            stringData[row] = replacement;
+          }
+        }
+      } else {
+        for (int row = 0; row < rowCount; row++) {
+          if (stringData[row] == null) {
+            stringData[row] = replacement;
+          }
+        }
+      }
+    }
+  }
+  
+  public void replace(String orig, String replacement, String colName)
+  {
+    replace(orig, replacement, getColumnIndex(colName));
+  }
+  
+
+
+
+  public void replaceAll(String regex, String replacement)
+  {
+    for (int col = 0; col < columns.length; col++) {
+      replaceAll(regex, replacement, col);
+    }
+  }
+  
+  public void replaceAll(String regex, String replacement, int column)
+  {
+    checkColumn(column);
+    if (columnTypes[column] == 0) {
+      String[] stringData = (String[])columns[column];
+      for (int row = 0; row < rowCount; row++) {
+        if (stringData[row] != null) {
+          stringData[row] = stringData[row].replaceAll(regex, replacement);
+        }
+      }
+    } else {
+      throw new IllegalArgumentException("replaceAll() can only be used on String columns");
+    }
+  }
+  
+
+
+
+
+
+
+  public void replaceAll(String regex, String replacement, String columnName)
+  {
+    replaceAll(regex, replacement, getColumnIndex(columnName));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public void removeTokens(String tokens)
+  {
+    for (int col = 0; col < getColumnCount(); col++) {
+      removeTokens(tokens, col);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+  public void removeTokens(String tokens, int column)
+  {
+    for (int row = 0; row < rowCount; row++) {
+      String s = getString(row, column);
+      if (s != null) {
+        char[] c = s.toCharArray();
+        int index = 0;
+        for (int j = 0; j < c.length; j++) {
+          if (tokens.indexOf(c[j]) == -1) {
+            if (index != j) {
+              c[index] = c[j];
+            }
+            index++;
+          }
+        }
+        if (index != c.length) {
+          setString(row, column, new String(c, 0, index));
+        }
+      }
+    }
+  }
+  
+
+
+  public void removeTokens(String tokens, String columnName)
+  {
+    removeTokens(tokens, getColumnIndex(columnName));
+  }
+  
+
+
+
+
+
+
+
+  public void trim()
+  {
+    for (int col = 0; col < getColumnCount(); col++) {
+      trim(col);
+    }
+  }
+  
+
+
+  public void trim(int column)
+  {
+    if (columnTypes[column] == 0) {
+      String[] stringData = (String[])columns[column];
+      for (int row = 0; row < rowCount; row++) {
+        if (stringData[row] != null) {
+          stringData[row] = PApplet.trim(stringData[row]);
+        }
+      }
+    }
+  }
+  
+
+
+  public void trim(String columnName)
+  {
+    trim(getColumnIndex(columnName));
+  }
+  
+
+
+
+
+  protected void ensureColumn(int col)
+  {
+    if (col >= columns.length) {
+      setColumnCount(col + 1);
+    }
+  }
+  
+
+  protected void ensureRow(int row)
+  {
+    if (row >= rowCount) {
+      setRowCount(row + 1);
+    }
+  }
+  
+
+  protected void ensureBounds(int row, int col)
+  {
+    ensureRow(row);
+    ensureColumn(col);
+  }
+  
+
+  protected void checkRow(int row)
+  {
+    if ((row < 0) || (row >= rowCount)) {
+      throw new ArrayIndexOutOfBoundsException("Row " + row + " does not exist.");
+    }
+  }
+  
+
+  protected void checkColumn(int column)
+  {
+    if ((column < 0) || (column >= columns.length)) {
+      throw new ArrayIndexOutOfBoundsException("Column " + column + " does not exist.");
+    }
+  }
+  
+
+  protected void checkBounds(int row, int column)
+  {
+    checkRow(row);
+    checkColumn(column);
+  }
+  
+
+
+
+  static class HashMapBlows
+  {
+    HashMap<String, Integer> dataToIndex = new HashMap();
+    ArrayList<String> indexToData = new ArrayList();
+    
+    HashMapBlows() {}
+    
+    HashMapBlows(DataInputStream input) throws IOException {
+      read(input);
+    }
+    
+    int index(String key)
+    {
+      Integer value = (Integer)dataToIndex.get(key);
+      if (value != null) {
+        return value.intValue();
+      }
+      
+      int v = dataToIndex.size();
+      dataToIndex.put(key, Integer.valueOf(v));
+      indexToData.add(key);
+      return v;
+    }
+    
+    String key(int index) {
+      return (String)indexToData.get(index);
+    }
+    
+    boolean hasCategory(int index) {
+      return (index < size()) && (indexToData.get(index) != null);
+    }
+    
+    void setCategory(int index, String name) {
+      while (indexToData.size() <= index) {
+        indexToData.add(null);
+      }
+      indexToData.set(index, name);
+      dataToIndex.put(name, Integer.valueOf(index));
+    }
+    
+    int size() {
+      return dataToIndex.size();
+    }
+    
+    void write(DataOutputStream output) throws IOException {
+      output.writeInt(size());
+      for (String str : indexToData) {
+        output.writeUTF(str);
+      }
+    }
+    
+    private void writeln(PrintWriter writer) throws IOException {
+      for (String str : indexToData) {
+        writer.println(str);
+      }
+      writer.flush();
+      writer.close();
+    }
+    
+    void read(DataInputStream input) throws IOException {
+      int count = input.readInt();
+      
+      dataToIndex = new HashMap(count);
+      for (int i = 0; i < count; i++) {
+        String str = input.readUTF();
+        
+        dataToIndex.put(str, Integer.valueOf(i));
+        indexToData.add(str);
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void sort(String columnName)
+  {
+    sort(getColumnIndex(columnName), false);
+  }
+  
+  public void sort(int column)
+  {
+    sort(column, false);
+  }
+  
+  public void sortReverse(String columnName)
+  {
+    sort(getColumnIndex(columnName), true);
+  }
+  
+  public void sortReverse(int column)
+  {
+    sort(column, true);
+  }
+  
+  protected void sort(final int column, final boolean reverse)
+  {
+    final int[] order = IntList.fromRange(getRowCount()).array();
+    Sort s = new Sort()
+    {
+      public int size()
+      {
+        return getRowCount();
+      }
+      
+      public float compare(int index1, int index2)
+      {
+        int a = reverse ? order[index2] : order[index1];
+        int b = reverse ? order[index1] : order[index2];
+        
+        switch (getColumnType(column)) {
+        case 1: 
+          return getInt(a, column) - getInt(b, column);
+        case 2: 
+          return (float)(getLong(a, column) - getLong(b, column));
+        case 3: 
+          return getFloat(a, column) - getFloat(b, column);
+        case 4: 
+          return (float)(getDouble(a, column) - getDouble(b, column));
+        case 0: 
+          return getString(a, column).compareToIgnoreCase(getString(b, column));
+        case 5: 
+          return getInt(a, column) - getInt(b, column);
+        }
+        throw new IllegalArgumentException("Invalid column type: " + getColumnType(column));
+      }
+      
+
+      public void swap(int a, int b)
+      {
+        int temp = order[a];
+        order[a] = order[b];
+        order[b] = temp;
+      }
+      
+    };
+    s.run();
+    
+
+    for (int col = 0; col < getColumnCount(); col++) {
+      switch (getColumnType(col)) {
+      case 1: 
+      case 5: 
+        int[] oldInt = (int[])columns[col];
+        int[] newInt = new int[rowCount];
+        for (int row = 0; row < getRowCount(); row++) {
+          newInt[row] = oldInt[order[row]];
+        }
+        columns[col] = newInt;
+        break;
+      case 2: 
+        long[] oldLong = (long[])columns[col];
+        long[] newLong = new long[rowCount];
+        for (int row = 0; row < getRowCount(); row++) {
+          newLong[row] = oldLong[order[row]];
+        }
+        columns[col] = newLong;
+        break;
+      case 3: 
+        float[] oldFloat = (float[])columns[col];
+        float[] newFloat = new float[rowCount];
+        for (int row = 0; row < getRowCount(); row++) {
+          newFloat[row] = oldFloat[order[row]];
+        }
+        columns[col] = newFloat;
+        break;
+      case 4: 
+        double[] oldDouble = (double[])columns[col];
+        double[] newDouble = new double[rowCount];
+        for (int row = 0; row < getRowCount(); row++) {
+          newDouble[row] = oldDouble[order[row]];
+        }
+        columns[col] = newDouble;
+        break;
+      case 0: 
+        String[] oldString = (String[])columns[col];
+        String[] newString = new String[rowCount];
+        for (int row = 0; row < getRowCount(); row++) {
+          newString[row] = oldString[order[row]];
+        }
+        columns[col] = newString;
+      }
+      
+    }
+  }
+  
+
+
+
+  public String[] getUnique(String columnName)
+  {
+    return getUnique(getColumnIndex(columnName));
+  }
+  
+  public String[] getUnique(int column)
+  {
+    StringList list = new StringList(getStringColumn(column));
+    return list.getUnique();
+  }
+  
+  public IntDict getTally(String columnName)
+  {
+    return getTally(getColumnIndex(columnName));
+  }
+  
+  public IntDict getTally(int column)
+  {
+    StringList list = new StringList(getStringColumn(column));
+    return list.getTally();
+  }
+  
+  public IntDict getOrder(String columnName)
+  {
+    return getOrder(getColumnIndex(columnName));
+  }
+  
+  public IntDict getOrder(int column)
+  {
+    StringList list = new StringList(getStringColumn(column));
+    return list.getOrder();
+  }
+  
+
+
+
+  public IntList getIntList(String columnName)
+  {
+    return new IntList(getIntColumn(columnName));
+  }
+  
+  public IntList getIntList(int column)
+  {
+    return new IntList(getIntColumn(column));
+  }
+  
+  public FloatList getFloatList(String columnName)
+  {
+    return new FloatList(getFloatColumn(columnName));
+  }
+  
+  public FloatList getFloatList(int column)
+  {
+    return new FloatList(getFloatColumn(column));
+  }
+  
+  public StringList getStringList(String columnName)
+  {
+    return new StringList(getStringColumn(columnName));
+  }
+  
+  public StringList getStringList(int column)
+  {
+    return new StringList(getStringColumn(column));
+  }
+  
+
+
+
+  public IntDict getIntDict(String keyColumnName, String valueColumnName)
+  {
+    return new IntDict(getStringColumn(keyColumnName), 
+      getIntColumn(valueColumnName));
+  }
+  
+  public IntDict getIntDict(int keyColumn, int valueColumn)
+  {
+    return new IntDict(getStringColumn(keyColumn), 
+      getIntColumn(valueColumn));
+  }
+  
+  public FloatDict getFloatDict(String keyColumnName, String valueColumnName)
+  {
+    return new FloatDict(getStringColumn(keyColumnName), 
+      getFloatColumn(valueColumnName));
+  }
+  
+  public FloatDict getFloatDict(int keyColumn, int valueColumn)
+  {
+    return new FloatDict(getStringColumn(keyColumn), 
+      getFloatColumn(valueColumn));
+  }
+  
+  public StringDict getStringDict(String keyColumnName, String valueColumnName)
+  {
+    return new StringDict(getStringColumn(keyColumnName), 
+      getStringColumn(valueColumnName));
+  }
+  
+  public StringDict getStringDict(int keyColumn, int valueColumn)
+  {
+    return new StringDict(getStringColumn(keyColumn), 
+      getStringColumn(valueColumn));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected Table createSubset(int[] rowSubset)
+  {
+    Table newbie = new Table();
+    newbie.setColumnTitles(columnTitles);
+    columnTypes = columnTypes;
+    newbie.setRowCount(rowSubset.length);
+    
+    for (int i = 0; i < rowSubset.length; i++) {
+      int row = rowSubset[i];
+      for (int col = 0; col < columns.length; col++) {
+        switch (columnTypes[col]) {
+        case 0:  newbie.setString(i, col, getString(row, col)); break;
+        case 1:  newbie.setInt(i, col, getInt(row, col)); break;
+        case 2:  newbie.setLong(i, col, getLong(row, col)); break;
+        case 3:  newbie.setFloat(i, col, getFloat(row, col)); break;
+        case 4:  newbie.setDouble(i, col, getDouble(row, col));
+        }
+      }
+    }
+    return newbie;
+  }
+  
+
+
+
+
+
+
+
+  protected float getMaxFloat()
+  {
+    boolean found = false;
+    float max = -3.4028235E38F;
+    for (int row = 0; row < getRowCount(); row++) {
+      for (int col = 0; col < getColumnCount(); col++) {
+        float value = getFloat(row, col);
+        if (!Float.isNaN(value)) {
+          if (!found) {
+            max = value;
+            found = true;
+          } else if (value > max) {
+            max = value;
+          }
+        }
+      }
+    }
+    return found ? max : missingFloat;
+  }
+  
+
+
+
+
+  protected void convertBasic(BufferedReader reader, boolean tsv, File outputFile)
+    throws IOException
+  {
+    FileOutputStream fos = new FileOutputStream(outputFile);
+    BufferedOutputStream bos = new BufferedOutputStream(fos, 16384);
+    DataOutputStream output = new DataOutputStream(bos);
+    output.writeInt(0);
+    output.writeInt(getColumnCount());
+    if (columnTitles != null) {
+      output.writeBoolean(true);
+      for (String title : columnTitles) {
+        output.writeUTF(title);
+      }
+    } else {
+      output.writeBoolean(false);
+    }
+    for (int type : columnTypes) {
+      output.writeInt(type);
+    }
+    
+    String line = null;
+    
+    int prev = -1;
+    int row = 0;
+    while ((line = reader.readLine()) != null) {
+      convertRow(output, tsv ? PApplet.split(line, '\t') : splitLineCSV(line, reader));
+      row++;
+      
+      if ((row % 10000 == 0) && 
+        (row < rowCount)) {
+        int pct = 100 * row / rowCount;
+        if (pct != prev) {
+          System.out.println(pct + "%");
+          prev = pct;
+        }
+      }
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+    int col = 0;
+    for (HashMapBlows hmb : columnCategories) {
+      if (hmb == null) {
+        output.writeInt(0);
+      } else {
+        hmb.write(output);
+        hmb.writeln(PApplet.createWriter(new File(columnTitles[col] + ".categories")));
+      }
+      
+
+
+
+
+      col++;
+    }
+    
+    output.flush();
+    output.close();
+    
+
+    RandomAccessFile raf = new RandomAccessFile(outputFile, "rw");
+    raf.writeInt(rowCount);
+    raf.close();
+  }
+  
+  protected void convertRow(DataOutputStream output, String[] pieces) throws IOException
+  {
+    if (pieces.length > getColumnCount()) {
+      throw new IllegalArgumentException("Row with too many columns: " + 
+        PApplet.join(pieces, ","));
+    }
+    
+    for (int col = 0; col < pieces.length; col++) {
+      switch (columnTypes[col]) {
+      case 0: 
+        output.writeUTF(pieces[col]);
+        break;
+      case 1: 
+        output.writeInt(PApplet.parseInt(pieces[col], missingInt));
+        break;
+      case 2: 
+        try {
+          output.writeLong(Long.parseLong(pieces[col]));
+        } catch (NumberFormatException localNumberFormatException1) {
+          output.writeLong(missingLong);
+        }
+      
+      case 3: 
+        output.writeFloat(PApplet.parseFloat(pieces[col], missingFloat));
+        break;
+      case 4: 
+        try {
+          output.writeDouble(Double.parseDouble(pieces[col]));
+        } catch (NumberFormatException localNumberFormatException2) {
+          output.writeDouble(missingDouble);
+        }
+      
+      case 5: 
+        String peace = pieces[col];
+        if (peace.equals(missingString)) {
+          output.writeInt(missingCategory);
+        } else {
+          output.writeInt(columnCategories[col].index(peace));
+        }
+        break;
+      }
+    }
+    for (int col = pieces.length; col < getColumnCount(); col++) {
+      switch (columnTypes[col]) {
+      case 0: 
+        output.writeUTF("");
+        break;
+      case 1: 
+        output.writeInt(missingInt);
+        break;
+      case 2: 
+        output.writeLong(missingLong);
+        break;
+      case 3: 
+        output.writeFloat(missingFloat);
+        break;
+      case 4: 
+        output.writeDouble(missingDouble);
+        break;
+      case 5: 
+        output.writeInt(missingCategory);
+      }
+      
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public Table copy()
+  {
+    return new Table(rows());
+  }
+  
+  public void write(PrintWriter writer)
+  {
+    writeTSV(writer);
+  }
+  
+  public void print()
+  {
+    writeTSV(new PrintWriter(System.out));
+  }
+}

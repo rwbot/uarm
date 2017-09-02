@@ -1,0 +1,569 @@
+package jogamp.opengl.glu.nurbs;
+
+
+
+
+
+
+
+public class Knotspec
+{
+  public CArrayOfFloats inkbegin;
+  
+
+
+
+
+
+  public CArrayOfFloats inkend;
+  
+
+
+
+
+
+  public int prestride;
+  
+
+
+
+
+
+  public int order;
+  
+
+
+
+
+
+  public Knotspec next;
+  
+
+
+
+
+
+  public CArrayOfFloats klast;
+  
+
+
+
+
+
+  CArrayOfFloats kfirst;
+  
+
+
+
+
+
+  CArrayOfBreakpts bbegin;
+  
+
+
+
+
+
+  CArrayOfBreakpts bend;
+  
+
+
+
+
+
+  CArrayOfFloats kleft;
+  
+
+
+
+
+  CArrayOfFloats kright;
+  
+
+
+
+
+  int preoffset;
+  
+
+
+
+
+  int postwidth;
+  
+
+
+
+
+  private CArrayOfFloats sbegin;
+  
+
+
+
+
+  private CArrayOfFloats outkbegin;
+  
+
+
+
+
+  private CArrayOfFloats outkend;
+  
+
+
+
+
+  int prewidth;
+  
+
+
+
+
+  int postoffset;
+  
+
+
+
+
+  public int poststride;
+  
+
+
+
+
+  public int ncoords;
+  
+
+
+
+
+  public boolean istransformed;
+  
+
+
+
+
+  public Knotspec kspectotrans;
+  
+
+
+
+
+
+  public Knotspec() {}
+  
+
+
+
+
+
+  public void preselect()
+  {
+    klast = new CArrayOfFloats(inkend);
+    klast.lessenPointerBy(order);
+    for (float f = klast.get(); klast.getPointer() != inkend.getPointer(); klast
+          .pp()) {
+      if (!Knotvector.identical(klast.get(), f)) {
+        break;
+      }
+    }
+    kfirst = new CArrayOfFloats(inkbegin);
+    kfirst.raisePointerBy(order - 1);
+    for (f = kfirst.get(); kfirst.getPointer() != inkend.getPointer(); kfirst
+          .pp()) {
+      if (!Knotvector.identical(kfirst.get(), f)) {
+        break;
+      }
+    }
+    CArrayOfFloats localCArrayOfFloats = new CArrayOfFloats(kfirst);
+    localCArrayOfFloats.mm();
+    
+    while ((localCArrayOfFloats.getPointer() >= inkbegin.getPointer()) && 
+      (Knotvector.identical(f, localCArrayOfFloats.get()))) {
+      localCArrayOfFloats.mm();
+    }
+    
+    localCArrayOfFloats.pp();
+    
+
+    Breakpt[] arrayOfBreakpt = new Breakpt[klast.getPointer() - kfirst.getPointer() + 1];
+    for (int i = 0; i < arrayOfBreakpt.length; i++)
+      arrayOfBreakpt[i] = new Breakpt();
+    bbegin = new CArrayOfBreakpts(arrayOfBreakpt, 0);
+    bbegin.get().multi = (kfirst.getPointer() - localCArrayOfFloats.getPointer());
+    bbegin.get().value = f;
+    
+    bend = new CArrayOfBreakpts(bbegin);
+    kleft = new CArrayOfFloats(kfirst);
+    kright = new CArrayOfFloats(kfirst);
+  }
+  
+
+
+
+
+  public void select()
+  {
+    breakpoints();
+    knots();
+    factors();
+    
+    preoffset = (kleft.getPointer() - (inkbegin.getPointer() + order));
+    postwidth = ((bend.getPointer() - bbegin.getPointer()) * order);
+    prewidth = (outkend.getPointer() - outkbegin.getPointer() - order);
+    postoffset = (bbegin.get().def > 1 ? bbegin.get().def - 1 : 0);
+  }
+  
+
+
+
+
+
+
+  private void factors()
+  {
+    CArrayOfFloats localCArrayOfFloats1 = new CArrayOfFloats(outkend.getArray(), outkend.getPointer() - 1 - order + bend.get().multi);
+    
+    CArrayOfFloats localCArrayOfFloats2 = null;
+    if (sbegin != null) {
+      localCArrayOfFloats2 = new CArrayOfFloats(sbegin);
+    }
+    CArrayOfBreakpts localCArrayOfBreakpts = new CArrayOfBreakpts(bend);
+    for (; localCArrayOfBreakpts.getPointer() >= bbegin.getPointer(); localCArrayOfBreakpts.mm()) {
+      localCArrayOfFloats1.lessenPointerBy(getmulti);
+      int i = getdef - 1;
+      if (i >= 0)
+      {
+        float f = getvalue;
+        
+
+        CArrayOfFloats localCArrayOfFloats3 = new CArrayOfFloats(localCArrayOfFloats1.getArray(), localCArrayOfFloats1.getPointer() - i + (order - 1));
+        
+
+        CArrayOfFloats localCArrayOfFloats4 = new CArrayOfFloats(localCArrayOfFloats3.getArray(), localCArrayOfFloats3.getPointer() + i);
+        for (; localCArrayOfFloats4.getPointer() != localCArrayOfFloats3.getPointer(); localCArrayOfFloats4.mm())
+        {
+          CArrayOfFloats localCArrayOfFloats6 = new CArrayOfFloats(localCArrayOfFloats4);CArrayOfFloats localCArrayOfFloats5 = new CArrayOfFloats(localCArrayOfFloats1);
+          for (; localCArrayOfFloats6.getPointer() != localCArrayOfFloats3.getPointer(); localCArrayOfFloats6.mm()) {
+            localCArrayOfFloats2.set((f - localCArrayOfFloats5.get()) / (localCArrayOfFloats6.get() - localCArrayOfFloats5.get()));
+            localCArrayOfFloats2.pp();localCArrayOfFloats5.mm();
+          }
+          
+          localCArrayOfFloats4.set(f);
+        }
+      }
+    }
+  }
+  
+
+
+
+
+  private void knots()
+  {
+    CArrayOfFloats localCArrayOfFloats1 = new CArrayOfFloats(kleft.getArray(), kleft.getPointer() - order);
+    
+
+
+    CArrayOfFloats localCArrayOfFloats2 = new CArrayOfFloats(kright.getArray(), kright.getPointer() + bend.get().def);
+    
+
+    outkbegin = new CArrayOfFloats(new float[localCArrayOfFloats2.getPointer() - localCArrayOfFloats1.getPointer()], 0);
+    
+    CArrayOfFloats localCArrayOfFloats3 = new CArrayOfFloats(outkbegin);
+    for (; localCArrayOfFloats1.getPointer() != localCArrayOfFloats2.getPointer(); localCArrayOfFloats3.pp()) {
+      localCArrayOfFloats3.set(localCArrayOfFloats1.get());localCArrayOfFloats1.pp();
+    }
+    outkend = new CArrayOfFloats(localCArrayOfFloats3);
+  }
+  
+
+
+
+  private void breakpoints()
+  {
+    CArrayOfBreakpts localCArrayOfBreakpts1 = new CArrayOfBreakpts(bbegin);
+    CArrayOfBreakpts localCArrayOfBreakpts2 = new CArrayOfBreakpts(bend);
+    int i = 0;
+    
+    getvalue = getvalue;
+    getmulti = getmulti;
+    
+    kleft = new CArrayOfFloats(kright);
+    for (; 
+        kright.getPointer() != klast.getPointer(); kright.pp()) {
+      if (Knotvector.identical(kright.get(), getvalue)) {
+        getmulti += 1;
+      } else {
+        getdef = (order - getmulti);
+        i += getdef * (getdef - 1) / 2;
+        localCArrayOfBreakpts1.pp();
+        getvalue = kright.get();
+        getmulti = 1;
+      }
+    }
+    getdef = (order - getmulti);
+    i += getdef * (getdef - 1) / 2;
+    
+    bend = new CArrayOfBreakpts(localCArrayOfBreakpts1);
+    
+    if (i > 0) {
+      sbegin = new CArrayOfFloats(new float[i], 0);
+    } else {
+      sbegin = null;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public void copy(CArrayOfFloats paramCArrayOfFloats1, CArrayOfFloats paramCArrayOfFloats2)
+  {
+    CArrayOfFloats localCArrayOfFloats1 = new CArrayOfFloats(paramCArrayOfFloats1);
+    CArrayOfFloats localCArrayOfFloats2 = new CArrayOfFloats(paramCArrayOfFloats2);
+    
+    localCArrayOfFloats1.raisePointerBy(preoffset);
+    CArrayOfFloats localCArrayOfFloats3; if (next != null)
+    {
+      localCArrayOfFloats3 = new CArrayOfFloats(localCArrayOfFloats2.getArray(), localCArrayOfFloats2.getPointer() + prewidth);
+      for (; localCArrayOfFloats2.getPointer() != localCArrayOfFloats3.getPointer(); localCArrayOfFloats2.raisePointerBy(poststride)) {
+        next.copy(localCArrayOfFloats1, localCArrayOfFloats2);
+        localCArrayOfFloats1.raisePointerBy(prestride);
+      }
+    }
+    else
+    {
+      localCArrayOfFloats3 = new CArrayOfFloats(localCArrayOfFloats2.getArray(), localCArrayOfFloats2.getPointer() + prewidth);
+      for (; localCArrayOfFloats2.getPointer() != localCArrayOfFloats3.getPointer(); localCArrayOfFloats2.raisePointerBy(poststride)) {
+        pt_io_copy(localCArrayOfFloats2, localCArrayOfFloats1);
+        localCArrayOfFloats1.raisePointerBy(prestride);
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+  private void pt_io_copy(CArrayOfFloats paramCArrayOfFloats1, CArrayOfFloats paramCArrayOfFloats2)
+  {
+    switch (ncoords) {
+    case 4: 
+      paramCArrayOfFloats1.setRelative(3, paramCArrayOfFloats2.getRelative(3));
+    case 3: 
+      paramCArrayOfFloats1.setRelative(2, paramCArrayOfFloats2.getRelative(2));
+    case 2: 
+      paramCArrayOfFloats1.setRelative(1, paramCArrayOfFloats2.getRelative(1));
+    case 1: 
+      paramCArrayOfFloats1.set(paramCArrayOfFloats2.get());
+      break;
+    }
+    
+  }
+  
+
+
+
+
+
+
+
+
+
+  public void transform(CArrayOfFloats paramCArrayOfFloats)
+  {
+    CArrayOfFloats localCArrayOfFloats1 = new CArrayOfFloats(paramCArrayOfFloats);
+    CArrayOfFloats localCArrayOfFloats2;
+    if (next != null) {
+      if (equals(kspectotrans)) {
+        next.transform(localCArrayOfFloats1);
+      }
+      else if (istransformed) {
+        localCArrayOfFloats1.raisePointerBy(postoffset);
+        
+        localCArrayOfFloats2 = new CArrayOfFloats(localCArrayOfFloats1.getArray(), localCArrayOfFloats1.getPointer() + postwidth);
+        for (; localCArrayOfFloats1.getPointer() != localCArrayOfFloats2.getPointer(); localCArrayOfFloats1.raisePointerBy(poststride)) {
+          next.transform(localCArrayOfFloats1);
+        }
+      }
+      else {
+        localCArrayOfFloats2 = new CArrayOfFloats(localCArrayOfFloats1.getArray(), localCArrayOfFloats1.getPointer() + prewidth);
+        for (; 
+            localCArrayOfFloats1.getPointer() != localCArrayOfFloats2.getPointer(); localCArrayOfFloats1
+              .raisePointerBy(poststride)) {
+          next.transform(localCArrayOfFloats1);
+        }
+        
+      }
+    }
+    else if (equals(kspectotrans)) {
+      insert(localCArrayOfFloats1);
+    }
+    else if (istransformed) {
+      localCArrayOfFloats1.raisePointerBy(postoffset);
+      
+      localCArrayOfFloats2 = new CArrayOfFloats(localCArrayOfFloats1.getArray(), localCArrayOfFloats1.getPointer() + postwidth);
+      for (; localCArrayOfFloats1.getPointer() != localCArrayOfFloats2.getPointer(); localCArrayOfFloats1.raisePointerBy(poststride)) {
+        kspectotrans.insert(localCArrayOfFloats1);
+      }
+    }
+    else {
+      localCArrayOfFloats2 = new CArrayOfFloats(localCArrayOfFloats1.getArray(), localCArrayOfFloats1.getPointer() + prewidth);
+      for (; 
+          localCArrayOfFloats1.getPointer() != localCArrayOfFloats2.getPointer(); localCArrayOfFloats1
+            .raisePointerBy(poststride)) {
+        kspectotrans.insert(localCArrayOfFloats1);
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  private void insert(CArrayOfFloats paramCArrayOfFloats)
+  {
+    CArrayOfFloats localCArrayOfFloats1 = null;
+    if (sbegin != null)
+      localCArrayOfFloats1 = new CArrayOfFloats(sbegin);
+    CArrayOfFloats localCArrayOfFloats2 = new CArrayOfFloats(paramCArrayOfFloats.getArray(), paramCArrayOfFloats.getPointer() + prewidth - poststride);
+    
+
+
+    CArrayOfFloats localCArrayOfFloats3 = new CArrayOfFloats(paramCArrayOfFloats.getArray(), paramCArrayOfFloats.getPointer() + postwidth + postoffset - poststride);
+    
+
+
+    CArrayOfBreakpts localCArrayOfBreakpts = new CArrayOfBreakpts(bend);
+    
+
+
+    CArrayOfFloats localCArrayOfFloats4 = new CArrayOfFloats(localCArrayOfFloats2.getArray(), localCArrayOfFloats2.getPointer() - poststride * getdef);
+    CArrayOfFloats localCArrayOfFloats6; CArrayOfFloats localCArrayOfFloats7; for (; localCArrayOfFloats2.getPointer() != localCArrayOfFloats4.getPointer(); localCArrayOfFloats4.raisePointerBy(poststride)) {
+      localCArrayOfFloats6 = new CArrayOfFloats(localCArrayOfFloats2);
+      
+      localCArrayOfFloats7 = new CArrayOfFloats(localCArrayOfFloats2.getArray(), localCArrayOfFloats2.getPointer() - poststride);
+      while (localCArrayOfFloats7.getPointer() != localCArrayOfFloats4.getPointer())
+      {
+
+        pt_oo_sum(localCArrayOfFloats6, localCArrayOfFloats6, localCArrayOfFloats7, localCArrayOfFloats1.get(), 1.0D - localCArrayOfFloats1.get());
+        localCArrayOfFloats1.pp();localCArrayOfFloats6.setPointer(localCArrayOfFloats7.getPointer());localCArrayOfFloats7.lessenPointerBy(poststride);
+      }
+    }
+    
+    localCArrayOfBreakpts.mm();
+    for (; localCArrayOfBreakpts.getPointer() >= bbegin.getPointer(); localCArrayOfBreakpts.mm())
+    {
+      for (int i = getmulti; i > 0; i--) {
+        pt_oo_copy(localCArrayOfFloats3, localCArrayOfFloats2);
+        localCArrayOfFloats3.lessenPointerBy(poststride);
+        localCArrayOfFloats2.lessenPointerBy(poststride);
+      }
+      
+      CArrayOfFloats localCArrayOfFloats5 = new CArrayOfFloats(localCArrayOfFloats2.getArray(), localCArrayOfFloats2.getPointer() - poststride * getdef);
+      while (localCArrayOfFloats2.getPointer() != localCArrayOfFloats5.getPointer())
+      {
+
+        pt_oo_copy(localCArrayOfFloats3, localCArrayOfFloats2);
+        localCArrayOfFloats6 = new CArrayOfFloats(localCArrayOfFloats2);
+        
+
+        localCArrayOfFloats7 = new CArrayOfFloats(localCArrayOfFloats2.getArray(), localCArrayOfFloats2.getPointer() - poststride);
+        while (localCArrayOfFloats7.getPointer() != localCArrayOfFloats5.getPointer())
+        {
+          pt_oo_sum(localCArrayOfFloats6, localCArrayOfFloats6, localCArrayOfFloats7, localCArrayOfFloats1.get(), 1.0D - localCArrayOfFloats1.get());
+          localCArrayOfFloats1.pp();localCArrayOfFloats6.setPointer(localCArrayOfFloats7.getPointer());localCArrayOfFloats7.lessenPointerBy(poststride);
+        }
+        localCArrayOfFloats5.raisePointerBy(poststride);localCArrayOfFloats3
+          .lessenPointerBy(poststride);
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private void pt_oo_copy(CArrayOfFloats paramCArrayOfFloats1, CArrayOfFloats paramCArrayOfFloats2)
+  {
+    switch (ncoords) {
+    case 4: 
+      paramCArrayOfFloats1.setRelative(3, paramCArrayOfFloats2.getRelative(3));
+    case 3: 
+      paramCArrayOfFloats1.setRelative(2, paramCArrayOfFloats2.getRelative(2));
+    case 2: 
+      paramCArrayOfFloats1.setRelative(1, paramCArrayOfFloats2.getRelative(1));
+    case 1: 
+      paramCArrayOfFloats1.setRelative(0, paramCArrayOfFloats2.getRelative(0));
+      break;
+    }
+    
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private void pt_oo_sum(CArrayOfFloats paramCArrayOfFloats1, CArrayOfFloats paramCArrayOfFloats2, CArrayOfFloats paramCArrayOfFloats3, float paramFloat, double paramDouble)
+  {
+    switch (ncoords) {
+    case 4: 
+      paramCArrayOfFloats1.setRelative(3, 
+        (float)(paramFloat * paramCArrayOfFloats2.getRelative(3) + paramDouble * paramCArrayOfFloats3.getRelative(3)));
+    case 3: 
+      paramCArrayOfFloats1.setRelative(2, 
+        (float)(paramFloat * paramCArrayOfFloats2.getRelative(2) + paramDouble * paramCArrayOfFloats3.getRelative(2)));
+    case 2: 
+      paramCArrayOfFloats1.setRelative(1, 
+        (float)(paramFloat * paramCArrayOfFloats2.getRelative(1) + paramDouble * paramCArrayOfFloats3.getRelative(1)));
+    case 1: 
+      paramCArrayOfFloats1.setRelative(0, 
+        (float)(paramFloat * paramCArrayOfFloats2.getRelative(0) + paramDouble * paramCArrayOfFloats3.getRelative(0)));
+      break;
+    }
+  }
+}

@@ -1,0 +1,135 @@
+package com.jogamp.nativewindow.util;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Insets
+  implements Cloneable, InsetsImmutable
+{
+  static final InsetsImmutable zeroInsets = new Insets();
+  public static final InsetsImmutable getZero() { return zeroInsets; }
+  
+
+  public Insets()
+  {
+    this(0, 0, 0, 0);
+  }
+  
+  public Insets(int paramInt1, int paramInt2, int paramInt3, int paramInt4) {
+    l = paramInt1;
+    r = paramInt2;
+    t = paramInt3;
+    b = paramInt4;
+  }
+  
+  public Object cloneMutable()
+  {
+    return clone();
+  }
+  
+  protected Object clone()
+  {
+    try {
+      return super.clone();
+    } catch (CloneNotSupportedException localCloneNotSupportedException) {
+      throw new InternalError();
+    }
+  }
+  
+
+  public final int getLeftWidth() { return l; }
+  
+  public final int getRightWidth() { return r; }
+  
+  public final int getTotalWidth() { return l + r; }
+  
+  public final int getTopHeight() { return t; }
+  
+  public final int getBottomHeight() { return b; }
+  
+  public final int getTotalHeight() { return t + b; }
+  
+
+  private int l;
+  
+  private int r;
+  private int t;
+  private int b;
+  public final void set(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    l = paramInt1;r = paramInt2;t = paramInt3;b = paramInt4;
+  }
+  
+
+  public final void setLeftWidth(int paramInt)
+  {
+    l = paramInt;
+  }
+  
+  public final void setRightWidth(int paramInt)
+  {
+    r = paramInt;
+  }
+  
+  public final void setTopHeight(int paramInt)
+  {
+    t = paramInt;
+  }
+  
+  public final void setBottomHeight(int paramInt)
+  {
+    b = paramInt;
+  }
+  
+  public boolean equals(Object paramObject) {
+    if (this == paramObject) return true;
+    if ((paramObject instanceof Insets)) {
+      Insets localInsets = (Insets)paramObject;
+      return (r == r) && (l == l) && (b == b) && (t == t);
+    }
+    
+    return false;
+  }
+  
+  public int hashCode()
+  {
+    int i = l + b;
+    int j = t + r;
+    int k = i * (i + 1) / 2 + l;
+    int m = j * (j + 1) / 2 + r;
+    int n = k + m;
+    return n * (n + 1) / 2 + m;
+  }
+  
+  public String toString()
+  {
+    return "[ l " + l + ", r " + r + " - t " + t + ", b " + b + " - " + getTotalWidth() + "x" + getTotalHeight() + "]";
+  }
+}

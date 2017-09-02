@@ -1,0 +1,966 @@
+package com.jogamp.common.nio;
+
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.os.Platform.OSType;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
+import java.lang.ref.WeakReference;
+import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileChannel.MapMode;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import jogamp.common.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class MappedByteBufferInputStream
+  extends InputStream
+{
+  public static abstract interface FileResizeOp
+  {
+    public abstract void setLength(long paramLong)
+      throws IOException;
+  }
+  
+  public static enum CacheMode
+  {
+    FLUSH_NONE, 
+    
+
+
+
+
+
+
+
+
+
+    FLUSH_PRE_SOFT, 
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    FLUSH_PRE_HARD;
+    
+
+
+
+
+
+    private CacheMode() {}
+  }
+  
+
+
+
+
+  private static final FileResizeOp NoFileResize = new FileResizeOp()
+  {
+    public void setLength(long paramAnonymousLong) throws IOException {
+      throw new IOException("file size change not supported");
+    }
+  };
+  
+
+
+
+
+
+
+
+
+  public static final int DEFAULT_SLICE_SHIFT;
+  
+
+
+
+
+
+
+
+
+
+  static
+  {
+    Platform.initSingleton();
+    if (Platform.is32Bit()) {
+      DEFAULT_SLICE_SHIFT = 29;
+    } else
+      DEFAULT_SLICE_SHIFT = 30;
+  }
+  
+  static final boolean DEBUG = Debug.debug("ByteBufferInputStream");
+  
+  private final int sliceShift;
+  
+  private final FileChannel fc;
+  private final FileChannel.MapMode mmode;
+  private FileResizeOp fileResizeOp = NoFileResize;
+  
+  private int sliceCount;
+  
+  private ByteBuffer[] slices;
+  private WeakReference<ByteBuffer>[] slices2GC;
+  private long totalSize;
+  private int slicesEntries;
+  private int slices2GCEntries;
+  private boolean synchronous;
+  private int refCount;
+  private Method mbbCleaner;
+  private Method cClean;
+  private boolean cleanerInit;
+  private boolean hasCleaner;
+  private CacheMode cmode;
+  private int sliceIdx;
+  private long mark;
+  
+  final void dbgDump(String paramString, PrintStream paramPrintStream)
+  {
+    int i = 0;
+    for (int j = 0; j < sliceCount; j++) {
+      if (null != slices[j]) {
+        i++;
+      }
+    }
+    j = 0;
+    int k = 0;
+    for (int m = 0; m < sliceCount; m++) {
+      WeakReference localWeakReference = slices2GC[m];
+      if (null != localWeakReference) {
+        j++;
+        if (null != localWeakReference.get()) {
+          k++;
+        }
+      }
+    }
+    long l1 = 0L;long l2 = 0L;long l3 = 0L;
+    try {
+      l1 = fc.size();
+    } catch (IOException localIOException1) {
+      localIOException1.printStackTrace();
+    }
+    if (0 < refCount) {
+      try {
+        l2 = position();
+        l3 = totalSize - l2;
+      } catch (IOException localIOException2) {
+        localIOException2.printStackTrace();
+      }
+    }
+    int n = null != slices ? slices.length : 0;
+    paramPrintStream.println(paramString + " refCount " + refCount + ", fcSize " + l1 + ", totalSize " + totalSize);
+    paramPrintStream.println(paramString + " position " + l2 + ", remaining " + l3);
+    paramPrintStream.println(paramString + " mmode " + mmode + ", cmode " + cmode + ", fileResizeOp " + fileResizeOp);
+    paramPrintStream.println(paramString + " slice " + sliceIdx + " / " + sliceCount + " (" + n + "), synchronous " + synchronous);
+    paramPrintStream.println(paramString + "   mapped   " + slicesEntries + " / " + i);
+    paramPrintStream.println(paramString + "   GC-queue " + slices2GCEntries + " / " + j + " (alive " + k + ")");
+    paramPrintStream.println(paramString + " sliceShift " + sliceShift + " -> " + (1L << sliceShift));
+  }
+  
+  MappedByteBufferInputStream(FileChannel paramFileChannel, FileChannel.MapMode paramMapMode, CacheMode paramCacheMode, int paramInt1, long paramLong, int paramInt2) throws IOException
+  {
+    sliceShift = paramInt1;
+    fc = paramFileChannel;
+    mmode = paramMapMode;
+    
+    if (0L > paramLong) {
+      throw new IllegalArgumentException("Negative size " + paramLong);
+    }
+    
+    totalSize = -1L;
+    sliceCount = 0;
+    notifyLengthChange(paramLong);
+    
+    refCount = 1;
+    cleanerInit = false;
+    hasCleaner = false;
+    cmode = paramCacheMode;
+    
+    sliceIdx = paramInt2;
+    mark = -1L;
+    
+    currentSlice().position(0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public MappedByteBufferInputStream(FileChannel paramFileChannel, FileChannel.MapMode paramMapMode, CacheMode paramCacheMode, int paramInt)
+    throws IOException
+  {
+    this(paramFileChannel, paramMapMode, paramCacheMode, paramInt, paramFileChannel.size(), 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public MappedByteBufferInputStream(FileChannel paramFileChannel, FileChannel.MapMode paramMapMode, CacheMode paramCacheMode)
+    throws IOException
+  {
+    this(paramFileChannel, paramMapMode, paramCacheMode, DEFAULT_SLICE_SHIFT);
+  }
+  
+
+
+
+
+
+
+
+
+  public MappedByteBufferInputStream(FileChannel paramFileChannel)
+    throws IOException
+  {
+    this(paramFileChannel, FileChannel.MapMode.READ_ONLY, CacheMode.FLUSH_PRE_HARD, DEFAULT_SLICE_SHIFT);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public final synchronized void setSynchronous(boolean paramBoolean)
+  {
+    synchronous = paramBoolean;
+  }
+  
+
+  public final synchronized boolean getSynchronous()
+  {
+    return synchronous;
+  }
+  
+  final synchronized void checkOpen() throws IOException {
+    if (0 == refCount) {
+      throw new IOException("stream closed");
+    }
+  }
+  
+  public final synchronized void close() throws IOException
+  {
+    if (0 < refCount) {
+      refCount -= 1;
+      if (0 == refCount)
+        try {
+          cleanAllSlices(true);
+          
+          flushImpl(true, false);
+          fc.close();
+          mark = -1L;
+          sliceIdx = -1;
+          super.close();
+        }
+        finally
+        {
+          flushImpl(true, false);
+          fc.close();
+          mark = -1L;
+          sliceIdx = -1;
+          super.close();
+        }
+    }
+  }
+  
+  final FileChannel.MapMode getMapMode() {
+    return mmode;
+  }
+  
+
+  public final synchronized void setFileResizeOp(FileResizeOp paramFileResizeOp)
+    throws IllegalStateException
+  {
+    if ((NoFileResize != fileResizeOp) && (fileResizeOp != paramFileResizeOp)) {
+      throw new IllegalStateException("FileResizeOp already set, this value differs");
+    }
+    fileResizeOp = (null != paramFileResizeOp ? paramFileResizeOp : NoFileResize);
+  }
+  
+
+
+
+
+
+
+  public final synchronized void setLength(long paramLong)
+    throws IOException
+  {
+    long l;
+    
+
+
+
+
+    if ((0L != paramLong) && (totalSize != paramLong)) {
+      l = position();
+    } else {
+      l = -1L;
+    }
+    if (fc.size() != paramLong) {
+      if (Platform.OSType.WINDOWS == Platform.getOSType())
+      {
+
+
+
+        cleanAllSlices(synchronous);
+      }
+      fileResizeOp.setLength(paramLong);
+      if (synchronous)
+      {
+        flushImpl(true, false);
+      }
+    }
+    notifyLengthChangeImpl(paramLong, l);
+  }
+  
+
+
+
+
+
+
+
+  public final synchronized void notifyLengthChange(long paramLong)
+    throws IOException
+  {
+    notifyLengthChangeImpl(paramLong, -1L);
+  }
+  
+
+  private final synchronized void notifyLengthChangeImpl(long paramLong1, long paramLong2)
+    throws IOException
+  {
+    if (totalSize == paramLong1)
+    {
+      return; }
+    if (0L == paramLong1)
+    {
+      cleanAllSlices(synchronous);
+      
+      WeakReference[] arrayOfWeakReference1 = new WeakReference[1];
+      slices2GC = arrayOfWeakReference1;
+      slices = new ByteBuffer[1];
+      slices[0] = ByteBuffer.allocate(0);
+      sliceCount = 0;
+      totalSize = 0L;
+      mark = -1L;
+      sliceIdx = 0;
+    } else {
+      long l1 = 0L <= paramLong2 ? paramLong2 : position();
+      
+      long l2 = 1L << sliceShift;
+      int i = (int)((paramLong1 + (l2 - 1L)) / l2);
+      
+      WeakReference[] arrayOfWeakReference2 = new WeakReference[i];
+      ByteBuffer[] arrayOfByteBuffer = new ByteBuffer[i];
+      int j = Math.min(i, sliceCount - 1);
+      if (0 <= j) {
+        if (0 < j) {
+          System.arraycopy(slices2GC, 0, arrayOfWeakReference2, 0, j);
+          System.arraycopy(slices, 0, arrayOfByteBuffer, 0, j);
+        }
+        for (int k = j; k < sliceCount; k++) {
+          cleanSlice(k, synchronous);
+        }
+      }
+      slices2GC = arrayOfWeakReference2;
+      slices = arrayOfByteBuffer;
+      sliceCount = i;
+      totalSize = paramLong1;
+      if (paramLong1 < mark) {
+        mark = -1L;
+      }
+      position2(Math.min(l1, paramLong1));
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final synchronized void flush(boolean paramBoolean)
+    throws IOException
+  {
+    checkOpen();
+    flushImpl(paramBoolean, true);
+  }
+  
+  private final synchronized void flushImpl(boolean paramBoolean1, boolean paramBoolean2) throws IOException { if (FileChannel.MapMode.READ_ONLY != mmode) {
+      if ((paramBoolean2) && (FileChannel.MapMode.READ_WRITE == mmode)) {
+        for (int i = 0; i < sliceCount; i++) {
+          syncSlice(slices[i], true);
+        }
+        for (i = 0; i < sliceCount; i++) {
+          WeakReference localWeakReference = slices2GC[i];
+          if (null != localWeakReference) {
+            syncSlice((ByteBuffer)localWeakReference.get(), true);
+          }
+        }
+      }
+      fc.force(paramBoolean1);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final synchronized MappedByteBufferOutputStream getOutputStream(FileResizeOp paramFileResizeOp)
+    throws IllegalStateException, IOException
+  {
+    checkOpen();
+    MappedByteBufferOutputStream localMappedByteBufferOutputStream = new MappedByteBufferOutputStream(this, paramFileResizeOp);
+    refCount += 1;
+    return localMappedByteBufferOutputStream;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final synchronized ByteBuffer currentSlice()
+    throws IOException
+  {
+    ByteBuffer localByteBuffer1 = slices[sliceIdx];
+    if (null != localByteBuffer1) {
+      return localByteBuffer1;
+    }
+    if (CacheMode.FLUSH_PRE_SOFT == cmode) {
+      WeakReference localWeakReference = slices2GC[sliceIdx];
+      if (null != localWeakReference) {
+        ByteBuffer localByteBuffer2 = (ByteBuffer)localWeakReference.get();
+        slices2GC[sliceIdx] = null;
+        slices2GCEntries -= 1;
+        if (null != localByteBuffer2) {
+          slices[sliceIdx] = localByteBuffer2;
+          slicesEntries += 1;
+          return localByteBuffer2;
+        }
+      }
+    }
+    long l = sliceIdx << sliceShift;
+    MappedByteBuffer localMappedByteBuffer = fc.map(mmode, l, Math.min(1L << sliceShift, totalSize - l));
+    slices[sliceIdx] = localMappedByteBuffer;
+    slicesEntries += 1;
+    return localMappedByteBuffer;
+  }
+  
+
+
+
+
+
+
+
+
+  public final synchronized ByteBuffer nextSlice()
+    throws IOException
+  {
+    if (sliceIdx < sliceCount - 1) {
+      flushSlice(sliceIdx, synchronous);
+      sliceIdx += 1;
+      ByteBuffer localByteBuffer = currentSlice();
+      localByteBuffer.position(0);
+      return localByteBuffer;
+    }
+    return null;
+  }
+  
+
+
+  synchronized void syncSlice(ByteBuffer paramByteBuffer) throws IOException { syncSlice(paramByteBuffer, synchronous); }
+  
+  synchronized void syncSlice(ByteBuffer paramByteBuffer, boolean paramBoolean) throws IOException {
+    if ((paramBoolean) && (null != paramByteBuffer) && (FileChannel.MapMode.READ_WRITE == mmode))
+      try {
+        ((MappedByteBuffer)paramByteBuffer).force();
+
+      }
+      catch (Throwable localThrowable)
+      {
+
+        if (DEBUG) {
+          System.err.println("Caught " + localThrowable.getMessage());
+          localThrowable.printStackTrace();
+        }
+      }
+  }
+  
+  private synchronized void flushSlice(int paramInt, boolean paramBoolean) throws IOException {
+    ByteBuffer localByteBuffer = slices[paramInt];
+    if (null != localByteBuffer)
+      if (CacheMode.FLUSH_NONE != cmode) {
+        slices[paramInt] = null;
+        slicesEntries -= 1;
+        if (CacheMode.FLUSH_PRE_HARD == cmode) {
+          if (!cleanBuffer(localByteBuffer, paramBoolean))
+          {
+            slices2GC[paramInt] = new WeakReference(localByteBuffer);
+            slices2GCEntries += 1;
+          }
+        } else {
+          syncSlice(localByteBuffer, paramBoolean);
+          slices2GC[paramInt] = new WeakReference(localByteBuffer);
+          slices2GCEntries += 1;
+        }
+      } else {
+        syncSlice(localByteBuffer, paramBoolean);
+      }
+  }
+  
+  private synchronized void cleanAllSlices(boolean paramBoolean) throws IOException {
+    if (null != slices) {
+      for (int i = 0; i < sliceCount; i++) {
+        cleanSlice(i, paramBoolean);
+      }
+      if ((0 != slicesEntries) || (0 != slices2GCEntries)) {
+        String str = "mappedSliceCount " + slicesEntries + ", slices2GCEntries " + slices2GCEntries;
+        dbgDump(str + ": ", System.err);
+        throw new InternalError(str);
+      }
+    }
+  }
+  
+  private synchronized void cleanSlice(int paramInt, boolean paramBoolean) throws IOException {
+    ByteBuffer localByteBuffer1 = slices[paramInt];
+    
+
+    WeakReference localWeakReference = slices2GC[paramInt];
+    slices2GC[paramInt] = null;
+    ByteBuffer localByteBuffer2; if (null != localWeakReference) {
+      slices2GCEntries -= 1;
+      localByteBuffer2 = (ByteBuffer)localWeakReference.get();
+    } else {
+      localByteBuffer2 = null;
+    }
+    
+    if (null != localByteBuffer1) {
+      slices[paramInt] = null;
+      slicesEntries -= 1;
+      cleanBuffer(localByteBuffer1, paramBoolean);
+      if (null != localByteBuffer2) {
+        throw new InternalError("XXX");
+      }
+    } else if (null != localByteBuffer2) {
+      cleanBuffer(localByteBuffer2, paramBoolean);
+    }
+  }
+  
+  private synchronized boolean cleanBuffer(ByteBuffer paramByteBuffer, boolean paramBoolean) throws IOException { if (!cleanerInit) {
+      initCleaner(paramByteBuffer);
+    }
+    syncSlice(paramByteBuffer, paramBoolean);
+    if (!paramByteBuffer.isDirect()) {
+      return false;
+    }
+    boolean bool = false;
+    if (hasCleaner) {
+      try {
+        cClean.invoke(mbbCleaner.invoke(paramByteBuffer, new Object[0]), new Object[0]);
+        bool = true;
+      } catch (Throwable localThrowable) {
+        hasCleaner = false;
+        if (DEBUG) {
+          System.err.println("Caught " + localThrowable.getMessage());
+          localThrowable.printStackTrace();
+        }
+      }
+    }
+    if ((!bool) && (CacheMode.FLUSH_PRE_HARD == cmode)) {
+      cmode = CacheMode.FLUSH_PRE_SOFT;
+    }
+    return bool;
+  }
+  
+  private synchronized void initCleaner(final ByteBuffer paramByteBuffer) { final Method[] arrayOfMethod1 = { null };
+    final Method[] arrayOfMethod2 = { null };
+    AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public Object run() {
+        try {
+          arrayOfMethod1[0] = paramByteBuffer.getClass().getMethod("cleaner", new Class[0]);
+          arrayOfMethod1[0].setAccessible(true);
+          arrayOfMethod2[0] = Class.forName("sun.misc.Cleaner").getMethod("clean", new Class[0]);
+          arrayOfMethod2[0].setAccessible(true);
+        } catch (Throwable localThrowable) {
+          if (MappedByteBufferInputStream.DEBUG) {
+            System.err.println("Caught " + localThrowable.getMessage());
+            localThrowable.printStackTrace();
+          }
+        }
+        return null;
+      } });
+    mbbCleaner = arrayOfMethod1[0];
+    cClean = arrayOfMethod2[0];
+    boolean bool = (null != mbbCleaner) && (null != cClean);
+    if (DEBUG) {
+      System.err.println("initCleaner: Has cleaner: " + bool + ", mbbCleaner " + mbbCleaner + ", cClean " + cClean);
+    }
+    hasCleaner = bool;
+    cleanerInit = true;
+  }
+  
+
+
+
+
+
+
+
+  public final synchronized CacheMode getCacheMode()
+  {
+    return cmode;
+  }
+  
+
+
+
+
+
+  public final synchronized long length()
+  {
+    return totalSize;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final synchronized long remaining()
+    throws IOException
+  {
+    return 0 < refCount ? totalSize - position() : 0L;
+  }
+  
+
+
+
+
+
+
+  public final synchronized int available()
+    throws IOException
+  {
+    long l = remaining();
+    return l <= 2147483647L ? (int)l : Integer.MAX_VALUE;
+  }
+  
+
+
+
+
+
+
+  public final synchronized long position()
+    throws IOException
+  {
+    if (0 < refCount) {
+      return (sliceIdx << sliceShift) + currentSlice().position();
+    }
+    return 0L;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final synchronized MappedByteBufferInputStream position(long paramLong)
+    throws IOException
+  {
+    checkOpen();
+    if ((totalSize < paramLong) || (0L > paramLong)) {
+      throw new IllegalArgumentException("new position " + paramLong + " not within [0.." + totalSize + "]");
+    }
+    int i = sliceIdx;
+    
+    if (totalSize == paramLong)
+    {
+      sliceIdx = Math.max(0, sliceCount - 1);
+      if (i != sliceIdx) {
+        flushSlice(i, synchronous);
+      }
+      ByteBuffer localByteBuffer = currentSlice();
+      localByteBuffer.position(localByteBuffer.capacity());
+    } else {
+      sliceIdx = ((int)(paramLong >>> sliceShift));
+      if (i != sliceIdx) {
+        flushSlice(i, synchronous);
+      }
+      currentSlice().position((int)(paramLong - (sliceIdx << sliceShift)));
+    }
+    return this;
+  }
+  
+  private final synchronized void position2(long paramLong) throws IOException { if (totalSize == paramLong)
+    {
+      sliceIdx = Math.max(0, sliceCount - 1);
+      ByteBuffer localByteBuffer = currentSlice();
+      localByteBuffer.position(localByteBuffer.capacity());
+    } else {
+      sliceIdx = ((int)(paramLong >>> sliceShift));
+      currentSlice().position((int)(paramLong - (sliceIdx << sliceShift)));
+    }
+  }
+  
+  public final boolean markSupported()
+  {
+    return true;
+  }
+  
+
+
+
+
+
+
+
+  public final synchronized void mark(int paramInt)
+  {
+    if (0 < refCount) {
+      try {
+        mark = position();
+      } catch (IOException localIOException) {
+        throw new RuntimeException(localIOException);
+      }
+    }
+  }
+  
+
+
+
+
+  public final synchronized void reset()
+    throws IOException
+  {
+    checkOpen();
+    if (mark == -1L) {
+      throw new IOException("mark not set");
+    }
+    position(mark);
+  }
+  
+
+
+
+  public final synchronized long skip(long paramLong)
+    throws IOException
+  {
+    checkOpen();
+    if (0L > paramLong) {
+      return 0L;
+    }
+    long l1 = position();
+    long l2 = totalSize - l1;
+    long l3 = Math.min(l2, paramLong);
+    position(l1 + l3);
+    return l3;
+  }
+  
+  public final synchronized int read() throws IOException
+  {
+    checkOpen();
+    ByteBuffer localByteBuffer = currentSlice();
+    if ((!localByteBuffer.hasRemaining()) && 
+      (null == (localByteBuffer = nextSlice()))) {
+      return -1;
+    }
+    
+    return localByteBuffer.get() & 0xFF;
+  }
+  
+  public final synchronized int read(byte[] paramArrayOfByte, int paramInt1, int paramInt2) throws IOException
+  {
+    checkOpen();
+    if (paramArrayOfByte == null)
+      throw new NullPointerException();
+    if ((paramInt1 < 0) || (paramInt2 < 0) || (paramInt1 > paramArrayOfByte.length) || (paramInt1 + paramInt2 > paramArrayOfByte.length) || (paramInt1 + paramInt2 < 0))
+    {
+
+
+
+
+      throw new IndexOutOfBoundsException("offset " + paramInt1 + ", length " + paramInt2 + ", b.length " + paramArrayOfByte.length); }
+    if (0 == paramInt2) {
+      return 0;
+    }
+    long l = remaining();
+    if (0L == l) {
+      return -1;
+    }
+    int i = (int)Math.min(l, paramInt2);
+    int j = 0;
+    while (j < i) {
+      ByteBuffer localByteBuffer = currentSlice();
+      int k = localByteBuffer.remaining();
+      if (0 == k) {
+        if (null == (localByteBuffer = nextSlice())) {
+          throw new InternalError("Unexpected EOT");
+        }
+        k = localByteBuffer.remaining();
+      }
+      int m = Math.min(i - j, k);
+      localByteBuffer.get(paramArrayOfByte, paramInt1 + j, m);
+      j += m;
+    }
+    return i;
+  }
+  
+
+
+
+
+
+
+
+  public final synchronized int read(ByteBuffer paramByteBuffer, int paramInt)
+    throws IOException
+  {
+    checkOpen();
+    if (paramByteBuffer == null)
+      throw new NullPointerException();
+    if ((paramInt < 0) || (paramInt > paramByteBuffer.remaining()))
+      throw new IndexOutOfBoundsException("length " + paramInt + ", b " + paramByteBuffer);
+    if (0 == paramInt) {
+      return 0;
+    }
+    long l = remaining();
+    if (0L == l) {
+      return -1;
+    }
+    int i = (int)Math.min(l, paramInt);
+    int j = 0;
+    while (j < i) {
+      ByteBuffer localByteBuffer = currentSlice();
+      int k = localByteBuffer.remaining();
+      if (0 == k) {
+        if (null == (localByteBuffer = nextSlice())) {
+          throw new InternalError("Unexpected EOT");
+        }
+        k = localByteBuffer.remaining();
+      }
+      int m = Math.min(i - j, k);
+      if ((localByteBuffer.hasArray()) && (paramByteBuffer.hasArray())) {
+        System.arraycopy(localByteBuffer.array(), localByteBuffer.arrayOffset() + localByteBuffer.position(), paramByteBuffer
+          .array(), paramByteBuffer.arrayOffset() + paramByteBuffer.position(), m);
+        
+        localByteBuffer.position(localByteBuffer.position() + m);
+        paramByteBuffer.position(paramByteBuffer.position() + m);
+      } else if (m == k) {
+        paramByteBuffer.put(localByteBuffer);
+      } else {
+        int n = localByteBuffer.limit();
+        localByteBuffer.limit(m);
+        try {
+          paramByteBuffer.put(localByteBuffer);
+        } finally {
+          localByteBuffer.limit(n);
+        }
+      }
+      j += m;
+    }
+    return i;
+  }
+}

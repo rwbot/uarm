@@ -1,0 +1,176 @@
+package jogamp.opengl.awt;
+
+import com.jogamp.common.GlueGenVersion;
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.util.VersionUtil;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLEventListener;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.JoglVersion;
+import com.jogamp.opengl.awt.GLCanvas;
+import java.awt.BorderLayout;
+import java.awt.Container;
+import java.awt.Frame;
+import java.awt.GridLayout;
+import java.awt.TextArea;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.io.PrintStream;
+import java.util.List;
+
+public class VersionApplet extends java.applet.Applet
+{
+  TextArea tareaVersion;
+  TextArea tareaCaps;
+  GLCanvas canvas;
+  
+  public VersionApplet() {}
+  
+  public static void main(String[] paramArrayOfString)
+  {
+    Frame localFrame = new Frame("JOGL Version Applet");
+    localFrame.setSize(800, 600);
+    localFrame.setLayout(new BorderLayout());
+    
+    VersionApplet localVersionApplet = new VersionApplet();
+    localFrame.addWindowListener(new ClosingWindowAdapter(localFrame, localVersionApplet));
+    
+    localVersionApplet.init();
+    localFrame.add(localVersionApplet, "Center");
+    localFrame.validate();
+    
+    localFrame.setVisible(true);
+    localVersionApplet.start();
+  }
+  
+  static class ClosingWindowAdapter extends WindowAdapter {
+    Frame f;
+    VersionApplet va;
+    
+    public ClosingWindowAdapter(Frame paramFrame, VersionApplet paramVersionApplet) { f = paramFrame;
+      va = paramVersionApplet;
+    }
+    
+    public void windowClosing(WindowEvent paramWindowEvent) {
+      f.setVisible(false);
+      va.stop();
+      va.destroy();
+      f.remove(va);
+      f.dispose();
+      System.exit(0);
+    }
+  }
+  
+  private synchronized void my_init() {
+    if (null != canvas) { return;
+    }
+    setEnabled(true);
+    
+    GLProfile localGLProfile = GLProfile.getDefault();
+    GLCapabilities localGLCapabilities = new GLCapabilities(localGLProfile);
+    
+    setLayout(new BorderLayout());
+    
+
+    tareaVersion = new TextArea(120, 60);
+    String str = VersionUtil.getPlatformInfo().toString();
+    System.err.println(str);
+    tareaVersion.append(str);
+    
+    str = GlueGenVersion.getInstance().toString();
+    System.err.println(str);
+    tareaVersion.append(str);
+    
+
+
+
+
+
+
+    str = JoglVersion.getInstance().toString();
+    System.err.println(str);
+    tareaVersion.append(str);
+    
+    tareaCaps = new TextArea(120, 20);
+    GLDrawableFactory localGLDrawableFactory = GLDrawableFactory.getFactory(localGLProfile);
+    List localList = localGLDrawableFactory.getAvailableCapabilities(null);
+    for (int i = 0; i < localList.size(); i++) {
+      str = ((GLCapabilitiesImmutable)localList.get(i)).toString();
+      System.err.println(str);
+      tareaCaps.append(str);
+      tareaCaps.append(Platform.getNewline());
+    }
+    
+    Container localContainer = new Container();
+    localContainer.setLayout(new GridLayout(2, 1));
+    localContainer.add(tareaVersion);
+    localContainer.add(tareaCaps);
+    add(localContainer, "Center");
+    
+    canvas = new GLCanvas(localGLCapabilities);
+    canvas.addGLEventListener(new GLInfo());
+    canvas.setSize(10, 10);
+    add(canvas, "South");
+    validate();
+  }
+  
+  private synchronized void my_release() {
+    if (null != canvas) {
+      remove(canvas);
+      canvas.destroy();
+      canvas = null;
+      remove(tareaVersion.getParent());
+      tareaVersion = null;
+      tareaCaps = null;
+      setEnabled(false);
+    }
+  }
+  
+  public void init()
+  {
+    System.err.println("VersionApplet: init() - begin");
+    my_init();
+    System.err.println("VersionApplet: init() - end");
+  }
+  
+  public void start()
+  {
+    System.err.println("VersionApplet: start() - begin");
+    canvas.setVisible(true);
+    System.err.println("VersionApplet: start() - end");
+  }
+  
+  public void stop()
+  {
+    System.err.println("VersionApplet: stop() - begin");
+    canvas.setVisible(false);
+    System.err.println("VersionApplet: stop() - end");
+  }
+  
+  public void destroy()
+  {
+    System.err.println("VersionApplet: destroy() - start");
+    my_release();
+    System.err.println("VersionApplet: destroy() - end");
+  }
+  
+  class GLInfo implements GLEventListener {
+    GLInfo() {}
+    
+    public void init(GLAutoDrawable paramGLAutoDrawable) { GL localGL = paramGLAutoDrawable.getGL();
+      String str = JoglVersion.getGLInfo(localGL, null).toString();
+      System.err.println(str);
+      tareaVersion.append(str);
+    }
+    
+    public void reshape(GLAutoDrawable paramGLAutoDrawable, int paramInt1, int paramInt2, int paramInt3, int paramInt4) {}
+    
+    public void display(GLAutoDrawable paramGLAutoDrawable) {}
+    
+    public void dispose(GLAutoDrawable paramGLAutoDrawable) {}
+  }
+}

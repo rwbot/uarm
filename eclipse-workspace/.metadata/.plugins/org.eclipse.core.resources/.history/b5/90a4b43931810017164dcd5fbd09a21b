@@ -1,0 +1,150 @@
+package com.leapmotion.leap;
+
+
+
+
+public class Device
+  extends Interface
+{
+  private long swigCPtr;
+  
+
+
+  public Device(long paramLong, boolean paramBoolean)
+  {
+    super(LeapJNI.Device_SWIGUpcast(paramLong), paramBoolean);
+    swigCPtr = paramLong;
+  }
+  
+  public static long getCPtr(Device paramDevice) {
+    return paramDevice == null ? 0L : swigCPtr;
+  }
+  
+  protected void finalize() {
+    delete();
+  }
+  
+  public synchronized void delete() {
+    if (swigCPtr != 0L) {
+      if (swigCMemOwn) {
+        swigCMemOwn = false;
+        LeapJNI.delete_Device(swigCPtr);
+      }
+      swigCPtr = 0L;
+    }
+    super.delete();
+  }
+  
+  public Device() {
+    this(LeapJNI.new_Device(), true);
+  }
+  
+  public float horizontalViewAngle() {
+    return LeapJNI.Device_horizontalViewAngle(swigCPtr, this);
+  }
+  
+  public float verticalViewAngle() {
+    return LeapJNI.Device_verticalViewAngle(swigCPtr, this);
+  }
+  
+  public float range() {
+    return LeapJNI.Device_range(swigCPtr, this);
+  }
+  
+  public float baseline() {
+    return LeapJNI.Device_baseline(swigCPtr, this);
+  }
+  
+  public float distanceToBoundary(Vector paramVector) {
+    return LeapJNI.Device_distanceToBoundary(swigCPtr, this, Vector.getCPtr(paramVector), paramVector);
+  }
+  
+  public boolean isEmbedded() {
+    return LeapJNI.Device_isEmbedded(swigCPtr, this);
+  }
+  
+  public boolean isStreaming() {
+    return LeapJNI.Device_isStreaming(swigCPtr, this);
+  }
+  
+  public boolean isFlipped() {
+    return LeapJNI.Device_isFlipped(swigCPtr, this);
+  }
+  
+  public Type type() {
+    return Type.swigToEnum(LeapJNI.Device_type(swigCPtr, this));
+  }
+  
+  public String serialNumber() {
+    return LeapJNI.Device_serialNumber(swigCPtr, this);
+  }
+  
+  public Vector position() {
+    return new Vector(LeapJNI.Device_position(swigCPtr, this), true);
+  }
+  
+  public Matrix orientation() {
+    return new Matrix(LeapJNI.Device_orientation(swigCPtr, this), true);
+  }
+  
+  public boolean isValid() {
+    return LeapJNI.Device_isValid(swigCPtr, this);
+  }
+  
+  public static Device invalid() {
+    return new Device(LeapJNI.Device_invalid(), false);
+  }
+  
+  public boolean equals(Device paramDevice) {
+    return LeapJNI.Device_equals(swigCPtr, this, getCPtr(paramDevice), paramDevice);
+  }
+  
+  public String toString() {
+    return LeapJNI.Device_toString(swigCPtr, this);
+  }
+  
+  public static enum Type {
+    TYPE_PERIPHERAL(1), 
+    TYPE_LAPTOP, 
+    TYPE_KEYBOARD;
+    
+    public final int swigValue() {
+      return swigValue;
+    }
+    
+    public static Type swigToEnum(int paramInt) {
+      Type[] arrayOfType1 = (Type[])Type.class.getEnumConstants();
+      if ((paramInt < arrayOfType1.length) && (paramInt >= 0) && (swigValue == paramInt))
+        return arrayOfType1[paramInt];
+      for (Type localType : arrayOfType1)
+        if (swigValue == paramInt)
+          return localType;
+      throw new IllegalArgumentException("No enum " + Type.class + " with value " + paramInt);
+    }
+    
+    private Type()
+    {
+      swigValue = SwigNext.access$008();
+    }
+    
+    private Type(int paramInt)
+    {
+      swigValue = paramInt;
+      SwigNext.access$002(paramInt + 1);
+    }
+    
+    private Type(Type paramType)
+    {
+      swigValue = swigValue;
+      SwigNext.access$002(swigValue + 1);
+    }
+    
+    private final int swigValue;
+    private static class SwigNext
+    {
+      private static int next = 0;
+      
+      private SwigNext() {}
+    }
+  }
+}

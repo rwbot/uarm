@@ -1,0 +1,427 @@
+package jssc;
+
+import java.io.File;
+import java.io.FileReader;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Scanner;
+import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class SerialPortList
+{
+  private static SerialNativeInterface serialInterface = new SerialNativeInterface();
+  static { switch (SerialNativeInterface.getOsType()) {
+    case 0: 
+      PORTNAMES_REGEXP = Pattern.compile("(ttyS|ttyUSB|ttyACM|ttyAMA|rfcomm|ttyO)[0-9]{1,3}");
+      PORTNAMES_PATH = "/dev/";
+      break;
+    
+    case 2: 
+      PORTNAMES_REGEXP = Pattern.compile("[0-9]*|[a-z]*");
+      PORTNAMES_PATH = "/dev/term/";
+      break;
+    
+    case 3: 
+      PORTNAMES_REGEXP = Pattern.compile("(cu|tty)\\..+");
+      PORTNAMES_PATH = "/dev/";
+      break;
+    
+    case 1: 
+      PORTNAMES_REGEXP = Pattern.compile("");
+      PORTNAMES_PATH = "";
+      break;
+    
+    default: 
+      PORTNAMES_REGEXP = null;
+      PORTNAMES_PATH = null;
+    }
+    
+  }
+  
+  private static final Pattern PORTNAMES_REGEXP;
+  private static final String PORTNAMES_PATH;
+  private static final Comparator<String> PORTNAMES_COMPARATOR = new Comparator()
+  {
+
+    public int compare(String paramAnonymousString1, String paramAnonymousString2)
+    {
+      if (paramAnonymousString1.equalsIgnoreCase(paramAnonymousString2)) {
+        return paramAnonymousString1.compareTo(paramAnonymousString2);
+      }
+      
+      int i = Math.min(paramAnonymousString1.length(), paramAnonymousString2.length());
+      
+      int j = 0;
+      int k = 0;
+      
+      for (int m = 0; m < i; m++) {
+        char c1 = paramAnonymousString1.charAt(m - j);
+        char c2 = paramAnonymousString2.charAt(m - k);
+        if (c1 != c2) {
+          if ((Character.isDigit(c1)) && (Character.isDigit(c2))) {
+            int[] arrayOfInt1 = getNumberAndLastIndex(paramAnonymousString1, m - j);
+            int[] arrayOfInt2 = getNumberAndLastIndex(paramAnonymousString2, m - k);
+            
+            if (arrayOfInt1[0] != arrayOfInt2[0]) {
+              return arrayOfInt1[0] - arrayOfInt2[0];
+            }
+            
+            if (paramAnonymousString1.length() < paramAnonymousString2.length()) {
+              m = arrayOfInt1[1];
+              k = arrayOfInt1[1] - arrayOfInt2[1];
+            }
+            else {
+              m = arrayOfInt2[1];
+              j = arrayOfInt2[1] - arrayOfInt1[1];
+            }
+            
+          }
+          else if (Character.toLowerCase(c1) - Character.toLowerCase(c2) != 0) {
+            return Character.toLowerCase(c1) - Character.toLowerCase(c2);
+          }
+        }
+      }
+      
+      return paramAnonymousString1.compareToIgnoreCase(paramAnonymousString2);
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private int[] getNumberAndLastIndex(String paramAnonymousString, int paramAnonymousInt)
+    {
+      String str = "";
+      int[] arrayOfInt = { -1, paramAnonymousInt };
+      for (int i = paramAnonymousInt; i < paramAnonymousString.length(); i++) {
+        arrayOfInt[1] = i;
+        char c = paramAnonymousString.charAt(i);
+        if (!Character.isDigit(c)) break;
+        str = str + c;
+      }
+      
+
+
+      try
+      {
+        arrayOfInt[0] = Integer.valueOf(str).intValue();
+      }
+      catch (Exception localException) {}
+      
+
+      return arrayOfInt;
+    }
+  };
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static String[] getPortNames()
+  {
+    return getPortNames(PORTNAMES_PATH, PORTNAMES_REGEXP, PORTNAMES_COMPARATOR);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public static String[] getPortNames(String paramString)
+  {
+    return getPortNames(paramString, PORTNAMES_REGEXP, PORTNAMES_COMPARATOR);
+  }
+  
+
+
+
+
+
+
+
+
+  public static String[] getPortNames(Pattern paramPattern)
+  {
+    return getPortNames(PORTNAMES_PATH, paramPattern, PORTNAMES_COMPARATOR);
+  }
+  
+
+
+
+
+
+
+
+
+  public static String[] getPortNames(Comparator<String> paramComparator)
+  {
+    return getPortNames(PORTNAMES_PATH, PORTNAMES_REGEXP, paramComparator);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static String[] getPortNames(String paramString, Pattern paramPattern)
+  {
+    return getPortNames(paramString, paramPattern, PORTNAMES_COMPARATOR);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static String[] getPortNames(String paramString, Comparator<String> paramComparator)
+  {
+    return getPortNames(paramString, PORTNAMES_REGEXP, paramComparator);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public static String[] getPortNames(Pattern paramPattern, Comparator<String> paramComparator)
+  {
+    return getPortNames(PORTNAMES_PATH, paramPattern, paramComparator);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static String[] getPortNames(String paramString, Pattern paramPattern, Comparator<String> paramComparator)
+  {
+    if ((paramString == null) || (paramPattern == null) || (paramComparator == null)) {
+      return new String[0];
+    }
+    if (SerialNativeInterface.getOsType() == 1) {
+      return getWindowsPortNames(paramPattern, paramComparator);
+    }
+    return getUnixBasedPortNames(paramString, paramPattern, paramComparator);
+  }
+  
+
+
+
+
+  private static String[] getWindowsPortNames(Pattern paramPattern, Comparator<String> paramComparator)
+  {
+    String[] arrayOfString1 = serialInterface.getSerialPortNames();
+    if (arrayOfString1 == null) {
+      return new String[0];
+    }
+    TreeSet localTreeSet = new TreeSet(paramComparator);
+    for (String str : arrayOfString1) {
+      if (paramPattern.matcher(str).find()) {
+        localTreeSet.add(str);
+      }
+    }
+    return (String[])localTreeSet.toArray(new String[localTreeSet.size()]);
+  }
+  
+
+
+  private static String[] getUnixBasedPortNames(String paramString, Pattern paramPattern, Comparator<String> paramComparator)
+  {
+    paramString = paramString + "/";
+    String[] arrayOfString = new String[0];
+    File localFile1 = new File(paramString);
+    if ((localFile1.exists()) && (localFile1.isDirectory())) {
+      File[] arrayOfFile1 = localFile1.listFiles();
+      if (arrayOfFile1.length > 0) {
+        TreeSet localTreeSet = new TreeSet(paramComparator);
+        for (File localFile2 : arrayOfFile1) {
+          String str1 = localFile2.getName();
+          if ((!localFile2.isDirectory()) && (!localFile2.isFile()) && (paramPattern.matcher(str1).find())) {
+            String str2 = paramString + str1;
+            
+
+
+
+
+
+
+
+
+            localTreeSet.add(str2);
+          }
+        }
+        arrayOfString = (String[])localTreeSet.toArray(arrayOfString);
+      }
+    }
+    return arrayOfString;
+  }
+  
+  public static Map<String, String> getPortProperties(String paramString) {
+    if (SerialNativeInterface.getOsType() == 0)
+      return getLinuxPortProperties(paramString);
+    if (SerialNativeInterface.getOsType() == 3)
+      return getNativePortProperties(paramString);
+    if (SerialNativeInterface.getOsType() == 1)
+    {
+      return new HashMap();
+    }
+    return new HashMap();
+  }
+  
+  public static Map<String, String> getLinuxPortProperties(String paramString)
+  {
+    HashMap localHashMap = new HashMap();
+    try
+    {
+      String str1 = paramString.split("/")[2];
+      File localFile = new File("/sys/bus/usb-serial/devices/" + str1);
+      
+
+      String[] arrayOfString1 = localFile.getCanonicalPath().split("/");
+      
+
+      for (int i = arrayOfString1.length - 2; 0 < i; i--) {
+        String str2 = "/";
+        for (int j = 1; j <= i; j++) {
+          str2 = str2 + arrayOfString1[j] + "/";
+        }
+        
+
+        String[] arrayOfString2 = { "idProduct", "idVendor", "manufacturer", "product", "serial" };
+        for (int k = 0; k < arrayOfString2.length; k++) {
+          try {
+            Scanner localScanner = new Scanner(new FileReader(str2 + arrayOfString2[k]));
+            
+            localHashMap.put(arrayOfString2[k], localScanner.next());
+          }
+          catch (Exception localException2) {}
+        }
+        
+
+
+        if (0 < localHashMap.size()) {
+          break;
+        }
+      }
+    }
+    catch (Exception localException1) {}
+    
+    return localHashMap;
+  }
+  
+  public static Map<String, String> getNativePortProperties(String paramString) {
+    HashMap localHashMap = new HashMap();
+    try
+    {
+      String[] arrayOfString1 = { "idProduct", "idVendor", "manufacturer", "product", "serial" };
+      String[] arrayOfString2 = SerialNativeInterface.getPortProperties(paramString);
+      
+      for (int i = 0; i < arrayOfString1.length; i++) {
+        if (arrayOfString2[i] != null) {
+          localHashMap.put(arrayOfString1[i], arrayOfString2[i]);
+        }
+      }
+    }
+    catch (Exception localException) {}
+    
+    return localHashMap;
+  }
+  
+  public SerialPortList() {}
+}

@@ -1,0 +1,145 @@
+package jogamp.opengl.windows.wgl;
+
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.DefaultGraphicsScreen;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import java.io.PrintStream;
+import jogamp.nativewindow.WrappedSurface;
+import jogamp.nativewindow.windows.GDI;
+import jogamp.opengl.GLContextShareSet;
+import jogamp.opengl.GLStateTracker;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class WindowsExternalWGLContext
+  extends WindowsWGLContext
+{
+  private WindowsExternalWGLContext(Drawable paramDrawable, long paramLong, WindowsWGLGraphicsConfiguration paramWindowsWGLGraphicsConfiguration)
+  {
+    super(paramDrawable, null);
+    contextHandle = paramLong;
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": Created external OpenGL context " + toHexString(paramLong) + " for " + this);
+    }
+    GLContextShareSet.contextCreated(this);
+    if (!setGLFunctionAvailability(false, 0, 0, 2, false, false)) {
+      throw new InternalError("setGLFunctionAvailability !strictMatch failed");
+    }
+    getGLStateTracker().setEnabled(false);
+  }
+  
+  protected static WindowsExternalWGLContext create(GLDrawableFactory paramGLDrawableFactory, GLProfile paramGLProfile) {
+    if (DEBUG) {
+      System.err.println("WindowsExternalWGLContext 0: werr: " + GDI.GetLastError());
+    }
+    
+    long l1 = WGL.wglGetCurrentContext();
+    if (0L == l1) {
+      throw new GLException("Error: attempted to make an external GLContext without a context current, werr " + GDI.GetLastError());
+    }
+    
+    long l2 = WGL.wglGetCurrentDC();
+    if (0L == l2) {
+      throw new GLException("Error: attempted to make an external GLDrawable without a drawable current, werr " + GDI.GetLastError());
+    }
+    AbstractGraphicsScreen localAbstractGraphicsScreen = DefaultGraphicsScreen.createDefault(NativeWindowFactory.TYPE_WINDOWS);
+    
+    int i = WGLUtil.GetPixelFormat(l2);
+    WindowsWGLGraphicsConfiguration localWindowsWGLGraphicsConfiguration; if (0 == i)
+    {
+
+
+      int j = GDI.GetLastError();
+      localWindowsWGLGraphicsConfiguration = WindowsWGLGraphicsConfigurationFactory.createDefaultGraphicsConfiguration(new GLCapabilities(GLProfile.getDefault()), localAbstractGraphicsScreen);
+      localWindowsWGLGraphicsConfiguration.markExternal();
+      if (DEBUG) {
+        System.err.println("WindowsExternalWGLContext invalid hdc/pfd werr " + j + ", using default cfg: " + localWindowsWGLGraphicsConfiguration);
+      }
+    } else {
+      localWindowsWGLGraphicsConfiguration = WindowsWGLGraphicsConfiguration.createFromExternal(paramGLDrawableFactory, l2, i, paramGLProfile, localAbstractGraphicsScreen, true);
+      if (DEBUG) {
+        System.err.println("WindowsExternalWGLContext valid hdc/pfd, retrieved cfg: " + localWindowsWGLGraphicsConfiguration);
+      }
+    }
+    return new WindowsExternalWGLContext(new Drawable(paramGLDrawableFactory, new WrappedSurface(localWindowsWGLGraphicsConfiguration, l2, 64, 64, true)), l1, localWindowsWGLGraphicsConfiguration);
+  }
+  
+  protected void makeCurrentImpl()
+    throws GLException
+  {}
+  
+  protected void releaseImpl() throws GLException
+  {}
+  
+  protected void destroyImpl() throws GLException
+  {}
+  
+  static class Drawable
+    extends WindowsWGLDrawable
+  {
+    Drawable(GLDrawableFactory paramGLDrawableFactory, NativeSurface paramNativeSurface)
+    {
+      super(paramNativeSurface, true);
+    }
+    
+    public GLContext createContext(GLContext paramGLContext)
+    {
+      throw new GLException("Should not call this");
+    }
+    
+    public int getSurfaceWidth()
+    {
+      throw new GLException("Should not call this");
+    }
+    
+    public int getSurfaceHeight()
+    {
+      throw new GLException("Should not call this");
+    }
+    
+    public void setSize(int paramInt1, int paramInt2) {
+      throw new GLException("Should not call this");
+    }
+  }
+}

@@ -1,0 +1,93 @@
+package jogamp.common.os;
+
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public final class WindowsDynamicLinkerImpl
+  extends DynamicLinkerImpl
+{
+  private static final int symbolArgAlignment = 4;
+  private static final int symbolMaxArguments = 12;
+  
+  public WindowsDynamicLinkerImpl() {}
+  
+  private static native int FreeLibrary(long paramLong);
+  
+  private static native int GetLastError();
+  
+  private static native long GetProcAddressA(long paramLong, String paramString);
+  
+  private static native long LoadLibraryW(String paramString);
+  
+  protected final long openLibraryLocalImpl(String paramString)
+    throws SecurityException
+  {
+    return LoadLibraryW(paramString);
+  }
+  
+  protected final long openLibraryGlobalImpl(String paramString) throws SecurityException
+  {
+    return LoadLibraryW(paramString);
+  }
+  
+  protected final long lookupSymbolGlobalImpl(String paramString) throws SecurityException
+  {
+    if (DEBUG_LOOKUP) {
+      System.err.println("lookupSymbolGlobal: Not supported on Windows");
+    }
+    
+    return 0L;
+  }
+  
+
+
+  protected final long lookupSymbolLocalImpl(long paramLong, String paramString)
+    throws IllegalArgumentException
+  {
+    String str = paramString;
+    long l = GetProcAddressA(paramLong, str);
+    if (0L == l)
+    {
+
+      for (int i = 0; (0L == l) && (i <= 12); i++) {
+        str = paramString + "@" + i * 4;
+        l = GetProcAddressA(paramLong, str);
+      }
+    }
+    return l;
+  }
+  
+  protected final void closeLibraryImpl(long paramLong) throws IllegalArgumentException
+  {
+    FreeLibrary(paramLong);
+  }
+  
+  public final String getLastError()
+  {
+    int i = GetLastError();
+    return "Last error: 0x" + Integer.toHexString(i) + " (" + i + ")";
+  }
+}

@@ -1,0 +1,77 @@
+package jogamp.graph.font.typecast.ot.mac;
+
+import java.io.IOException;
+import java.io.PrintStream;
+import java.io.RandomAccessFile;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ResourceFile
+{
+  private final ResourceHeader header;
+  private final ResourceMap map;
+  
+  public ResourceFile(RandomAccessFile paramRandomAccessFile)
+    throws IOException
+  {
+    paramRandomAccessFile.seek(0L);
+    header = new ResourceHeader(paramRandomAccessFile);
+    
+
+    paramRandomAccessFile.seek(header.getMapOffset());
+    map = new ResourceMap(paramRandomAccessFile);
+  }
+  
+  public ResourceMap getResourceMap() {
+    return map;
+  }
+  
+
+  public static void main(String[] paramArrayOfString)
+  {
+    try
+    {
+      RandomAccessFile localRandomAccessFile = new RandomAccessFile("/Library/Fonts/Georgia/..namedfork/rsrc", "r");
+      ResourceFile localResourceFile = new ResourceFile(localRandomAccessFile);
+      for (int i = 0; i < localResourceFile.getResourceMap().getResourceTypeCount(); i++) {
+        System.out.println(localResourceFile.getResourceMap().getResourceType(i).getTypeAsString());
+      }
+      
+
+      ResourceType localResourceType = localResourceFile.getResourceMap().getResourceType("sfnt");
+      ResourceReference localResourceReference = localResourceType.getReference(0);
+      
+      localResourceType = localResourceFile.getResourceMap().getResourceType("FOND");
+      for (int j = 0; j < localResourceType.getCount(); j++) {
+        localResourceReference = localResourceType.getReference(j);
+        System.out.println(localResourceReference.getName());
+      }
+    } catch (Exception localException) {
+      localException.printStackTrace();
+    }
+  }
+}

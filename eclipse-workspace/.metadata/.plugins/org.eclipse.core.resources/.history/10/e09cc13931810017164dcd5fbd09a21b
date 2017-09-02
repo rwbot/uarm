@@ -1,0 +1,563 @@
+package g4p_controls;
+
+import java.lang.reflect.Method;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedList;
+import processing.core.PApplet;
+import processing.core.PSurface;
+import processing.core.PVector;
+import processing.event.KeyEvent;
+import processing.event.MouseEvent;
+
+public abstract class GWindow
+  extends PApplet
+  implements GConstants, GConstantsInternal
+{
+  protected int actionOnClose = 3843;
+  public GWinData data;
+  public String tag;
+  public int tagNo;
+  protected final int w;
+  protected final int h;
+  protected final String title;
+  protected String renderer_type;
+  protected boolean preparedForClosure = false;
+  public LinkedList<GAbstractControl> windowControls = new LinkedList();
+  public LinkedList<GAbstractControl> toRemove = new LinkedList();
+  public LinkedList<GAbstractControl> toAdd = new LinkedList();
+  protected Object preHandlerObject = null;
+  protected Method preHandlerMethod = null;
+  protected String preHandlerMethodName;
+  protected Object postHandlerObject = null;
+  protected Method postHandlerMethod = null;
+  protected String postHandlerMethodName;
+  protected Object drawHandlerObject = null;
+  protected Method drawHandlerMethod = null;
+  protected String drawHandlerMethodName;
+  protected Object keyHandlerObject = null;
+  protected Method keyHandlerMethod = null;
+  protected String keyHandlerMethodName;
+  protected Object mouseHandlerObject = null;
+  protected Method mouseHandlerMethod = null;
+  protected String mouseHandlerMethodName;
+  protected Object closeHandlerObject = null;
+  protected Method closetHandlerMethod = null;
+  protected String closetHandlerMethodName;
+  protected boolean is3D;
+  
+  public static GWindow getWindow(PApplet paramPApplet, String paramString1, int paramInt1, int paramInt2, int paramInt3, int paramInt4, String paramString2)
+  {
+    G4P.registerSketch(paramPApplet);
+    Object localObject = null;
+    if (paramString2.equals("processing.awt.PGraphicsJava2D")) {
+      localObject = new GWindowAWT(paramString1, paramInt3, paramInt4);
+    } else if (paramString2.equals("processing.opengl.PGraphics2D")) {
+      localObject = new GWindowNEWT(paramString1, paramInt3, paramInt4, false);
+    } else if (paramString2.equals("processing.opengl.PGraphics3D")) {
+      localObject = new GWindowNEWT(paramString1, paramInt3, paramInt4, true);
+    }
+    if (localObject != null)
+    {
+      String str1 = "--sketch-path=" + G4P.sketchWindow.sketchPath();
+      String str2 = "--location=" + paramInt1 + "," + paramInt2;
+      String str3 = localObject.getClass().getName();
+      String[] arrayOfString = { str1, str2, str3 };
+      G4P.registerWindow((GWindow)localObject);
+      PApplet.runSketch(arrayOfString, (PApplet)localObject);
+    }
+    return localObject;
+  }
+  
+  protected GWindow(String paramString, int paramInt1, int paramInt2)
+  {
+    title = paramString;
+    w = paramInt1;
+    h = paramInt2;
+    registerMethods();
+  }
+  
+  protected void registerMethods()
+  {
+    registerMethod("pre", this);
+    registerMethod("draw", this);
+    registerMethod("post", this);
+    registerMethod("mouseEvent", this);
+    registerMethod("keyEvent", this);
+  }
+  
+  protected void unregisterMethods()
+  {
+    unregisterMethod("pre", this);
+    unregisterMethod("draw", this);
+    unregisterMethod("post", this);
+    unregisterMethod("mouseEvent", this);
+    unregisterMethod("keyEvent", this);
+    preHandlerObject = null;
+    drawHandlerObject = null;
+    postHandlerObject = null;
+    mouseHandlerObject = null;
+    keyHandlerObject = null;
+  }
+  
+  public void addData(GWinData paramGWinData)
+  {
+    data = paramGWinData;
+  }
+  
+  protected void addToWindow(GAbstractControl paramGAbstractControl)
+  {
+    if ((!toAdd.contains(paramGAbstractControl)) && (!windowControls.contains(paramGAbstractControl))) {
+      toAdd.add(paramGAbstractControl);
+    }
+  }
+  
+  protected void removeFromWindow(GAbstractControl paramGAbstractControl)
+  {
+    toRemove.add(paramGAbstractControl);
+  }
+  
+  void invalidateBuffers()
+  {
+    Iterator localIterator = windowControls.iterator();
+    while (localIterator.hasNext())
+    {
+      GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+      bufferInvalid = true;
+    }
+  }
+  
+  void setColorScheme(int paramInt)
+  {
+    Iterator localIterator = windowControls.iterator();
+    while (localIterator.hasNext())
+    {
+      GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+      localGAbstractControl.setLocalColorScheme(paramInt);
+    }
+  }
+  
+  void setAlpha(int paramInt)
+  {
+    Iterator localIterator = windowControls.iterator();
+    while (localIterator.hasNext())
+    {
+      GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+      localGAbstractControl.setAlpha(paramInt);
+    }
+  }
+  
+  public void setVisible(boolean paramBoolean)
+  {
+    surface.setVisible(paramBoolean);
+  }
+  
+  public abstract boolean isVisible();
+  
+  public void setTitle(String paramString)
+  {
+    surface.setTitle(paramString);
+  }
+  
+  public abstract String getTitle();
+  
+  public void setLocation(int paramInt1, int paramInt2)
+  {
+    surface.setLocation(paramInt1, paramInt2);
+  }
+  
+  public abstract PVector getPosition(PVector paramPVector);
+  
+  public void setAlwaysOnTop(boolean paramBoolean)
+  {
+    surface.setAlwaysOnTop(paramBoolean);
+  }
+  
+  public void draw()
+  {
+    pushMatrix();
+    if (drawHandlerObject != null) {
+      try
+      {
+        drawHandlerMethod.invoke(drawHandlerObject, new Object[] { this, data });
+      }
+      catch (Exception localException)
+      {
+        GMessenger.message(Integer.valueOf(-16777211), new Object[] { drawHandlerObject, drawHandlerMethodName, localException });
+      }
+    }
+    popMatrix();
+  }
+  
+  public void pre()
+  {
+    if (preHandlerObject != null) {
+      try
+      {
+        preHandlerMethod.invoke(preHandlerObject, new Object[] { this, data });
+      }
+      catch (Exception localException)
+      {
+        GMessenger.message(Integer.valueOf(-16777211), new Object[] { preHandlerObject, preHandlerMethodName, localException });
+      }
+    }
+    if ((GAbstractControl.controlToTakeFocus != null) && (GAbstractControl.controlToTakeFocus.getPApplet() == this))
+    {
+      GAbstractControl.controlToTakeFocus.setFocus(true);
+      GAbstractControl.controlToTakeFocus = null;
+    }
+    Iterator localIterator = windowControls.iterator();
+    while (localIterator.hasNext())
+    {
+      GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+      if ((registeredMethods & 0x4) == 4) {
+        localGAbstractControl.pre();
+      }
+    }
+  }
+  
+  public void post()
+  {
+    if (postHandlerObject != null) {
+      try
+      {
+        postHandlerMethod.invoke(postHandlerObject, new Object[] { this, data });
+      }
+      catch (Exception localException)
+      {
+        GMessenger.message(Integer.valueOf(-16777211), new Object[] { postHandlerObject, postHandlerMethodName, localException });
+      }
+    }
+    if (G4P.cursorChangeEnabled) {
+      if ((GAbstractControl.cursorIsOver != null) && (GAbstractControl.cursorIsOver.getPApplet() == this)) {
+        cursor(cursorIsOvercursorOver);
+      } else {
+        cursor(G4P.mouseOff);
+      }
+    }
+    Iterator localIterator = windowControls.iterator();
+    Object localObject1;
+    while (localIterator.hasNext())
+    {
+      localObject1 = (GAbstractControl)localIterator.next();
+      if ((registeredMethods & 0x10) == 16) {
+        ((GAbstractControl)localObject1).post();
+      }
+    }
+    synchronized (this)
+    {
+      GAbstractControl localGAbstractControl;
+      if (!toRemove.isEmpty())
+      {
+        localObject1 = toRemove.iterator();
+        while (((Iterator)localObject1).hasNext())
+        {
+          localGAbstractControl = (GAbstractControl)((Iterator)localObject1).next();
+          if (GAbstractControl.focusIsWith == localGAbstractControl) {
+            localGAbstractControl.loseFocus(null);
+          }
+          buffer = null;
+          if (parent != null)
+          {
+            parent.children.remove(localGAbstractControl);
+            parent = null;
+          }
+          if (children != null) {
+            children.clear();
+          }
+          palette = null;
+          eventHandlerObject = null;
+          eventHandlerMethod = null;
+          winApp = null;
+          windowControls.remove(localGAbstractControl);
+          System.gc();
+        }
+        toRemove.clear();
+      }
+      if (!toAdd.isEmpty())
+      {
+        localObject1 = toAdd.iterator();
+        while (((Iterator)localObject1).hasNext())
+        {
+          localGAbstractControl = (GAbstractControl)((Iterator)localObject1).next();
+          windowControls.add(localGAbstractControl);
+        }
+        toAdd.clear();
+        Collections.sort(windowControls, G4P.zorder);
+      }
+    }
+  }
+  
+  public void mouseEvent(MouseEvent paramMouseEvent)
+  {
+    if (mouseHandlerObject != null) {
+      try
+      {
+        mouseHandlerMethod.invoke(mouseHandlerObject, new Object[] { this, data, paramMouseEvent });
+      }
+      catch (Exception localException)
+      {
+        GMessenger.message(Integer.valueOf(-16777211), new Object[] { mouseHandlerObject, mouseHandlerMethodName, localException });
+      }
+    }
+    Iterator localIterator = windowControls.iterator();
+    while (localIterator.hasNext())
+    {
+      GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+      if ((registeredMethods & 0x2) == 2) {
+        localGAbstractControl.mouseEvent(paramMouseEvent);
+      }
+    }
+  }
+  
+  public void keyEvent(KeyEvent paramKeyEvent)
+  {
+    if (keyHandlerObject != null) {
+      try
+      {
+        keyHandlerMethod.invoke(keyHandlerObject, new Object[] { this, data, paramKeyEvent });
+      }
+      catch (Exception localException)
+      {
+        GMessenger.message(Integer.valueOf(-16777211), new Object[] { keyHandlerObject, keyHandlerMethodName, localException });
+      }
+    }
+    Iterator localIterator = windowControls.iterator();
+    while (localIterator.hasNext())
+    {
+      GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+      if ((registeredMethods & 0x8) == 8) {
+        localGAbstractControl.keyEvent(paramKeyEvent);
+      }
+    }
+  }
+  
+  public void addDrawHandler(Object paramObject, String paramString)
+  {
+    try
+    {
+      drawHandlerMethod = paramObject.getClass().getMethod(paramString, new Class[] { PApplet.class, GWinData.class });
+      drawHandlerObject = paramObject;
+      drawHandlerMethodName = paramString;
+    }
+    catch (Exception localException)
+    {
+      drawHandlerObject = null;
+      GMessenger.message(Integer.valueOf(-16777214), new Object[] { this, paramString, { PApplet.class, GWinData.class } });
+    }
+  }
+  
+  public void addPreHandler(Object paramObject, String paramString)
+  {
+    try
+    {
+      preHandlerMethod = paramObject.getClass().getMethod(paramString, new Class[] { PApplet.class, GWinData.class });
+      preHandlerObject = paramObject;
+      preHandlerMethodName = paramString;
+    }
+    catch (Exception localException)
+    {
+      preHandlerMethod = null;
+      GMessenger.message(Integer.valueOf(-16777214), new Object[] { this, paramString, { PApplet.class, GWinData.class } });
+    }
+  }
+  
+  public void addMouseHandler(Object paramObject, String paramString)
+  {
+    try
+    {
+      mouseHandlerMethod = paramObject.getClass().getMethod(paramString, new Class[] { PApplet.class, GWinData.class, MouseEvent.class });
+      mouseHandlerObject = paramObject;
+      mouseHandlerMethodName = paramString;
+    }
+    catch (Exception localException)
+    {
+      mouseHandlerObject = null;
+      GMessenger.message(Integer.valueOf(-16777214), new Object[] { this, paramString, { PApplet.class, GWinData.class, MouseEvent.class } });
+    }
+  }
+  
+  public void addKeyHandler(Object paramObject, String paramString)
+  {
+    try
+    {
+      keyHandlerMethod = paramObject.getClass().getMethod(paramString, new Class[] { PApplet.class, GWinData.class, KeyEvent.class });
+      keyHandlerObject = paramObject;
+      keyHandlerMethodName = paramString;
+    }
+    catch (Exception localException)
+    {
+      keyHandlerObject = null;
+      GMessenger.message(Integer.valueOf(-16777214), new Object[] { this, paramString, { PApplet.class, GWinData.class, KeyEvent.class } });
+    }
+  }
+  
+  public void addPostHandler(Object paramObject, String paramString)
+  {
+    try
+    {
+      postHandlerMethod = paramObject.getClass().getMethod(paramString, new Class[] { PApplet.class, GWinData.class });
+      postHandlerObject = paramObject;
+      postHandlerMethodName = paramString;
+    }
+    catch (Exception localException)
+    {
+      postHandlerObject = null;
+      GMessenger.message(Integer.valueOf(-16777214), new Object[] { this, paramString, { PApplet.class, GWinData.class } });
+    }
+  }
+  
+  public void addOnCloseHandler(Object paramObject, String paramString)
+  {
+    try
+    {
+      closeHandlerObject = paramObject;
+      closetHandlerMethodName = paramString;
+      closetHandlerMethod = paramObject.getClass().getMethod(paramString, new Class[] { PApplet.class, GWinData.class });
+    }
+    catch (Exception localException)
+    {
+      GMessenger.message(Integer.valueOf(-16777214), new Object[] { this, paramString, { PApplet.class, GWinData.class } });
+      closeHandlerObject = null;
+      closetHandlerMethodName = "";
+    }
+  }
+  
+  public void close()
+  {
+    if ((actionOnClose == 3843) || (actionOnClose == 3841)) {
+      return;
+    }
+    prepareWindowForClosure();
+  }
+  
+  public void forceClose()
+  {
+    if (actionOnClose == 3841) {
+      return;
+    }
+    if (actionOnClose == 3843) {
+      setActionOnClose(3842);
+    }
+    prepareWindowForClosure();
+  }
+  
+  protected abstract void fireCloseWindowEvent();
+  
+  protected void prepareWindowForClosure()
+  {
+    noLoop();
+    unregisterMethods();
+    G4P.deregisterWindow(this);
+    new Thread(new GCloseNotifier(this)).start();
+  }
+  
+  public abstract void setActionOnClose(int paramInt);
+  
+  public void settings()
+  {
+    size(w, h, renderer_type);
+  }
+  
+  protected abstract void initListeners();
+  
+  public void setup()
+  {
+    surface.setTitle(title);
+    initListeners();
+  }
+  
+  public void performCloseAction()
+  {
+    if (closeHandlerObject != null) {
+      try
+      {
+        closetHandlerMethod.invoke(closeHandlerObject, new Object[] { this, data });
+      }
+      catch (Exception localException)
+      {
+        GMessenger.message(Integer.valueOf(-16777211), new Object[] { preHandlerObject, preHandlerMethodName, localException });
+      }
+    }
+  }
+  
+  protected class WindowAdapterNEWT
+    extends com.jogamp.newt.event.WindowAdapter
+  {
+    GWindow window = null;
+    
+    public WindowAdapterNEWT(GWindow paramGWindow)
+    {
+      window = paramGWindow;
+    }
+    
+    public void windowGainedFocus(com.jogamp.newt.event.WindowEvent paramWindowEvent)
+    {
+      focused = true;
+      focusGained();
+    }
+    
+    public void windowLostFocus(com.jogamp.newt.event.WindowEvent paramWindowEvent)
+    {
+      focused = false;
+      focusLost();
+    }
+    
+    public void windowDestroyNotify(com.jogamp.newt.event.WindowEvent paramWindowEvent)
+    {
+      switch (actionOnClose)
+      {
+      case 3841: 
+        exitActual();
+        break;
+      case 3842: 
+        performCloseAction();
+        G4P.deregisterWindow(window);
+        dispose();
+      }
+    }
+  }
+  
+  protected class WindowAdapterAWT
+    extends java.awt.event.WindowAdapter
+  {
+    GWindow window = null;
+    
+    public WindowAdapterAWT(GWindow paramGWindow)
+    {
+      window = paramGWindow;
+    }
+    
+    public void windowClosing(java.awt.event.WindowEvent paramWindowEvent)
+    {
+      switch (actionOnClose)
+      {
+      case 3841: 
+        System.exit(0);
+        break;
+      case 3842: 
+        performCloseAction();
+        G4P.deregisterWindow(window);
+        dispose();
+      }
+    }
+  }
+  
+  protected class GCloseNotifier
+    implements Runnable
+  {
+    GWindow window = null;
+    
+    public GCloseNotifier(GWindow paramGWindow)
+    {
+      window = paramGWindow;
+    }
+    
+    public void run()
+    {
+      if (window != null) {
+        window.fireCloseWindowEvent();
+      }
+    }
+  }
+}

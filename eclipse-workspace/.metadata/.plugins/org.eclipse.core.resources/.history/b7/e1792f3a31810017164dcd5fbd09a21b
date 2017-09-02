@@ -1,0 +1,55 @@
+package jogamp.opengl.util.pngj.chunks;
+
+import jogamp.opengl.util.pngj.ImageInfo;
+import jogamp.opengl.util.pngj.PngHelperInternal;
+import jogamp.opengl.util.pngj.PngjException;
+
+
+
+
+
+public class PngChunkGAMA
+  extends PngChunkSingle
+{
+  public static final String ID = "gAMA";
+  private double gamma;
+  
+  public PngChunkGAMA(ImageInfo paramImageInfo)
+  {
+    super("gAMA", paramImageInfo);
+  }
+  
+  public PngChunk.ChunkOrderingConstraint getOrderingConstraint()
+  {
+    return PngChunk.ChunkOrderingConstraint.BEFORE_PLTE_AND_IDAT;
+  }
+  
+  public ChunkRaw createRawChunk()
+  {
+    ChunkRaw localChunkRaw = createEmptyChunk(4, true);
+    int i = (int)(gamma * 100000.0D + 0.5D);
+    PngHelperInternal.writeInt4tobytes(i, data, 0);
+    return localChunkRaw;
+  }
+  
+  public void parseFromRaw(ChunkRaw paramChunkRaw)
+  {
+    if (len != 4)
+      throw new PngjException("bad chunk " + paramChunkRaw);
+    int i = PngHelperInternal.readInt4fromBytes(data, 0);
+    gamma = (i / 100000.0D);
+  }
+  
+  public void cloneDataFromRead(PngChunk paramPngChunk)
+  {
+    gamma = gamma;
+  }
+  
+  public double getGamma() {
+    return gamma;
+  }
+  
+  public void setGamma(double paramDouble) {
+    gamma = paramDouble;
+  }
+}

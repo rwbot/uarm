@@ -1,0 +1,97 @@
+package jogamp.opengl.util.pngj;
+
+
+class FilterWriteStrategy
+{
+  private static final int COMPUTE_STATS_EVERY_N_LINES = 8;
+  
+  final ImageInfo imgInfo;
+  
+  public final FilterType configuredType;
+  private FilterType currentType;
+  private int lastRowTested = -1000000;
+  
+  private final double[] lastSums = new double[5];
+  
+  private final double[] lastEntropies = new double[5];
+  
+  private double[] preference = { 1.1D, 1.1D, 1.1D, 1.1D, 1.2D };
+  private int discoverEachLines = -1;
+  private final double[] histogram1 = new double['Ā'];
+  
+  FilterWriteStrategy(ImageInfo paramImageInfo, FilterType paramFilterType) {
+    imgInfo = paramImageInfo;
+    configuredType = paramFilterType;
+    if (val < 0) {
+      if (((rows < 8) && (cols < 8)) || (indexed) || (bitDepth < 8)) {
+        currentType = FilterType.FILTER_NONE;
+      } else
+        currentType = FilterType.FILTER_PAETH;
+    } else {
+      currentType = paramFilterType;
+    }
+    if (paramFilterType == FilterType.FILTER_AGGRESSIVE)
+      discoverEachLines = 8;
+    if (paramFilterType == FilterType.FILTER_VERYAGGRESSIVE)
+      discoverEachLines = 1;
+  }
+  
+  boolean shouldTestAll(int paramInt) {
+    if ((discoverEachLines > 0) && (lastRowTested + discoverEachLines <= paramInt)) {
+      currentType = null;
+      return true;
+    }
+    return false;
+  }
+  
+  public void setPreference(double paramDouble1, double paramDouble2, double paramDouble3, double paramDouble4, double paramDouble5) {
+    preference = new double[] { paramDouble1, paramDouble2, paramDouble3, paramDouble4, paramDouble5 };
+  }
+  
+  public boolean computesStatistics() {
+    return discoverEachLines > 0;
+  }
+  
+  void fillResultsForFilter(int paramInt, FilterType paramFilterType, double paramDouble, int[] paramArrayOfInt, boolean paramBoolean) {
+    lastRowTested = paramInt;
+    lastSums[val] = paramDouble;
+    if (paramArrayOfInt != null)
+    {
+      double d2 = paramInt == 0 ? 0.0D : 0.3D;
+      double d3 = 1.0D - d2;
+      double d4 = 0.0D;
+      for (int i = 0; i < 256; i++) {
+        double d1 = paramArrayOfInt[i] / imgInfo.cols;
+        d1 = histogram1[i] * d2 + d1 * d3;
+        if (paramBoolean) {
+          d4 += (d1 > 1.0E-8D ? d1 * Math.log(d1) : 0.0D);
+        } else
+          histogram1[i] = d1;
+      }
+      lastEntropies[val] = (-d4);
+    }
+  }
+  
+  FilterType gimmeFilterType(int paramInt, boolean paramBoolean) {
+    if (currentType == null) {
+      if (paramInt == 0) {
+        currentType = FilterType.FILTER_SUB;
+      } else {
+        double d1 = Double.MAX_VALUE;
+        
+        for (int i = 0; i < 5; i++) {
+          double d2 = paramBoolean ? lastEntropies[i] : lastSums[i];
+          d2 /= preference[i];
+          if (d2 <= d1) {
+            d1 = d2;
+            currentType = FilterType.getByVal(i);
+          }
+        }
+      }
+    }
+    if (configuredType == FilterType.FILTER_CYCLIC) {
+      currentType = FilterType.getByVal((currentType.val + 1) % 5);
+    }
+    return currentType;
+  }
+}

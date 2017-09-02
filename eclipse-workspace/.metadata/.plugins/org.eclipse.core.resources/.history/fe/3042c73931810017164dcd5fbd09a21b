@@ -1,0 +1,296 @@
+package g4p_controls;
+
+import java.awt.Color;
+import processing.awt.PGraphicsJava2D;
+import processing.core.PApplet;
+import processing.event.MouseEvent;
+
+public class GStick
+  extends GAbstractControl
+{
+  protected static final int BORDERS = 0;
+  protected static final int LED_INACTIVE = 1;
+  protected static final int LED_ACTIVE = 14;
+  protected static final int STICK = 0;
+  protected static final int STICK_TOP = 3;
+  protected static final int STICK_TOP_OVER = 11;
+  protected static final int STICK_TOP_PRESS = 14;
+  protected static final int STICK_TOP_DRAG = 15;
+  protected static final int OUTERRING = 6;
+  protected static final int ACTIONRING = 5;
+  protected static final int BACK = 6;
+  protected static final int ROD = 1;
+  protected static final float RAD90 = PApplet.radians(90.0F);
+  protected static final float RAD45 = PApplet.radians(45.0F);
+  protected static final float RAD22_5 = PApplet.radians(22.5F);
+  protected static final int[] posMap = { 1, 7, 4, 28, 16, 112, 64, 193 };
+  protected static final int[] posX = { 1, 1, 0, -1, -1, -1, 0, 1 };
+  protected static final int[] posY = { 0, 1, 1, 1, 0, -1, -1, -1 };
+  protected final float ledWidth;
+  protected final float ledHeight;
+  protected float ledRingRad;
+  protected float actionRad;
+  protected float actionRadLimit;
+  protected float gripRad;
+  protected float rodRad;
+  protected float rodLength = 0.0F;
+  protected float stickAngle;
+  protected int position = -1;
+  protected int mode = 1;
+  protected int status = 0;
+  
+  public GStick(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    super(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+    if ((width < 40.0F) || (height < 40.0F)) {
+      resize(PApplet.max(Math.round(width), 40), PApplet.max(Math.round(height), 40));
+    }
+    opaque = false;
+    float f1 = PApplet.min(width, height);
+    float f2 = f1 / 50.0F;
+    ledWidth = (6.0F * f2);
+    ledHeight = (1.6F * ledWidth);
+    ledRingRad = ((f1 - ledWidth - 3.0F) / 2.0F);
+    actionRad = (0.5F * ledRingRad);
+    gripRad = (4.0F * f2);
+    rodRad = (3.0F * f2);
+    actionRadLimit = (ledRingRad - gripRad - ledWidth / 2.0F);
+    hotspots = new HotSpot[] { new HotSpot.HScircle(1, width / 2.0F, height / 2.0F, gripRad) };
+    z = 24;
+    createEventHandler(G4P.sketchWindow, "handleStickEvents", new Class[] { GStick.class, GEvent.class }, new String[] { "stick", "event" });
+    registeredMethods = 3;
+    cursorOver = 12;
+    G4P.registerControl(this);
+  }
+  
+  public void setMode(int paramInt)
+  {
+    if (((paramInt != mode) && (paramInt == 1)) || (paramInt == 2))
+    {
+      mode = paramInt;
+      bufferInvalid = true;
+    }
+  }
+  
+  public int getMode()
+  {
+    return mode;
+  }
+  
+  public int getPosition()
+  {
+    return position;
+  }
+  
+  public int getStickX()
+  {
+    return position < 0 ? 0 : posX[position];
+  }
+  
+  public int getStickY()
+  {
+    return position < 0 ? 0 : posY[position];
+  }
+  
+  protected float calcStickAngle(float paramFloat1, float paramFloat2)
+  {
+    float f = PApplet.atan2(paramFloat2, paramFloat1);
+    if (f < 0.0F) {
+      f += 6.2831855F;
+    }
+    return f;
+  }
+  
+  protected int getPositionFromAngle(float paramFloat)
+  {
+    int i;
+    if (mode == 1)
+    {
+      paramFloat = (paramFloat + RAD45) % 6.2831855F;
+      i = 2 * (int)(paramFloat / RAD90);
+    }
+    else
+    {
+      paramFloat = (paramFloat + RAD22_5) % 6.2831855F;
+      i = (int)(paramFloat / RAD45);
+    }
+    return i % 8;
+  }
+  
+  public void mouseEvent(MouseEvent paramMouseEvent)
+  {
+    if ((!visible) || (!enabled) || (!available)) {
+      return;
+    }
+    calcTransformedOrigin(winApp.mouseX, winApp.mouseY);
+    currSpot = whichHotSpot(ox, oy);
+    ox -= width / 2.0F;
+    oy -= height / 2.0F;
+    if ((currSpot >= 0) || (focusIsWith == this)) {
+      cursorIsOver = this;
+    } else if (cursorIsOver == this) {
+      cursorIsOver = null;
+    }
+    int i;
+    switch (paramMouseEvent.getAction())
+    {
+    case 1: 
+      if ((focusIsWith != this) && (currSpot > -1) && (z > focusObjectZ()))
+      {
+        status = 2;
+        position = -1;
+        rodLength = PApplet.sqrt(ox * ox + oy * oy);
+        stickAngle = calcStickAngle(ox, oy);
+        dragging = false;
+        takeFocus();
+        bufferInvalid = true;
+      }
+      break;
+    case 2: 
+      if (focusIsWith == this) {
+        loseFocus(null);
+      }
+      if (position != -1)
+      {
+        position = -1;
+        fireEvent(new Object[] { this, GEvent.CHANGED });
+      }
+      hotspots[0].adjust(new Object[] { Float.valueOf(width / 2.0F), Float.valueOf(height / 2.0F) });
+      rodLength = (this.stickAngle = 0.0F);
+      dragging = false;
+      status = 0;
+      bufferInvalid = true;
+      break;
+    case 4: 
+      if (focusIsWith == this)
+      {
+        status = 3;
+        dragging = true;
+        rodLength = PApplet.sqrt(ox * ox + oy * oy);
+        stickAngle = calcStickAngle(ox, oy);
+        i = -1;
+        if (rodLength >= actionRad) {
+          i = getPositionFromAngle(stickAngle);
+        }
+        if (rodLength > actionRadLimit)
+        {
+          ox = (actionRadLimit * PApplet.cos(stickAngle));
+          oy = (actionRadLimit * PApplet.sin(stickAngle));
+          rodLength = actionRadLimit;
+        }
+        hotspots[0].adjust(new Object[] { Float.valueOf(ox + width / 2.0F), Float.valueOf(oy + height / 2.0F) });
+        if (i != position)
+        {
+          position = i;
+          fireEvent(new Object[] { this, GEvent.CHANGED });
+        }
+        bufferInvalid = true;
+      }
+      break;
+    case 5: 
+      i = status;
+      if (currSpot == 1) {
+        status = 1;
+      } else {
+        status = 0;
+      }
+      if (i != status) {
+        bufferInvalid = true;
+      }
+      break;
+    }
+  }
+  
+  public void draw()
+  {
+    if (!visible) {
+      return;
+    }
+    updateBuffer();
+    winApp.pushStyle();
+    winApp.pushMatrix();
+    winApp.translate(cx, cy);
+    winApp.rotate(rotAngle);
+    winApp.translate(-halfWidth, -halfHeight);
+    winApp.imageMode(0);
+    if (alphaLevel < 255) {
+      winApp.tint(255, alphaLevel);
+    }
+    winApp.image(buffer, 0.0F, 0.0F);
+    winApp.popMatrix();
+    winApp.popStyle();
+  }
+  
+  protected void updateBuffer()
+  {
+    if (bufferInvalid)
+    {
+      bufferInvalid = false;
+      buffer.beginDraw();
+      if (opaque == true) {
+        buffer.background(palette[6].getRGB());
+      } else {
+        buffer.background(buffer.color(255, 0));
+      }
+      buffer.translate(width / 2.0F, height / 2.0F);
+      buffer.fill(palette[6].getRGB());
+      buffer.stroke(palette[0].getRGB());
+      buffer.strokeWeight(1.0F);
+      buffer.ellipse(0.0F, 0.0F, 2.0F * ledRingRad, 2.0F * ledRingRad);
+      buffer.ellipse(0.0F, 0.0F, 2.0F * actionRad, 2.0F * actionRad);
+      buffer.pushMatrix();
+      int i = 1;
+      int j = 2 / mode;
+      int k = 0;
+      while (k < 8)
+      {
+        buffer.stroke(palette[0].getRGB());
+        buffer.strokeWeight(1.0F);
+        buffer.line(0.0F, 0.0F, ledRingRad, 0.0F);
+        if (k % 2 == 0)
+        {
+          buffer.noStroke();
+          if ((position >= 0) && ((posMap[position] & i) == i)) {
+            buffer.fill(palette[14].getRGB());
+          } else {
+            buffer.fill(palette[1].getRGB());
+          }
+          buffer.ellipse(ledRingRad, 0.0F, ledWidth, ledHeight);
+        }
+        i <<= j;
+        buffer.rotate(j * RAD45);
+        k += j;
+      }
+      buffer.popMatrix();
+      buffer.fill(palette[5].getRGB());
+      buffer.stroke(palette[0].getRGB());
+      buffer.strokeWeight(1.0F);
+      buffer.ellipse(0.0F, 0.0F, 2.0F * actionRad, 2.0F * actionRad);
+      buffer.pushMatrix();
+      buffer.rotate(stickAngle);
+      buffer.noStroke();
+      buffer.fill(palette[1].getRGB());
+      buffer.ellipse(0.0F, 0.0F, 2.0F * rodRad, 2.0F * rodRad);
+      buffer.rect(0.0F, -rodRad, rodLength, 2.0F * rodRad);
+      buffer.strokeWeight(1.0F);
+      buffer.stroke(palette[1].getRGB());
+      switch (status)
+      {
+      case 0: 
+        buffer.fill(palette[3].getRGB());
+        break;
+      case 1: 
+        buffer.fill(palette[11].getRGB());
+        break;
+      case 2: 
+        buffer.fill(palette[14].getRGB());
+        break;
+      case 3: 
+        buffer.fill(palette[15].getRGB());
+      }
+      buffer.ellipse(rodLength, 0.0F, 2.0F * gripRad, 2.0F * gripRad);
+      buffer.popMatrix();
+      buffer.endDraw();
+    }
+  }
+}

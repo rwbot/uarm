@@ -1,0 +1,284 @@
+package jogamp.graph.curve.opengl;
+
+import com.jogamp.graph.curve.opengl.GLRegion;
+import com.jogamp.graph.curve.opengl.RegionRenderer;
+import com.jogamp.graph.curve.opengl.RenderState;
+import com.jogamp.graph.curve.opengl.RenderState.ProgramLocal;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.GLUniformData;
+import com.jogamp.opengl.math.geom.AABBox;
+import com.jogamp.opengl.util.GLArrayDataServer;
+import com.jogamp.opengl.util.glsl.ShaderProgram;
+import com.jogamp.opengl.util.texture.Texture;
+import com.jogamp.opengl.util.texture.TextureCoords;
+import com.jogamp.opengl.util.texture.TextureSequence;
+import com.jogamp.opengl.util.texture.TextureSequence.TextureFrame;
+import java.io.PrintStream;
+import java.nio.FloatBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class VBORegionSPES2
+  extends GLRegion
+{
+  private final RenderState.ProgramLocal rsLocal;
+  private GLArrayDataServer gca_VerticesAttr = null;
+  private GLArrayDataServer gca_CurveParamsAttr = null;
+  private GLArrayDataServer gca_ColorsAttr;
+  private GLArrayDataServer indicesBuffer = null;
+  private final GLUniformData gcu_ColorTexUnit;
+  private final float[] colorTexBBox;
+  private final GLUniformData gcu_ColorTexBBox;
+  private ShaderProgram spPass1 = null;
+  private static final boolean throwOnError = false;
+  
+  public VBORegionSPES2(int paramInt, TextureSequence paramTextureSequence) { super(paramInt, paramTextureSequence);
+    
+    rsLocal = new RenderState.ProgramLocal();
+    
+
+    indicesBuffer = GLArrayDataServer.createData(3, 5122, 256, 35044, 34963);
+    
+    gca_VerticesAttr = GLArrayDataServer.createGLSL("gca_Vertices", 3, 5126, false, 256, 35044);
+    
+
+    gca_CurveParamsAttr = GLArrayDataServer.createGLSL("gca_CurveParams", 3, 5126, false, 256, 35044);
+    
+
+    if (hasColorChannel()) {
+      gca_ColorsAttr = GLArrayDataServer.createGLSL("gca_Colors", 4, 5126, false, 256, 35044);
+    }
+    else {
+      gca_ColorsAttr = null;
+    }
+    if (hasColorTexture()) {
+      gcu_ColorTexUnit = new GLUniformData("gcu_ColorTexUnit", paramTextureSequence.getTextureUnit());
+      colorTexBBox = new float[4];
+      gcu_ColorTexBBox = new GLUniformData("gcu_ColorTexBBox", 4, FloatBuffer.wrap(colorTexBBox));
+    } else {
+      gcu_ColorTexUnit = null;
+      colorTexBBox = null;
+      gcu_ColorTexBBox = null;
+    }
+  }
+  
+  protected final void clearImpl(GL2ES2 paramGL2ES2)
+  {
+    if (DEBUG_INSTANCE) {
+      System.err.println("VBORegionSPES2 Clear: " + this);
+    }
+    if (null != indicesBuffer) {
+      indicesBuffer.seal(paramGL2ES2, false);
+      indicesBuffer.rewind();
+    }
+    if (null != gca_VerticesAttr) {
+      gca_VerticesAttr.seal(paramGL2ES2, false);
+      gca_VerticesAttr.rewind();
+    }
+    if (null != gca_CurveParamsAttr) {
+      gca_CurveParamsAttr.seal(paramGL2ES2, false);
+      gca_CurveParamsAttr.rewind();
+    }
+    if (null != gca_ColorsAttr) {
+      gca_ColorsAttr.seal(paramGL2ES2, false);
+      gca_ColorsAttr.rewind();
+    }
+  }
+  
+  protected final void pushVertex(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2, float[] paramArrayOfFloat3)
+  {
+    gca_VerticesAttr.putf(paramArrayOfFloat1[0]);
+    gca_VerticesAttr.putf(paramArrayOfFloat1[1]);
+    gca_VerticesAttr.putf(paramArrayOfFloat1[2]);
+    
+    gca_CurveParamsAttr.putf(paramArrayOfFloat2[0]);
+    gca_CurveParamsAttr.putf(paramArrayOfFloat2[1]);
+    gca_CurveParamsAttr.putf(paramArrayOfFloat2[2]);
+    
+    if (null != gca_ColorsAttr) {
+      if (null != paramArrayOfFloat3) {
+        gca_ColorsAttr.putf(paramArrayOfFloat3[0]);
+        gca_ColorsAttr.putf(paramArrayOfFloat3[1]);
+        gca_ColorsAttr.putf(paramArrayOfFloat3[2]);
+        gca_ColorsAttr.putf(paramArrayOfFloat3[3]);
+      } else {
+        throw new IllegalArgumentException("Null color given for COLOR_CHANNEL rendering mode");
+      }
+    }
+  }
+  
+  protected final void pushIndex(int paramInt)
+  {
+    indicesBuffer.puts((short)paramInt);
+  }
+  
+
+  protected void updateImpl(GL2ES2 paramGL2ES2)
+  {
+    gca_VerticesAttr.seal(paramGL2ES2, true);
+    gca_VerticesAttr.enableBuffer(paramGL2ES2, false);
+    gca_CurveParamsAttr.seal(paramGL2ES2, true);
+    gca_CurveParamsAttr.enableBuffer(paramGL2ES2, false);
+    if (null != gca_ColorsAttr) {
+      gca_ColorsAttr.seal(paramGL2ES2, true);
+      gca_ColorsAttr.enableBuffer(paramGL2ES2, false);
+    }
+    if ((null != gcu_ColorTexUnit) && (colorTexSeq.isTextureAvailable())) {
+      TextureSequence.TextureFrame localTextureFrame = colorTexSeq.getLastTexture();
+      Texture localTexture = localTextureFrame.getTexture();
+      TextureCoords localTextureCoords = localTexture.getImageTexCoords();
+      float f1 = 1.0F / (localTextureCoords.right() - localTextureCoords.left());
+      colorTexBBox[0] = (box.getMinX() * f1);
+      colorTexBBox[2] = (box.getMaxX() * f1);
+      float f2;
+      if (localTexture.getMustFlipVertically()) {
+        f2 = 1.0F / (localTextureCoords.bottom() - localTextureCoords.top());
+        colorTexBBox[1] = (box.getMaxY() * f2);
+        colorTexBBox[3] = (box.getMinY() * f2);
+      } else {
+        f2 = 1.0F / (localTextureCoords.top() - localTextureCoords.bottom());
+        colorTexBBox[1] = (box.getMinY() * f2);
+        colorTexBBox[3] = (box.getMaxY() * f2);
+      }
+    }
+    indicesBuffer.seal(paramGL2ES2, true);
+    indicesBuffer.enableBuffer(paramGL2ES2, false);
+    if (DEBUG_INSTANCE) {
+      System.err.println("VBORegionSPES2 idx " + indicesBuffer);
+      System.err.println("VBORegionSPES2 ver " + gca_VerticesAttr);
+      System.err.println("VBORegionSPES2 tex " + gca_CurveParamsAttr);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public void useShaderProgram(GL2ES2 paramGL2ES2, RegionRenderer paramRegionRenderer, int paramInt1, int paramInt2)
+  {
+    RenderState localRenderState = paramRegionRenderer.getRenderState();
+    boolean bool1 = paramRegionRenderer.useShaderProgram(paramGL2ES2, paramInt1, true, paramInt2, 0, colorTexSeq);
+    ShaderProgram localShaderProgram = paramRegionRenderer.getRenderState().getShaderProgram();
+    boolean bool2 = !localShaderProgram.equals(spPass1);
+    spPass1 = localShaderProgram;
+    if (DEBUG) {
+      System.err.println("XXX changedSP.p1 updateLocation loc " + bool2 + " / glob " + bool1);
+    }
+    if (bool2) {
+      localRenderState.updateAttributeLoc(paramGL2ES2, true, gca_VerticesAttr, false);
+      localRenderState.updateAttributeLoc(paramGL2ES2, true, gca_CurveParamsAttr, false);
+      if (null != gca_ColorsAttr) {
+        localRenderState.updateAttributeLoc(paramGL2ES2, true, gca_ColorsAttr, false);
+      }
+    }
+    rsLocal.update(paramGL2ES2, localRenderState, bool2, paramInt1, true, false);
+    if (null != gcu_ColorTexUnit) {
+      localRenderState.updateUniformLoc(paramGL2ES2, bool2, gcu_ColorTexUnit, false);
+      localRenderState.updateUniformLoc(paramGL2ES2, bool2, gcu_ColorTexBBox, false);
+    }
+  }
+  
+
+  protected void drawImpl(GL2ES2 paramGL2ES2, RegionRenderer paramRegionRenderer, int[] paramArrayOfInt)
+  {
+    int i = getRenderModes();
+    useShaderProgram(paramGL2ES2, paramRegionRenderer, i, getQuality());
+    
+    if (0 >= indicesBuffer.getElementCount()) {
+      if (DEBUG_INSTANCE) {
+        System.err.printf("VBORegionSPES2.drawImpl: Empty%n", new Object[0]);
+      }
+      return;
+    }
+    gca_VerticesAttr.enableBuffer(paramGL2ES2, true);
+    gca_CurveParamsAttr.enableBuffer(paramGL2ES2, true);
+    if (null != gca_ColorsAttr) {
+      gca_ColorsAttr.enableBuffer(paramGL2ES2, true);
+    }
+    indicesBuffer.bindBuffer(paramGL2ES2, true);
+    
+    if (paramRegionRenderer.getRenderState().isHintMaskSet(1)) {
+      paramGL2ES2.glBlendFunc(770, 771);
+    }
+    
+    if ((null != gcu_ColorTexUnit) && (colorTexSeq.isTextureAvailable())) {
+      TextureSequence.TextureFrame localTextureFrame = colorTexSeq.getNextTexture(paramGL2ES2);
+      paramGL2ES2.glActiveTexture(33984 + colorTexSeq.getTextureUnit());
+      Texture localTexture = localTextureFrame.getTexture();
+      localTexture.bind(paramGL2ES2);
+      localTexture.enable(paramGL2ES2);
+      gcu_ColorTexUnit.setData(colorTexSeq.getTextureUnit());
+      paramGL2ES2.glUniform(gcu_ColorTexUnit);
+      paramGL2ES2.glUniform(gcu_ColorTexBBox);
+      paramGL2ES2.glDrawElements(4, indicesBuffer.getElementCount() * indicesBuffer.getComponentCount(), 5123, 0L);
+      localTexture.disable(paramGL2ES2);
+    } else {
+      paramGL2ES2.glDrawElements(4, indicesBuffer.getElementCount() * indicesBuffer.getComponentCount(), 5123, 0L);
+    }
+    
+    indicesBuffer.bindBuffer(paramGL2ES2, false);
+    if (null != gca_ColorsAttr) {
+      gca_ColorsAttr.enableBuffer(paramGL2ES2, false);
+    }
+    gca_CurveParamsAttr.enableBuffer(paramGL2ES2, false);
+    gca_VerticesAttr.enableBuffer(paramGL2ES2, false);
+  }
+  
+  protected void destroyImpl(GL2ES2 paramGL2ES2)
+  {
+    if (DEBUG_INSTANCE) {
+      System.err.println("VBORegionSPES2 Destroy: " + this);
+    }
+    if (null != gca_VerticesAttr) {
+      gca_VerticesAttr.destroy(paramGL2ES2);
+      gca_VerticesAttr = null;
+    }
+    if (null != gca_CurveParamsAttr) {
+      gca_CurveParamsAttr.destroy(paramGL2ES2);
+      gca_CurveParamsAttr = null;
+    }
+    if (null != gca_ColorsAttr) {
+      gca_ColorsAttr.destroy(paramGL2ES2);
+      gca_ColorsAttr = null;
+    }
+    if (null != indicesBuffer) {
+      indicesBuffer.destroy(paramGL2ES2);
+      indicesBuffer = null;
+    }
+    spPass1 = null;
+  }
+}

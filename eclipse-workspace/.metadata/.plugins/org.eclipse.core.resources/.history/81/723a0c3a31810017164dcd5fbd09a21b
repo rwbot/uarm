@@ -1,0 +1,60 @@
+package jogamp.nativewindow.jawt.macosx;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.StructAccessor;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import java.nio.ByteBuffer;
+import jogamp.common.os.MachineDataInfoRuntime;
+import jogamp.nativewindow.jawt.JAWT_PlatformInfo;
+
+
+
+
+
+
+
+
+public class JAWT_MacOSXDrawingSurfaceInfo
+  implements JAWT_PlatformInfo
+{
+  StructAccessor accessor;
+  private static final int mdIdx = MachineDataInfoRuntime.getStatic().ordinal();
+  
+  private final MachineDataInfo md;
+  private static final int[] JAWT_MacOSXDrawingSurfaceInfo_size = { 4, 4, 4, 4, 4, 4, 8, 8 };
+  private static final int[] cocoaViewRef_offset = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  
+  public static int size()
+  {
+    return JAWT_MacOSXDrawingSurfaceInfo_size[mdIdx];
+  }
+  
+  public static JAWT_MacOSXDrawingSurfaceInfo create() {
+    return create(Buffers.newDirectByteBuffer(size()));
+  }
+  
+  public static JAWT_MacOSXDrawingSurfaceInfo create(ByteBuffer paramByteBuffer) {
+    return new JAWT_MacOSXDrawingSurfaceInfo(paramByteBuffer);
+  }
+  
+  JAWT_MacOSXDrawingSurfaceInfo(ByteBuffer paramByteBuffer) {
+    md = valuesmdIdxmd;
+    accessor = new StructAccessor(paramByteBuffer);
+  }
+  
+  public ByteBuffer getBuffer() {
+    return accessor.getBuffer();
+  }
+  
+  public JAWT_MacOSXDrawingSurfaceInfo setCocoaViewRef(long paramLong)
+  {
+    accessor.setLongAt(cocoaViewRef_offset[mdIdx], paramLong, md.pointerSizeInBytes());
+    return this;
+  }
+  
+  public long getCocoaViewRef()
+  {
+    return accessor.getLongAt(cocoaViewRef_offset[mdIdx], md.pointerSizeInBytes());
+  }
+}

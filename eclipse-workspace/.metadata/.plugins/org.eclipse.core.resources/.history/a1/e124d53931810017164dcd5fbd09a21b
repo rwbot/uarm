@@ -1,0 +1,213 @@
+package jogamp.common.os;
+
+import com.jogamp.common.os.DynamicLinker;
+import com.jogamp.common.util.LongObjectHashMap;
+import com.jogamp.common.util.SecurityUtil;
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+abstract class DynamicLinkerImpl
+  implements DynamicLinker
+{
+  private final Object secSync = new Object();
+  private boolean allLinkPermissionGranted = false;
+  
+  DynamicLinkerImpl() {}
+  
+  public final void claimAllLinkPermission() throws SecurityException
+  {
+    synchronized (secSync) {
+      allLinkPermissionGranted = true;
+    }
+  }
+  
+
+  public final void releaseAllLinkPermission()
+    throws SecurityException
+  {
+    synchronized (secSync) {
+      allLinkPermissionGranted = false;
+    }
+  }
+  
+  private final void checkLinkPermission(String paramString) throws SecurityException {
+    synchronized (secSync) {
+      if (!allLinkPermissionGranted)
+        SecurityUtil.checkLinkPermission(paramString);
+    }
+  }
+  
+  private final void checkLinkPermission(long paramLong) throws SecurityException {
+    synchronized (secSync) {
+      if (!allLinkPermissionGranted) {
+        LibRef localLibRef = getLibRef(paramLong);
+        if (null == localLibRef) {
+          throw new IllegalArgumentException("Library handle 0x" + Long.toHexString(paramLong) + " unknown.");
+        }
+        SecurityUtil.checkLinkPermission(localLibRef.getName());
+      }
+    }
+  }
+  
+  private final void checkAllLinkPermission() throws SecurityException {
+    synchronized (secSync) {
+      if (!allLinkPermissionGranted) {
+        SecurityUtil.checkAllLinkPermission();
+      }
+    }
+  }
+  
+  public final long openLibraryGlobal(String paramString, boolean paramBoolean) throws SecurityException
+  {
+    checkLinkPermission(paramString);
+    long l = openLibraryGlobalImpl(paramString);
+    if (0L != l) {
+      LibRef localLibRef = incrLibRefCount(l, paramString);
+      if ((DEBUG) || (paramBoolean)) {
+        System.err.println("DynamicLinkerImpl.openLibraryGlobal \"" + paramString + "\": 0x" + Long.toHexString(l) + " -> " + localLibRef + ")");
+      }
+    } else if ((DEBUG) || (paramBoolean)) {
+      System.err.println("DynamicLinkerImpl.openLibraryGlobal \"" + paramString + "\" failed, error: " + getLastError());
+    }
+    return l;
+  }
+  
+  protected abstract long openLibraryGlobalImpl(String paramString) throws SecurityException;
+  
+  public final long openLibraryLocal(String paramString, boolean paramBoolean) throws SecurityException {
+    checkLinkPermission(paramString);
+    long l = openLibraryLocalImpl(paramString);
+    if (0L != l) {
+      LibRef localLibRef = incrLibRefCount(l, paramString);
+      if ((DEBUG) || (paramBoolean)) {
+        System.err.println("DynamicLinkerImpl.openLibraryLocal \"" + paramString + "\": 0x" + Long.toHexString(l) + " -> " + localLibRef + ")");
+      }
+    } else if ((DEBUG) || (paramBoolean)) {
+      System.err.println("DynamicLinkerImpl.openLibraryLocal \"" + paramString + "\" failed, error: " + getLastError());
+    }
+    return l;
+  }
+  
+  protected abstract long openLibraryLocalImpl(String paramString) throws SecurityException;
+  
+  public final long lookupSymbolGlobal(String paramString) throws SecurityException {
+    checkAllLinkPermission();
+    long l = lookupSymbolGlobalImpl(paramString);
+    if (DEBUG_LOOKUP) {
+      System.err.println("DynamicLinkerImpl.lookupSymbolGlobal(" + paramString + ") -> 0x" + Long.toHexString(l));
+    }
+    return l;
+  }
+  
+  protected abstract long lookupSymbolGlobalImpl(String paramString) throws SecurityException;
+  
+  public final long lookupSymbol(long paramLong, String paramString) throws SecurityException, IllegalArgumentException {
+    checkLinkPermission(paramLong);
+    long l = lookupSymbolLocalImpl(paramLong, paramString);
+    if (DEBUG_LOOKUP) {
+      System.err.println("DynamicLinkerImpl.lookupSymbol(0x" + Long.toHexString(paramLong) + ", " + paramString + ") -> 0x" + Long.toHexString(l));
+    }
+    return l;
+  }
+  
+  protected abstract long lookupSymbolLocalImpl(long paramLong, String paramString) throws SecurityException;
+  
+  public final void closeLibrary(long paramLong, boolean paramBoolean) throws SecurityException, IllegalArgumentException {
+    LibRef localLibRef = decrLibRefCount(paramLong);
+    if (null == localLibRef) {
+      throw new IllegalArgumentException("Library handle 0x" + Long.toHexString(paramLong) + " unknown.");
+    }
+    checkLinkPermission(localLibRef.getName());
+    if ((DEBUG) || (paramBoolean)) {
+      System.err.println("DynamicLinkerImpl.closeLibrary(0x" + Long.toHexString(paramLong) + " -> " + localLibRef + ")");
+    }
+    closeLibraryImpl(paramLong);
+  }
+  
+
+  private static final LongObjectHashMap libHandle2Name = new LongObjectHashMap(16);
+  protected abstract void closeLibraryImpl(long paramLong) throws SecurityException;
+  
+  static final class LibRef {
+    LibRef(String paramString) { name = paramString;
+      refCount = 1; }
+    
+    final int incrRefCount() { return ++refCount; }
+    final int decrRefCount() { return --refCount; }
+    final int getRefCount() { return refCount; }
+    
+    final String getName() { return name; }
+    
+    public final String toString() { return "LibRef[" + name + ", refCount " + refCount + "]"; }
+    
+    private final String name;
+    private int refCount;
+  }
+  
+  private final LibRef getLibRef(long paramLong) {
+    synchronized (libHandle2Name) {
+      return (LibRef)libHandle2Name.get(paramLong);
+    }
+  }
+  
+  private final LibRef incrLibRefCount(long paramLong, String paramString) {
+    synchronized (libHandle2Name) {
+      LibRef localLibRef = getLibRef(paramLong);
+      if (null == localLibRef) {
+        localLibRef = new LibRef(paramString);
+        libHandle2Name.put(paramLong, localLibRef);
+      } else {
+        localLibRef.incrRefCount();
+      }
+      if (DEBUG) {
+        System.err.println("DynamicLinkerImpl.incrLibRefCount 0x" + Long.toHexString(paramLong) + " -> " + localLibRef + ", libs loaded " + libHandle2Name.size());
+      }
+      return localLibRef;
+    }
+  }
+  
+  private final LibRef decrLibRefCount(long paramLong) {
+    synchronized (libHandle2Name) {
+      LibRef localLibRef = getLibRef(paramLong);
+      if ((null != localLibRef) && 
+        (0 == localLibRef.decrRefCount())) {
+        libHandle2Name.remove(paramLong);
+      }
+      
+      if (DEBUG) {
+        System.err.println("DynamicLinkerImpl.decrLibRefCount 0x" + Long.toHexString(paramLong) + " -> " + localLibRef + ", libs loaded " + libHandle2Name.size());
+      }
+      return localLibRef;
+    }
+  }
+}

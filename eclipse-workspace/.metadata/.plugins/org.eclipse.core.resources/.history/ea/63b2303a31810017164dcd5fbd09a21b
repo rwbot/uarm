@@ -1,0 +1,241 @@
+package jogamp.opengl.util.pngj.chunks;
+
+import java.util.ArrayList;
+import java.util.List;
+import jogamp.opengl.util.pngj.PngjException;
+
+
+
+
+
+
+
+
+
+
+public class PngMetadata
+{
+  private final ChunksList chunkList;
+  private final boolean readonly;
+  
+  public PngMetadata(ChunksList paramChunksList)
+  {
+    chunkList = paramChunksList;
+    if ((paramChunksList instanceof ChunksListForWrite)) {
+      readonly = false;
+    } else {
+      readonly = true;
+    }
+  }
+  
+
+
+
+
+
+
+  public void queueChunk(final PngChunk paramPngChunk, boolean paramBoolean)
+  {
+    ChunksListForWrite localChunksListForWrite = getChunkListW();
+    if (readonly)
+      throw new PngjException("cannot set chunk : readonly metadata");
+    if (paramBoolean) {
+      ChunkHelper.trimList(localChunksListForWrite.getQueuedChunks(), new ChunkPredicate()
+      {
+        public boolean match(PngChunk paramAnonymousPngChunk) {
+          return ChunkHelper.equivalent(paramPngChunk, paramAnonymousPngChunk);
+        }
+      });
+    }
+    localChunksListForWrite.queue(paramPngChunk);
+  }
+  
+  public void queueChunk(PngChunk paramPngChunk) {
+    queueChunk(paramPngChunk, true);
+  }
+  
+  private ChunksListForWrite getChunkListW() {
+    return (ChunksListForWrite)chunkList;
+  }
+  
+
+
+
+
+
+
+  public double[] getDpi()
+  {
+    PngChunk localPngChunk = chunkList.getById1("pHYs", true);
+    if (localPngChunk == null) {
+      return new double[] { -1.0D, -1.0D };
+    }
+    return ((PngChunkPHYS)localPngChunk).getAsDpi2();
+  }
+  
+  public void setDpi(double paramDouble) {
+    setDpi(paramDouble, paramDouble);
+  }
+  
+  public void setDpi(double paramDouble1, double paramDouble2) {
+    PngChunkPHYS localPngChunkPHYS = new PngChunkPHYS(chunkList.imageInfo);
+    localPngChunkPHYS.setAsDpi2(paramDouble1, paramDouble2);
+    queueChunk(localPngChunkPHYS);
+  }
+  
+
+
+
+
+
+
+
+
+  public PngChunkTIME setTimeNow(int paramInt)
+  {
+    PngChunkTIME localPngChunkTIME = new PngChunkTIME(chunkList.imageInfo);
+    localPngChunkTIME.setNow(paramInt);
+    queueChunk(localPngChunkTIME);
+    return localPngChunkTIME;
+  }
+  
+  public PngChunkTIME setTimeNow() {
+    return setTimeNow(0);
+  }
+  
+
+
+
+
+
+
+  public PngChunkTIME setTimeYMDHMS(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6)
+  {
+    PngChunkTIME localPngChunkTIME = new PngChunkTIME(chunkList.imageInfo);
+    localPngChunkTIME.setYMDHMS(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6);
+    queueChunk(localPngChunkTIME, true);
+    return localPngChunkTIME;
+  }
+  
+
+
+  public PngChunkTIME getTime()
+  {
+    return (PngChunkTIME)chunkList.getById1("tIME");
+  }
+  
+  public String getTimeAsString() {
+    PngChunkTIME localPngChunkTIME = getTime();
+    return localPngChunkTIME == null ? "" : localPngChunkTIME.getAsString();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public PngChunkTextVar setText(String paramString1, String paramString2, boolean paramBoolean1, boolean paramBoolean2)
+  {
+    if ((paramBoolean2) && (!paramBoolean1))
+      throw new PngjException("cannot compress non latin text");
+    Object localObject;
+    if (paramBoolean1) {
+      if (paramBoolean2) {
+        localObject = new PngChunkZTXT(chunkList.imageInfo);
+      } else {
+        localObject = new PngChunkTEXT(chunkList.imageInfo);
+      }
+    } else {
+      localObject = new PngChunkITXT(chunkList.imageInfo);
+      ((PngChunkITXT)localObject).setLangtag(paramString1);
+    }
+    ((PngChunkTextVar)localObject).setKeyVal(paramString1, paramString2);
+    queueChunk((PngChunk)localObject, true);
+    return localObject;
+  }
+  
+  public PngChunkTextVar setText(String paramString1, String paramString2) {
+    return setText(paramString1, paramString2, false, false);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public List<? extends PngChunkTextVar> getTxtsForKey(String paramString)
+  {
+    ArrayList localArrayList = new ArrayList();
+    localArrayList.addAll(chunkList.getById("tEXt", paramString));
+    localArrayList.addAll(chunkList.getById("zTXt", paramString));
+    localArrayList.addAll(chunkList.getById("iTXt", paramString));
+    return localArrayList;
+  }
+  
+
+
+
+
+
+  public String getTxtForKey(String paramString)
+  {
+    List localList = getTxtsForKey(paramString);
+    if (localList.isEmpty())
+      return "";
+    StringBuilder localStringBuilder = new StringBuilder();
+    for (PngChunkTextVar localPngChunkTextVar : localList)
+      localStringBuilder.append(localPngChunkTextVar.getVal()).append("\n");
+    return localStringBuilder.toString().trim();
+  }
+  
+
+
+
+
+  public PngChunkPLTE getPLTE()
+  {
+    return (PngChunkPLTE)chunkList.getById1("PLTE");
+  }
+  
+
+
+
+  public PngChunkPLTE createPLTEChunk()
+  {
+    PngChunkPLTE localPngChunkPLTE = new PngChunkPLTE(chunkList.imageInfo);
+    queueChunk(localPngChunkPLTE);
+    return localPngChunkPLTE;
+  }
+  
+
+
+
+
+  public PngChunkTRNS getTRNS()
+  {
+    return (PngChunkTRNS)chunkList.getById1("tRNS");
+  }
+  
+
+
+
+  public PngChunkTRNS createTRNSChunk()
+  {
+    PngChunkTRNS localPngChunkTRNS = new PngChunkTRNS(chunkList.imageInfo);
+    queueChunk(localPngChunkTRNS);
+    return localPngChunkTRNS;
+  }
+}

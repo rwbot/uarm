@@ -1,0 +1,88 @@
+package jogamp.graph.font.typecast;
+
+import com.jogamp.graph.font.Font.Metrics;
+import com.jogamp.opengl.math.geom.AABBox;
+import jogamp.graph.font.typecast.ot.OTFont;
+import jogamp.graph.font.typecast.ot.table.HeadTable;
+import jogamp.graph.font.typecast.ot.table.HheaTable;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class TypecastHMetrics
+  implements Font.Metrics
+{
+  private final TypecastFont fontImpl;
+  private final HeadTable headTable;
+  private final float unitsPerEM_Inv;
+  private final AABBox bbox;
+  private final HheaTable hheaTable;
+  
+  public TypecastHMetrics(TypecastFont paramTypecastFont)
+  {
+    fontImpl = paramTypecastFont;
+    headTable = fontImpl.font.getHeadTable();
+    hheaTable = fontImpl.font.getHheaTable();
+    
+    unitsPerEM_Inv = (1.0F / headTable.getUnitsPerEm());
+    
+    int i = headTable.getXMax() - headTable.getXMin();
+    int j = headTable.getYMax() - headTable.getYMin();
+    float f1 = headTable.getXMin();
+    float f2 = -(headTable.getYMin() + j);
+    float f3 = f1 + i;
+    float f4 = f2 + j;
+    bbox = new AABBox(f1, f2, 0.0F, f3, f4, 0.0F);
+  }
+  
+  public final float getAscent(float paramFloat)
+  {
+    return getScale(paramFloat) * -hheaTable.getAscender();
+  }
+  
+  public final float getDescent(float paramFloat) {
+    return getScale(paramFloat) * -hheaTable.getDescender();
+  }
+  
+  public final float getLineGap(float paramFloat) {
+    return getScale(paramFloat) * -hheaTable.getLineGap();
+  }
+  
+  public final float getMaxExtend(float paramFloat) {
+    return getScale(paramFloat) * hheaTable.getXMaxExtent();
+  }
+  
+  public final float getScale(float paramFloat) {
+    return paramFloat * unitsPerEM_Inv;
+  }
+  
+  public final AABBox getBBox(AABBox paramAABBox, float paramFloat, float[] paramArrayOfFloat) {
+    return paramAABBox.setSize(bbox.getLow(), bbox.getHigh()).scale(getScale(paramFloat), paramArrayOfFloat);
+  }
+}

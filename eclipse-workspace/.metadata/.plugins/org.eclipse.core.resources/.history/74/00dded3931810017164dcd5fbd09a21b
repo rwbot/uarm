@@ -1,0 +1,1541 @@
+package com.jogamp.opengl.glu;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.util.ReflectionUtil;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.util.glsl.ShaderState;
+import java.nio.Buffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import jogamp.opengl.ProjectFloat;
+import jogamp.opengl.glu.GLUquadricImpl;
+import jogamp.opengl.glu.error.Error;
+import jogamp.opengl.glu.registry.Registry;
+import jogamp.opengl.glu.tessellator.GLUtessellatorImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLU
+{
+  private static final Class gl2Class;
+  private static final Class gl2es1Class;
+  
+  public boolean isFunctionAvailable(String paramString)
+  {
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+  static
+  {
+    Class localClass1 = null;
+    Class localClass2 = null;
+    try {
+      ClassLoader localClassLoader = GLU.class.getClassLoader();
+      localClass1 = Class.forName("com.jogamp.opengl.glu.gl2.GLUgl2", false, localClassLoader);
+      localClass2 = Class.forName("com.jogamp.opengl.glu.gl2es1.GLUgl2es1", false, localClassLoader);
+    } catch (Throwable localThrowable) {}
+    gl2Class = localClass1;
+    gl2es1Class = localClass2;
+  }
+  
+
+
+
+
+
+
+  public static final GLU createGLU()
+    throws GLException
+  {
+    return createGLU(getCurrentGL());
+  }
+  
+
+  public static final GLU createGLU(GL paramGL)
+    throws GLException
+  {
+    try
+    {
+      Object localObject = null;
+      if ((paramGL.isGL2()) && (null != gl2Class)) {
+        localObject = gl2Class;
+      } else if ((paramGL.isGL2ES1()) && (null != gl2es1Class)) {
+        localObject = gl2es1Class;
+
+      }
+      else
+      {
+        localObject = GLU.class;
+      }
+      return (GLU)((Class)localObject).newInstance();
+    } catch (Exception localException) {
+      throw new GLException(localException);
+    }
+  }
+  
+  public GLU()
+  {
+    project = new ProjectFloat();
+  }
+  
+  public static final GL getCurrentGL() throws GLException {
+    GLContext localGLContext = GLContext.getCurrent();
+    if (localGLContext == null) {
+      throw new GLException("No OpenGL context current on this thread");
+    }
+    return localGLContext.getGL();
+  }
+  
+  public final String gluErrorString(int paramInt) {
+    return Error.gluErrorString(paramInt);
+  }
+  
+
+
+
+
+
+
+  public final boolean gluCheckExtension(String paramString1, String paramString2)
+  {
+    return Registry.gluCheckExtension(paramString1, paramString2);
+  }
+  
+  public final String gluGetString(int paramInt) {
+    return Registry.gluGetString(paramInt);
+  }
+  
+
+
+
+
+  protected static boolean availableGLUtessellatorImpl = false;
+  protected static boolean checkedGLUtessellatorImpl = false;
+  public static final int GLU_FALSE = 0;
+  
+  protected static final void validateGLUtessellatorImpl() { if (!checkedGLUtessellatorImpl) {
+      availableGLUtessellatorImpl = ReflectionUtil.isClassAvailable("jogamp.opengl.glu.tessellator.GLUtessellatorImpl", GLU.class.getClassLoader());
+      checkedGLUtessellatorImpl = true;
+    }
+    if (!availableGLUtessellatorImpl) {
+      throw new GLException("GLUtessellator not available (GLUtessellatorImpl)");
+    }
+  }
+  
+
+  public static final int GLU_TRUE = 1;
+  
+  public static final int GLU_VERSION = 100800;
+  
+  public static final int GLU_EXTENSIONS = 100801;
+  
+  public static final String versionString = "1.3";
+  
+  public static final String extensionString = "GLU_EXT_nurbs_tessellator GLU_EXT_object_space_tess ";
+  
+  public static final int GLU_INVALID_ENUM = 100900;
+  public static final int GLU_INVALID_VALUE = 100901;
+  public static final GLUtessellator gluNewTess()
+  {
+    validateGLUtessellatorImpl();
+    return GLUtessellatorImpl.gluNewTess();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final void gluDeleteTess(GLUtessellator paramGLUtessellator)
+  {
+    validateGLUtessellatorImpl();
+    GLUtessellatorImpl localGLUtessellatorImpl = (GLUtessellatorImpl)paramGLUtessellator;
+    localGLUtessellatorImpl.gluDeleteTess();
+  }
+  
+
+
+
+  public static final int GLU_OUT_OF_MEMORY = 100902;
+  
+
+
+  public static final int GLU_INVALID_OPERATION = 100904;
+  
+
+
+  public static final int GLU_POINT = 100010;
+  
+
+
+  public static final int GLU_LINE = 100011;
+  
+
+  public static final int GLU_FILL = 100012;
+  
+
+  public static final int GLU_SILHOUETTE = 100013;
+  
+
+  public static final int GLU_SMOOTH = 100000;
+  
+
+  public static final int GLU_FLAT = 100001;
+  
+
+  public static final int GLU_NONE = 100002;
+  
+
+  public static final int GLU_OUTSIDE = 100020;
+  
+
+  public static final int GLU_INSIDE = 100021;
+  
+
+  public static final int GLU_ERROR = 100103;
+  
+
+  public static final int GLU_TESS_BEGIN = 100100;
+  
+
+  public static final int GLU_BEGIN = 100100;
+  
+
+  public static final int GLU_TESS_VERTEX = 100101;
+  
+
+  public static final int GLU_VERTEX = 100101;
+  
+
+  public static final int GLU_TESS_END = 100102;
+  
+
+  public static final int GLU_END = 100102;
+  
+
+  public static final int GLU_TESS_ERROR = 100103;
+  
+
+  public static final int GLU_TESS_EDGE_FLAG = 100104;
+  
+
+  public static final int GLU_EDGE_FLAG = 100104;
+  
+
+  public static final int GLU_TESS_COMBINE = 100105;
+  
+
+  public static final int GLU_TESS_BEGIN_DATA = 100106;
+  
+
+  public static final int GLU_TESS_VERTEX_DATA = 100107;
+  
+
+  public static final void gluTessProperty(GLUtessellator paramGLUtessellator, int paramInt, double paramDouble)
+  {
+    validateGLUtessellatorImpl();
+    GLUtessellatorImpl localGLUtessellatorImpl = (GLUtessellatorImpl)paramGLUtessellator;
+    localGLUtessellatorImpl.gluTessProperty(paramInt, paramDouble);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final void gluGetTessProperty(GLUtessellator paramGLUtessellator, int paramInt1, double[] paramArrayOfDouble, int paramInt2)
+  {
+    validateGLUtessellatorImpl();
+    GLUtessellatorImpl localGLUtessellatorImpl = (GLUtessellatorImpl)paramGLUtessellator;
+    localGLUtessellatorImpl.gluGetTessProperty(paramInt1, paramArrayOfDouble, paramInt2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final void gluTessNormal(GLUtessellator paramGLUtessellator, double paramDouble1, double paramDouble2, double paramDouble3)
+  {
+    validateGLUtessellatorImpl();
+    GLUtessellatorImpl localGLUtessellatorImpl = (GLUtessellatorImpl)paramGLUtessellator;
+    localGLUtessellatorImpl.gluTessNormal(paramDouble1, paramDouble2, paramDouble3);
+  }
+  
+
+
+
+
+
+
+
+
+  public static final int GLU_TESS_END_DATA = 100108;
+  
+
+
+
+
+
+
+
+  public static final int GLU_TESS_ERROR_DATA = 100109;
+  
+
+
+
+
+
+
+
+  public static final int GLU_TESS_EDGE_FLAG_DATA = 100110;
+  
+
+
+
+
+
+
+
+  public static final int GLU_TESS_COMBINE_DATA = 100111;
+  
+
+
+
+
+
+
+
+  public static final int GLU_CW = 100120;
+  
+
+
+
+
+
+
+
+  public static final int GLU_CCW = 100121;
+  
+
+
+
+
+
+
+
+  public static final int GLU_INTERIOR = 100122;
+  
+
+
+
+
+
+
+
+  public static final int GLU_EXTERIOR = 100123;
+  
+
+
+
+
+
+
+  public static final int GLU_UNKNOWN = 100124;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_WINDING_RULE = 100140;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_BOUNDARY_ONLY = 100141;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_TOLERANCE = 100142;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_AVOID_DEGENERATE_TRIANGLES = 100149;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_ERROR1 = 100151;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_ERROR2 = 100152;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_ERROR3 = 100153;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_ERROR4 = 100154;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_ERROR5 = 100155;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_ERROR6 = 100156;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_ERROR7 = 100157;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_ERROR8 = 100158;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_MISSING_BEGIN_POLYGON = 100151;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_MISSING_BEGIN_CONTOUR = 100152;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_MISSING_END_POLYGON = 100153;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_MISSING_END_CONTOUR = 100154;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_COORD_TOO_LARGE = 100155;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_NEED_COMBINE_CALLBACK = 100156;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_WINDING_ODD = 100130;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_WINDING_NONZERO = 100131;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_WINDING_POSITIVE = 100132;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_WINDING_NEGATIVE = 100133;
+  
+
+
+
+
+
+
+  public static final int GLU_TESS_WINDING_ABS_GEQ_TWO = 100134;
+  
+
+
+
+
+
+
+  public static final double GLU_TESS_MAX_COORD = 1.0E150D;
+  
+
+
+
+
+
+
+  public static final void gluTessCallback(GLUtessellator paramGLUtessellator, int paramInt, GLUtessellatorCallback paramGLUtessellatorCallback)
+  {
+    validateGLUtessellatorImpl();
+    GLUtessellatorImpl localGLUtessellatorImpl = (GLUtessellatorImpl)paramGLUtessellator;
+    localGLUtessellatorImpl.gluTessCallback(paramInt, paramGLUtessellatorCallback);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final void gluTessVertex(GLUtessellator paramGLUtessellator, double[] paramArrayOfDouble, int paramInt, Object paramObject)
+  {
+    validateGLUtessellatorImpl();
+    GLUtessellatorImpl localGLUtessellatorImpl = (GLUtessellatorImpl)paramGLUtessellator;
+    localGLUtessellatorImpl.gluTessVertex(paramArrayOfDouble, paramInt, paramObject);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final void gluTessBeginPolygon(GLUtessellator paramGLUtessellator, Object paramObject)
+  {
+    validateGLUtessellatorImpl();
+    GLUtessellatorImpl localGLUtessellatorImpl = (GLUtessellatorImpl)paramGLUtessellator;
+    localGLUtessellatorImpl.gluTessBeginPolygon(paramObject);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final void gluTessBeginContour(GLUtessellator paramGLUtessellator)
+  {
+    validateGLUtessellatorImpl();
+    GLUtessellatorImpl localGLUtessellatorImpl = (GLUtessellatorImpl)paramGLUtessellator;
+    localGLUtessellatorImpl.gluTessBeginContour();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final void gluTessEndContour(GLUtessellator paramGLUtessellator)
+  {
+    validateGLUtessellatorImpl();
+    GLUtessellatorImpl localGLUtessellatorImpl = (GLUtessellatorImpl)paramGLUtessellator;
+    localGLUtessellatorImpl.gluTessEndContour();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final void gluTessEndPolygon(GLUtessellator paramGLUtessellator)
+  {
+    validateGLUtessellatorImpl();
+    GLUtessellatorImpl localGLUtessellatorImpl = (GLUtessellatorImpl)paramGLUtessellator;
+    localGLUtessellatorImpl.gluTessEndPolygon();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final void gluBeginPolygon(GLUtessellator paramGLUtessellator)
+  {
+    validateGLUtessellatorImpl();
+    GLUtessellatorImpl localGLUtessellatorImpl = (GLUtessellatorImpl)paramGLUtessellator;
+    localGLUtessellatorImpl.gluBeginPolygon();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final void gluNextContour(GLUtessellator paramGLUtessellator, int paramInt)
+  {
+    validateGLUtessellatorImpl();
+    GLUtessellatorImpl localGLUtessellatorImpl = (GLUtessellatorImpl)paramGLUtessellator;
+    localGLUtessellatorImpl.gluNextContour(paramInt);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final void gluEndPolygon(GLUtessellator paramGLUtessellator)
+  {
+    validateGLUtessellatorImpl();
+    GLUtessellatorImpl localGLUtessellatorImpl = (GLUtessellatorImpl)paramGLUtessellator;
+    localGLUtessellatorImpl.gluEndPolygon();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected static boolean availableGLUquadricImpl = false;
+  protected static boolean checkedGLUquadricImpl = false;
+  protected static volatile Object syncObject = new Object();
+  
+  private final ProjectFloat project;
+  
+  protected static final void validateGLUquadricImpl()
+  {
+    if (!checkedGLUquadricImpl) {
+      synchronized (syncObject) {
+        if (!checkedGLUquadricImpl) {
+          availableGLUquadricImpl = ReflectionUtil.isClassAvailable("jogamp.opengl.glu.GLUquadricImpl", GLU.class.getClassLoader());
+          checkedGLUquadricImpl = true;
+        }
+      }
+    }
+    if (!availableGLUquadricImpl) {
+      throw new GLException("GLUquadric not available (GLUquadricImpl)");
+    }
+  }
+  
+
+  public final void gluCylinder(GLUquadric paramGLUquadric, double paramDouble1, double paramDouble2, double paramDouble3, int paramInt1, int paramInt2)
+  {
+    validateGLUquadricImpl();
+    ((GLUquadricImpl)paramGLUquadric).drawCylinder(getCurrentGL(), (float)paramDouble1, (float)paramDouble2, (float)paramDouble3, paramInt1, paramInt2);
+  }
+  
+
+
+
+
+
+  public final void gluDisk(GLUquadric paramGLUquadric, double paramDouble1, double paramDouble2, int paramInt1, int paramInt2)
+  {
+    validateGLUquadricImpl();
+    ((GLUquadricImpl)paramGLUquadric).drawDisk(getCurrentGL(), (float)paramDouble1, (float)paramDouble2, paramInt1, paramInt2);
+  }
+  
+  public final GLUquadric gluNewQuadric()
+  {
+    return gluNewQuadric(false, null, 0);
+  }
+  
+  public final GLUquadric gluNewQuadric(boolean paramBoolean, ShaderState paramShaderState) {
+    return gluNewQuadric(paramBoolean, paramShaderState, 0);
+  }
+  
+  public final GLUquadric gluNewQuadric(boolean paramBoolean, int paramInt) {
+    return gluNewQuadric(paramBoolean, null, paramInt);
+  }
+  
+  private final GLUquadric gluNewQuadric(boolean paramBoolean, ShaderState paramShaderState, int paramInt) {
+    GL localGL = getCurrentGL();
+    if ((paramBoolean) && (!localGL.isGL2ES2())) {
+      throw new GLException("GLUquadric GLSL implementation not supported for profile: " + localGL);
+    }
+    validateGLUquadricImpl();
+    return new GLUquadricImpl(localGL, paramBoolean, paramShaderState, paramInt);
+  }
+  
+  public final void gluPartialDisk(GLUquadric paramGLUquadric, double paramDouble1, double paramDouble2, int paramInt1, int paramInt2, double paramDouble3, double paramDouble4)
+  {
+    validateGLUquadricImpl();
+    ((GLUquadricImpl)paramGLUquadric).drawPartialDisk(getCurrentGL(), (float)paramDouble1, (float)paramDouble2, paramInt1, paramInt2, (float)paramDouble3, (float)paramDouble4);
+  }
+  
+  public final void gluQuadricDrawStyle(GLUquadric paramGLUquadric, int paramInt)
+  {
+    validateGLUquadricImpl();
+    ((GLUquadricImpl)paramGLUquadric).setDrawStyle(paramInt);
+  }
+  
+  public final void gluQuadricNormals(GLUquadric paramGLUquadric, int paramInt)
+  {
+    validateGLUquadricImpl();
+    ((GLUquadricImpl)paramGLUquadric).setNormals(paramInt);
+  }
+  
+  public final void gluQuadricOrientation(GLUquadric paramGLUquadric, int paramInt)
+  {
+    validateGLUquadricImpl();
+    ((GLUquadricImpl)paramGLUquadric).setOrientation(paramInt);
+  }
+  
+  public final void gluQuadricTexture(GLUquadric paramGLUquadric, boolean paramBoolean)
+  {
+    validateGLUquadricImpl();
+    ((GLUquadricImpl)paramGLUquadric).setTextureFlag(paramBoolean);
+  }
+  
+  public final void gluSphere(GLUquadric paramGLUquadric, double paramDouble, int paramInt1, int paramInt2)
+  {
+    validateGLUquadricImpl();
+    ((GLUquadricImpl)paramGLUquadric).drawSphere(getCurrentGL(), (float)paramDouble, paramInt1, paramInt2);
+  }
+  
+
+
+
+
+
+  public void gluOrtho2D(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    project.gluOrtho2D(getCurrentGL().getGL2ES1(), paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+  }
+  
+  public void gluPerspective(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4) {
+    project.gluPerspective(getCurrentGL().getGL2ES1(), paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+  }
+  
+  public void gluLookAt(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6, float paramFloat7, float paramFloat8, float paramFloat9) {
+    project.gluLookAt(getCurrentGL().getGL2ES1(), paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramFloat5, paramFloat6, paramFloat7, paramFloat8, paramFloat9);
+  }
+  
+
+
+  public boolean gluProject(float paramFloat1, float paramFloat2, float paramFloat3, float[] paramArrayOfFloat1, int paramInt1, float[] paramArrayOfFloat2, int paramInt2, int[] paramArrayOfInt, int paramInt3, float[] paramArrayOfFloat3, int paramInt4)
+  {
+    return project.gluProject(paramFloat1, paramFloat2, paramFloat3, paramArrayOfFloat1, paramInt1, paramArrayOfFloat2, paramInt2, paramArrayOfInt, paramInt3, paramArrayOfFloat3, paramInt4);
+  }
+  
+
+
+  public boolean gluProject(float paramFloat1, float paramFloat2, float paramFloat3, FloatBuffer paramFloatBuffer1, FloatBuffer paramFloatBuffer2, IntBuffer paramIntBuffer, FloatBuffer paramFloatBuffer3)
+  {
+    return project.gluProject(paramFloat1, paramFloat2, paramFloat3, paramFloatBuffer1, paramFloatBuffer2, paramIntBuffer, paramFloatBuffer3);
+  }
+  
+
+
+  public boolean gluUnProject(float paramFloat1, float paramFloat2, float paramFloat3, float[] paramArrayOfFloat1, int paramInt1, float[] paramArrayOfFloat2, int paramInt2, int[] paramArrayOfInt, int paramInt3, float[] paramArrayOfFloat3, int paramInt4)
+  {
+    return project.gluUnProject(paramFloat1, paramFloat2, paramFloat3, paramArrayOfFloat1, paramInt1, paramArrayOfFloat2, paramInt2, paramArrayOfInt, paramInt3, paramArrayOfFloat3, paramInt4);
+  }
+  
+
+
+  public boolean gluUnProject(float paramFloat1, float paramFloat2, float paramFloat3, FloatBuffer paramFloatBuffer1, FloatBuffer paramFloatBuffer2, IntBuffer paramIntBuffer, FloatBuffer paramFloatBuffer3)
+  {
+    return project.gluUnProject(paramFloat1, paramFloat2, paramFloat3, paramFloatBuffer1, paramFloatBuffer2, paramIntBuffer, paramFloatBuffer3);
+  }
+  
+
+
+  public boolean gluUnProject4(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float[] paramArrayOfFloat1, int paramInt1, float[] paramArrayOfFloat2, int paramInt2, int[] paramArrayOfInt, int paramInt3, float paramFloat5, float paramFloat6, float[] paramArrayOfFloat3, int paramInt4)
+  {
+    return project.gluUnProject4(paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramArrayOfFloat1, paramInt1, paramArrayOfFloat2, paramInt2, paramArrayOfInt, paramInt3, paramFloat5, paramFloat6, paramArrayOfFloat3, paramInt4);
+  }
+  
+
+
+  public boolean gluUnProject4(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, FloatBuffer paramFloatBuffer1, FloatBuffer paramFloatBuffer2, IntBuffer paramIntBuffer, float paramFloat5, float paramFloat6, FloatBuffer paramFloatBuffer3)
+  {
+    return project.gluUnProject4(paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramFloatBuffer1, paramFloatBuffer2, paramIntBuffer, paramFloat5, paramFloat6, paramFloatBuffer3);
+  }
+  
+  public void gluPickMatrix(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, int[] paramArrayOfInt, int paramInt) {
+    project.gluPickMatrix(getCurrentGL().getGL2ES1(), paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramArrayOfInt, paramInt);
+  }
+  
+  public void gluPickMatrix(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, IntBuffer paramIntBuffer) {
+    project.gluPickMatrix(getCurrentGL().getGL2ES1(), paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramIntBuffer);
+  }
+  
+  public void gluOrtho2D(double paramDouble1, double paramDouble2, double paramDouble3, double paramDouble4) {
+    project.gluOrtho2D(getCurrentGL().getGL2ES1(), (float)paramDouble1, (float)paramDouble2, (float)paramDouble3, (float)paramDouble4);
+  }
+  
+  public void gluPerspective(double paramDouble1, double paramDouble2, double paramDouble3, double paramDouble4) {
+    project.gluPerspective(getCurrentGL().getGL2ES1(), (float)paramDouble1, (float)paramDouble2, (float)paramDouble3, (float)paramDouble4);
+  }
+  
+  public void gluLookAt(double paramDouble1, double paramDouble2, double paramDouble3, double paramDouble4, double paramDouble5, double paramDouble6, double paramDouble7, double paramDouble8, double paramDouble9) {
+    project.gluLookAt(getCurrentGL().getGL2ES1(), (float)paramDouble1, (float)paramDouble2, (float)paramDouble3, (float)paramDouble4, (float)paramDouble5, (float)paramDouble6, (float)paramDouble7, (float)paramDouble8, (float)paramDouble9);
+  }
+  
+
+
+  public boolean gluProject(double paramDouble1, double paramDouble2, double paramDouble3, double[] paramArrayOfDouble1, int paramInt1, double[] paramArrayOfDouble2, int paramInt2, int[] paramArrayOfInt, int paramInt3, double[] paramArrayOfDouble3, int paramInt4)
+  {
+    float[] arrayOfFloat1 = Buffers.getFloatArray(paramArrayOfDouble1, paramInt1, null, 0, -1);
+    float[] arrayOfFloat2 = Buffers.getFloatArray(paramArrayOfDouble2, paramInt2, null, 0, -1);
+    float[] arrayOfFloat3 = Buffers.getFloatArray(paramArrayOfDouble3, paramInt4, null, 0, -1);
+    boolean bool = project.gluProject((float)paramDouble1, (float)paramDouble2, (float)paramDouble3, arrayOfFloat1, 0, arrayOfFloat2, 0, paramArrayOfInt, paramInt3, arrayOfFloat3, 0);
+    if (bool) {
+      Buffers.getDoubleArray(arrayOfFloat1, 0, paramArrayOfDouble1, paramInt1, -1);
+      Buffers.getDoubleArray(arrayOfFloat2, 0, paramArrayOfDouble2, paramInt2, -1);
+      Buffers.getDoubleArray(arrayOfFloat3, 0, paramArrayOfDouble3, paramInt4, -1);
+    }
+    return bool;
+  }
+  
+
+
+  public boolean gluUnProject(double paramDouble1, double paramDouble2, double paramDouble3, double[] paramArrayOfDouble1, int paramInt1, double[] paramArrayOfDouble2, int paramInt2, int[] paramArrayOfInt, int paramInt3, double[] paramArrayOfDouble3, int paramInt4)
+  {
+    float[] arrayOfFloat1 = Buffers.getFloatArray(paramArrayOfDouble1, paramInt1, null, 0, -1);
+    float[] arrayOfFloat2 = Buffers.getFloatArray(paramArrayOfDouble2, paramInt2, null, 0, -1);
+    float[] arrayOfFloat3 = Buffers.getFloatArray(paramArrayOfDouble3, paramInt4, null, 0, -1);
+    boolean bool = project.gluUnProject((float)paramDouble1, (float)paramDouble2, (float)paramDouble3, arrayOfFloat1, 0, arrayOfFloat2, 0, paramArrayOfInt, paramInt3, arrayOfFloat3, 0);
+    if (bool) {
+      Buffers.getDoubleArray(arrayOfFloat1, 0, paramArrayOfDouble1, paramInt1, -1);
+      Buffers.getDoubleArray(arrayOfFloat2, 0, paramArrayOfDouble2, paramInt2, -1);
+      Buffers.getDoubleArray(arrayOfFloat3, 0, paramArrayOfDouble3, paramInt4, -1);
+    }
+    return bool;
+  }
+  
+
+
+  public boolean gluUnProject4(double paramDouble1, double paramDouble2, double paramDouble3, double paramDouble4, double[] paramArrayOfDouble1, int paramInt1, double[] paramArrayOfDouble2, int paramInt2, int[] paramArrayOfInt, int paramInt3, double paramDouble5, double paramDouble6, double[] paramArrayOfDouble3, int paramInt4)
+  {
+    float[] arrayOfFloat1 = Buffers.getFloatArray(paramArrayOfDouble1, paramInt1, null, 0, -1);
+    float[] arrayOfFloat2 = Buffers.getFloatArray(paramArrayOfDouble2, paramInt2, null, 0, -1);
+    float[] arrayOfFloat3 = Buffers.getFloatArray(paramArrayOfDouble3, paramInt4, null, 0, -1);
+    boolean bool = project.gluUnProject4((float)paramDouble1, (float)paramDouble2, (float)paramDouble3, (float)paramDouble4, arrayOfFloat1, 0, arrayOfFloat2, 0, paramArrayOfInt, paramInt3, (float)paramDouble5, (float)paramDouble6, arrayOfFloat3, 0);
+    if (bool) {
+      Buffers.getDoubleArray(arrayOfFloat1, 0, paramArrayOfDouble1, paramInt1, -1);
+      Buffers.getDoubleArray(arrayOfFloat2, 0, paramArrayOfDouble2, paramInt2, -1);
+      Buffers.getDoubleArray(arrayOfFloat3, 0, paramArrayOfDouble3, paramInt4, -1);
+    }
+    return bool;
+  }
+  
+  public void gluPickMatrix(double paramDouble1, double paramDouble2, double paramDouble3, double paramDouble4, int[] paramArrayOfInt, int paramInt) {
+    project.gluPickMatrix(getCurrentGL().getGL2ES1(), (float)paramDouble1, (float)paramDouble2, (float)paramDouble3, (float)paramDouble4, paramArrayOfInt, paramInt);
+  }
+  
+  public void gluPickMatrix(double paramDouble1, double paramDouble2, double paramDouble3, double paramDouble4, IntBuffer paramIntBuffer) {
+    project.gluPickMatrix(getCurrentGL().getGL2ES1(), (float)paramDouble1, (float)paramDouble2, (float)paramDouble3, (float)paramDouble4, paramIntBuffer);
+  }
+  
+
+
+
+
+  public int gluScaleImage(int paramInt1, int paramInt2, int paramInt3, int paramInt4, Buffer paramBuffer1, int paramInt5, int paramInt6, int paramInt7, Buffer paramBuffer2)
+  {
+    throw new GLException("not implemented");
+  }
+  
+
+
+
+
+  public int gluBuild1DMipmapLevels(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, Buffer paramBuffer)
+  {
+    throw new GLException("not implemented");
+  }
+  
+
+
+  public int gluBuild1DMipmaps(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, Buffer paramBuffer)
+  {
+    throw new GLException("not implemented");
+  }
+  
+
+
+
+
+  public int gluBuild2DMipmapLevels(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, Buffer paramBuffer)
+  {
+    throw new GLException("not implemented");
+  }
+  
+
+
+
+  public int gluBuild2DMipmaps(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, Buffer paramBuffer)
+  {
+    throw new GLException("not implemented");
+  }
+  
+
+
+
+
+  public int gluBuild3DMipmapLevels(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, int paramInt10, Buffer paramBuffer)
+  {
+    throw new GLException("not implemented");
+  }
+  
+
+
+
+  public int gluBuild3DMipmaps(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, Buffer paramBuffer)
+  {
+    throw new GLException("not implemented");
+  }
+  
+  public final void gluDeleteQuadric(GLUquadric paramGLUquadric) {}
+}

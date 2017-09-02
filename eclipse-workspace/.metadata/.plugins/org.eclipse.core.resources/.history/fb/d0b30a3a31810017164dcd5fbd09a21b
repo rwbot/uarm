@@ -1,0 +1,73 @@
+package jogamp.nativewindow;
+
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.ToolkitLock;
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class NullToolkitLock
+  implements ToolkitLock
+{
+  protected NullToolkitLock() {}
+  
+  public final void lock()
+  {
+    if (TRACE_LOCK) {
+      System.err.println(Thread.currentThread() + " NullToolkitLock: lock() " + toStringImpl());
+    }
+  }
+  
+
+  public final void unlock()
+  {
+    if (TRACE_LOCK) System.err.println(Thread.currentThread() + " NullToolkitLock: unlock() " + toStringImpl());
+  }
+  
+  public final void validateLocked() throws RuntimeException
+  {
+    if (NativeWindowFactory.requiresToolkitLock()) {
+      throw new RuntimeException("NullToolkitLock does not lock, but locking is required.");
+    }
+  }
+  
+
+
+  public final void dispose() {}
+  
+
+  public String toString()
+  {
+    return "NullToolkitLock[" + toStringImpl() + "]";
+  }
+  
+  private String toStringImpl() { return "obj 0x" + Integer.toHexString(hashCode()); }
+}

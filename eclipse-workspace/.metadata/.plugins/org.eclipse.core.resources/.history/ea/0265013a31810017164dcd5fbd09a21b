@@ -1,0 +1,110 @@
+package jogamp.nativewindow;
+
+import com.jogamp.common.util.ReflectionUtil;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.NativeWindow;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.ToolkitLock;
+import java.lang.reflect.Constructor;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class NativeWindowFactoryImpl
+  extends NativeWindowFactory
+{
+  public NativeWindowFactoryImpl() {}
+  
+  private static final ToolkitLock nullToolkitLock = new NullToolkitLock();
+  
+  public static ToolkitLock getNullToolkitLock() {
+    return nullToolkitLock; }
+  
+
+
+  protected NativeWindow getNativeWindowImpl(Object paramObject, AbstractGraphicsConfiguration paramAbstractGraphicsConfiguration)
+    throws IllegalArgumentException
+  {
+    if ((paramObject instanceof NativeWindow))
+    {
+      return (NativeWindow)paramObject;
+    }
+    
+    if (null == paramAbstractGraphicsConfiguration) {
+      throw new IllegalArgumentException("AbstractGraphicsConfiguration is null with a non NativeWindow object");
+    }
+    
+    if ((NativeWindowFactory.isAWTAvailable()) && (ReflectionUtil.instanceOf(paramObject, "java.awt.Component"))) {
+      return getAWTNativeWindow(paramObject, paramAbstractGraphicsConfiguration);
+    }
+    
+
+    throw new IllegalArgumentException("Target window object type " + paramObject.getClass().getName() + " is unsupported; expected " + "com.jogamp.nativewindow.NativeWindow or " + "java.awt.Component");
+  }
+  
+
+  private Constructor<?> nativeWindowConstructor = null;
+  
+  private NativeWindow getAWTNativeWindow(Object paramObject, AbstractGraphicsConfiguration paramAbstractGraphicsConfiguration) {
+    if (nativeWindowConstructor == null) {
+      try {
+        String str1 = getNativeWindowType(true);
+        
+
+        String str2;
+        
+
+        if (TYPE_WINDOWS == str1) {
+          str2 = "jogamp.nativewindow.jawt.windows.WindowsJAWTWindow";
+        } else if (TYPE_MACOSX == str1) {
+          str2 = "jogamp.nativewindow.jawt.macosx.MacOSXJAWTWindow";
+        } else if (TYPE_X11 == str1)
+        {
+          str2 = "jogamp.nativewindow.jawt.x11.X11JAWTWindow";
+        } else {
+          throw new IllegalArgumentException("Native windowing type " + str1 + " (custom) not yet supported, platform reported native windowing type: " + getNativeWindowType(false));
+        }
+        
+        nativeWindowConstructor = ReflectionUtil.getConstructor(str2, new Class[] { Object.class, AbstractGraphicsConfiguration.class }, true, 
+        
+          getClass().getClassLoader());
+      } catch (Exception localException1) {
+        throw new IllegalArgumentException(localException1);
+      }
+    }
+    try
+    {
+      return (NativeWindow)nativeWindowConstructor.newInstance(new Object[] { paramObject, paramAbstractGraphicsConfiguration });
+    } catch (Exception localException2) {
+      throw new IllegalArgumentException(localException2);
+    }
+  }
+}

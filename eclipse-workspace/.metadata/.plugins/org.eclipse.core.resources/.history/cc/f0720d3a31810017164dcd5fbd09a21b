@@ -1,0 +1,99 @@
+package jogamp.nativewindow.windows;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.StructAccessor;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import java.nio.ByteBuffer;
+import jogamp.common.os.MachineDataInfoRuntime;
+
+
+
+
+
+
+
+
+
+
+public class RECT
+{
+  StructAccessor accessor;
+  private static final int mdIdx = MachineDataInfoRuntime.getStatic().ordinal();
+  
+  private final MachineDataInfo md;
+  private static final int[] RECT_size = { 16, 16, 16, 16, 16, 16, 16, 16 };
+  private static final int[] left_offset = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  
+  private static final int[] top_offset = { 4, 4, 4, 4, 4, 4, 4, 4 };
+  
+  private static final int[] right_offset = { 8, 8, 8, 8, 8, 8, 8, 8 };
+  
+  private static final int[] bottom_offset = { 12, 12, 12, 12, 12, 12, 12, 12 };
+  
+  public static int size()
+  {
+    return RECT_size[mdIdx];
+  }
+  
+  public static RECT create() {
+    return create(Buffers.newDirectByteBuffer(size()));
+  }
+  
+  public static RECT create(ByteBuffer paramByteBuffer) {
+    return new RECT(paramByteBuffer);
+  }
+  
+  RECT(ByteBuffer paramByteBuffer) {
+    md = valuesmdIdxmd;
+    accessor = new StructAccessor(paramByteBuffer);
+  }
+  
+  public ByteBuffer getBuffer() {
+    return accessor.getBuffer();
+  }
+  
+  public RECT setLeft(int paramInt)
+  {
+    accessor.setIntAt(left_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getLeft()
+  {
+    return accessor.getIntAt(left_offset[mdIdx]);
+  }
+  
+  public RECT setTop(int paramInt)
+  {
+    accessor.setIntAt(top_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getTop()
+  {
+    return accessor.getIntAt(top_offset[mdIdx]);
+  }
+  
+  public RECT setRight(int paramInt)
+  {
+    accessor.setIntAt(right_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getRight()
+  {
+    return accessor.getIntAt(right_offset[mdIdx]);
+  }
+  
+  public RECT setBottom(int paramInt)
+  {
+    accessor.setIntAt(bottom_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getBottom()
+  {
+    return accessor.getIntAt(bottom_offset[mdIdx]);
+  }
+}

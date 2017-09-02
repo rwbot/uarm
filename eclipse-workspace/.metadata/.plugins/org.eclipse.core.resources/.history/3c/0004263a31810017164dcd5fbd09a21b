@@ -1,0 +1,875 @@
+package jogamp.opengl.glu.mipmap;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2GL3;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLException;
+import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import java.nio.ShortBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Mipmap
+{
+  public Mipmap() {}
+  
+  public static int computeLog(int paramInt)
+  {
+    int i = 0;
+    
+    if (paramInt == 0) {
+      return -1;
+    }
+    for (;;) {
+      if ((paramInt & 0x1) >= 1) {
+        if (paramInt != 1) {
+          return -1;
+        }
+        return i;
+      }
+      paramInt >>= 1;
+      i++;
+    }
+  }
+  
+
+
+  public static int nearestPower(int paramInt)
+  {
+    int i = 1;
+    
+    if (paramInt == 0) {
+      return -1;
+    }
+    for (;;) {
+      if (paramInt == 1)
+        return i;
+      if (paramInt == 3) {
+        return i * 4;
+      }
+      paramInt >>= 1;
+      i *= 2;
+    }
+  }
+  
+  public static short GLU_SWAP_2_BYTES(short paramShort) {
+    int i = 0;
+    i = (byte)(paramShort >>> 8);
+    paramShort = (short)(paramShort << 8);
+    paramShort = (short)(paramShort | 0xFF & i);
+    return paramShort;
+  }
+  
+  public static int GLU_SWAP_4_BYTES(int paramInt) {
+    int i = paramInt << 24;
+    i |= 0xFF0000 & paramInt << 8;
+    i |= 0xFF00 & paramInt >>> 8;
+    i |= 0xFF & paramInt >>> 24;
+    return i;
+  }
+  
+  public static float GLU_SWAP_4_BYTES(float paramFloat) {
+    int i = Float.floatToRawIntBits(paramFloat);
+    float f = Float.intBitsToFloat(i);
+    return f;
+  }
+  
+  public static int checkMipmapArgs(int paramInt1, int paramInt2, int paramInt3) {
+    if ((!legalFormat(paramInt2)) || (!legalType(paramInt3))) {
+      return 100900;
+    }
+    if (paramInt2 == 6401) {
+      return 100900;
+    }
+    if (!isLegalFormatForPackedPixelType(paramInt2, paramInt3)) {
+      return 100904;
+    }
+    return 0;
+  }
+  
+  public static boolean legalFormat(int paramInt) {
+    switch (paramInt) {
+    case 6400: 
+    case 6401: 
+    case 6402: 
+    case 6403: 
+    case 6404: 
+    case 6405: 
+    case 6406: 
+    case 6407: 
+    case 6408: 
+    case 6409: 
+    case 6410: 
+    case 32992: 
+    case 32993: 
+      return true;
+    }
+    return false;
+  }
+  
+  public static boolean legalType(int paramInt)
+  {
+    switch (paramInt) {
+    case 5120: 
+    case 5121: 
+    case 5122: 
+    case 5123: 
+    case 5124: 
+    case 5125: 
+    case 5126: 
+    case 6656: 
+    case 32818: 
+    case 32819: 
+    case 32820: 
+    case 32821: 
+    case 33634: 
+    case 33635: 
+    case 33636: 
+    case 33637: 
+    case 33638: 
+    case 33639: 
+    case 33640: 
+    case 36342: 
+      return true;
+    }
+    return false;
+  }
+  
+  public static boolean isTypePackedPixel(int paramInt)
+  {
+    assert (legalType(paramInt));
+    
+    if ((paramInt == 32818) || (paramInt == 33634) || (paramInt == 33635) || (paramInt == 33636) || (paramInt == 32819) || (paramInt == 33637) || (paramInt == 32820) || (paramInt == 33638) || (paramInt == 32821) || (paramInt == 33639) || (paramInt == 36342) || (paramInt == 33640))
+    {
+
+
+
+
+
+
+
+
+
+
+      return true;
+    }
+    return false;
+  }
+  
+  public static boolean isLegalFormatForPackedPixelType(int paramInt1, int paramInt2)
+  {
+    if (isTypePackedPixel(paramInt2)) {
+      return true;
+    }
+    
+
+    if ((((paramInt2 == 32818) || (paramInt2 == 33634) || (paramInt2 == 33635) || (paramInt2 == 33636) ? 1 : 0) & (paramInt1 != 6407 ? 1 : 0)) != 0)
+    {
+
+      return false;
+    }
+    
+
+
+    if (((paramInt2 == 32819) || (paramInt2 == 33637) || (paramInt2 == 32820) || (paramInt2 == 33638) || (paramInt2 == 32821) || (paramInt2 == 33639) || (paramInt2 == 36342) || (paramInt2 == 33640)) && (paramInt1 != 6408) && (paramInt1 != 32993))
+    {
+
+
+
+
+
+
+
+      return false;
+    }
+    return true;
+  }
+  
+  public static boolean isLegalLevels(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    if ((paramInt2 < 0) || (paramInt2 < paramInt1) || (paramInt3 < paramInt2) || (paramInt4 < paramInt3))
+    {
+      return false;
+    }
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+  public static void closestFit(GL paramGL, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int[] paramArrayOfInt1, int[] paramArrayOfInt2)
+  {
+    if ((paramGL.isGL2GL3()) && (paramGL.getContext().getGLVersionNumber().compareTo(GLContext.Version1_1) >= 0)) {
+      int i = nearestPower(paramInt2);
+      int j = nearestPower(paramInt3);
+      int[] arrayOfInt2 = new int[1];
+      int k = 0;
+      
+
+
+
+      try
+      {
+        do
+        {
+          int m = paramInt2 > 1 ? i >> 1 : i;
+          int n = paramInt3 > 1 ? j >> 1 : j;
+          
+
+          assert (m > 0);
+          assert (n > 0);
+          
+          int i1;
+          if ((paramInt1 == 3553) || (paramInt1 == 32868)) {
+            i1 = 32868;
+            paramGL.glTexImage2D(i1, 1, paramInt4, m, n, 0, paramInt5, paramInt6, null);
+          }
+          else if ((paramInt1 == 34069) || (paramInt1 == 34070) || (paramInt1 == 34071) || (paramInt1 == 34072) || (paramInt1 == 34073) || (paramInt1 == 34074))
+          {
+
+
+
+
+            i1 = 34075;
+            paramGL.glTexImage2D(i1, 1, paramInt4, m, n, 0, paramInt5, paramInt6, null);
+          }
+          else {
+            assert ((paramInt1 == 3552) || (paramInt1 == 32867));
+            i1 = 32867;
+            paramGL.getGL2GL3().glTexImage1D(i1, 1, paramInt4, m, 0, paramInt5, paramInt6, null);
+          }
+          
+          if (paramGL.isGL2GL3()) {
+            paramGL.getGL2GL3().glGetTexLevelParameteriv(i1, 1, 4096, arrayOfInt2, 0);
+          } else {
+            arrayOfInt2[0] = 0;
+          }
+          
+          if (arrayOfInt2[0] == 0) {
+            if ((i == 1) && (j == 1))
+            {
+
+
+
+
+              k = 1;
+              break;
+            }
+            i = m;
+            j = n;
+          }
+          
+        } while (arrayOfInt2[0] == 0);
+      } catch (GLException localGLException) {
+        k = 1;
+      }
+      
+
+      if (k == 0) {
+        paramArrayOfInt1[0] = i;
+        paramArrayOfInt2[0] = j;
+        return;
+      }
+    }
+    int[] arrayOfInt1 = new int[1];
+    paramGL.glGetIntegerv(3379, arrayOfInt1, 0);
+    
+    paramArrayOfInt1[0] = nearestPower(paramInt2);
+    if (paramArrayOfInt1[0] > arrayOfInt1[0]) {
+      paramArrayOfInt1[0] = arrayOfInt1[0];
+    }
+    paramArrayOfInt2[0] = nearestPower(paramInt3);
+    if (paramArrayOfInt2[0] > arrayOfInt1[0]) {
+      paramArrayOfInt2[0] = arrayOfInt1[0];
+    }
+  }
+  
+
+  public static void closestFit3D(GL paramGL, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int[] paramArrayOfInt1, int[] paramArrayOfInt2, int[] paramArrayOfInt3)
+  {
+    int i = nearestPower(paramInt2);
+    int j = nearestPower(paramInt3);
+    int k = nearestPower(paramInt4);
+    int[] arrayOfInt = new int[1];
+    
+    do
+    {
+      int m = i > 1 ? i >> 1 : i;
+      int n = j > 1 ? j >> 1 : j;
+      int i1 = k > 1 ? k >> 1 : k;
+      int i2 = 0;
+      assert (m > 0);
+      assert (n > 0);
+      assert (i1 > 0);
+      
+
+      if ((paramInt1 == 32879) || (paramInt1 == 32880)) {
+        i2 = 32880;
+        paramGL.getGL2GL3().glTexImage3D(i2, 1, paramInt5, m, n, i1, 0, paramInt6, paramInt7, null);
+      }
+      
+      if (paramGL.isGL2GL3()) {
+        paramGL.getGL2GL3().glGetTexLevelParameteriv(i2, 1, 4096, arrayOfInt, 0);
+      } else {
+        arrayOfInt[0] = 0;
+      }
+      
+      if (arrayOfInt[0] == 0) {
+        if ((i == 1) && (j == 1) && (k == 1)) {
+          int tmp253_252 = (paramArrayOfInt3[0] = 1);paramArrayOfInt2[0] = tmp253_252;paramArrayOfInt1[0] = tmp253_252;
+          return;
+        }
+        i = m;
+        j = n;
+        k = i1;
+      }
+    } while (arrayOfInt[0] == 0);
+    
+
+
+    paramArrayOfInt1[0] = i;
+    paramArrayOfInt2[0] = j;
+    paramArrayOfInt3[0] = k;
+  }
+  
+
+
+  public static int elements_per_group(int paramInt1, int paramInt2)
+  {
+    if ((paramInt2 == 32818) || (paramInt2 == 33634) || (paramInt2 == 33635) || (paramInt2 == 33636) || (paramInt2 == 32819) || (paramInt2 == 33637) || (paramInt2 == 32820) || (paramInt2 == 33638) || (paramInt2 == 32821) || (paramInt2 == 33639) || (paramInt2 == 36342) || (paramInt2 == 33640))
+    {
+
+
+
+
+
+
+
+
+
+
+      return 1;
+    }
+    
+
+    switch (paramInt1) {
+    case 6407: 
+    case 32992: 
+      return 3;
+    case 6410: 
+      return 2;
+    case 6408: 
+    case 32993: 
+      return 4;
+    }
+    return 1;
+  }
+  
+
+
+  public static int bytes_per_element(int paramInt)
+  {
+    switch (paramInt) {
+    case 5120: 
+    case 5121: 
+    case 6656: 
+    case 32818: 
+    case 33634: 
+      return 1;
+    case 5122: 
+    case 5123: 
+    case 32819: 
+    case 32820: 
+    case 33635: 
+    case 33636: 
+    case 33637: 
+    case 33638: 
+      return 2;
+    case 5124: 
+    case 5125: 
+    case 5126: 
+    case 32821: 
+    case 33639: 
+    case 33640: 
+    case 36342: 
+      return 4;
+    }
+    return 4;
+  }
+  
+  public static boolean is_index(int paramInt)
+  {
+    return (paramInt == 6400) || (paramInt == 6401);
+  }
+  
+
+
+
+
+  public static int image_size(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    assert (paramInt1 > 0);
+    assert (paramInt2 > 0);
+    int j = elements_per_group(paramInt3, paramInt4);
+    int i; if (paramInt4 == 6656) {
+      i = (paramInt1 + 7) / 8;
+    } else {
+      i = bytes_per_element(paramInt4) * paramInt1;
+    }
+    return i * paramInt2 * j;
+  }
+  
+  public static int imageSize3D(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5) {
+    int i = elements_per_group(paramInt4, paramInt5);
+    int j = bytes_per_element(paramInt5) * paramInt1;
+    
+    assert ((paramInt1 > 0) && (paramInt2 > 0) && (paramInt3 > 0));
+    assert (paramInt5 != 6656);
+    
+    return j * paramInt2 * paramInt3 * i;
+  }
+  
+  public static void retrieveStoreModes(GL paramGL, PixelStorageModes paramPixelStorageModes) {
+    int[] arrayOfInt = new int[1];
+    paramGL.glGetIntegerv(3317, arrayOfInt, 0);
+    paramPixelStorageModes.setUnpackAlignment(arrayOfInt[0]);
+    paramGL.glGetIntegerv(3314, arrayOfInt, 0);
+    paramPixelStorageModes.setUnpackRowLength(arrayOfInt[0]);
+    paramGL.glGetIntegerv(3315, arrayOfInt, 0);
+    paramPixelStorageModes.setUnpackSkipRows(arrayOfInt[0]);
+    paramGL.glGetIntegerv(3316, arrayOfInt, 0);
+    paramPixelStorageModes.setUnpackSkipPixels(arrayOfInt[0]);
+    paramGL.glGetIntegerv(3313, arrayOfInt, 0);
+    paramPixelStorageModes.setUnpackLsbFirst(arrayOfInt[0] == 1);
+    paramGL.glGetIntegerv(3312, arrayOfInt, 0);
+    paramPixelStorageModes.setUnpackSwapBytes(arrayOfInt[0] == 1);
+    
+    paramGL.glGetIntegerv(3333, arrayOfInt, 0);
+    paramPixelStorageModes.setPackAlignment(arrayOfInt[0]);
+    paramGL.glGetIntegerv(3330, arrayOfInt, 0);
+    paramPixelStorageModes.setPackRowLength(arrayOfInt[0]);
+    paramGL.glGetIntegerv(3331, arrayOfInt, 0);
+    paramPixelStorageModes.setPackSkipRows(arrayOfInt[0]);
+    paramGL.glGetIntegerv(3332, arrayOfInt, 0);
+    paramPixelStorageModes.setPackSkipPixels(arrayOfInt[0]);
+    paramGL.glGetIntegerv(3329, arrayOfInt, 0);
+    paramPixelStorageModes.setPackLsbFirst(arrayOfInt[0] == 1);
+    paramGL.glGetIntegerv(3328, arrayOfInt, 0);
+    paramPixelStorageModes.setPackSwapBytes(arrayOfInt[0] == 1);
+  }
+  
+  public static void retrieveStoreModes3D(GL paramGL, PixelStorageModes paramPixelStorageModes) {
+    int[] arrayOfInt = new int[1];
+    paramGL.glGetIntegerv(3317, arrayOfInt, 0);
+    paramPixelStorageModes.setUnpackAlignment(arrayOfInt[0]);
+    paramGL.glGetIntegerv(3314, arrayOfInt, 0);
+    paramPixelStorageModes.setUnpackRowLength(arrayOfInt[0]);
+    paramGL.glGetIntegerv(3315, arrayOfInt, 0);
+    paramPixelStorageModes.setUnpackSkipRows(arrayOfInt[0]);
+    paramGL.glGetIntegerv(3316, arrayOfInt, 0);
+    paramPixelStorageModes.setUnpackSkipPixels(arrayOfInt[0]);
+    paramGL.glGetIntegerv(3313, arrayOfInt, 0);
+    paramPixelStorageModes.setUnpackLsbFirst(arrayOfInt[0] == 1);
+    paramGL.glGetIntegerv(3312, arrayOfInt, 0);
+    paramPixelStorageModes.setUnpackSwapBytes(arrayOfInt[0] == 1);
+    paramGL.glGetIntegerv(32877, arrayOfInt, 0);
+    paramPixelStorageModes.setUnpackSkipImages(arrayOfInt[0]);
+    paramGL.glGetIntegerv(32878, arrayOfInt, 0);
+    paramPixelStorageModes.setUnpackImageHeight(arrayOfInt[0]);
+    
+    paramGL.glGetIntegerv(3333, arrayOfInt, 0);
+    paramPixelStorageModes.setPackAlignment(arrayOfInt[0]);
+    paramGL.glGetIntegerv(3330, arrayOfInt, 0);
+    paramPixelStorageModes.setPackRowLength(arrayOfInt[0]);
+    paramGL.glGetIntegerv(3331, arrayOfInt, 0);
+    paramPixelStorageModes.setPackSkipRows(arrayOfInt[0]);
+    paramGL.glGetIntegerv(3332, arrayOfInt, 0);
+    paramPixelStorageModes.setPackSkipPixels(arrayOfInt[0]);
+    paramGL.glGetIntegerv(3329, arrayOfInt, 0);
+    paramPixelStorageModes.setPackLsbFirst(arrayOfInt[0] == 1);
+    paramGL.glGetIntegerv(3328, arrayOfInt, 0);
+    paramPixelStorageModes.setPackSwapBytes(arrayOfInt[0] == 1);
+    paramGL.glGetIntegerv(32875, arrayOfInt, 0);
+    paramPixelStorageModes.setPackSkipImages(arrayOfInt[0]);
+    paramGL.glGetIntegerv(32876, arrayOfInt, 0);
+    paramPixelStorageModes.setPackImageHeight(arrayOfInt[0]);
+  }
+  
+
+  public static int gluScaleImage(GL paramGL, int paramInt1, int paramInt2, int paramInt3, int paramInt4, ByteBuffer paramByteBuffer1, int paramInt5, int paramInt6, int paramInt7, ByteBuffer paramByteBuffer2)
+  {
+    int i = paramByteBuffer1.position();
+    int j = paramByteBuffer2.position();
+    
+
+
+    try
+    {
+      PixelStorageModes localPixelStorageModes = new PixelStorageModes();
+      int m;
+      if ((paramInt2 == 0) || (paramInt3 == 0) || (paramInt5 == 0) || (paramInt6 == 0)) {
+        return 0;
+      }
+      if ((paramInt2 < 0) || (paramInt3 < 0) || (paramInt5 < 0) || (paramInt6 < 0)) {
+        return 100901;
+      }
+      if ((!legalFormat(paramInt1)) || (!legalType(paramInt4)) || (!legalType(paramInt7))) {
+        return 100900;
+      }
+      if (!isLegalFormatForPackedPixelType(paramInt1, paramInt4)) {
+        return 100904;
+      }
+      if (!isLegalFormatForPackedPixelType(paramInt1, paramInt7)) {
+        return 100904;
+      }
+      ByteBuffer localByteBuffer1 = Buffers.newDirectByteBuffer(image_size(paramInt2, paramInt3, paramInt1, 5123));
+      ByteBuffer localByteBuffer2 = Buffers.newDirectByteBuffer(image_size(paramInt5, paramInt6, paramInt1, 5123));
+      if ((localByteBuffer1 == null) || (localByteBuffer2 == null)) {
+        return 100902;
+      }
+      
+      retrieveStoreModes(paramGL, localPixelStorageModes);
+      Image.fill_image(localPixelStorageModes, paramInt2, paramInt3, paramInt1, paramInt4, is_index(paramInt1), paramByteBuffer1, localByteBuffer1.asShortBuffer());
+      int k = elements_per_group(paramInt1, 0);
+      ScaleInternal.scale_internal(k, paramInt2, paramInt3, localByteBuffer1.asShortBuffer(), paramInt5, paramInt6, localByteBuffer2.asShortBuffer());
+      Image.empty_image(localPixelStorageModes, paramInt5, paramInt6, paramInt1, paramInt7, is_index(paramInt1), localByteBuffer2.asShortBuffer(), paramByteBuffer2);
+      
+      return 0;
+    } finally {
+      paramByteBuffer1.position(i);
+      paramByteBuffer2.position(j);
+    }
+  }
+  
+
+  public static int gluBuild1DMipmapLevels(GL paramGL, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, ByteBuffer paramByteBuffer)
+  {
+    int i = paramByteBuffer.position();
+    
+
+    try
+    {
+      int k = checkMipmapArgs(paramInt2, paramInt4, paramInt5);
+      int m; if (k != 0) {
+        return k;
+      }
+      
+      if (paramInt3 < 1) {
+        return 100901;
+      }
+      
+      int j = computeLog(paramInt3);
+      
+      j += paramInt6;
+      if (!isLegalLevels(paramInt6, paramInt7, paramInt8, j)) {
+        return 100901;
+      }
+      
+      return BuildMipmap.gluBuild1DMipmapLevelsCore(paramGL, paramInt1, paramInt2, paramInt3, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8, paramByteBuffer);
+    }
+    finally {
+      paramByteBuffer.position(i);
+    }
+  }
+  
+  public static int gluBuild1DMipmaps(GL paramGL, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, ByteBuffer paramByteBuffer)
+  {
+    int i = paramByteBuffer.position();
+    try
+    {
+      int[] arrayOfInt1 = new int[1];
+      
+      int[] arrayOfInt2 = new int[1];
+      
+      int k = checkMipmapArgs(paramInt2, paramInt4, paramInt5);
+      int m; if (k != 0) {
+        return k;
+      }
+      
+      if (paramInt3 < 1) {
+        return 100901;
+      }
+      
+      closestFit(paramGL, paramInt1, paramInt3, 1, paramInt2, paramInt4, paramInt5, arrayOfInt1, arrayOfInt2);
+      int j = computeLog(arrayOfInt1[0]);
+      
+      return BuildMipmap.gluBuild1DMipmapLevelsCore(paramGL, paramInt1, paramInt2, paramInt3, arrayOfInt1[0], paramInt4, paramInt5, 0, 0, j, paramByteBuffer);
+    }
+    finally {
+      paramByteBuffer.position(i);
+    }
+  }
+  
+
+
+
+
+  public static int gluBuild2DMipmapLevels(GL paramGL, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, Object paramObject)
+  {
+    int k = checkMipmapArgs(paramInt2, paramInt5, paramInt6);
+    if (k != 0) {
+      return k;
+    }
+    
+    if ((paramInt3 < 1) || (paramInt4 < 1)) {
+      return 100901;
+    }
+    
+    int j = computeLog(paramInt3);
+    int i = computeLog(paramInt4);
+    if (i > j) {
+      j = i;
+    }
+    
+    j += paramInt7;
+    if (!isLegalLevels(paramInt7, paramInt8, paramInt9, j)) {
+      return 100901;
+    }
+    
+    ByteBuffer localByteBuffer;
+    
+    if ((paramObject instanceof ByteBuffer)) {
+      localByteBuffer = (ByteBuffer)paramObject; } else { Object localObject1;
+      if ((paramObject instanceof byte[])) {
+        localObject1 = (byte[])paramObject;
+        localByteBuffer = ByteBuffer.allocateDirect(localObject1.length);
+        localByteBuffer.put((byte[])localObject1);
+        localByteBuffer.flip(); } else { Object localObject2;
+        if ((paramObject instanceof short[])) {
+          localObject1 = (short[])paramObject;
+          localByteBuffer = ByteBuffer.allocateDirect(localObject1.length * 2);
+          localObject2 = localByteBuffer.asShortBuffer();
+          ((ShortBuffer)localObject2).put((short[])localObject1);
+        } else if ((paramObject instanceof int[])) {
+          localObject1 = (int[])paramObject;
+          localByteBuffer = ByteBuffer.allocateDirect(localObject1.length * 4);
+          localObject2 = localByteBuffer.asIntBuffer();
+          ((IntBuffer)localObject2).put((int[])localObject1);
+        } else if ((paramObject instanceof float[])) {
+          localObject1 = (float[])paramObject;
+          localByteBuffer = ByteBuffer.allocateDirect(localObject1.length * 4);
+          localObject2 = localByteBuffer.asFloatBuffer();
+          ((FloatBuffer)localObject2).put((float[])localObject1);
+        } else {
+          throw new IllegalArgumentException("Unhandled data type: " + paramObject.getClass().getName());
+        }
+      } }
+    int m = localByteBuffer.position();
+    try {
+      return BuildMipmap.gluBuild2DMipmapLevelsCore(paramGL, paramInt1, paramInt2, paramInt3, paramInt4, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8, paramInt9, localByteBuffer);
+    }
+    finally
+    {
+      localByteBuffer.position(m);
+    }
+  }
+  
+
+  public static int gluBuild2DMipmaps(GL paramGL, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, Object paramObject)
+  {
+    int[] arrayOfInt1 = new int[1];
+    int[] arrayOfInt2 = new int[1];
+    
+
+    int k = checkMipmapArgs(paramInt2, paramInt5, paramInt6);
+    if (k != 0) {
+      return k;
+    }
+    
+    if ((paramInt3 < 1) || (paramInt4 < 1)) {
+      return 100901;
+    }
+    
+    closestFit(paramGL, paramInt1, paramInt3, paramInt4, paramInt2, paramInt5, paramInt6, arrayOfInt1, arrayOfInt2);
+    
+
+    int j = computeLog(arrayOfInt1[0]);
+    int i = computeLog(arrayOfInt2[0]);
+    if (i > j) {
+      j = i;
+    }
+    
+    ByteBuffer localByteBuffer;
+    
+    if ((paramObject instanceof ByteBuffer)) {
+      localByteBuffer = (ByteBuffer)paramObject; } else { Object localObject1;
+      if ((paramObject instanceof byte[])) {
+        localObject1 = (byte[])paramObject;
+        localByteBuffer = ByteBuffer.allocateDirect(localObject1.length);
+        localByteBuffer.put((byte[])localObject1);
+        localByteBuffer.flip(); } else { Object localObject2;
+        if ((paramObject instanceof short[])) {
+          localObject1 = (short[])paramObject;
+          localByteBuffer = ByteBuffer.allocateDirect(localObject1.length * 2);
+          localObject2 = localByteBuffer.asShortBuffer();
+          ((ShortBuffer)localObject2).put((short[])localObject1);
+        } else if ((paramObject instanceof int[])) {
+          localObject1 = (int[])paramObject;
+          localByteBuffer = ByteBuffer.allocateDirect(localObject1.length * 4);
+          localObject2 = localByteBuffer.asIntBuffer();
+          ((IntBuffer)localObject2).put((int[])localObject1);
+        } else if ((paramObject instanceof float[])) {
+          localObject1 = (float[])paramObject;
+          localByteBuffer = ByteBuffer.allocateDirect(localObject1.length * 4);
+          localObject2 = localByteBuffer.asFloatBuffer();
+          ((FloatBuffer)localObject2).put((float[])localObject1);
+        } else {
+          throw new IllegalArgumentException("Unhandled data type: " + paramObject.getClass().getName());
+        }
+      } }
+    int m = localByteBuffer.position();
+    try {
+      return BuildMipmap.gluBuild2DMipmapLevelsCore(paramGL, paramInt1, paramInt2, paramInt3, paramInt4, arrayOfInt1[0], arrayOfInt2[0], paramInt5, paramInt6, 0, 0, j, localByteBuffer);
+    }
+    finally
+    {
+      localByteBuffer.position(m);
+    }
+  }
+  
+
+  public static int gluBuild3DMipmaps(GL paramGL, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, ByteBuffer paramByteBuffer)
+  {
+    int i = paramByteBuffer.position();
+    try
+    {
+      int[] arrayOfInt1 = new int[1];
+      int[] arrayOfInt2 = new int[1];
+      int[] arrayOfInt3 = new int[1];
+      
+
+      int m = checkMipmapArgs(paramInt2, paramInt6, paramInt7);
+      int n; if (m != 0) {
+        return m;
+      }
+      
+      if ((paramInt3 < 1) || (paramInt4 < 1) || (paramInt5 < 1)) {
+        return 100901;
+      }
+      
+      if (paramInt7 == 6656) {
+        return 100900;
+      }
+      
+      closestFit3D(paramGL, paramInt1, paramInt3, paramInt4, paramInt5, paramInt2, paramInt6, paramInt7, arrayOfInt1, arrayOfInt2, arrayOfInt3);
+      
+
+      int k = computeLog(arrayOfInt1[0]);
+      int j = computeLog(arrayOfInt2[0]);
+      if (j > k) {
+        k = j;
+      }
+      j = computeLog(arrayOfInt3[0]);
+      if (j > k) {
+        k = j;
+      }
+      
+      return BuildMipmap.gluBuild3DMipmapLevelsCore(paramGL, paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, arrayOfInt1[0], arrayOfInt2[0], arrayOfInt3[0], paramInt6, paramInt7, 0, 0, k, paramByteBuffer);
+    }
+    finally
+    {
+      paramByteBuffer.position(i);
+    }
+  }
+  
+
+  public static int gluBuild3DMipmapLevels(GL paramGL, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, int paramInt10, ByteBuffer paramByteBuffer)
+  {
+    int i = paramByteBuffer.position();
+    
+    try
+    {
+      int m = checkMipmapArgs(paramInt2, paramInt6, paramInt7);
+      int n; if (m != 0) {
+        return m;
+      }
+      
+      if ((paramInt3 < 1) || (paramInt4 < 1) || (paramInt5 < 1)) {
+        return 100901;
+      }
+      
+      if (paramInt7 == 6656) {
+        return 100900;
+      }
+      
+      int k = computeLog(paramInt3);
+      int j = computeLog(paramInt4);
+      if (j > k) {
+        k = j;
+      }
+      j = computeLog(paramInt5);
+      if (j > k) {
+        k = j;
+      }
+      
+      k += paramInt8;
+      if (!isLegalLevels(paramInt8, paramInt9, paramInt10, k)) {
+        return 100901;
+      }
+      
+      return BuildMipmap.gluBuild3DMipmapLevelsCore(paramGL, paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8, paramInt9, paramInt10, paramByteBuffer);
+    }
+    finally
+    {
+      paramByteBuffer.position(i);
+    }
+  }
+}

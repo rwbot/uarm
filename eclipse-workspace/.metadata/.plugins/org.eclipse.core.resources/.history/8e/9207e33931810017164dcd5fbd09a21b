@@ -1,0 +1,967 @@
+package com.jogamp.nativewindow.awt;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.util.awt.AWTEDTExecutor;
+import com.jogamp.common.util.locks.LockFactory;
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.MutableGraphicsConfiguration;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindow;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.OffscreenLayerOption;
+import com.jogamp.nativewindow.OffscreenLayerSurface;
+import com.jogamp.nativewindow.ScalableSurface;
+import com.jogamp.nativewindow.SurfaceUpdatedListener;
+import com.jogamp.nativewindow.util.InsetsImmutable;
+import com.jogamp.nativewindow.util.PixelRectangle;
+import com.jogamp.nativewindow.util.PointImmutable;
+import com.jogamp.nativewindow.util.Rectangle;
+import com.jogamp.nativewindow.util.RectangleImmutable;
+import java.applet.Applet;
+import java.awt.Component;
+import java.awt.Container;
+import java.awt.Cursor;
+import java.awt.EventQueue;
+import java.awt.GraphicsConfiguration;
+import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
+import java.awt.event.HierarchyEvent;
+import java.awt.event.HierarchyListener;
+import java.io.PrintStream;
+import jogamp.common.os.PlatformPropsImpl;
+import jogamp.nativewindow.SurfaceScaleUtils;
+import jogamp.nativewindow.SurfaceUpdatedHelper;
+import jogamp.nativewindow.awt.AWTMisc;
+import jogamp.nativewindow.jawt.JAWT;
+import jogamp.nativewindow.jawt.JAWTUtil;
+import jogamp.nativewindow.jawt.JAWT_Rectangle;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class JAWTWindow
+  implements NativeWindow, OffscreenLayerSurface, OffscreenLayerOption, ScalableSurface
+{
+  protected static final boolean DEBUG = JAWTUtil.DEBUG;
+  
+
+  protected boolean shallUseOffscreenLayer = false;
+  
+  protected final Component component;
+  
+  private final AppContextInfo appContextInfo;
+  private final SurfaceUpdatedHelper surfaceUpdatedHelper = new SurfaceUpdatedHelper();
+  private final RecursiveLock surfaceLock = LockFactory.createRecursiveLock();
+  
+  private final JAWTComponentListener jawtComponentListener;
+  
+  private volatile AWTGraphicsConfiguration awtConfig;
+  
+  private boolean isApplet;
+  private JAWT jawt;
+  private boolean isOffscreenLayerSurface;
+  protected long drawable;
+  protected Rectangle bounds;
+  protected com.jogamp.nativewindow.util.Insets insets;
+  private volatile long offscreenSurfaceLayer;
+  private final float[] minPixelScale = { 1.0F, 1.0F };
+  private final float[] maxPixelScale = { 1.0F, 1.0F };
+  private final float[] hasPixelScale = { 1.0F, 1.0F };
+  private final float[] reqPixelScale = { 0.0F, 0.0F };
+  private volatile boolean hasPixelScaleChanged = false;
+  
+
+
+  private long drawable_old;
+  
+
+
+
+  protected JAWTWindow(Object paramObject, AbstractGraphicsConfiguration paramAbstractGraphicsConfiguration)
+  {
+    if (paramAbstractGraphicsConfiguration == null) {
+      throw new IllegalArgumentException("Error: AbstractGraphicsConfiguration is null");
+    }
+    if (!(paramAbstractGraphicsConfiguration instanceof AWTGraphicsConfiguration)) {
+      throw new NativeWindowException("Error: AbstractGraphicsConfiguration is not an AWTGraphicsConfiguration: " + paramAbstractGraphicsConfiguration);
+    }
+    appContextInfo = new AppContextInfo("<init>");
+    component = ((Component)paramObject);
+    jawtComponentListener = new JAWTComponentListener(null);
+    invalidate();
+    awtConfig = ((AWTGraphicsConfiguration)paramAbstractGraphicsConfiguration);
+    isApplet = false;
+    offscreenSurfaceLayer = 0L;
+    if (DEBUG)
+      System.err.println(jawtStr2("ctor"));
+  }
+  
+  private static String id(Object paramObject) { return null != paramObject ? toHexString(paramObject.hashCode()) : "nil"; }
+  private String jawtStr1() { return "JAWTWindow[" + id(this) + "]"; }
+  private String jawtStr2(String paramString) { return jawtStr1() + "." + paramString + " @ Thread " + getThreadName(); }
+  
+  private class JAWTComponentListener implements ComponentListener, HierarchyListener {
+    private volatile boolean isShowing;
+    
+    private String str(Object paramObject) {
+      if (null == paramObject)
+        return "0xnil: null";
+      if ((paramObject instanceof Component)) {
+        Component localComponent = (Component)paramObject;
+        
+        return JAWTWindow.id(paramObject) + ": " + localComponent.getClass().getSimpleName() + "[visible " + localComponent.isVisible() + ", showing " + localComponent.isShowing() + ", valid " + localComponent.isValid() + ", displayable " + localComponent.isDisplayable() + ", " + localComponent.getX() + "/" + localComponent.getY() + " " + localComponent.getWidth() + "x" + localComponent.getHeight() + "]";
+      }
+      return JAWTWindow.id(paramObject) + ": " + paramObject.getClass().getSimpleName() + "[..]";
+    }
+    
+
+
+
+    private String s(ComponentEvent paramComponentEvent)
+    {
+      return "visible[isShowing " + isShowing + "]," + Platform.getNewline() + "    ** COMP " + str(paramComponentEvent.getComponent()) + Platform.getNewline() + "    ** SOURCE " + str(paramComponentEvent.getSource()) + Platform.getNewline() + "    ** THIS " + str(component) + Platform.getNewline() + "    ** THREAD " + JAWTWindow.access$200();
+    }
+    
+
+
+
+
+    private String s(HierarchyEvent paramHierarchyEvent)
+    {
+      return "visible[isShowing " + isShowing + "], changeBits 0x" + Long.toHexString(paramHierarchyEvent.getChangeFlags()) + Platform.getNewline() + "    ** COMP " + str(paramHierarchyEvent.getComponent()) + Platform.getNewline() + "    ** SOURCE " + str(paramHierarchyEvent.getSource()) + Platform.getNewline() + "    ** CHANGED " + str(paramHierarchyEvent.getChanged()) + Platform.getNewline() + "    ** CHANGEDPARENT " + str(paramHierarchyEvent.getChangedParent()) + Platform.getNewline() + "    ** THIS " + str(component) + Platform.getNewline() + "    ** THREAD " + JAWTWindow.access$200();
+    }
+    
+
+    public final String toString()
+    {
+      return "visible[isShowing " + isShowing + "]," + Platform.getNewline() + "    ** THIS " + str(component) + Platform.getNewline() + "    ** THREAD " + JAWTWindow.access$200();
+    }
+    
+    private JAWTComponentListener() {
+      isShowing = component.isShowing();
+      AWTEDTExecutor.singleton.invoke(false, new Runnable()
+      {
+        public void run() {
+          isShowing = component.isShowing();
+          if (JAWTWindow.DEBUG) {
+            System.err.println(JAWTWindow.this.jawtStr2("attach") + ": " + toString());
+          }
+          component.addComponentListener(JAWTWindow.JAWTComponentListener.this);
+          component.addHierarchyListener(JAWTWindow.JAWTComponentListener.this);
+        }
+      });
+    }
+    
+    private final void detach() { AWTEDTExecutor.singleton.invoke(false, new Runnable()
+      {
+        public void run() {
+          if (JAWTWindow.DEBUG) {
+            System.err.println(JAWTWindow.this.jawtStr2("detach") + ": " + toString());
+          }
+          component.removeComponentListener(JAWTWindow.JAWTComponentListener.this);
+          component.removeHierarchyListener(JAWTWindow.JAWTComponentListener.this);
+        }
+      }); }
+    
+    public final void componentResized(ComponentEvent paramComponentEvent)
+    {
+      if (JAWTWindow.DEBUG) {
+        System.err.println(JAWTWindow.this.jawtStr2("componentResized") + ": " + s(paramComponentEvent));
+      }
+      JAWTWindow.this.layoutSurfaceLayerIfEnabled(isShowing);
+    }
+    
+    public final void componentMoved(ComponentEvent paramComponentEvent)
+    {
+      if (JAWTWindow.DEBUG) {
+        System.err.println(JAWTWindow.this.jawtStr2("componentMoved") + ": " + s(paramComponentEvent));
+      }
+      JAWTWindow.this.layoutSurfaceLayerIfEnabled(isShowing);
+    }
+    
+    public final void componentShown(ComponentEvent paramComponentEvent)
+    {
+      if (JAWTWindow.DEBUG) {
+        System.err.println(JAWTWindow.this.jawtStr2("componentShown") + ": " + s(paramComponentEvent));
+      }
+      JAWTWindow.this.layoutSurfaceLayerIfEnabled(isShowing);
+    }
+    
+    public final void componentHidden(ComponentEvent paramComponentEvent)
+    {
+      if (JAWTWindow.DEBUG) {
+        System.err.println(JAWTWindow.this.jawtStr2("componentHidden") + ": " + s(paramComponentEvent));
+      }
+      JAWTWindow.this.layoutSurfaceLayerIfEnabled(isShowing);
+    }
+    
+    public final void hierarchyChanged(HierarchyEvent paramHierarchyEvent)
+    {
+      boolean bool1 = isShowing;
+      isShowing = component.isShowing();
+      int i = 0;
+      if ((0L != (0x4 & paramHierarchyEvent.getChangeFlags())) && 
+        (paramHierarchyEvent.getChanged() != component) && (bool1 != isShowing))
+      {
+
+        JAWTWindow.this.layoutSurfaceLayerIfEnabled(isShowing);
+        i = 1;
+      }
+      
+      if (JAWTWindow.DEBUG) {
+        Component localComponent = paramHierarchyEvent.getChanged();
+        boolean bool2 = localComponent.isDisplayable();
+        boolean bool3 = localComponent.isShowing();
+        System.err.println(JAWTWindow.this.jawtStr2("hierarchyChanged") + ": action " + i + ", displayable " + bool2 + ", showing [changed " + bool3 + ", comp " + bool1 + " -> " + isShowing + "], " + s(paramHierarchyEvent));
+      }
+    }
+  }
+  
+  private static String getThreadName() { return Thread.currentThread().getName(); }
+  
+  protected synchronized void invalidate() {
+    if (DEBUG) {
+      System.err.println(jawtStr2("invalidate") + " - " + jawtComponentListener.toString());
+      if (isSurfaceLayerAttached()) {
+        System.err.println("OffscreenSurfaceLayer still attached: 0x" + Long.toHexString(offscreenSurfaceLayer));
+      }
+    }
+    
+    invalidateNative();
+    jawt = null;
+    awtConfig = null;
+    isOffscreenLayerSurface = false;
+    drawable = 0L;
+    drawable_old = 0L;
+    bounds = new Rectangle();
+    insets = new com.jogamp.nativewindow.util.Insets();
+    hasPixelScale[0] = 1.0F;
+    hasPixelScale[1] = 1.0F;
+    minPixelScale[0] = 1.0F;
+    minPixelScale[1] = 1.0F;
+    maxPixelScale[0] = 1.0F;
+    maxPixelScale[1] = 1.0F;
+    hasPixelScaleChanged = false;
+  }
+  
+
+
+
+
+
+  protected abstract void invalidateNative();
+  
+
+
+
+
+
+  public final void setAWTGraphicsConfiguration(AWTGraphicsConfiguration paramAWTGraphicsConfiguration)
+  {
+    if (DEBUG) {
+      System.err.println(jawtStr2("setAWTGraphicsConfiguration") + ": " + awtConfig + " -> " + paramAWTGraphicsConfiguration);
+    }
+    
+    if (null == awtConfig) {
+      throw new IllegalArgumentException(jawtStr2("") + ": null config");
+    }
+    awtConfig = paramAWTGraphicsConfiguration;
+  }
+  
+
+
+
+  public final AWTGraphicsConfiguration getAWTGraphicsConfiguration()
+  {
+    return awtConfig;
+  }
+  
+  public boolean setSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(paramArrayOfFloat, 0, reqPixelScale, 0, 2);
+    return false;
+  }
+  
+  public final float[] getRequestedSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(reqPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+  public final float[] getCurrentSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(hasPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+  public float[] getMinimumSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(minPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+  public final float[] getMaximumSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(maxPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+
+
+
+
+  protected final boolean updateLockedData(JAWT_Rectangle paramJAWT_Rectangle, GraphicsConfiguration paramGraphicsConfiguration)
+  {
+    Rectangle localRectangle = new Rectangle(paramJAWT_Rectangle.getX(), paramJAWT_Rectangle.getY(), paramJAWT_Rectangle.getWidth(), paramJAWT_Rectangle.getHeight());
+    int i = !bounds.equals(localRectangle) ? 1 : 0;
+    
+    if (i != 0) {
+      if (DEBUG) {
+        System.err.println("JAWTWindow.updateBounds: " + bounds + " -> " + localRectangle);
+      }
+      bounds.set(paramJAWT_Rectangle.getX(), paramJAWT_Rectangle.getY(), paramJAWT_Rectangle.getWidth(), paramJAWT_Rectangle.getHeight());
+      
+      if ((component instanceof Container)) {
+        java.awt.Insets localInsets = ((Container)component).getInsets();
+        insets.set(left, right, top, bottom);
+      }
+    }
+    
+    updatePixelScale(paramGraphicsConfiguration, false);
+    return (hasPixelScaleChanged) || (i != 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean updatePixelScale(GraphicsConfiguration paramGraphicsConfiguration, boolean paramBoolean)
+  {
+    if (JAWTUtil.getPixelScale(paramGraphicsConfiguration, minPixelScale, maxPixelScale)) {
+      hasPixelScaleChanged = true;
+      if (DEBUG) {
+        System.err.println("JAWTWindow.updatePixelScale: updated req[" + reqPixelScale[0] + ", " + reqPixelScale[1] + "], min[" + minPixelScale[0] + ", " + minPixelScale[1] + "], max[" + maxPixelScale[0] + ", " + maxPixelScale[1] + "], has[" + hasPixelScale[0] + ", " + hasPixelScale[1] + "]");
+      }
+    }
+    
+
+
+
+    if (paramBoolean) {
+      boolean bool = hasPixelScaleChanged;
+      hasPixelScaleChanged = false;
+      return bool;
+    }
+    return hasPixelScaleChanged;
+  }
+  
+  /**
+   * @deprecated
+   */
+  public final boolean updatePixelScale(boolean paramBoolean) {
+    return updatePixelScale(awtConfig.getAWTGraphicsConfiguration(), paramBoolean);
+  }
+  
+  /**
+   * @deprecated
+   */
+  protected final boolean updateLockedData(JAWT_Rectangle paramJAWT_Rectangle) {
+    throw new RuntimeException("Invalid API entry");
+  }
+  
+  /**
+   * @deprecated
+   */
+  protected int lockSurfaceImpl() throws NativeWindowException { throw new RuntimeException("Invalid API entry"); }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean hasPixelScaleChanged()
+  {
+    boolean bool = hasPixelScaleChanged;
+    hasPixelScaleChanged = false;
+    return bool;
+  }
+  
+
+
+
+  protected final boolean setReqPixelScale()
+  {
+    updatePixelScale(awtConfig.getAWTGraphicsConfiguration(), true);
+    return SurfaceScaleUtils.setNewPixelScale(hasPixelScale, hasPixelScale, reqPixelScale, minPixelScale, maxPixelScale, DEBUG ? getClass().getSimpleName() : null);
+  }
+  
+  public final RectangleImmutable getBounds() {
+    return bounds;
+  }
+  
+  protected final float getPixelScaleX() { return hasPixelScale[0]; }
+  
+  protected final float getPixelScaleY() {
+    return hasPixelScale[1];
+  }
+  
+  public final InsetsImmutable getInsets() { return insets; }
+  
+  public final Component getAWTComponent() {
+    return component;
+  }
+  
+
+
+
+  public final boolean isApplet()
+  {
+    return isApplet;
+  }
+  
+  public final JAWT getJAWT()
+  {
+    return jawt;
+  }
+  
+
+
+
+
+  public void setShallUseOffscreenLayer(boolean paramBoolean)
+  {
+    shallUseOffscreenLayer = paramBoolean;
+  }
+  
+  public final boolean getShallUseOffscreenLayer()
+  {
+    return shallUseOffscreenLayer;
+  }
+  
+  public final boolean isOffscreenLayerSurfaceEnabled()
+  {
+    return isOffscreenLayerSurface;
+  }
+  
+
+
+
+  public final void attachSurfaceLayer(long paramLong)
+    throws NativeWindowException
+  {
+    if (!isOffscreenLayerSurfaceEnabled()) {
+      throw new NativeWindowException("Not an offscreen layer surface");
+    }
+    attachSurfaceLayerImpl(paramLong);
+    offscreenSurfaceLayer = paramLong;
+    appContextInfo.invokeOnAppContextThread(false, repaintTask, "Repaint"); }
+  
+  private final Runnable repaintTask = new Runnable()
+  {
+    public void run() {
+      Component localComponent = component;
+      if (JAWTWindow.DEBUG) {
+        System.err.println("Bug 1004: RepaintTask on " + Thread.currentThread() + ": Has Comp " + (null != localComponent));
+      }
+      if (null != localComponent)
+        localComponent.repaint();
+    }
+  };
+  
+  protected void attachSurfaceLayerImpl(long paramLong) {
+    throw new UnsupportedOperationException("offscreen layer not supported");
+  }
+  
+
+
+
+
+
+
+  protected void layoutSurfaceLayerImpl(long paramLong, boolean paramBoolean) {}
+  
+
+
+
+
+
+  private final void layoutSurfaceLayerIfEnabled(boolean paramBoolean)
+    throws NativeWindowException
+  {
+    if ((isOffscreenLayerSurfaceEnabled()) && (0L != offscreenSurfaceLayer)) {
+      layoutSurfaceLayerImpl(offscreenSurfaceLayer, paramBoolean);
+    }
+  }
+  
+  public final void detachSurfaceLayer()
+    throws NativeWindowException
+  {
+    if (0L == offscreenSurfaceLayer) {
+      throw new NativeWindowException("No offscreen layer attached: " + this);
+    }
+    if (DEBUG) {
+      System.err.println("JAWTWindow.detachSurfaceHandle(): osh " + toHexString(offscreenSurfaceLayer));
+    }
+    detachSurfaceLayerImpl(offscreenSurfaceLayer, detachSurfaceLayerNotify); }
+  
+  private final Runnable detachSurfaceLayerNotify = new Runnable()
+  {
+    public void run() {
+      offscreenSurfaceLayer = 0L;
+    }
+  };
+  
+
+
+  protected void detachSurfaceLayerImpl(long paramLong, Runnable paramRunnable)
+  {
+    throw new UnsupportedOperationException("offscreen layer not supported");
+  }
+  
+
+  public final long getAttachedSurfaceLayer()
+  {
+    return offscreenSurfaceLayer;
+  }
+  
+  public final boolean isSurfaceLayerAttached()
+  {
+    return 0L != offscreenSurfaceLayer;
+  }
+  
+  public final void setChosenCapabilities(CapabilitiesImmutable paramCapabilitiesImmutable)
+  {
+    ((MutableGraphicsConfiguration)getGraphicsConfiguration()).setChosenCapabilities(paramCapabilitiesImmutable);
+    awtConfig.setChosenCapabilities(paramCapabilitiesImmutable);
+  }
+  
+  public final RecursiveLock getLock()
+  {
+    return surfaceLock;
+  }
+  
+  public final boolean setCursor(final PixelRectangle paramPixelRectangle, final PointImmutable paramPointImmutable)
+  {
+    AWTEDTExecutor.singleton.invoke(false, new Runnable() {
+      public void run() {
+        Cursor localCursor = null;
+        if ((null == paramPixelRectangle) || (null == paramPointImmutable)) {
+          localCursor = Cursor.getDefaultCursor();
+        } else {
+          java.awt.Point localPoint = new java.awt.Point(paramPointImmutable.getX(), paramPointImmutable.getY());
+          try {
+            localCursor = AWTMisc.getCursor(paramPixelRectangle, localPoint);
+          } catch (Exception localException) {
+            localException.printStackTrace();
+          }
+        }
+        if (null != localCursor)
+          component.setCursor(localCursor);
+      }
+    });
+    return true;
+  }
+  
+  public final boolean hideCursor()
+  {
+    AWTEDTExecutor.singleton.invoke(false, new Runnable() {
+      public void run() {
+        Cursor localCursor = AWTMisc.getNullCursor();
+        if (null != localCursor)
+          component.setCursor(localCursor);
+      }
+    });
+    return true;
+  }
+  
+
+
+
+  private void determineIfApplet()
+  {
+    Object localObject = component;
+    while ((!isApplet) && (null != localObject)) {
+      isApplet = (localObject instanceof Applet);
+      localObject = ((Component)localObject).getParent();
+    }
+  }
+  
+
+
+  protected abstract JAWT fetchJAWTImpl()
+    throws NativeWindowException;
+  
+
+
+  protected abstract int lockSurfaceImpl(GraphicsConfiguration paramGraphicsConfiguration)
+    throws NativeWindowException;
+  
+
+  protected void dumpJAWTInfo()
+  {
+    System.err.println(jawt2String(null).toString());
+  }
+  
+  public final int lockSurface()
+    throws NativeWindowException, RuntimeException
+  {
+    surfaceLock.lock();
+    int i = surfaceLock.getHoldCount() == 1 ? 1 : 3;
+    
+    if (1 == i) {
+      if (!component.isDisplayable())
+      {
+        surfaceLock.unlock();
+        if (DEBUG) {
+          System.err.println("JAWTWindow: Can't lock surface, component peer n/a. Component displayable " + component.isDisplayable() + ", " + component);
+          ExceptionUtils.dumpStack(System.err);
+        }
+      } else {
+        GraphicsConfiguration localGraphicsConfiguration;
+        if ((EventQueue.isDispatchThread()) || (Thread.holdsLock(component.getTreeLock())))
+        {
+
+
+
+
+          localGraphicsConfiguration = component.getGraphicsConfiguration();
+        }
+        else {
+          localGraphicsConfiguration = awtConfig.getAWTGraphicsConfiguration();
+        }
+        
+        determineIfApplet();
+        try {
+          AbstractGraphicsDevice localAbstractGraphicsDevice = getGraphicsConfiguration().getScreen().getDevice();
+          localAbstractGraphicsDevice.lock();
+          try {
+            if (null == jawt) {
+              jawt = fetchJAWTImpl();
+              isOffscreenLayerSurface = JAWTUtil.isJAWTUsingOffscreenLayer(jawt);
+            }
+            i = lockSurfaceImpl(localGraphicsConfiguration);
+            if ((3 == i) && (drawable_old != drawable)) {
+              i = 2;
+              if (DEBUG) {
+                System.err.println("JAWTWindow: surface change " + toHexString(drawable_old) + " -> " + toHexString(drawable));
+              }
+            }
+          }
+          finally {
+            if (1 >= i) {
+              localAbstractGraphicsDevice.unlock();
+            }
+          }
+        } finally {
+          if (1 >= i) {
+            surfaceLock.unlock();
+          }
+        }
+      }
+    }
+    return i;
+  }
+  
+  protected abstract void unlockSurfaceImpl() throws NativeWindowException;
+  
+  public final void unlockSurface()
+  {
+    surfaceLock.validateLocked();
+    drawable_old = drawable;
+    AbstractGraphicsDevice localAbstractGraphicsDevice;
+    if (surfaceLock.getHoldCount() == 1)
+      localAbstractGraphicsDevice = getGraphicsConfiguration().getScreen().getDevice();
+    try {
+      if (null != jawt) {
+        unlockSurfaceImpl();
+      }
+      
+      localAbstractGraphicsDevice.unlock(); } finally { localAbstractGraphicsDevice.unlock();
+    }
+  }
+  
+
+
+  public final boolean isSurfaceLockedByOtherThread()
+  {
+    return surfaceLock.isLockedByOtherThread();
+  }
+  
+  public final Thread getSurfaceLockOwner()
+  {
+    return surfaceLock.getOwner();
+  }
+  
+  public boolean surfaceSwap()
+  {
+    return false;
+  }
+  
+  public void addSurfaceUpdatedListener(SurfaceUpdatedListener paramSurfaceUpdatedListener)
+  {
+    surfaceUpdatedHelper.addSurfaceUpdatedListener(paramSurfaceUpdatedListener);
+  }
+  
+  public void addSurfaceUpdatedListener(int paramInt, SurfaceUpdatedListener paramSurfaceUpdatedListener) throws IndexOutOfBoundsException
+  {
+    surfaceUpdatedHelper.addSurfaceUpdatedListener(paramInt, paramSurfaceUpdatedListener);
+  }
+  
+  public void removeSurfaceUpdatedListener(SurfaceUpdatedListener paramSurfaceUpdatedListener)
+  {
+    surfaceUpdatedHelper.removeSurfaceUpdatedListener(paramSurfaceUpdatedListener);
+  }
+  
+  public void surfaceUpdated(Object paramObject, NativeSurface paramNativeSurface, long paramLong)
+  {
+    surfaceUpdatedHelper.surfaceUpdated(paramObject, paramNativeSurface, paramLong);
+  }
+  
+  public long getSurfaceHandle()
+  {
+    return drawable;
+  }
+  
+  public final AbstractGraphicsConfiguration getGraphicsConfiguration()
+  {
+    if (null == awtConfig) {
+      throw new NativeWindowException(jawtStr2("") + ": null awtConfig, invalidated");
+    }
+    return awtConfig.getNativeGraphicsConfiguration();
+  }
+  
+  public final long getDisplayHandle()
+  {
+    return getGraphicsConfiguration().getScreen().getDevice().getHandle();
+  }
+  
+  public final int getScreenIndex()
+  {
+    return getGraphicsConfiguration().getScreen().getIndex();
+  }
+  
+  public final int getSurfaceWidth()
+  {
+    return SurfaceScaleUtils.scale(getWidth(), getPixelScaleX());
+  }
+  
+  public final int getSurfaceHeight()
+  {
+    return SurfaceScaleUtils.scale(getHeight(), getPixelScaleY());
+  }
+  
+  public final int[] convertToWindowUnits(int[] paramArrayOfInt)
+  {
+    return SurfaceScaleUtils.scaleInv(paramArrayOfInt, paramArrayOfInt, hasPixelScale);
+  }
+  
+  public final int[] convertToPixelUnits(int[] paramArrayOfInt)
+  {
+    return SurfaceScaleUtils.scale(paramArrayOfInt, paramArrayOfInt, hasPixelScale);
+  }
+  
+  public final NativeSurface getNativeSurface() {
+    return this;
+  }
+  
+
+
+
+  public final int getWidth()
+  {
+    return component.getWidth();
+  }
+  
+  public final int getHeight()
+  {
+    return component.getHeight();
+  }
+  
+  public void destroy()
+  {
+    surfaceLock.lock();
+    try {
+      if (DEBUG) {
+        System.err.println(jawtStr2("destroy"));
+      }
+      jawtComponentListener.detach();
+      invalidate();
+      
+      surfaceLock.unlock(); } finally { surfaceLock.unlock();
+    }
+  }
+  
+  public final NativeWindow getParent()
+  {
+    return null;
+  }
+  
+  public long getWindowHandle()
+  {
+    return drawable;
+  }
+  
+  public final int getX()
+  {
+    return component.getX();
+  }
+  
+  public final int getY()
+  {
+    return component.getY();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public com.jogamp.nativewindow.util.Point getLocationOnScreen(com.jogamp.nativewindow.util.Point paramPoint)
+  {
+    com.jogamp.nativewindow.util.Point localPoint = getLocationOnScreenNative(paramPoint);
+    if (null == localPoint) {
+      localPoint = AWTMisc.getLocationOnScreenSafe(paramPoint, component, DEBUG);
+    }
+    return localPoint;
+  }
+  
+  protected com.jogamp.nativewindow.util.Point getLocationOnScreenNative(com.jogamp.nativewindow.util.Point paramPoint) {
+    int i = lockSurface();
+    if (1 == i) {
+      if (DEBUG) {
+        System.err.println("Warning: JAWT Lock couldn't be acquired: " + this);
+        ExceptionUtils.dumpStack(System.err);
+      }
+      return null;
+    }
+    try {
+      com.jogamp.nativewindow.util.Point localPoint1 = getLocationOnScreenNativeImpl(0, 0);
+      com.jogamp.nativewindow.util.Point localPoint2; if ((null != localPoint1) && 
+        (null != paramPoint)) {
+        paramPoint.translate(localPoint1.getX(), localPoint1.getY());
+        return paramPoint;
+      }
+      
+      return localPoint1;
+    } finally {
+      unlockSurface();
+    }
+  }
+  
+  protected abstract com.jogamp.nativewindow.util.Point getLocationOnScreenNativeImpl(int paramInt1, int paramInt2);
+  
+  public boolean hasFocus() {
+    return component.hasFocus();
+  }
+  
+  protected StringBuilder jawt2String(StringBuilder paramStringBuilder) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    
+
+    paramStringBuilder.append("JVM version: ").append(PlatformPropsImpl.JAVA_VERSION).append(" (").append(PlatformPropsImpl.JAVA_VERSION_NUMBER).append(" update ").append(PlatformPropsImpl.JAVA_VERSION_UPDATE).append(")").append(Platform.getNewline());
+    if (null != jawt)
+    {
+
+
+
+      paramStringBuilder.append("JAWT version: ").append(toHexString(jawt.getCachedVersion())).append(", CA_LAYER: ").append(JAWTUtil.isJAWTUsingOffscreenLayer(jawt)).append(", isLayeredSurface ").append(isOffscreenLayerSurfaceEnabled()).append(", bounds ").append(bounds).append(", insets ").append(insets).append(", pixelScale ").append(getPixelScaleX()).append("x").append(getPixelScaleY());
+    } else {
+      paramStringBuilder.append("JAWT n/a, bounds ").append(bounds).append(", insets ").append(insets);
+    }
+    return paramStringBuilder;
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    
+    localStringBuilder.append(jawtStr1() + "[");
+    jawt2String(localStringBuilder);
+    localStringBuilder.append(", shallUseOffscreenLayer " + shallUseOffscreenLayer + ", isOffscreenLayerSurface " + isOffscreenLayerSurface + ", attachedSurfaceLayer " + 
+      toHexString(getAttachedSurfaceLayer()) + ", windowHandle " + 
+      toHexString(getWindowHandle()) + ", surfaceHandle " + 
+      toHexString(getSurfaceHandle()) + ", bounds " + bounds + ", insets " + insets);
+    
+
+    localStringBuilder.append(", window [" + getX() + "/" + getY() + " " + getWidth() + "x" + getHeight() + "], pixels[scale " + 
+      getPixelScaleX() + ", " + getPixelScaleY() + " -> " + getSurfaceWidth() + "x" + getSurfaceHeight() + "]" + ", visible " + component
+      .isVisible());
+    localStringBuilder.append(", lockedExt " + isSurfaceLockedByOtherThread() + ",\n\tconfig " + awtConfig + ",\n\tawtComponent " + 
+    
+      getAWTComponent() + ",\n\tsurfaceLock " + surfaceLock + "]");
+    
+
+    return localStringBuilder.toString();
+  }
+  
+  protected static final String toHexString(long paramLong) {
+    return "0x" + Long.toHexString(paramLong);
+  }
+  
+  protected static final String toHexString(int paramInt) { return "0x" + Integer.toHexString(paramInt); }
+}

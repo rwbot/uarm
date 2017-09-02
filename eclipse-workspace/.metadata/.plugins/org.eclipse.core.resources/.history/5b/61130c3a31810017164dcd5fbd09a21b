@@ -1,0 +1,723 @@
+package jogamp.nativewindow.jawt;
+
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.os.Platform.OSType;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.common.util.locks.LockFactory;
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.ToolkitLock;
+import com.jogamp.nativewindow.awt.AWTGraphicsScreen;
+import java.awt.Component;
+import java.awt.EventQueue;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
+import java.awt.Toolkit;
+import java.io.PrintStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.ArrayList;
+import java.util.Map;
+import jogamp.common.os.PlatformPropsImpl;
+import jogamp.nativewindow.Debug;
+import jogamp.nativewindow.NWJNILibLoader;
+import jogamp.nativewindow.jawt.x11.X11SunJDKReflection;
+import jogamp.nativewindow.macosx.OSXUtil;
+import jogamp.nativewindow.x11.X11Lib;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class JAWTUtil
+{
+  public static final boolean DEBUG = Debug.debug("JAWT");
+  
+
+  private static final boolean SKIP_AWT_HIDPI;
+  
+
+  public static final int JAWT_MACOSX_USE_CALAYER = Integer.MIN_VALUE;
+  
+  public static final VersionNumber JAWT_MacOSXCALayerMinVersion = new VersionNumber(10, 6, 4);
+  
+
+  public static final VersionNumber JAWT_MacOSXCALayerRequiredForJavaVersion = Platform.Version17;
+  private static final boolean headlessMode;
+  private static final JAWT jawtLockObject;
+  private static final Method isQueueFlusherThread;
+  private static final boolean j2dExist;
+  private static final Method sunToolkitAWTLockMethod;
+  private static final Method sunToolkitAWTUnlockMethod;
+  private static final boolean hasSunToolkitAWTLock;
+  private static final RecursiveLock jawtLock;
+  private static final ToolkitLock jawtToolkitLock;
+  private static final Method getScaleFactorMethod;
+  private static final Method getCGDisplayIDMethodOnOSX;
+  public static final int JAWT_OSX_CALAYER_QUIRK_SIZE = 1;
+  public static final int JAWT_OSX_CALAYER_QUIRK_POSITION = 2;
+  public static final int JAWT_OSX_CALAYER_QUIRK_LAYOUT = 4;
+  
+  private static class PrivilegedDataBlob1 { Method sunToolkitAWTLockMethod;
+    Method sunToolkitAWTUnlockMethod;
+    Method getScaleFactorMethod;
+    Method getCGDisplayIDMethodOnOSX;
+    boolean ok;
+    
+    PrivilegedDataBlob1() { ok = false; }
+  }
+  
+
+
+
+
+
+
+
+
+
+  public static boolean isOffscreenLayerSupported()
+  {
+    return (PlatformPropsImpl.OS_TYPE == Platform.OSType.MACOS) && (PlatformPropsImpl.OS_VERSION_NUMBER.compareTo(JAWT_MacOSXCALayerMinVersion) >= 0);
+  }
+  
+
+
+
+  public static boolean isOffscreenLayerRequired()
+  {
+    return (PlatformPropsImpl.OS_TYPE == Platform.OSType.MACOS) && (PlatformPropsImpl.JAVA_VERSION_NUMBER.compareTo(JAWT_MacOSXCALayerRequiredForJavaVersion) >= 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static int getOSXCALayerQuirks()
+  {
+    int i = 0;
+    if ((PlatformPropsImpl.OS_TYPE == Platform.OSType.MACOS) && 
+      (PlatformPropsImpl.OS_VERSION_NUMBER.compareTo(JAWT_MacOSXCALayerMinVersion) >= 0))
+    {
+
+      i |= 0x1;
+      
+      int j = PlatformPropsImpl.JAVA_VERSION_NUMBER.compareTo(PlatformPropsImpl.Version17);
+      if ((j < 0) || ((j == 0) && (PlatformPropsImpl.JAVA_VERSION_UPDATE < 40))) {
+        i |= 0x2;
+      } else {
+        i |= 0x4;
+      }
+    }
+    return i;
+  }
+  
+
+
+
+
+  public static JAWT getJAWT(boolean paramBoolean)
+  {
+    JAWT localJAWT = JAWT.create();
+    
+
+
+
+    int i = 65540;
+    boolean bool1;
+    boolean bool2; if (isOffscreenLayerRequired()) {
+      if (PlatformPropsImpl.OS_TYPE == Platform.OSType.MACOS) {
+        if (PlatformPropsImpl.OS_VERSION_NUMBER.compareTo(JAWT_MacOSXCALayerMinVersion) >= 0) {
+          i |= 0x80000000;
+          bool1 = true;
+          bool2 = false;
+        } else {
+          throw new RuntimeException("OSX: Invalid version of Java (" + PlatformPropsImpl.JAVA_VERSION_NUMBER + ") / OS X (" + PlatformPropsImpl.OS_VERSION_NUMBER + ")");
+        }
+      } else {
+        throw new InternalError("offscreen required, but n/a for: " + PlatformPropsImpl.OS_TYPE);
+      }
+    } else if ((paramBoolean) && (isOffscreenLayerSupported())) {
+      if (PlatformPropsImpl.OS_TYPE == Platform.OSType.MACOS) {
+        i |= 0x80000000;
+        bool1 = true;
+        bool2 = true;
+      } else {
+        throw new InternalError("offscreen requested and supported, but n/a for: " + PlatformPropsImpl.OS_TYPE);
+      }
+    } else {
+      bool1 = false;
+      bool2 = true;
+    }
+    if (DEBUG) {
+      System.err.println("JAWTUtil.getJAWT(tryOffscreenLayer " + bool1 + ", tryOnscreen " + bool2 + ")");
+    }
+    
+    StringBuilder localStringBuilder = new StringBuilder();
+    if (bool1) {
+      localStringBuilder.append("Offscreen 0x").append(Integer.toHexString(i));
+      if (JAWT.getJAWT(localJAWT, i)) {
+        return localJAWT;
+      }
+    }
+    if (bool2) {
+      if (bool1) {
+        localStringBuilder.append(", ");
+      }
+      localStringBuilder.append("Onscreen 0x").append(Integer.toHexString(65540));
+      if (JAWT.getJAWT(localJAWT, 65540)) {
+        return localJAWT;
+      }
+    }
+    throw new RuntimeException("Unable to initialize JAWT, trials: " + localStringBuilder.toString());
+  }
+  
+  public static boolean isJAWTUsingOffscreenLayer(JAWT paramJAWT) {
+    return 0 != (paramJAWT.getCachedVersion() & 0x80000000);
+  }
+  
+  static {
+    SKIP_AWT_HIDPI = PropertyAccess.isPropertyDefined("nativewindow.awt.nohidpi", true);
+    
+    if (DEBUG) {
+      System.err.println("JAWTUtil initialization (JAWT/JNI/...); SKIP_AWT_HIDPI " + SKIP_AWT_HIDPI);
+    }
+    
+
+    headlessMode = GraphicsEnvironment.isHeadless();
+    Object localObject;
+    if (headlessMode)
+    {
+      jawtLockObject = null;
+      isQueueFlusherThread = null;
+      j2dExist = false;
+      sunToolkitAWTLockMethod = null;
+      sunToolkitAWTUnlockMethod = null;
+      hasSunToolkitAWTLock = false;
+      
+      getScaleFactorMethod = null;
+      getCGDisplayIDMethodOnOSX = null;
+    }
+    else {
+      JAWTJNILibLoader.initSingleton();
+      if (!NWJNILibLoader.loadNativeWindow("awt")) {
+        throw new NativeWindowException("NativeWindow AWT native library load error.");
+      }
+      jawtLockObject = getJAWT(false);
+      
+      boolean bool1 = false;
+      localObject = null;
+      Method localMethod = null;
+      try {
+        localObject = Class.forName("jogamp.opengl.awt.Java2D");
+        localMethod = ((Class)localObject).getMethod("isQueueFlusherThread", (Class[])null);
+        bool1 = true;
+      }
+      catch (Exception localException1) {}
+      isQueueFlusherThread = localMethod;
+      j2dExist = bool1;
+      
+      PrivilegedDataBlob1 localPrivilegedDataBlob1 = (PrivilegedDataBlob1)AccessController.doPrivileged(new PrivilegedAction()
+      {
+        public Object run() {
+          JAWTUtil.PrivilegedDataBlob1 localPrivilegedDataBlob1 = new JAWTUtil.PrivilegedDataBlob1();
+          try {
+            Class localClass1 = Class.forName("sun.awt.SunToolkit");
+            sunToolkitAWTLockMethod = localClass1.getDeclaredMethod("awtLock", new Class[0]);
+            sunToolkitAWTLockMethod.setAccessible(true);
+            sunToolkitAWTUnlockMethod = localClass1.getDeclaredMethod("awtUnlock", new Class[0]);
+            sunToolkitAWTUnlockMethod.setAccessible(true);
+            ok = true;
+          }
+          catch (Exception localException) {}
+          try
+          {
+            GraphicsDevice localGraphicsDevice = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
+            Class localClass2 = localGraphicsDevice.getClass();
+            getScaleFactorMethod = localClass2.getDeclaredMethod("getScaleFactor", new Class[0]);
+            getScaleFactorMethod.setAccessible(true);
+            if (Platform.OSType.MACOS == PlatformPropsImpl.OS_TYPE) {
+              getCGDisplayIDMethodOnOSX = localClass2.getDeclaredMethod("getCGDisplayID", new Class[0]);
+              getCGDisplayIDMethodOnOSX.setAccessible(true);
+            }
+          } catch (Throwable localThrowable) {}
+          return localPrivilegedDataBlob1;
+        }
+      });
+      sunToolkitAWTLockMethod = sunToolkitAWTLockMethod;
+      sunToolkitAWTUnlockMethod = sunToolkitAWTUnlockMethod;
+      getScaleFactorMethod = getScaleFactorMethod;
+      getCGDisplayIDMethodOnOSX = getCGDisplayIDMethodOnOSX;
+      
+      boolean bool2 = false;
+      if (ok) {
+        try {
+          sunToolkitAWTLockMethod.invoke(null, (Object[])null);
+          sunToolkitAWTUnlockMethod.invoke(null, (Object[])null);
+          bool2 = true;
+        }
+        catch (Exception localException2) {}
+      }
+      hasSunToolkitAWTLock = bool2;
+    }
+    
+
+    jawtLock = LockFactory.createRecursiveLock();
+    
+    jawtToolkitLock = new ToolkitLock()
+    {
+      public final void lock() {}
+      
+
+
+      public final void unlock() {}
+      
+
+      public final void validateLocked()
+        throws RuntimeException
+      {}
+      
+
+      public final void dispose() {}
+      
+
+      public String toString()
+      {
+        return "JAWTToolkitLock[obj 0x" + Integer.toHexString(hashCode()) + ", isOwner " + JAWTUtil.jawtLock.isOwner(Thread.currentThread()) + ", " + JAWTUtil.jawtLock + "]";
+      }
+      
+
+    };
+    Map localMap = null;
+    try {
+      if (EventQueue.isDispatchThread()) {
+        localMap = (Map)Toolkit.getDefaultToolkit().getDesktopProperty("awt.font.desktophints");
+      } else {
+        localObject = new ArrayList(1);
+        EventQueue.invokeAndWait(new Runnable()
+        {
+          public void run() {
+            Map localMap = (Map)Toolkit.getDefaultToolkit().getDesktopProperty("awt.font.desktophints");
+            if (null != localMap) {
+              val$desktophintsBucket.add(localMap);
+            }
+          }
+        });
+        localMap = ((ArrayList)localObject).size() > 0 ? (Map)((ArrayList)localObject).get(0) : null;
+      }
+    } catch (InterruptedException localInterruptedException) {
+      localInterruptedException.printStackTrace();
+    } catch (InvocationTargetException localInvocationTargetException) {
+      localInvocationTargetException.printStackTrace();
+    }
+    
+    if (DEBUG) {
+      System.err.println("JAWTUtil: Has sun.awt.SunToolkit.awtLock/awtUnlock " + hasSunToolkitAWTLock);
+      System.err.println("JAWTUtil: Has Java2D " + j2dExist);
+      System.err.println("JAWTUtil: Is headless " + headlessMode);
+      int i = null != localMap ? localMap.size() : 0;
+      System.err.println("JAWTUtil: AWT Desktop hints " + i);
+      System.err.println("JAWTUtil: OffscreenLayer Supported: " + isOffscreenLayerSupported() + " - Required " + isOffscreenLayerRequired());
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public static boolean hasJava2D()
+  {
+    return j2dExist;
+  }
+  
+  public static boolean isJava2DQueueFlusherThread() {
+    boolean bool = false;
+    if (j2dExist) {
+      try {
+        bool = ((Boolean)isQueueFlusherThread.invoke(null, (Object[])null)).booleanValue();
+      } catch (Exception localException) {}
+    }
+    return bool;
+  }
+  
+  public static boolean isHeadlessMode() {
+    return headlessMode;
+  }
+  
+
+
+
+
+
+
+
+
+  public static void lockToolkit()
+    throws NativeWindowException
+  {
+    jawtLock.lock();
+    if ((1 == jawtLock.getHoldCount()) && 
+      (!headlessMode) && (!isJava2DQueueFlusherThread())) {
+      if (hasSunToolkitAWTLock) {
+        try {
+          sunToolkitAWTLockMethod.invoke(null, (Object[])null);
+        } catch (Exception localException) {
+          throw new NativeWindowException("SunToolkit.awtLock failed", localException);
+        }
+      } else {
+        jawtLockObject.Lock();
+      }
+    }
+    
+    if (ToolkitLock.TRACE_LOCK) { System.err.println("JAWTUtil-ToolkitLock.lock(): " + jawtLock);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public static void unlockToolkit()
+  {
+    jawtLock.validateLocked();
+    if (ToolkitLock.TRACE_LOCK) System.err.println("JAWTUtil-ToolkitLock.unlock(): " + jawtLock);
+    if ((1 == jawtLock.getHoldCount()) && 
+      (!headlessMode) && (!isJava2DQueueFlusherThread())) {
+      if (hasSunToolkitAWTLock) {
+        try {
+          sunToolkitAWTUnlockMethod.invoke(null, (Object[])null);
+        } catch (Exception localException) {
+          throw new NativeWindowException("SunToolkit.awtUnlock failed", localException);
+        }
+      } else {
+        jawtLockObject.Unlock();
+      }
+    }
+    
+    jawtLock.unlock();
+  }
+  
+  public static final void validateLocked() throws RuntimeException {
+    jawtLock.validateLocked();
+  }
+  
+  public static ToolkitLock getJAWTToolkitLock() {
+    return jawtToolkitLock;
+  }
+  
+  public static final int getMonitorDisplayID(GraphicsDevice paramGraphicsDevice) {
+    int i = 0;
+    if (null != getCGDisplayIDMethodOnOSX) {
+      try
+      {
+        Object localObject = getCGDisplayIDMethodOnOSX.invoke(paramGraphicsDevice, new Object[0]);
+        if ((localObject instanceof Integer)) {
+          i = ((Integer)localObject).intValue();
+        }
+      } catch (Throwable localThrowable) {}
+    }
+    return i;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final boolean getPixelScale(GraphicsDevice paramGraphicsDevice, float[] paramArrayOfFloat1, float[] paramArrayOfFloat2)
+  {
+    boolean bool = (paramArrayOfFloat1[0] != 1.0F) || (paramArrayOfFloat1[1] != 1.0F);
+    paramArrayOfFloat1[0] = 1.0F;
+    paramArrayOfFloat1[1] = 1.0F;
+    float f1 = 1.0F;
+    float f2 = 1.0F;
+    if (!SKIP_AWT_HIDPI) {
+      if (null != getCGDisplayIDMethodOnOSX) {
+        try
+        {
+          Object localObject1 = getCGDisplayIDMethodOnOSX.invoke(paramGraphicsDevice, new Object[0]);
+          if ((localObject1 instanceof Integer)) {
+            int i = ((Integer)localObject1).intValue();
+            f1 = (float)OSXUtil.GetPixelScaleByDisplayID(i);
+            f2 = f1;
+          }
+        } catch (Throwable localThrowable1) {}
+      }
+      if (null != getScaleFactorMethod) {
+        try
+        {
+          Object localObject2 = getScaleFactorMethod.invoke(paramGraphicsDevice, new Object[0]);
+          if ((localObject2 instanceof Integer)) {
+            f1 = ((Integer)localObject2).floatValue();
+          } else if ((localObject2 instanceof Double)) {
+            f1 = ((Double)localObject2).floatValue();
+          }
+          f2 = f1;
+        } catch (Throwable localThrowable2) {}
+      }
+    }
+    bool = (paramArrayOfFloat2[0] != f1) || (paramArrayOfFloat2[1] != f2);
+    paramArrayOfFloat2[0] = f1;
+    paramArrayOfFloat2[1] = f2;
+    return bool;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final boolean getPixelScale(GraphicsConfiguration paramGraphicsConfiguration, float[] paramArrayOfFloat1, float[] paramArrayOfFloat2)
+  {
+    GraphicsDevice localGraphicsDevice = null != paramGraphicsConfiguration ? paramGraphicsConfiguration.getDevice() : null;
+    boolean bool;
+    if (null == localGraphicsDevice) {
+      bool = (paramArrayOfFloat1[0] != 1.0F) || (paramArrayOfFloat1[1] != 1.0F) || (paramArrayOfFloat2[0] != 1.0F) || (paramArrayOfFloat2[1] != 1.0F);
+      paramArrayOfFloat1[0] = 1.0F;
+      paramArrayOfFloat1[1] = 1.0F;
+      paramArrayOfFloat2[0] = 1.0F;
+      paramArrayOfFloat2[1] = 1.0F;
+    } else {
+      bool = getPixelScale(localGraphicsDevice, paramArrayOfFloat1, paramArrayOfFloat2);
+    }
+    return bool;
+  }
+  
+  private static String getThreadName() {
+    return Thread.currentThread().getName();
+  }
+  
+  private static String toHexString(long paramLong) { return "0x" + Long.toHexString(paramLong); }
+  
+
+
+
+
+
+
+
+  public static AbstractGraphicsDevice createDevice(Component paramComponent)
+    throws IllegalArgumentException
+  {
+    if (!paramComponent.isDisplayable()) {
+      throw new IllegalArgumentException("Given AWT-Component is not displayable: " + paramComponent);
+    }
+    
+    GraphicsConfiguration localGraphicsConfiguration = paramComponent.getGraphicsConfiguration();
+    GraphicsDevice localGraphicsDevice; if (null != localGraphicsConfiguration) {
+      localGraphicsDevice = localGraphicsConfiguration.getDevice();
+    } else {
+      throw new IllegalArgumentException("Given AWT-Component has no GraphicsConfiguration set: " + paramComponent);
+    }
+    
+
+    String str2 = NativeWindowFactory.getNativeWindowType(true);
+    String str1; if (NativeWindowFactory.TYPE_X11 == str2) {
+      long l = X11SunJDKReflection.graphicsDeviceGetDisplay(localGraphicsDevice);
+      if (0L == l) {
+        str1 = null;
+        if (DEBUG) {
+          System.err.println(getThreadName() + " - JAWTUtil.createDevice: Null AWT dpy, default X11 display");
+
+        }
+        
+
+      }
+      else
+      {
+
+        str1 = X11Lib.XDisplayString(l);
+        if (DEBUG) {
+          System.err.println(getThreadName() + " - JAWTUtil.createDevice: AWT dpy " + str1 + " / " + toHexString(l));
+        }
+      }
+    } else {
+      str1 = null;
+    }
+    return NativeWindowFactory.createDevice(str1, true);
+  }
+  
+
+
+
+
+
+
+  public static AbstractGraphicsScreen getAbstractGraphicsScreen(Component paramComponent)
+    throws IllegalArgumentException
+  {
+    AbstractGraphicsDevice localAbstractGraphicsDevice = createDevice(paramComponent);
+    return NativeWindowFactory.createScreen(localAbstractGraphicsDevice, AWTGraphicsScreen.findScreenIndex(paramComponent.getGraphicsConfiguration().getDevice()));
+  }
+  
+  public JAWTUtil() {}
+  
+  public static void initSingleton() {}
+  
+  public static void shutdown() {}
+}

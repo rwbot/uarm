@@ -1,0 +1,200 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GlyfCompositeComp
+{
+  public static final short ARG_1_AND_2_ARE_WORDS = 1;
+  public static final short ARGS_ARE_XY_VALUES = 2;
+  public static final short ROUND_XY_TO_GRID = 4;
+  public static final short WE_HAVE_A_SCALE = 8;
+  public static final short MORE_COMPONENTS = 32;
+  public static final short WE_HAVE_AN_X_AND_Y_SCALE = 64;
+  public static final short WE_HAVE_A_TWO_BY_TWO = 128;
+  public static final short WE_HAVE_INSTRUCTIONS = 256;
+  public static final short USE_MY_METRICS = 512;
+  private final int _firstIndex;
+  private final int _firstContour;
+  private short _argument1;
+  private short _argument2;
+  private final int _flags;
+  private final int _glyphIndex;
+  private double _xscale = 1.0D;
+  private double _yscale = 1.0D;
+  private double _scale01 = 0.0D;
+  private double _scale10 = 0.0D;
+  private int _xtranslate = 0;
+  private int _ytranslate = 0;
+  private int _point1 = 0;
+  private int _point2 = 0;
+  
+  protected GlyfCompositeComp(int paramInt1, int paramInt2, DataInput paramDataInput) throws IOException
+  {
+    _firstIndex = paramInt1;
+    _firstContour = paramInt2;
+    _flags = paramDataInput.readUnsignedShort();
+    _glyphIndex = paramDataInput.readUnsignedShort();
+    
+
+    if ((_flags & 0x1) != 0) {
+      _argument1 = paramDataInput.readShort();
+      _argument2 = paramDataInput.readShort();
+    } else {
+      _argument1 = ((short)paramDataInput.readByte());
+      _argument2 = ((short)paramDataInput.readByte());
+    }
+    
+
+    if ((_flags & 0x2) != 0) {
+      _xtranslate = _argument1;
+      _ytranslate = _argument2;
+    } else {
+      _point1 = _argument1;
+      _point2 = _argument2;
+    }
+    
+    int i;
+    if ((_flags & 0x8) != 0) {
+      i = paramDataInput.readShort();
+      _xscale = (this._yscale = i / 16384.0D);
+    } else if ((_flags & 0x40) != 0) {
+      i = paramDataInput.readShort();
+      _xscale = (i / 16384.0D);
+      i = paramDataInput.readShort();
+      _yscale = (i / 16384.0D);
+    } else if ((_flags & 0x80) != 0) {
+      i = paramDataInput.readShort();
+      _xscale = (i / 16384.0D);
+      i = paramDataInput.readShort();
+      _scale01 = (i / 16384.0D);
+      i = paramDataInput.readShort();
+      _scale10 = (i / 16384.0D);
+      i = paramDataInput.readShort();
+      _yscale = (i / 16384.0D);
+    }
+  }
+  
+  public int getFirstIndex() {
+    return _firstIndex;
+  }
+  
+  public int getFirstContour() {
+    return _firstContour;
+  }
+  
+  public short getArgument1() {
+    return _argument1;
+  }
+  
+  public short getArgument2() {
+    return _argument2;
+  }
+  
+  public int getFlags() {
+    return _flags;
+  }
+  
+  public int getGlyphIndex() {
+    return _glyphIndex;
+  }
+  
+  public double getScale01() {
+    return _scale01;
+  }
+  
+  public double getScale10() {
+    return _scale10;
+  }
+  
+  public double getXScale() {
+    return _xscale;
+  }
+  
+  public double getYScale() {
+    return _yscale;
+  }
+  
+  public int getXTranslate() {
+    return _xtranslate;
+  }
+  
+  public int getYTranslate() {
+    return _ytranslate;
+  }
+  
+
+
+
+
+
+  public int scaleX(int paramInt1, int paramInt2)
+  {
+    return (int)(paramInt1 * _xscale + paramInt2 * _scale10);
+  }
+  
+
+
+
+
+
+  public int scaleY(int paramInt1, int paramInt2)
+  {
+    return (int)(paramInt1 * _scale01 + paramInt2 * _yscale);
+  }
+}

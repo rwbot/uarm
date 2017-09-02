@@ -1,0 +1,330 @@
+package com.jogamp.opengl.util.glsl;
+
+import com.jogamp.common.os.Platform;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.GLException;
+import java.io.PrintStream;
+import java.util.HashSet;
+import java.util.Iterator;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ShaderProgram
+{
+  public ShaderProgram()
+  {
+    id = getNextID();
+  }
+  
+  public boolean linked() {
+    return programLinked;
+  }
+  
+  public boolean inUse() {
+    return programInUse;
+  }
+  
+  public int program() {
+    return shaderProgram;
+  }
+  
+  public int id()
+  {
+    return id;
+  }
+  
+
+
+
+
+
+  public synchronized void destroy(GL2ES2 paramGL2ES2)
+  {
+    release(paramGL2ES2, true);
+  }
+  
+
+
+
+
+
+
+  public synchronized void release(GL2ES2 paramGL2ES2)
+  {
+    release(paramGL2ES2, false);
+  }
+  
+
+
+
+  public synchronized void release(GL2ES2 paramGL2ES2, boolean paramBoolean)
+  {
+    if (programLinked) {
+      useProgram(paramGL2ES2, false);
+    }
+    for (Iterator localIterator = allShaderCode.iterator(); localIterator.hasNext();) {
+      ShaderCode localShaderCode = (ShaderCode)localIterator.next();
+      if (attachedShaderCode.remove(localShaderCode)) {
+        ShaderUtil.detachShader(paramGL2ES2, shaderProgram, localShaderCode.shader());
+      }
+      if (paramBoolean) {
+        localShaderCode.destroy(paramGL2ES2);
+      }
+    }
+    allShaderCode.clear();
+    attachedShaderCode.clear();
+    if (0 != shaderProgram) {
+      paramGL2ES2.glDeleteProgram(shaderProgram);
+      shaderProgram = 0;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public synchronized void add(ShaderCode paramShaderCode)
+    throws GLException
+  {
+    allShaderCode.add(paramShaderCode);
+  }
+  
+  public synchronized boolean contains(ShaderCode paramShaderCode) {
+    return allShaderCode.contains(paramShaderCode);
+  }
+  
+
+
+
+
+  public synchronized ShaderCode getShader(int paramInt)
+  {
+    for (Iterator localIterator = allShaderCode.iterator(); localIterator.hasNext();) {
+      ShaderCode localShaderCode = (ShaderCode)localIterator.next();
+      if (localShaderCode.id() == paramInt) {
+        return localShaderCode;
+      }
+    }
+    return null;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final synchronized boolean init(GL2ES2 paramGL2ES2)
+  {
+    if (0 == shaderProgram) {
+      shaderProgram = paramGL2ES2.glCreateProgram();
+    }
+    return 0 != shaderProgram;
+  }
+  
+
+
+
+
+
+
+  public synchronized boolean add(GL2ES2 paramGL2ES2, ShaderCode paramShaderCode, PrintStream paramPrintStream)
+  {
+    if (!init(paramGL2ES2)) return false;
+    if (allShaderCode.add(paramShaderCode)) {
+      if (!paramShaderCode.compile(paramGL2ES2, paramPrintStream)) {
+        return false;
+      }
+      if (attachedShaderCode.add(paramShaderCode)) {
+        ShaderUtil.attachShader(paramGL2ES2, shaderProgram, paramShaderCode.shader());
+      }
+    }
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public synchronized boolean replaceShader(GL2ES2 paramGL2ES2, ShaderCode paramShaderCode1, ShaderCode paramShaderCode2, PrintStream paramPrintStream)
+  {
+    if ((!init(paramGL2ES2)) || (!paramShaderCode2.compile(paramGL2ES2, paramPrintStream))) {
+      return false;
+    }
+    
+    boolean bool = inUse();
+    if (bool) {
+      useProgram(paramGL2ES2, false);
+    }
+    
+    if ((null != paramShaderCode1) && (allShaderCode.remove(paramShaderCode1)) && 
+      (attachedShaderCode.remove(paramShaderCode1))) {
+      ShaderUtil.detachShader(paramGL2ES2, shaderProgram, paramShaderCode1.shader());
+    }
+    
+
+    add(paramShaderCode2);
+    if (attachedShaderCode.add(paramShaderCode2)) {
+      ShaderUtil.attachShader(paramGL2ES2, shaderProgram, paramShaderCode2.shader());
+    }
+    
+    paramGL2ES2.glLinkProgram(shaderProgram);
+    
+    programLinked = ShaderUtil.isProgramLinkStatusValid(paramGL2ES2, shaderProgram, paramPrintStream);
+    if ((programLinked) && (bool)) {
+      useProgram(paramGL2ES2, true);
+    }
+    return programLinked;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public synchronized boolean link(GL2ES2 paramGL2ES2, PrintStream paramPrintStream)
+  {
+    if (!init(paramGL2ES2)) {
+      programLinked = false;
+      return false;
+    }
+    
+    for (Iterator localIterator = allShaderCode.iterator(); localIterator.hasNext();) {
+      ShaderCode localShaderCode = (ShaderCode)localIterator.next();
+      if (!localShaderCode.compile(paramGL2ES2, paramPrintStream)) {
+        programLinked = false;
+        return false;
+      }
+      if (attachedShaderCode.add(localShaderCode)) {
+        ShaderUtil.attachShader(paramGL2ES2, shaderProgram, localShaderCode.shader());
+      }
+    }
+    
+
+    paramGL2ES2.glLinkProgram(shaderProgram);
+    
+    programLinked = ShaderUtil.isProgramLinkStatusValid(paramGL2ES2, shaderProgram, paramPrintStream);
+    
+    return programLinked;
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    if (this == paramObject) return true;
+    if ((paramObject instanceof ShaderProgram)) {
+      return id() == ((ShaderProgram)paramObject).id();
+    }
+    return false;
+  }
+  
+  public int hashCode()
+  {
+    return id;
+  }
+  
+  public StringBuilder toString(StringBuilder paramStringBuilder) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    paramStringBuilder.append("ShaderProgram[id=").append(id);
+    paramStringBuilder.append(", linked=" + programLinked + ", inUse=" + programInUse + ", program: " + shaderProgram + ",");
+    for (Iterator localIterator = allShaderCode.iterator(); localIterator.hasNext();) {
+      paramStringBuilder.append(Platform.getNewline()).append("   ").append(localIterator.next());
+    }
+    paramStringBuilder.append("]");
+    return paramStringBuilder;
+  }
+  
+  public String toString()
+  {
+    return toString(null).toString();
+  }
+  
+
+
+
+  public synchronized boolean validateProgram(GL2ES2 paramGL2ES2, PrintStream paramPrintStream)
+  {
+    return ShaderUtil.isProgramExecStatusValid(paramGL2ES2, shaderProgram, paramPrintStream);
+  }
+  
+  public synchronized void useProgram(GL2ES2 paramGL2ES2, boolean paramBoolean) {
+    if (!programLinked) throw new GLException("Program is not linked");
+    if (programInUse == paramBoolean) return;
+    if (0 == shaderProgram) {
+      paramBoolean = false;
+    }
+    paramGL2ES2.glUseProgram(paramBoolean ? shaderProgram : 0);
+    programInUse = paramBoolean;
+  }
+  
+  public synchronized void notifyNotInUse() { programInUse = false; }
+  
+
+  private boolean programLinked = false;
+  private boolean programInUse = false;
+  private int shaderProgram = 0;
+  private final HashSet<ShaderCode> allShaderCode = new HashSet();
+  private final HashSet<ShaderCode> attachedShaderCode = new HashSet();
+  
+  private final int id;
+  
+  private static synchronized int getNextID() { return nextID++; }
+  
+  private static int nextID = 1;
+}

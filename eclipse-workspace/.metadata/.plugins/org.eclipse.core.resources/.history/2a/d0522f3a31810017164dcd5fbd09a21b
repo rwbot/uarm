@@ -1,0 +1,293 @@
+package jogamp.opengl.util.pngj.chunks;
+
+import java.io.OutputStream;
+import java.lang.reflect.Constructor;
+import java.util.HashMap;
+import java.util.Map;
+import jogamp.opengl.util.pngj.ImageInfo;
+import jogamp.opengl.util.pngj.PngjExceptionInternal;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class PngChunk
+{
+  public final String id;
+  public final boolean crit;
+  public final boolean pub;
+  public final boolean safe;
+  protected final ImageInfo imgInfo;
+  
+  public static enum ChunkOrderingConstraint
+  {
+    NONE, 
+    
+
+
+    BEFORE_PLTE_AND_IDAT, 
+    
+
+
+    AFTER_PLTE_BEFORE_IDAT, 
+    
+
+
+    BEFORE_IDAT, 
+    
+
+
+    NA;
+    
+    private ChunkOrderingConstraint() {}
+    public boolean mustGoBeforePLTE() { return this == BEFORE_PLTE_AND_IDAT; }
+    
+    public boolean mustGoBeforeIDAT()
+    {
+      return (this == BEFORE_IDAT) || (this == BEFORE_PLTE_AND_IDAT) || (this == AFTER_PLTE_BEFORE_IDAT);
+    }
+    
+    public boolean mustGoAfterPLTE() {
+      return this == AFTER_PLTE_BEFORE_IDAT;
+    }
+  }
+  
+  private boolean priority = false;
+  
+
+  protected int chunkGroup = -1;
+  protected int length = -1;
+  protected long offset = 0L;
+  
+
+
+
+
+
+
+  private static final Map<String, Class<? extends PngChunk>> factoryMap = new HashMap();
+  
+  static { factoryMap.put("IDAT", PngChunkIDAT.class);
+    factoryMap.put("IHDR", PngChunkIHDR.class);
+    factoryMap.put("PLTE", PngChunkPLTE.class);
+    factoryMap.put("IEND", PngChunkIEND.class);
+    factoryMap.put("tEXt", PngChunkTEXT.class);
+    factoryMap.put("iTXt", PngChunkITXT.class);
+    factoryMap.put("zTXt", PngChunkZTXT.class);
+    factoryMap.put("bKGD", PngChunkBKGD.class);
+    factoryMap.put("gAMA", PngChunkGAMA.class);
+    factoryMap.put("pHYs", PngChunkPHYS.class);
+    factoryMap.put("iCCP", PngChunkICCP.class);
+    factoryMap.put("tIME", PngChunkTIME.class);
+    factoryMap.put("tRNS", PngChunkTRNS.class);
+    factoryMap.put("cHRM", PngChunkCHRM.class);
+    factoryMap.put("sBIT", PngChunkSBIT.class);
+    factoryMap.put("sRGB", PngChunkSRGB.class);
+    factoryMap.put("hIST", PngChunkHIST.class);
+    factoryMap.put("sPLT", PngChunkSPLT.class);
+    
+    factoryMap.put("oFFs", PngChunkOFFS.class);
+    factoryMap.put("sTER", PngChunkSTER.class);
+  }
+  
+
+
+
+
+
+
+  public static void factoryRegister(String paramString, Class<? extends PngChunk> paramClass)
+  {
+    factoryMap.put(paramString, paramClass);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static boolean isKnown(String paramString)
+  {
+    return factoryMap.containsKey(paramString);
+  }
+  
+  protected PngChunk(String paramString, ImageInfo paramImageInfo) {
+    id = paramString;
+    imgInfo = paramImageInfo;
+    crit = ChunkHelper.isCritical(paramString);
+    pub = ChunkHelper.isPublic(paramString);
+    safe = ChunkHelper.isSafeToCopy(paramString);
+  }
+  
+
+
+
+  public static PngChunk factory(ChunkRaw paramChunkRaw, ImageInfo paramImageInfo)
+  {
+    PngChunk localPngChunk = factoryFromId(ChunkHelper.toString(idbytes), paramImageInfo);
+    length = len;
+    localPngChunk.parseFromRaw(paramChunkRaw);
+    return localPngChunk;
+  }
+  
+
+
+
+  public static PngChunk factoryFromId(String paramString, ImageInfo paramImageInfo)
+  {
+    Object localObject = null;
+    try {
+      Class localClass = (Class)factoryMap.get(paramString);
+      if (localClass != null) {
+        Constructor localConstructor = localClass.getConstructor(new Class[] { ImageInfo.class });
+        localObject = (PngChunk)localConstructor.newInstance(new Object[] { paramImageInfo });
+      }
+    }
+    catch (Exception localException) {}
+    
+    if (localObject == null)
+      localObject = new PngChunkUNKNOWN(paramString, paramImageInfo);
+    return localObject;
+  }
+  
+  protected final ChunkRaw createEmptyChunk(int paramInt, boolean paramBoolean) {
+    ChunkRaw localChunkRaw = new ChunkRaw(paramInt, ChunkHelper.toBytes(id), paramBoolean);
+    return localChunkRaw;
+  }
+  
+
+
+
+  public static <T extends PngChunk> T cloneChunk(T paramT, ImageInfo paramImageInfo)
+  {
+    PngChunk localPngChunk = factoryFromId(id, paramImageInfo);
+    if (localPngChunk.getClass() != paramT.getClass())
+      throw new PngjExceptionInternal("bad class cloning chunk: " + localPngChunk.getClass() + " " + paramT.getClass());
+    localPngChunk.cloneDataFromRead(paramT);
+    return localPngChunk;
+  }
+  
+
+
+
+
+
+  public final int getChunkGroup()
+  {
+    return chunkGroup;
+  }
+  
+
+
+  public final void setChunkGroup(int paramInt)
+  {
+    chunkGroup = paramInt;
+  }
+  
+  public boolean hasPriority() {
+    return priority;
+  }
+  
+  public void setPriority(boolean paramBoolean) {
+    priority = paramBoolean;
+  }
+  
+  final void write(OutputStream paramOutputStream) {
+    ChunkRaw localChunkRaw = createRawChunk();
+    if (localChunkRaw == null)
+      throw new PngjExceptionInternal("null chunk ! creation failed for " + this);
+    localChunkRaw.writeChunk(paramOutputStream);
+  }
+  
+  public int getLength() {
+    return length;
+  }
+  
+
+
+
+  public long getOffset()
+  {
+    return offset;
+  }
+  
+  public void setOffset(long paramLong) {
+    offset = paramLong;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public String toString()
+  {
+    return "chunk id= " + id + " (len=" + length + " offset=" + offset + ") c=" + getClass().getSimpleName();
+  }
+  
+  public abstract ChunkRaw createRawChunk();
+  
+  public abstract void parseFromRaw(ChunkRaw paramChunkRaw);
+  
+  public abstract void cloneDataFromRead(PngChunk paramPngChunk);
+  
+  public abstract boolean allowsMultiple();
+  
+  public abstract ChunkOrderingConstraint getOrderingConstraint();
+}

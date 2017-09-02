@@ -1,0 +1,65 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+public class GaspTable
+  implements Table
+{
+  private final DirectoryEntry de;
+  private final int version;
+  private final int numRanges;
+  private final GaspRange[] gaspRange;
+  
+  protected GaspTable(DirectoryEntry paramDirectoryEntry, DataInput paramDataInput)
+    throws IOException
+  {
+    de = ((DirectoryEntry)paramDirectoryEntry.clone());
+    version = paramDataInput.readUnsignedShort();
+    numRanges = paramDataInput.readUnsignedShort();
+    gaspRange = new GaspRange[numRanges];
+    for (int i = 0; i < numRanges; i++) {
+      gaspRange[i] = new GaspRange(paramDataInput);
+    }
+  }
+  
+  public int getType()
+  {
+    return 1734439792;
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("'gasp' Table - Grid-fitting And Scan-conversion Procedure\n---------------------------------------------------------");
+    localStringBuilder.append("\n  'gasp' version:      ").append(version);
+    localStringBuilder.append("\n  numRanges:           ").append(numRanges);
+    for (int i = 0; i < numRanges; i++) {
+      localStringBuilder.append("\n\n  gasp Range ").append(i).append("\n");
+      localStringBuilder.append(gaspRange[i].toString());
+    }
+    return localStringBuilder.toString();
+  }
+  
+
+
+
+
+
+
+  public DirectoryEntry getDirectoryEntry()
+  {
+    return de;
+  }
+}

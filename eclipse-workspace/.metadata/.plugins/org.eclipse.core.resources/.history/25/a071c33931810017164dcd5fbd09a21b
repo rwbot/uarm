@@ -1,0 +1,587 @@
+package g4p_controls;
+
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics2D;
+import java.awt.font.TextHitInfo;
+import java.awt.font.TextLayout;
+import java.awt.geom.GeneralPath;
+import java.util.Iterator;
+import java.util.LinkedList;
+import processing.awt.PGraphicsJava2D;
+import processing.core.PApplet;
+import processing.core.PGraphics;
+import processing.event.KeyEvent;
+import processing.event.MouseEvent;
+
+public final class GPassword
+  extends GAbstractControl
+  implements Focusable
+{
+  protected StyledString.TextLayoutHitInfo cursorTLHI = new StyledString.TextLayoutHitInfo();
+  private static char cover = '#';
+  private StyledString stext = new StyledString(" ");
+  private StyledString hidden = new StyledString(" ");
+  private int maxWordLength = 10;
+  private int wordLength = 0;
+  GTabManager tabManager = null;
+  protected int wrapWidth = Integer.MAX_VALUE;
+  protected float tx;
+  protected float ty;
+  protected float th;
+  protected float tw;
+  protected float ptx;
+  protected float pty;
+  protected float caretX;
+  protected float caretY;
+  protected boolean keepCursorInView = false;
+  protected GeneralPath gpTextDisplayArea;
+  protected StyledString.TextLayoutHitInfo startTLHI = new StyledString.TextLayoutHitInfo();
+  protected StyledString.TextLayoutHitInfo endTLHI = new StyledString.TextLayoutHitInfo();
+  protected GTimer caretFlasher = new GTimer(paramPApplet, this, "flashCaret", 400);
+  protected boolean showCaret = false;
+  protected int endChar = -1;
+  protected int startChar = -1;
+  protected int pos = endChar;
+  protected int nbr = 0;
+  protected int adjust = 0;
+  protected boolean textChanged = false;
+  protected Font localFont = G4P.globalFont;
+  
+  public GPassword(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    this(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4, 0);
+  }
+  
+  public GPassword(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, int paramInt)
+  {
+    super(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+    caretFlasher.start();
+    opaque = true;
+    cursorOver = 2;
+    setVisibleChar(cover);
+    children = new LinkedList();
+    tx = (this.ty = 2.0F);
+    tw = (width - 4.0F);
+    th = height;
+    gpTextDisplayArea = new GeneralPath();
+    gpTextDisplayArea.moveTo(0.0F, 0.0F);
+    gpTextDisplayArea.lineTo(0.0F, th);
+    gpTextDisplayArea.lineTo(tw, th);
+    gpTextDisplayArea.lineTo(tw, 0.0F);
+    gpTextDisplayArea.closePath();
+    hotspots = new HotSpot[] { new HotSpot.HSrect(1, tx, ty, tw, th), new HotSpot.HSrect(9, 0.0F, 0.0F, width, height) };
+    G4P.pushStyle();
+    G4P.showMessages = false;
+    z = 0;
+    G4P.control_mode = GControlMode.CORNER;
+    G4P.popStyle();
+    createEventHandler(G4P.sketchWindow, "handlePasswordEvents", new Class[] { GPassword.class, GEvent.class }, new String[] { "pwordControl", "event" });
+    registeredMethods = 15;
+    G4P.registerControl(this);
+    bufferInvalid = true;
+  }
+  
+  public void setVisibleChar(char paramChar)
+  {
+    int i = paramChar;
+    if (((i >= 33) && (i <= 255) && (i != 127)) || (i == 8364)) {
+      cover = paramChar;
+    }
+  }
+  
+  public String getPassword()
+  {
+    String str = hidden.getPlainText();
+    return str.equals(" ") ? "" : str;
+  }
+  
+  public int getWordLength()
+  {
+    return wordLength;
+  }
+  
+  public void setMaxWordLength(int paramInt)
+  {
+    if ((wordLength == 0) && (paramInt >= 1)) {
+      maxWordLength = paramInt;
+    }
+  }
+  
+  public void setFont(Font paramFont)
+  {
+    if ((paramFont != null) && (paramFont != localFont) && (buffer != null))
+    {
+      localFont = paramFont;
+      buffer.g2.setFont(localFont);
+      bufferInvalid = true;
+    }
+  }
+  
+  public PGraphics getSnapshot()
+  {
+    updateBuffer();
+    PGraphicsJava2D localPGraphicsJava2D = (PGraphicsJava2D)winApp.createGraphics(buffer.width, buffer.height, "processing.awt.PGraphicsJava2D");
+    localPGraphicsJava2D.beginDraw();
+    localPGraphicsJava2D.image(buffer, 0.0F, 0.0F);
+    localPGraphicsJava2D.endDraw();
+    return localPGraphicsJava2D;
+  }
+  
+  public void pre()
+  {
+    if (keepCursorInView)
+    {
+      int i = 0;
+      float f = caretX - tw + 2.0F;
+      if (endTLHI != null)
+      {
+        if (ptx > caretX)
+        {
+          ptx -= localFont.getSize() / 3;
+          if (ptx < 0.0F) {
+            ptx = 0.0F;
+          }
+          i = 1;
+        }
+        else if (ptx < f)
+        {
+          ptx += localFont.getSize() / 1.5F;
+          if (ptx > f) {
+            ptx = f;
+          }
+          i = 1;
+        }
+        if ((ptx > 0.0F) && (endTLHI.tli.layout.getAdvance() - ptx < tw - 2.0F))
+        {
+          ptx = Math.max(0.0F, endTLHI.tli.layout.getAdvance() - tw - 2.0F);
+          i = 1;
+        }
+      }
+      if (i != 0) {
+        bufferInvalid = true;
+      } else {
+        keepCursorInView = false;
+      }
+    }
+  }
+  
+  public void flashCaret(GTimer paramGTimer)
+  {
+    showCaret = (!showCaret);
+  }
+  
+  public void mouseEvent(MouseEvent paramMouseEvent)
+  {
+    if ((!visible) || (!enabled) || (!available)) {
+      return;
+    }
+    calcTransformedOrigin(winApp.mouseX, winApp.mouseY);
+    ox -= tx;
+    oy -= ty;
+    currSpot = whichHotSpot(ox, oy);
+    if ((currSpot == 1) || (focusIsWith == this)) {
+      cursorIsOver = this;
+    } else if (cursorIsOver == this) {
+      cursorIsOver = null;
+    }
+    switch (paramMouseEvent.getAction())
+    {
+    case 1: 
+      if (currSpot == 1)
+      {
+        if ((focusIsWith != this) && (z >= focusObjectZ()))
+        {
+          keepCursorInView = true;
+          takeFocus();
+        }
+        dragging = false;
+        if ((stext == null) || (stext.length() == 0))
+        {
+          stext = new StyledString(" ", wrapWidth);
+          stext.getLines(buffer.g2);
+        }
+        endTLHI = stext.calculateFromXY(buffer.g2, ox + ptx, oy + pty);
+        startTLHI = new StyledString.TextLayoutHitInfo(endTLHI);
+        calculateCaretPos(endTLHI);
+        bufferInvalid = true;
+      }
+      else if (focusIsWith == this)
+      {
+        loseFocus(null);
+      }
+      break;
+    case 2: 
+      dragging = false;
+      bufferInvalid = true;
+    }
+  }
+  
+  public void keyEvent(KeyEvent paramKeyEvent)
+  {
+    if ((!visible) || (!enabled) || (!available)) {
+      return;
+    }
+    if ((focusIsWith == this) && (endTLHI != null))
+    {
+      char c = paramKeyEvent.getKey();
+      int i = paramKeyEvent.getKeyCode();
+      int j = paramKeyEvent.getAction();
+      boolean bool1 = paramKeyEvent.isShiftDown();
+      boolean bool2 = paramKeyEvent.isControlDown();
+      textChanged = false;
+      keepCursorInView = true;
+      endChar = (endTLHI.tli.startCharIndex + endTLHI.thi.getInsertionIndex());
+      startChar = (startTLHI != null ? startTLHI.tli.startCharIndex + startTLHI.thi.getInsertionIndex() : endChar);
+      pos = endChar;
+      nbr = 0;
+      adjust = 0;
+      if (endChar != startChar) {
+        if (startChar < endChar)
+        {
+          pos = startChar;
+          nbr = (endChar - pos);
+        }
+        else if (startChar > endChar)
+        {
+          pos = endChar;
+          nbr = (startChar - pos);
+        }
+      }
+      if (j == 1) {
+        keyPressedProcess(i, c, bool1, bool2);
+      } else if (j == 3) {
+        keyTypedProcess(i, c, bool1, bool2);
+      }
+      if (textChanged)
+      {
+        changeText();
+        fireEvent(new Object[] { this, GEvent.CHANGED });
+      }
+    }
+  }
+  
+  protected void keyPressedProcess(int paramInt, char paramChar, boolean paramBoolean1, boolean paramBoolean2)
+  {
+    int i = 1;
+    switch (paramInt)
+    {
+    case 37: 
+      moveCaretLeft(endTLHI);
+      break;
+    case 39: 
+      moveCaretRight(endTLHI);
+      break;
+    case 36: 
+      moveCaretStartOfLine(endTLHI);
+      break;
+    case 35: 
+      moveCaretEndOfLine(endTLHI);
+      break;
+    case 38: 
+    default: 
+      i = 0;
+    }
+    if (i != 0)
+    {
+      calculateCaretPos(endTLHI);
+      startTLHI.copyFrom(endTLHI);
+    }
+  }
+  
+  protected void keyTypedProcess(int paramInt, char paramChar, boolean paramBoolean1, boolean paramBoolean2)
+  {
+    int i = paramChar;
+    if ((isDisplayable(i)) && (wordLength < maxWordLength))
+    {
+      if (hidden.getPlainText().equals(" "))
+      {
+        stext.setText("" + cover);
+        hidden.setText("" + paramChar);
+      }
+      else
+      {
+        stext.insertCharacters("" + cover, pos);
+        hidden.insertCharacters("" + paramChar, pos);
+      }
+      wordLength += 1;
+      adjust = 1;
+      textChanged = true;
+    }
+    else if (paramChar == '\b')
+    {
+      if (stext.deleteCharacters(pos - 1, 1))
+      {
+        hidden.deleteCharacters(pos - 1, 1);
+        wordLength = (--wordLength < 0 ? 0 : wordLength);
+        adjust = -1;
+        textChanged = true;
+      }
+    }
+    else if (paramChar == '')
+    {
+      if (stext.deleteCharacters(pos, 1))
+      {
+        hidden.deleteCharacters(pos, 1);
+        wordLength -= 1;
+        adjust = 0;
+        textChanged = true;
+      }
+    }
+    else if ((paramChar == '\n') || (paramChar == '\r'))
+    {
+      fireEvent(new Object[] { this, GEvent.ENTERED });
+      if ((tabManager != null) && (tabManager.nextControl(this))) {
+        startTLHI.copyFrom(endTLHI);
+      }
+    }
+    else if ((paramChar == '\t') && (tabManager != null))
+    {
+      boolean bool = paramBoolean1 ? tabManager.prevControl(this) : tabManager.nextControl(this);
+      if (bool)
+      {
+        startTLHI.copyFrom(endTLHI);
+        return;
+      }
+    }
+    if (stext.length() == 0)
+    {
+      stext.insertCharacters(" ", 0);
+      hidden.insertCharacters(" ", 0);
+      adjust += 1;
+      textChanged = true;
+    }
+  }
+  
+  protected boolean changeText()
+  {
+    TextHitInfo localTextHitInfo1 = null;
+    TextHitInfo localTextHitInfo2 = null;
+    pos += adjust;
+    stext.getLines(buffer.g2);
+    StyledString.TextLayoutInfo localTextLayoutInfo = stext.getTLIforCharNo(pos);
+    if (localTextLayoutInfo == null)
+    {
+      endTLHI = null;
+      startTLHI = null;
+      ptx = (this.pty = 0.0F);
+      caretX = (this.caretY = 0.0F);
+      return false;
+    }
+    int i = pos - startCharIndex;
+    try
+    {
+      localTextHitInfo2 = layout.getNextRightHit(i);
+    }
+    catch (Exception localException)
+    {
+      localTextHitInfo2 = null;
+    }
+    if (i <= 0) {
+      localTextHitInfo1 = layout.getNextLeftHit(localTextHitInfo2);
+    } else if (i >= nbrChars) {
+      localTextHitInfo1 = layout.getNextRightHit(nbrChars - 1);
+    } else {
+      localTextHitInfo1 = layout.getNextLeftHit(localTextHitInfo2);
+    }
+    endTLHI.setInfo(localTextLayoutInfo, localTextHitInfo1);
+    calculateCaretPos(endTLHI);
+    bufferInvalid = true;
+    startTLHI.copyFrom(endTLHI);
+    return true;
+  }
+  
+  public void draw()
+  {
+    if (!visible) {
+      return;
+    }
+    updateBuffer();
+    winApp.pushStyle();
+    winApp.pushMatrix();
+    winApp.translate(cx, cy);
+    winApp.rotate(rotAngle);
+    winApp.pushMatrix();
+    winApp.translate(-halfWidth, -halfHeight);
+    winApp.imageMode(0);
+    if (alphaLevel < 255) {
+      winApp.tint(255, alphaLevel);
+    }
+    winApp.image(buffer, 0.0F, 0.0F);
+    Object localObject;
+    if ((focusIsWith == this) && (showCaret) && (endTLHI.tli != null))
+    {
+      localObject = endTLHI.tli.layout.getCaretInfo(endTLHI.thi);
+      float f1 = -ptx + localObject[0];
+      float f2 = -pty + endTLHI.tli.yPosInPara;
+      float f3 = f2 - localObject[3] + localObject[5];
+      if ((f1 >= 0.0F) && (f1 <= tw) && (f2 >= 0.0F) && (f3 <= th))
+      {
+        winApp.strokeWeight(1.9F);
+        winApp.stroke(palette[12].getRGB());
+        winApp.line(tx + f1, ty + Math.max(0.0F, f2), tx + f1, ty + Math.min(th, f3));
+      }
+    }
+    winApp.popMatrix();
+    if (children != null)
+    {
+      localObject = children.iterator();
+      while (((Iterator)localObject).hasNext())
+      {
+        GAbstractControl localGAbstractControl = (GAbstractControl)((Iterator)localObject).next();
+        localGAbstractControl.draw();
+      }
+    }
+    winApp.popMatrix();
+    winApp.popStyle();
+  }
+  
+  protected void updateBuffer()
+  {
+    if (bufferInvalid)
+    {
+      bufferInvalid = false;
+      buffer.beginDraw();
+      Graphics2D localGraphics2D = buffer.g2;
+      localGraphics2D.setFont(localFont);
+      LinkedList localLinkedList = stext.getLines(localGraphics2D);
+      if (opaque) {
+        buffer.background(palette[6].getRGB());
+      } else {
+        buffer.background(buffer.color(255, 0));
+      }
+      buffer.translate(tx, ty);
+      buffer.noStroke();
+      buffer.fill(palette[7].getRGB());
+      buffer.rect(-1.0F, -1.0F, tw + 2.0F, th + 2.0F);
+      localGraphics2D.setClip(gpTextDisplayArea);
+      buffer.translate(-ptx, -pty);
+      Iterator localIterator = localLinkedList.iterator();
+      while (localIterator.hasNext())
+      {
+        StyledString.TextLayoutInfo localTextLayoutInfo = (StyledString.TextLayoutInfo)localIterator.next();
+        TextLayout localTextLayout = layout;
+        buffer.translate(0.0F, localTextLayout.getAscent());
+        localGraphics2D.setColor(palette[2]);
+        layout.draw(localGraphics2D, 0.0F, 0.0F);
+        buffer.translate(0.0F, localTextLayout.getDescent() + localTextLayout.getLeading());
+      }
+      localGraphics2D.setClip(null);
+      buffer.endDraw();
+    }
+  }
+  
+  protected void loseFocus(GAbstractControl paramGAbstractControl)
+  {
+    if (focusIsWith == this) {
+      fireEvent(new Object[] { this, GEvent.LOST_FOCUS });
+    }
+    if (cursorIsOver == this) {
+      cursorIsOver = null;
+    }
+    focusIsWith = paramGAbstractControl;
+    if (stext.length() > 0)
+    {
+      int i = stext.getPlainText().trim().length();
+      if (i == 0) {
+        stext.setText("", wrapWidth);
+      }
+    }
+    keepCursorInView = true;
+    bufferInvalid = true;
+  }
+  
+  protected void takeFocus()
+  {
+    if (focusIsWith != this)
+    {
+      if (focusIsWith != null) {
+        focusIsWith.loseFocus(this);
+      }
+      fireEvent(new Object[] { this, GEvent.GETS_FOCUS });
+    }
+    focusIsWith = this;
+  }
+  
+  public void setFocus(boolean paramBoolean)
+  {
+    if (!paramBoolean)
+    {
+      loseFocus(null);
+      return;
+    }
+    if (focusIsWith != this)
+    {
+      dragging = false;
+      if ((stext == null) || (stext.length() == 0)) {
+        stext.setText(" ", wrapWidth);
+      }
+      LinkedList localLinkedList = stext.getLines(buffer.g2);
+      startTLHI = new StyledString.TextLayoutHitInfo((StyledString.TextLayoutInfo)localLinkedList.getFirst(), null);
+      startTLHI.thi = startTLHI.tli.layout.getNextLeftHit(1);
+      endTLHI = new StyledString.TextLayoutHitInfo((StyledString.TextLayoutInfo)localLinkedList.getLast(), null);
+      int i = endTLHI.tli.layout.getCharacterCount();
+      endTLHI.thi = startTLHI.tli.layout.getNextRightHit(i - 1);
+      startTLHI.copyFrom(endTLHI);
+      calculateCaretPos(endTLHI);
+      bufferInvalid = true;
+    }
+    keepCursorInView = true;
+    takeFocus();
+  }
+  
+  protected void calculateCaretPos(StyledString.TextLayoutHitInfo paramTextLayoutHitInfo)
+  {
+    float[] arrayOfFloat = tli.layout.getCaretInfo(thi);
+    caretX = arrayOfFloat[0];
+    caretY = tli.yPosInPara;
+  }
+  
+  protected boolean moveCaretStartOfLine(StyledString.TextLayoutHitInfo paramTextLayoutHitInfo)
+  {
+    if (thi.getCharIndex() == 0) {
+      return false;
+    }
+    thi = tli.layout.getNextLeftHit(1);
+    return true;
+  }
+  
+  protected boolean moveCaretEndOfLine(StyledString.TextLayoutHitInfo paramTextLayoutHitInfo)
+  {
+    if (thi.getCharIndex() == tli.nbrChars - 1) {
+      return false;
+    }
+    thi = tli.layout.getNextRightHit(tli.nbrChars - 1);
+    return true;
+  }
+  
+  protected boolean moveCaretLeft(StyledString.TextLayoutHitInfo paramTextLayoutHitInfo)
+  {
+    TextHitInfo localTextHitInfo = tli.layout.getNextLeftHit(thi);
+    if (localTextHitInfo == null) {
+      return false;
+    }
+    thi = localTextHitInfo;
+    return true;
+  }
+  
+  protected boolean moveCaretRight(StyledString.TextLayoutHitInfo paramTextLayoutHitInfo)
+  {
+    TextHitInfo localTextHitInfo = tli.layout.getNextRightHit(thi);
+    if (localTextHitInfo == null) {
+      return false;
+    }
+    thi = localTextHitInfo;
+    return true;
+  }
+  
+  public void setLocalColorScheme(int paramInt)
+  {
+    super.setLocalColorScheme(paramInt);
+  }
+  
+  public void setTabManager(GTabManager paramGTabManager)
+  {
+    tabManager = paramGTabManager;
+  }
+}

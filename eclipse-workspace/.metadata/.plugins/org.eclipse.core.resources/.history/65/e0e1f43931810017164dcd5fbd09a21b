@@ -1,0 +1,213 @@
+package com.jogamp.opengl.util.packrect;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class LevelSet
+{
+  private final List<Level> levels = new ArrayList();
+  
+  private int nextAddY;
+  private final int w;
+  private int h;
+  
+  public LevelSet(int paramInt1, int paramInt2)
+  {
+    w = paramInt1;
+    h = paramInt2;
+  }
+  
+  public int w() { return w; }
+  public int h() { return h; }
+  
+
+
+
+  public boolean add(Rect paramRect)
+  {
+    if (paramRect.w() > w) {
+      return false;
+    }
+    
+    Level localLevel2;
+    for (int i = levels.size() - 1; i >= 0; i--) {
+      localLevel2 = (Level)levels.get(i);
+      if (localLevel2.add(paramRect)) {
+        return true;
+      }
+    }
+    
+
+
+    for (i = levels.size() - 1; i >= 0; i--) {
+      localLevel2 = (Level)levels.get(i);
+      if (localLevel2.couldAllocateIfCompacted(paramRect)) {
+        return false;
+      }
+    }
+    
+
+    if (nextAddY + paramRect.h() > h) {
+      return false;
+    }
+    Level localLevel1 = new Level(w, paramRect.h(), nextAddY, this);
+    levels.add(localLevel1);
+    nextAddY += paramRect.h();
+    boolean bool = localLevel1.add(paramRect);
+    if (!bool)
+      throw new RuntimeException("Unexpected failure in addition to new Level");
+    return true;
+  }
+  
+  public boolean remove(Rect paramRect)
+  {
+    for (int i = levels.size() - 1; i >= 0; i--) {
+      Level localLevel = (Level)levels.get(i);
+      if (localLevel.remove(paramRect)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  
+
+
+
+
+
+  public boolean compactAndAdd(Rect paramRect, Object paramObject, BackingStoreManager paramBackingStoreManager)
+  {
+    for (int i = levels.size() - 1; i >= 0; i--) {
+      Level localLevel = (Level)levels.get(i);
+      if (localLevel.couldAllocateIfCompacted(paramRect)) {
+        localLevel.compact(paramObject, paramBackingStoreManager);
+        boolean bool = localLevel.add(paramRect);
+        if (!bool)
+          throw new RuntimeException("Unexpected failure to add after compaction");
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+
+
+  public boolean canExpand(Level paramLevel, int paramInt)
+  {
+    if (levels.isEmpty())
+      return false;
+    if ((levels.get(levels.size() - 1) == paramLevel) && 
+      (h - nextAddY >= paramInt - paramLevel.h()))
+      return true;
+    return false;
+  }
+  
+  public void expand(Level paramLevel, int paramInt1, int paramInt2) {
+    nextAddY += paramInt2 - paramInt1;
+  }
+  
+  public int getUsedHeight()
+  {
+    return nextAddY;
+  }
+  
+  public void setHeight(int paramInt)
+    throws IllegalArgumentException
+  {
+    if (paramInt < getUsedHeight()) {
+      throw new IllegalArgumentException("May not reduce height below currently used height");
+    }
+    h = paramInt;
+  }
+  
+
+
+
+
+  public float verticalFragmentationRatio()
+  {
+    int i = 0;
+    int j = getUsedHeight();
+    if (j == 0)
+      return 0.0F;
+    for (Iterator localIterator = iterator(); localIterator.hasNext();) {
+      Level localLevel = (Level)localIterator.next();
+      if (localLevel.isEmpty()) {
+        i += localLevel.h();
+      }
+    }
+    return i / j;
+  }
+  
+  public Iterator<Level> iterator() {
+    return levels.iterator();
+  }
+  
+  public void visit(RectVisitor paramRectVisitor)
+  {
+    for (Iterator localIterator = levels.iterator(); localIterator.hasNext();) {
+      Level localLevel = (Level)localIterator.next();
+      localLevel.visit(paramRectVisitor);
+    }
+  }
+  
+
+
+
+  public void updateRectangleReferences()
+  {
+    for (Iterator localIterator = levels.iterator(); localIterator.hasNext();) {
+      Level localLevel = (Level)localIterator.next();
+      localLevel.updateRectangleReferences();
+    }
+  }
+  
+  public void clear()
+  {
+    levels.clear();
+    nextAddY = 0;
+  }
+}

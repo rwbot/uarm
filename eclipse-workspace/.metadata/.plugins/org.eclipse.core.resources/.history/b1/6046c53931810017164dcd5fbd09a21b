@@ -1,0 +1,33 @@
+package g4p_controls;
+
+import java.awt.Font;
+
+public class FontManager
+{
+  private static String[] pfnames = { "Arial", "Trebuchet MS", "Tahoma", "Helvetica", "Verdana" };
+  
+  public FontManager() {}
+  
+  public static Font getPriorityFont(String[] paramArrayOfString, int paramInt1, int paramInt2)
+  {
+    Font localFont = null;
+    String[] arrayOfString1 = (paramArrayOfString == null) || (paramArrayOfString.length == 0) ? pfnames : paramArrayOfString;
+    for (String str : arrayOfString1)
+    {
+      localFont = getFont(str, paramInt1, paramInt2);
+      if (localFont != null) {
+        return localFont;
+      }
+    }
+    return getFont("Dialog", paramInt1, paramInt2);
+  }
+  
+  public static Font getFont(String paramString, int paramInt1, int paramInt2)
+  {
+    Font localFont = new Font(paramString, paramInt1, paramInt2);
+    if (paramString.equalsIgnoreCase(localFont.getFamily())) {
+      return localFont;
+    }
+    return null;
+  }
+}

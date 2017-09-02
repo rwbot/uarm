@@ -1,0 +1,109 @@
+package com.jogamp.common.util.awt;
+
+import com.jogamp.common.util.RunnableExecutor;
+import java.awt.EventQueue;
+import java.lang.reflect.InvocationTargetException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AWTEDTExecutor
+  implements RunnableExecutor
+{
+  public static final AWTEDTExecutor singleton = new AWTEDTExecutor();
+  
+  private AWTEDTExecutor() {}
+  
+  public void invoke(boolean paramBoolean, Runnable paramRunnable)
+  {
+    if (EventQueue.isDispatchThread()) {
+      paramRunnable.run();
+    } else {
+      try {
+        if (paramBoolean) {
+          EventQueue.invokeAndWait(paramRunnable);
+        } else {
+          EventQueue.invokeLater(paramRunnable);
+        }
+      } catch (InvocationTargetException localInvocationTargetException) {
+        throw new RuntimeException(localInvocationTargetException.getTargetException());
+      } catch (InterruptedException localInterruptedException) {
+        throw new RuntimeException(localInterruptedException);
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean invoke(Object paramObject, boolean paramBoolean1, boolean paramBoolean2, Runnable paramRunnable)
+  {
+    if (EventQueue.isDispatchThread()) {
+      paramRunnable.run();
+      return true; }
+    if (!Thread.holdsLock(paramObject)) {
+      try {
+        if (paramBoolean2) {
+          EventQueue.invokeAndWait(paramRunnable);
+        } else {
+          EventQueue.invokeLater(paramRunnable);
+        }
+      } catch (InvocationTargetException localInvocationTargetException) {
+        throw new RuntimeException(localInvocationTargetException.getTargetException());
+      } catch (InterruptedException localInterruptedException) {
+        throw new RuntimeException(localInterruptedException);
+      }
+      return true; }
+    if (paramBoolean1) {
+      paramRunnable.run();
+      return true;
+    }
+    return false;
+  }
+}

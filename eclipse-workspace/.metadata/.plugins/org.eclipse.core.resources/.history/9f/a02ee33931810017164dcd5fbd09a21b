@@ -1,0 +1,184 @@
+package com.jogamp.nativewindow.egl;
+
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.DefaultGraphicsDevice;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class EGLGraphicsDevice
+  extends DefaultGraphicsDevice
+  implements Cloneable
+{
+  private final long[] nativeDisplayID = new long[1];
+  private EGLDisplayLifecycleCallback eglLifecycleCallback;
+  private VersionNumber eglVersion = VersionNumber.zeroVersion;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public EGLGraphicsDevice()
+  {
+    super(NativeWindowFactory.TYPE_EGL, DefaultGraphicsDevice.getDefaultDisplayConnection(), 0);
+    nativeDisplayID[0] = 0L;
+    eglLifecycleCallback = null;
+  }
+  
+  public EGLGraphicsDevice(AbstractGraphicsDevice paramAbstractGraphicsDevice, long paramLong, EGLDisplayLifecycleCallback paramEGLDisplayLifecycleCallback) {
+    super(NativeWindowFactory.TYPE_EGL, paramAbstractGraphicsDevice.getConnection(), paramAbstractGraphicsDevice.getUnitID(), paramLong);
+    long l;
+    if ((paramAbstractGraphicsDevice instanceof EGLGraphicsDevice)) {
+      l = ((EGLGraphicsDevice)paramAbstractGraphicsDevice).getNativeDisplayID();
+    } else {
+      l = paramAbstractGraphicsDevice.getHandle();
+    }
+    nativeDisplayID[0] = l;
+    eglLifecycleCallback = paramEGLDisplayLifecycleCallback;
+  }
+  
+  public EGLGraphicsDevice(long paramLong1, long paramLong2, String paramString, int paramInt, EGLDisplayLifecycleCallback paramEGLDisplayLifecycleCallback) {
+    super(NativeWindowFactory.TYPE_EGL, paramString, paramInt, paramLong2);
+    nativeDisplayID[0] = paramLong1;
+    eglLifecycleCallback = paramEGLDisplayLifecycleCallback;
+  }
+  
+
+  public VersionNumber getEGLVersion() { return eglVersion; }
+  
+  public long getNativeDisplayID() { return nativeDisplayID[0]; }
+  
+  public Object clone()
+  {
+    return super.clone();
+  }
+  
+
+
+
+
+
+
+  public boolean open()
+  {
+    if ((null != eglLifecycleCallback) && (0L == handle)) {
+      if (DEBUG) {
+        System.err.println(Thread.currentThread().getName() + " - EGLGraphicsDevice.open(): " + this);
+      }
+      int[] arrayOfInt1 = { 0 };
+      int[] arrayOfInt2 = { 0 };
+      handle = eglLifecycleCallback.eglGetAndInitDisplay(nativeDisplayID, arrayOfInt1, arrayOfInt2);
+      if (0L == handle) {
+        eglVersion = VersionNumber.zeroVersion;
+        throw new NativeWindowException("EGLGraphicsDevice.open() failed: " + this);
+      }
+      eglVersion = new VersionNumber(arrayOfInt1[0], arrayOfInt2[0], 0);
+      return true;
+    }
+    
+    return false;
+  }
+  
+
+
+
+
+
+
+  public boolean close()
+  {
+    if ((null != eglLifecycleCallback) && (0L != handle)) {
+      if (DEBUG) {
+        System.err.println(Thread.currentThread().getName() + " - EGLGraphicsDevice.close(): " + this);
+      }
+      eglLifecycleCallback.eglTerminate(handle);
+    }
+    return super.close();
+  }
+  
+  public boolean isHandleOwner()
+  {
+    return null != eglLifecycleCallback;
+  }
+  
+  public void clearHandleOwner() {
+    eglLifecycleCallback = null;
+  }
+  
+  protected Object getHandleOwnership() {
+    return eglLifecycleCallback;
+  }
+  
+  protected Object setHandleOwnership(Object paramObject) {
+    EGLDisplayLifecycleCallback localEGLDisplayLifecycleCallback = eglLifecycleCallback;
+    eglLifecycleCallback = ((EGLDisplayLifecycleCallback)paramObject);
+    return localEGLDisplayLifecycleCallback;
+  }
+  
+  public String toString()
+  {
+    return getClass().getSimpleName() + "[type " + getType() + ", v" + eglVersion + ", connection " + getConnection() + ", unitID " + getUnitID() + ", handle 0x" + Long.toHexString(getHandle()) + ", owner " + isHandleOwner() + ", " + toolkitLock + "]";
+  }
+  
+  public static abstract interface EGLDisplayLifecycleCallback
+  {
+    public abstract long eglGetAndInitDisplay(long[] paramArrayOfLong, int[] paramArrayOfInt1, int[] paramArrayOfInt2);
+    
+    public abstract void eglTerminate(long paramLong);
+  }
+}

@@ -1,0 +1,177 @@
+package com.jogamp.opengl.util.texture.spi;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.opengl.util.texture.TextureData.ColorSpace;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
+import java.nio.ByteBuffer;
+import jogamp.opengl.Debug;
+import jogamp.opengl.util.jpeg.JPEGDecoder;
+import jogamp.opengl.util.jpeg.JPEGDecoder.ColorSink;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class JPEGImage
+{
+  private static final boolean DEBUG = Debug.debug("JPEGImage");
+  private final JPEGColorSink pixelStorage;
+  private final int pixelWidth;
+  private final int pixelHeight;
+  private final int glFormat;
+  private final int bytesPerPixel;
+  private final boolean reversedChannels;
+  private final ByteBuffer data;
+  
+  public static JPEGImage read(InputStream paramInputStream, TextureData.ColorSpace paramColorSpace)
+    throws IOException
+  {
+    return new JPEGImage(paramInputStream, paramColorSpace);
+  }
+  
+  public static JPEGImage read(InputStream paramInputStream) throws IOException
+  {
+    return new JPEGImage(paramInputStream, TextureData.ColorSpace.RGB);
+  }
+  
+  private static class JPEGColorSink implements JPEGDecoder.ColorSink {
+    int width = 0; int height = 0;
+    int sourceComponents = 0;
+    TextureData.ColorSpace sourceCS = TextureData.ColorSpace.YCbCr;
+    
+
+    ByteBuffer data = null;
+    int storageComponents;
+    
+    JPEGColorSink(TextureData.ColorSpace paramColorSpace) { storageCS = paramColorSpace;
+      switch (JPEGImage.1.$SwitchMap$com$jogamp$opengl$util$texture$TextureData$ColorSpace[storageCS.ordinal()]) {
+      case 1: 
+      case 2: 
+        storageComponents = 3;
+        break;
+      default: 
+        throw new IllegalArgumentException("Unsupported storage color-space: " + storageCS);
+      }
+    }
+    
+    public final TextureData.ColorSpace allocate(int paramInt1, int paramInt2, TextureData.ColorSpace paramColorSpace, int paramInt3) throws RuntimeException
+    {
+      width = paramInt1;
+      height = paramInt2;
+      sourceComponents = paramInt3;
+      sourceCS = paramColorSpace;
+      data = Buffers.newDirectByteBuffer(paramInt1 * paramInt2 * storageComponents);
+      return storageCS;
+    }
+    
+    public final void storeRGB(int paramInt1, int paramInt2, byte paramByte1, byte paramByte2, byte paramByte3)
+    {
+      int i = ((height - paramInt2 - 1) * width + paramInt1) * storageComponents;
+      data.put(i++, paramByte1);
+      data.put(i++, paramByte2);
+      data.put(i++, paramByte3);
+    }
+    
+    final TextureData.ColorSpace storageCS;
+    public final void store2(int paramInt1, int paramInt2, byte paramByte1, byte paramByte2)
+    {
+      throw new RuntimeException("not supported yet");
+    }
+    
+    public final void storeYCbCr(int paramInt1, int paramInt2, byte paramByte1, byte paramByte2, byte paramByte3)
+    {
+      int i = ((height - paramInt2 - 1) * width + paramInt1) * storageComponents;
+      data.put(i++, paramByte1);
+      data.put(i++, paramByte2);
+      data.put(i++, paramByte3);
+    }
+    
+    public String toString()
+    {
+      return "JPEGPixels[" + width + "x" + height + ", sourceComp " + sourceComponents + ", sourceCS " + sourceCS + ", storageCS " + storageCS + ", storageComp " + storageComponents + "]";
+    }
+  }
+  
+  private JPEGImage(InputStream paramInputStream, TextureData.ColorSpace paramColorSpace) throws IOException {
+    pixelStorage = new JPEGColorSink(paramColorSpace);
+    JPEGDecoder localJPEGDecoder = new JPEGDecoder();
+    localJPEGDecoder.parse(paramInputStream);
+    pixelWidth = localJPEGDecoder.getWidth();
+    pixelHeight = localJPEGDecoder.getHeight();
+    localJPEGDecoder.getPixel(pixelStorage, pixelWidth, pixelHeight);
+    data = pixelStorage.data;
+    
+
+    bytesPerPixel = 3;
+    glFormat = 6407;
+    reversedChannels = false;
+    if (DEBUG) {
+      System.err.println("JPEGImage: alpha false, bytesPerPixel " + bytesPerPixel + ", pixels " + pixelWidth + "x" + pixelHeight + ", glFormat 0x" + 
+        Integer.toHexString(glFormat));
+      System.err.println("JPEGImage: " + localJPEGDecoder);
+      System.err.println("JPEGImage: " + pixelStorage);
+    }
+    localJPEGDecoder.clear(null);
+  }
+  
+
+
+
+  public TextureData.ColorSpace getColorSpace()
+  {
+    return pixelStorage.storageCS;
+  }
+  
+  public int getComponentCount() { return pixelStorage.storageComponents; }
+  
+  public int getWidth() {
+    return pixelWidth;
+  }
+  
+  public int getHeight() { return pixelHeight; }
+  
+  public boolean getHasReversedChannels() {
+    return reversedChannels;
+  }
+  
+  public int getGLFormat() { return glFormat; }
+  
+  public int getGLType() {
+    return 5121;
+  }
+  
+  public int getBytesPerPixel() { return bytesPerPixel; }
+  
+  public ByteBuffer getData()
+  {
+    return data;
+  }
+  
+  public String toString() { return "JPEGImage[" + pixelWidth + "x" + pixelHeight + ", bytesPerPixel " + bytesPerPixel + ", reversedChannels " + reversedChannels + ", " + pixelStorage + ", " + data + "]"; }
+}

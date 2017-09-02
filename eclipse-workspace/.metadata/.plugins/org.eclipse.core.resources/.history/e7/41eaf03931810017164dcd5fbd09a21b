@@ -1,0 +1,493 @@
+package com.jogamp.opengl.util;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.util.glsl.ShaderState;
+import java.io.PrintStream;
+import java.lang.reflect.Constructor;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import java.nio.ShortBuffer;
+import jogamp.opengl.util.GLArrayHandler;
+import jogamp.opengl.util.GLFixedArrayHandler;
+import jogamp.opengl.util.glsl.GLSLArrayHandler;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLArrayDataClient
+  extends GLArrayDataWrapper
+  implements GLArrayDataEditable
+{
+  public static GLArrayDataClient createFixed(int paramInt1, int paramInt2, int paramInt3, boolean paramBoolean, int paramInt4)
+    throws GLException
+  {
+    GLArrayDataClient localGLArrayDataClient = new GLArrayDataClient();
+    GLFixedArrayHandler localGLFixedArrayHandler = new GLFixedArrayHandler(localGLArrayDataClient);
+    localGLArrayDataClient.init(null, paramInt1, paramInt2, paramInt3, paramBoolean, 0, null, paramInt4, 0, false, localGLFixedArrayHandler, 0, 0L, 0, 0, false);
+    return localGLArrayDataClient;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static GLArrayDataClient createFixed(int paramInt1, int paramInt2, int paramInt3, boolean paramBoolean, int paramInt4, Buffer paramBuffer)
+    throws GLException
+  {
+    GLArrayDataClient localGLArrayDataClient = new GLArrayDataClient();
+    GLFixedArrayHandler localGLFixedArrayHandler = new GLFixedArrayHandler(localGLArrayDataClient);
+    localGLArrayDataClient.init(null, paramInt1, paramInt2, paramInt3, paramBoolean, paramInt4, paramBuffer, paramInt2 * paramInt2, 0, false, localGLFixedArrayHandler, 0, 0L, 0, 0, false);
+    return localGLArrayDataClient;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static GLArrayDataClient createGLSL(String paramString, int paramInt1, int paramInt2, boolean paramBoolean, int paramInt3)
+    throws GLException
+  {
+    GLArrayDataClient localGLArrayDataClient = new GLArrayDataClient();
+    GLSLArrayHandler localGLSLArrayHandler = new GLSLArrayHandler(localGLArrayDataClient);
+    localGLArrayDataClient.init(paramString, -1, paramInt1, paramInt2, paramBoolean, 0, null, paramInt3, 0, true, localGLSLArrayHandler, 0, 0L, 0, 0, true);
+    return localGLArrayDataClient;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static GLArrayDataClient createGLSL(String paramString, int paramInt1, int paramInt2, boolean paramBoolean, int paramInt3, Buffer paramBuffer)
+    throws GLException
+  {
+    GLArrayDataClient localGLArrayDataClient = new GLArrayDataClient();
+    GLSLArrayHandler localGLSLArrayHandler = new GLSLArrayHandler(localGLArrayDataClient);
+    localGLArrayDataClient.init(paramString, -1, paramInt1, paramInt2, paramBoolean, paramInt3, paramBuffer, paramInt1 * paramInt1, 0, true, localGLSLArrayHandler, 0, 0L, 0, 0, true);
+    return localGLArrayDataClient;
+  }
+  
+  public void associate(Object paramObject, boolean paramBoolean)
+  {
+    if ((paramObject instanceof ShaderState)) {
+      if (paramBoolean) {
+        shaderState = ((ShaderState)paramObject);
+      } else {
+        shaderState = null;
+      }
+    }
+  }
+  
+
+
+
+  public final boolean isVBOWritten()
+  {
+    return bufferWritten;
+  }
+  
+  public final boolean sealed() { return sealed; }
+  
+  public final boolean enabled() {
+    return bufferEnabled;
+  }
+  
+
+
+
+  public final void setVBOWritten(boolean paramBoolean)
+  {
+    bufferWritten = (0 == mappedElementCount ? paramBoolean : true);
+  }
+  
+  public void destroy(GL paramGL)
+  {
+    reset(paramGL);
+    super.destroy(paramGL);
+  }
+  
+  public void reset(GL paramGL)
+  {
+    enableBuffer(paramGL, false);
+    reset();
+  }
+  
+  public void seal(GL paramGL, boolean paramBoolean)
+  {
+    seal(paramBoolean);
+    enableBuffer(paramGL, paramBoolean);
+  }
+  
+  public void enableBuffer(GL paramGL, boolean paramBoolean)
+  {
+    if ((enableBufferAlways) || (bufferEnabled != paramBoolean)) {
+      if (paramBoolean) {
+        checkSeal(true);
+        
+        init_vbo(paramGL);
+      }
+      glArrayHandler.enableState(paramGL, paramBoolean, usesGLSL ? shaderState : null);
+      bufferEnabled = paramBoolean;
+    }
+  }
+  
+  public boolean bindBuffer(GL paramGL, boolean paramBoolean)
+  {
+    if (paramBoolean) {
+      checkSeal(true);
+      
+      init_vbo(paramGL);
+    }
+    return glArrayHandler.bindBuffer(paramGL, paramBoolean);
+  }
+  
+  public void setEnableAlways(boolean paramBoolean)
+  {
+    enableBufferAlways = paramBoolean;
+  }
+  
+
+
+
+
+  public void reset()
+  {
+    if (buffer != null) {
+      buffer.clear();
+    }
+    sealed = false;
+    bufferEnabled = false;
+    bufferWritten = (0 != mappedElementCount);
+  }
+  
+
+  public void seal(boolean paramBoolean)
+  {
+    if (sealed == paramBoolean) return;
+    sealed = paramBoolean;
+    bufferWritten = (0 != mappedElementCount);
+    if (paramBoolean) {
+      if (null != buffer) {
+        buffer.flip();
+      }
+    } else if (null != buffer) {
+      buffer.position(buffer.limit());
+      buffer.limit(buffer.capacity());
+    }
+  }
+  
+
+  public void rewind()
+  {
+    if (buffer != null) {
+      buffer.rewind();
+    }
+  }
+  
+  public void padding(int paramInt)
+  {
+    if ((buffer == null) || (sealed)) return;
+    while (paramInt < strideB) {
+      Buffers.putb(buffer, (byte)0);
+      paramInt++;
+    }
+  }
+  
+
+
+
+
+
+
+  public void put(Buffer paramBuffer)
+  {
+    if (sealed) { return;
+    }
+    
+
+
+    growBufferIfNecessary(paramBuffer.remaining());
+    Buffers.put(buffer, paramBuffer);
+  }
+  
+  public void putb(byte paramByte)
+  {
+    if (sealed) return;
+    growBufferIfNecessary(1);
+    Buffers.putb(buffer, paramByte);
+  }
+  
+  public void puts(short paramShort)
+  {
+    if (sealed) return;
+    growBufferIfNecessary(1);
+    Buffers.puts(buffer, paramShort);
+  }
+  
+  public void puti(int paramInt)
+  {
+    if (sealed) return;
+    growBufferIfNecessary(1);
+    Buffers.puti(buffer, paramInt);
+  }
+  
+  public void putx(int paramInt)
+  {
+    puti(paramInt);
+  }
+  
+  public void putf(float paramFloat)
+  {
+    if (sealed) return;
+    growBufferIfNecessary(1);
+    Buffers.putf(buffer, paramFloat);
+  }
+  
+
+
+
+
+
+
+
+
+  public String toString()
+  {
+    return "GLArrayDataClient[" + name + ", index " + index + ", location " + location + ", isVertexAttribute " + isVertexAttribute + ", usesGLSL " + usesGLSL + ", usesShaderState " + (null != shaderState) + ", dataType 0x" + Integer.toHexString(componentType) + ", bufferClazz " + componentClazz + ", elements " + getElementCount() + ", components " + componentsPerElement + ", stride " + strideB + "b " + strideL + "c" + ", mappedElementCount " + mappedElementCount + ", initialElementCount " + initialElementCount + ", sealed " + sealed + ", bufferEnabled " + bufferEnabled + ", bufferWritten " + bufferWritten + ", buffer " + buffer + ", alive " + alive + "]";
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  protected final boolean growBufferIfNecessary(int paramInt)
+  {
+    if ((buffer == null) || (buffer.remaining() < paramInt)) {
+      if (0 != mappedElementCount) {
+        throw new GLException("Mapped buffer can't grow. Insufficient storage size: Needed " + paramInt + " components, " + "mappedElementCount " + mappedElementCount + ", has mapped buffer " + buffer + "; " + this);
+      }
+      
+
+      growBuffer(Math.max(initialElementCount, (paramInt + componentsPerElement - 1) / componentsPerElement));
+      return true;
+    }
+    return false;
+  }
+  
+  protected final void growBuffer(int paramInt) {
+    if ((!alive) || (sealed)) {
+      throw new GLException("Invalid state: " + this);
+    }
+    
+
+    paramInt += paramInt / componentsPerElement * (strideL - componentsPerElement);
+    
+    int i = buffer != null ? buffer.capacity() : 0;
+    int j = i + paramInt * componentsPerElement;
+    Buffer localBuffer = buffer;
+    Object localObject;
+    if (componentClazz == ByteBuffer.class) {
+      localObject = Buffers.newDirectByteBuffer(j);
+      if (buffer != null) {
+        buffer.flip();
+        ((ByteBuffer)localObject).put((ByteBuffer)buffer);
+      }
+      buffer = ((Buffer)localObject);
+    } else if (componentClazz == ShortBuffer.class) {
+      localObject = Buffers.newDirectShortBuffer(j);
+      if (buffer != null) {
+        buffer.flip();
+        ((ShortBuffer)localObject).put((ShortBuffer)buffer);
+      }
+      buffer = ((Buffer)localObject);
+    } else if (componentClazz == IntBuffer.class) {
+      localObject = Buffers.newDirectIntBuffer(j);
+      if (buffer != null) {
+        buffer.flip();
+        ((IntBuffer)localObject).put((IntBuffer)buffer);
+      }
+      buffer = ((Buffer)localObject);
+    } else if (componentClazz == FloatBuffer.class) {
+      localObject = Buffers.newDirectFloatBuffer(j);
+      if (buffer != null) {
+        buffer.flip();
+        ((FloatBuffer)localObject).put((FloatBuffer)buffer);
+      }
+      buffer = ((Buffer)localObject);
+    } else {
+      throw new GLException("Given Buffer Class not supported: " + componentClazz + ":\n\t" + this);
+    }
+    if (DEBUG) {
+      System.err.println("*** Grow: comps: " + componentsPerElement + ", " + i / componentsPerElement + "/" + i + " -> " + j / componentsPerElement + "/" + j + "; " + localBuffer + " -> " + buffer + "; " + this);
+    }
+  }
+  
+  protected final void checkSeal(boolean paramBoolean) throws GLException
+  {
+    if (!alive) {
+      throw new GLException("Invalid state: " + this);
+    }
+    if (sealed != paramBoolean) {
+      if (paramBoolean) {
+        throw new GLException("Not Sealed yet, seal first:\n\t" + this);
+      }
+      throw new GLException("Already Sealed, can't modify VBO:\n\t" + this);
+    }
+  }
+  
+
+
+
+  protected void init(String paramString, int paramInt1, int paramInt2, int paramInt3, boolean paramBoolean1, int paramInt4, Buffer paramBuffer, int paramInt5, int paramInt6, boolean paramBoolean2, GLArrayHandler paramGLArrayHandler, int paramInt7, long paramLong, int paramInt8, int paramInt9, boolean paramBoolean3)
+    throws GLException
+  {
+    super.init(paramString, paramInt1, paramInt2, paramInt3, paramBoolean1, paramInt4, paramBuffer, paramInt6, paramBoolean2, paramInt7, paramLong, paramInt8, paramInt9);
+    
+
+    if ((0 < paramInt6) && (0 < paramInt5)) {
+      throw new IllegalArgumentException("mappedElementCount:=" + paramInt6 + " specified, but passing non zero initialElementSize");
+    }
+    initialElementCount = paramInt5;
+    glArrayHandler = paramGLArrayHandler;
+    usesGLSL = paramBoolean3;
+    sealed = false;
+    bufferEnabled = false;
+    enableBufferAlways = false;
+    bufferWritten = (0 != paramInt6);
+    
+    if ((null == buffer) && (paramInt5 > 0)) {
+      growBuffer(paramInt5);
+    }
+  }
+  
+  private boolean isValidated = false;
+  protected boolean sealed;
+  
+  protected void init_vbo(GL paramGL) { if (!isValidated) {
+      isValidated = true;
+      validate(paramGL.getGLProfile(), true);
+    }
+  }
+  
+
+  protected boolean bufferEnabled;
+  protected boolean bufferWritten;
+  protected boolean enableBufferAlways;
+  protected int initialElementCount;
+  protected GLArrayHandler glArrayHandler;
+  protected boolean usesGLSL;
+  protected ShaderState shaderState;
+  protected GLArrayDataClient() {}
+  
+  public GLArrayDataClient(GLArrayDataClient paramGLArrayDataClient)
+  {
+    super(paramGLArrayDataClient);
+    isValidated = isValidated;
+    sealed = sealed;
+    bufferEnabled = bufferEnabled;
+    bufferWritten = bufferWritten;
+    enableBufferAlways = enableBufferAlways;
+    initialElementCount = initialElementCount;
+    if (null != glArrayHandler) {
+      Class localClass = glArrayHandler.getClass();
+      try {
+        Constructor localConstructor = localClass.getConstructor(new Class[] { GLArrayDataEditable.class });
+        glArrayHandler = ((GLArrayHandler)localConstructor.newInstance(new Object[] { this }));
+      } catch (Exception localException) {
+        throw new RuntimeException("Could not ctor " + localClass.getName() + "(" + getClass().getName() + ")", localException);
+      }
+    } else {
+      glArrayHandler = null;
+    }
+    usesGLSL = usesGLSL;
+    shaderState = shaderState;
+  }
+}

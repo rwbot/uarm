@@ -1,0 +1,55 @@
+package g4p_controls;
+
+import java.io.File;
+import javax.swing.filechooser.FileFilter;
+import processing.core.PApplet;
+
+class FileChooserFilter
+  extends FileFilter
+{
+  private final String[] ftypes;
+  private String description = null;
+  
+  public FileChooserFilter(String paramString)
+  {
+    this(paramString, null);
+  }
+  
+  public FileChooserFilter(String paramString1, String paramString2)
+  {
+    ftypes = PApplet.split(paramString1.toLowerCase(), ',');
+    for (String str : ftypes) {
+      str = str.trim();
+    }
+    description = paramString2;
+  }
+  
+  public boolean accept(File paramFile)
+  {
+    String str1 = getExtension(paramFile);
+    if (str1 != null) {
+      for (String str2 : ftypes) {
+        if (str1.equals(str2)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  
+  public String getDescription()
+  {
+    return description;
+  }
+  
+  public String getExtension(File paramFile)
+  {
+    String str1 = null;
+    String str2 = paramFile.getName();
+    int i = str2.lastIndexOf('.');
+    if ((i > 0) && (i < str2.length() - 1)) {
+      str1 = str2.substring(i + 1).toLowerCase();
+    }
+    return str1;
+  }
+}

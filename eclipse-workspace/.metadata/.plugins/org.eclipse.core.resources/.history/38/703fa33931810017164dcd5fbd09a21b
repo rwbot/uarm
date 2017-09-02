@@ -1,0 +1,2299 @@
+package processing.javafx;
+
+import com.sun.javafx.geom.Path2D;
+import com.sun.javafx.geom.PathIterator;
+import com.sun.javafx.geom.Shape;
+import java.nio.IntBuffer;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import javafx.geometry.Bounds;
+import javafx.geometry.Point2D;
+import javafx.scene.SnapshotParameters;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.effect.BlendMode;
+import javafx.scene.image.PixelFormat;
+import javafx.scene.image.PixelReader;
+import javafx.scene.image.PixelWriter;
+import javafx.scene.image.WritableImage;
+import javafx.scene.image.WritablePixelFormat;
+import javafx.scene.paint.Color;
+import javafx.scene.paint.Paint;
+import javafx.scene.shape.ArcType;
+import javafx.scene.shape.StrokeLineCap;
+import javafx.scene.shape.StrokeLineJoin;
+import javafx.scene.text.Font;
+import javafx.scene.text.Text;
+import javafx.scene.transform.Affine;
+import javafx.scene.transform.Transform;
+import processing.core.PApplet;
+import processing.core.PFont;
+import processing.core.PFont.Glyph;
+import processing.core.PGraphics;
+import processing.core.PImage;
+import processing.core.PMatrix;
+import processing.core.PMatrix2D;
+import processing.core.PMatrix3D;
+import processing.core.PShape;
+import processing.core.PShapeSVG;
+import processing.core.PSurface;
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class PGraphicsFX2D
+  extends PGraphics
+{
+  GraphicsContext context;
+  static final WritablePixelFormat<IntBuffer> argbFormat = ;
+  
+  WritableImage snapshotImage;
+  
+  Path2D workPath = new Path2D();
+  Path2D auxPath = new Path2D();
+  
+  boolean openContour;
+  
+  boolean breakShape;
+  private float[] pathCoordsBuffer = new float[6];
+  
+  float[] curveCoordX;
+  
+  float[] curveCoordY;
+  
+  float[] curveDrawX;
+  float[] curveDrawY;
+  int transformCount;
+  Affine[] transformStack = new Affine[32];
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public PGraphicsFX2D() {}
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public PSurface createSurface()
+  {
+    return this.surface = new PSurfaceFX(this);
+  }
+  
+
+
+  public Object getNative()
+  {
+    return context;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public void beginDraw()
+  {
+    checkSettings();
+    resetMatrix();
+    vertexCount = 0;
+  }
+  
+
+  public void endDraw()
+  {
+    flush();
+    
+    if (!primaryGraphics)
+    {
+      loadPixels();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void beginShape(int kind)
+  {
+    shape = kind;
+    vertexCount = 0;
+    
+    workPath.reset();
+    auxPath.reset();
+    
+    flushPixels();
+    
+    if (drawingThinLines()) {
+      pushMatrix();
+      translate(0.5F, 0.5F);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public void texture(PImage image)
+  {
+    showMethodWarning("texture");
+  }
+  
+
+  public void vertex(float x, float y)
+  {
+    if (vertexCount == vertices.length) {
+      float[][] temp = new float[vertexCount << 1][37];
+      System.arraycopy(vertices, 0, temp, 0, vertexCount);
+      vertices = temp;
+    }
+    
+
+
+    vertices[vertexCount][0] = x;
+    vertices[vertexCount][1] = y;
+    vertexCount += 1;
+    
+    switch (shape)
+    {
+    case 3: 
+      point(x, y);
+      break;
+    
+    case 5: 
+      if (vertexCount % 2 == 0) {
+        line(vertices[(vertexCount - 2)][0], 
+          vertices[(vertexCount - 2)][1], x, y);
+      }
+      break;
+    
+    case 9: 
+      if (vertexCount % 3 == 0) {
+        triangle(vertices[(vertexCount - 3)][0], 
+          vertices[(vertexCount - 3)][1], 
+          vertices[(vertexCount - 2)][0], 
+          vertices[(vertexCount - 2)][1], 
+          x, y);
+      }
+      break;
+    
+    case 10: 
+      if (vertexCount >= 3) {
+        triangle(vertices[(vertexCount - 2)][0], 
+          vertices[(vertexCount - 2)][1], 
+          vertices[(vertexCount - 1)][0], 
+          vertices[(vertexCount - 1)][1], 
+          vertices[(vertexCount - 3)][0], 
+          vertices[(vertexCount - 3)][1]);
+      }
+      break;
+    
+    case 11: 
+      if (vertexCount >= 3)
+      {
+
+
+
+
+
+
+
+        triangle(vertices[0][0], 
+          vertices[0][1], 
+          vertices[(vertexCount - 2)][0], 
+          vertices[(vertexCount - 2)][1], 
+          x, y);
+      }
+      break;
+    
+    case 16: 
+    case 17: 
+      if (vertexCount % 4 == 0) {
+        quad(vertices[(vertexCount - 4)][0], 
+          vertices[(vertexCount - 4)][1], 
+          vertices[(vertexCount - 3)][0], 
+          vertices[(vertexCount - 3)][1], 
+          vertices[(vertexCount - 2)][0], 
+          vertices[(vertexCount - 2)][1], 
+          x, y);
+      }
+      break;
+    
+
+
+
+    case 18: 
+      if ((vertexCount >= 4) && (vertexCount % 2 == 0)) {
+        quad(vertices[(vertexCount - 4)][0], 
+          vertices[(vertexCount - 4)][1], 
+          vertices[(vertexCount - 2)][0], 
+          vertices[(vertexCount - 2)][1], 
+          x, y, 
+          vertices[(vertexCount - 3)][0], 
+          vertices[(vertexCount - 3)][1]);
+      }
+      break;
+    
+    case 20: 
+      if ((workPath.getNumCommands() == 0) || (breakShape)) {
+        workPath.moveTo(x, y);
+        breakShape = false;
+      } else {
+        workPath.lineTo(x, y);
+      }
+      break;
+    }
+    
+  }
+  
+  public void vertex(float x, float y, float z)
+  {
+    showDepthWarningXYZ("vertex");
+  }
+  
+
+  public void vertex(float[] v)
+  {
+    vertex(v[0], v[1]);
+  }
+  
+
+  public void vertex(float x, float y, float u, float v)
+  {
+    showVariationWarning("vertex(x, y, u, v)");
+  }
+  
+
+  public void vertex(float x, float y, float z, float u, float v)
+  {
+    showDepthWarningXYZ("vertex");
+  }
+  
+
+  public void beginContour()
+  {
+    if (openContour) {
+      PGraphics.showWarning("Already called beginContour()");
+      return;
+    }
+    
+
+    Path2D contourPath = auxPath;
+    auxPath = workPath;
+    workPath = contourPath;
+    
+    if (contourPath.getNumCommands() > 0) {
+      breakShape = true;
+    }
+    
+    openContour = true;
+  }
+  
+
+  public void endContour()
+  {
+    if (!openContour) {
+      PGraphics.showWarning("Need to call beginContour() first");
+      return;
+    }
+    
+    if (workPath.getNumCommands() > 0) { workPath.closePath();
+    }
+    Path2D temp = workPath;
+    workPath = auxPath;
+    auxPath = temp;
+    
+    openContour = false;
+  }
+  
+
+  public void endShape(int mode)
+  {
+    if (openContour) {
+      endContour();
+      PGraphics.showWarning("Missing endContour() before endShape()");
+    }
+    if ((workPath.getNumCommands() > 0) && 
+      (shape == 20)) {
+      if (mode == 2) {
+        workPath.closePath();
+      }
+      if (auxPath.getNumCommands() > 0) {
+        workPath.append(auxPath, false);
+      }
+      drawShape(workPath);
+    }
+    
+    shape = 0;
+    if (drawingThinLines()) {
+      popMatrix();
+    }
+    loaded = false;
+  }
+  
+  private void drawShape(Shape s)
+  {
+    context.beginPath();
+    PathIterator pi = s.getPathIterator(null);
+    while (!pi.isDone()) {
+      int pitype = pi.currentSegment(pathCoordsBuffer);
+      switch (pitype) {
+      case 0: 
+        context.moveTo(pathCoordsBuffer[0], pathCoordsBuffer[1]);
+        break;
+      case 1: 
+        context.lineTo(pathCoordsBuffer[0], pathCoordsBuffer[1]);
+        break;
+      case 2: 
+        context.quadraticCurveTo(pathCoordsBuffer[0], pathCoordsBuffer[1], 
+          pathCoordsBuffer[2], pathCoordsBuffer[3]);
+        break;
+      case 3: 
+        context.bezierCurveTo(pathCoordsBuffer[0], pathCoordsBuffer[1], 
+          pathCoordsBuffer[2], pathCoordsBuffer[3], 
+          pathCoordsBuffer[4], pathCoordsBuffer[5]);
+        break;
+      case 4: 
+        context.closePath();
+        break;
+      default: 
+        showWarning("Unknown segment type " + pitype);
+      }
+      pi.next();
+    }
+    if (fill) context.fill();
+    if (stroke) { context.stroke();
+    }
+  }
+  
+
+
+
+
+
+
+
+  protected void clipImpl(float x1, float y1, float x2, float y2)
+  {
+    showTodoWarning("clip()", 3274);
+  }
+  
+
+
+  public void noClip()
+  {
+    showTodoWarning("noClip()", 3274);
+  }
+  
+
+
+
+
+
+
+
+  protected void blendModeImpl()
+  {
+    BlendMode mode = BlendMode.SRC_OVER;
+    switch (blendMode) {
+    case 0:  showWarning("blendMode(REPLACE) is not supported"); break;
+    case 1: 
+      break; case 2:  mode = BlendMode.ADD; break;
+    case 4:  showWarning("blendMode(SUBTRACT) is not supported"); break;
+    case 8:  mode = BlendMode.LIGHTEN; break;
+    case 16:  mode = BlendMode.DARKEN; break;
+    case 32:  mode = BlendMode.DIFFERENCE; break;
+    case 64:  mode = BlendMode.EXCLUSION; break;
+    case 128:  mode = BlendMode.MULTIPLY; break;
+    case 256:  mode = BlendMode.SCREEN; break;
+    case 512:  mode = BlendMode.OVERLAY; break;
+    case 1024:  mode = BlendMode.HARD_LIGHT; break;
+    case 2048:  mode = BlendMode.SOFT_LIGHT; break;
+    case 4096:  mode = BlendMode.COLOR_DODGE; break;
+    case 8192:  mode = BlendMode.COLOR_BURN;
+    }
+    context.setGlobalBlendMode(mode);
+  }
+  
+
+
+
+
+
+
+
+  protected void bezierVertexCheck()
+  {
+    if ((shape == 0) || (shape != 20)) {
+      throw new RuntimeException("beginShape() or beginShape(POLYGON) must be used before bezierVertex() or quadraticVertex()");
+    }
+    
+    if (workPath.getNumCommands() == 0) {
+      throw new RuntimeException("vertex() must be used at least once before bezierVertex() or quadraticVertex()");
+    }
+  }
+  
+
+
+
+  public void bezierVertex(float x1, float y1, float x2, float y2, float x3, float y3)
+  {
+    bezierVertexCheck();
+    workPath.curveTo(x1, y1, x2, y2, x3, y3);
+  }
+  
+
+
+
+  public void bezierVertex(float x2, float y2, float z2, float x3, float y3, float z3, float x4, float y4, float z4)
+  {
+    showDepthWarningXYZ("bezierVertex");
+  }
+  
+
+
+
+
+
+
+
+
+  public void quadraticVertex(float ctrlX, float ctrlY, float endX, float endY)
+  {
+    bezierVertexCheck();
+    workPath.quadTo(ctrlX, ctrlY, endX, endY);
+  }
+  
+
+
+  public void quadraticVertex(float x2, float y2, float z2, float x4, float y4, float z4)
+  {
+    showDepthWarningXYZ("quadVertex");
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  protected void curveVertexSegment(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4)
+  {
+    if (curveCoordX == null) {
+      curveCoordX = new float[4];
+      curveCoordY = new float[4];
+      curveDrawX = new float[4];
+      curveDrawY = new float[4];
+    }
+    
+    curveCoordX[0] = x1;
+    curveCoordY[0] = y1;
+    
+    curveCoordX[1] = x2;
+    curveCoordY[1] = y2;
+    
+    curveCoordX[2] = x3;
+    curveCoordY[2] = y3;
+    
+    curveCoordX[3] = x4;
+    curveCoordY[3] = y4;
+    
+    curveToBezierMatrix.mult(curveCoordX, curveDrawX);
+    curveToBezierMatrix.mult(curveCoordY, curveDrawY);
+    
+
+
+    if (workPath.getNumCommands() == 0) {
+      workPath.moveTo(curveDrawX[0], curveDrawY[0]);
+      breakShape = false;
+    }
+    
+    workPath.curveTo(curveDrawX[1], curveDrawY[1], 
+      curveDrawX[2], curveDrawY[2], 
+      curveDrawX[3], curveDrawY[3]);
+  }
+  
+
+  public void curveVertex(float x, float y, float z)
+  {
+    showDepthWarningXYZ("curveVertex");
+  }
+  
+
+
+
+
+
+
+  public void flush()
+  {
+    flushPixels();
+  }
+  
+  protected void flushPixels()
+  {
+    boolean hasPixels = (modified) && (pixels != null);
+    if (hasPixels)
+    {
+
+
+      int mx1 = getModifiedX1();
+      int mx2 = getModifiedX2();
+      int my1 = getModifiedY1();
+      int my2 = getModifiedY2();
+      int mw = mx2 - mx1;
+      int mh = my2 - my1;
+      
+      PixelWriter pw = context.getPixelWriter();
+      pw.setPixels(mx1, my1, mw, mh, argbFormat, pixels, 
+        mx1 + my1 * pixelWidth, pixelWidth);
+    }
+    
+    modified = false;
+  }
+  
+  protected void beforeContextDraw()
+  {
+    flushPixels();
+    loaded = false;
+  }
+  
+
+
+
+
+
+
+  public void point(float x, float y)
+  {
+    if (stroke)
+    {
+      line(x, y, x + 1.0E-4F, y + 1.0E-4F);
+    }
+  }
+  
+
+
+
+
+  public void line(float x1, float y1, float x2, float y2)
+  {
+    beforeContextDraw();
+    if (drawingThinLines()) {
+      x1 += 0.5F;
+      x2 += 0.5F;
+      y1 += 0.5F;
+      y2 += 0.5F;
+    }
+    context.strokeLine(x1, y1, x2, y2);
+  }
+  
+
+
+  public void triangle(float x1, float y1, float x2, float y2, float x3, float y3)
+  {
+    beforeContextDraw();
+    if (drawingThinLines()) {
+      x1 += 0.5F;
+      x2 += 0.5F;
+      x3 += 0.5F;
+      y1 += 0.5F;
+      y2 += 0.5F;
+      y3 += 0.5F;
+    }
+    context.beginPath();
+    context.moveTo(x1, y1);
+    context.lineTo(x2, y2);
+    context.lineTo(x3, y3);
+    context.closePath();
+    if (fill) context.fill();
+    if (stroke) { context.stroke();
+    }
+  }
+  
+
+  public void quad(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4)
+  {
+    beforeContextDraw();
+    if (drawingThinLines()) {
+      x1 += 0.5F;
+      x2 += 0.5F;
+      x3 += 0.5F;
+      x4 += 0.5F;
+      y1 += 0.5F;
+      y2 += 0.5F;
+      y3 += 0.5F;
+      y4 += 0.5F;
+    }
+    context.beginPath();
+    context.moveTo(x1, y1);
+    context.lineTo(x2, y2);
+    context.lineTo(x3, y3);
+    context.lineTo(x4, y4);
+    context.closePath();
+    if (fill) context.fill();
+    if (stroke) { context.stroke();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  protected void rectImpl(float x1, float y1, float x2, float y2)
+  {
+    beforeContextDraw();
+    if (drawingThinLines()) {
+      x1 += 0.5F;
+      x2 += 0.5F;
+      y1 += 0.5F;
+      y2 += 0.5F;
+    }
+    if (fill) context.fillRect(x1, y1, x2 - x1, y2 - y1);
+    if (stroke) { context.strokeRect(x1, y1, x2 - x1, y2 - y1);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  protected void ellipseImpl(float x, float y, float w, float h)
+  {
+    beforeContextDraw();
+    if (drawingThinLines()) {
+      x += 0.5F;
+      y += 0.5F;
+    }
+    if (fill) context.fillOval(x, y, w, h);
+    if (stroke) { context.strokeOval(x, y, w, h);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  protected void arcImpl(float x, float y, float w, float h, float start, float stop, int mode)
+  {
+    beforeContextDraw();
+    
+    if (drawingThinLines()) {
+      x += 0.5F;
+      y += 0.5F;
+    }
+    
+
+
+    start = -start;
+    stop = -stop;
+    
+    float sweep = stop - start;
+    
+
+
+    ArcType fillMode = ArcType.ROUND;
+    ArcType strokeMode = ArcType.OPEN;
+    
+    if (mode == 1) {
+      fillMode = ArcType.OPEN;
+    }
+    else if (mode == 3) {
+      strokeMode = ArcType.ROUND;
+    }
+    else if (mode == 2) {
+      fillMode = ArcType.CHORD;
+      strokeMode = ArcType.CHORD;
+    }
+    
+    if (fill) {
+      context.fillArc(x, y, w, h, PApplet.degrees(start), PApplet.degrees(sweep), fillMode);
+    }
+    if (stroke) {
+      context.strokeArc(x, y, w, h, PApplet.degrees(start), PApplet.degrees(sweep), strokeMode);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public void box(float w, float h, float d)
+  {
+    showMethodWarning("box");
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void sphere(float r)
+  {
+    showMethodWarning("sphere");
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void bezierDetail(int detail) {}
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void curveDetail(int detail) {}
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected void imageImpl(PImage who, float x1, float y1, float x2, float y2, int u1, int v1, int u2, int v2)
+  {
+    if ((width <= 0) || (height <= 0)) { return;
+    }
+    ImageCache cash = (ImageCache)getCache(who);
+    
+
+    if ((cash != null) && (
+      (width != image.getWidth()) || 
+      (height != image.getHeight()))) {
+      cash = null;
+    }
+    
+
+    if (cash == null)
+    {
+      cash = new ImageCache();
+      setCache(who, cash);
+      who.updatePixels();
+      who.setModified();
+    }
+    
+
+
+    if (((tint) && (!tinted)) || 
+      ((tint) && (tintedColor != tintColor)) || (
+      (!tint) && (tinted)))
+    {
+      who.updatePixels();
+    }
+    
+    if (who.isModified()) {
+      if (pixels == null)
+      {
+
+
+        pixels = new int[width * height];
+      }
+      cash.update(who, tint, tintColor);
+      who.setModified(false);
+    }
+    
+    context.drawImage(getCacheimage, 
+      u1, v1, u2 - u1, v2 - v1, 
+      x1, y1, x2 - x1, y2 - y1);
+  }
+  
+
+  static class ImageCache
+  {
+    boolean tinted;
+    
+    int tintedColor;
+    
+    int[] tintedTemp;
+    
+    WritableImage image;
+    
+    ImageCache() {}
+    
+    public void update(PImage source, boolean tint, int tintColor)
+    {
+      int targetType = 2;
+      boolean opaque = (tintColor & 0xFF000000) == -16777216;
+      if ((format == 1) && (
+        (!tint) || ((tint) && (opaque))))
+      {
+        targetType = 1;
+      }
+      
+
+
+
+
+
+
+
+
+
+
+
+      if (image == null) {
+        image = new WritableImage(width, height);
+      }
+      
+
+      PixelWriter pw = image.getPixelWriter();
+      if (tint) {
+        if ((tintedTemp == null) || (tintedTemp.length != width)) {
+          tintedTemp = new int[width];
+        }
+        int a2 = tintColor >> 24 & 0xFF;
+        
+
+        int r2 = tintColor >> 16 & 0xFF;
+        int g2 = tintColor >> 8 & 0xFF;
+        int b2 = tintColor & 0xFF;
+        
+
+        if (targetType == 1)
+        {
+
+          int index = 0;
+          for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+              int argb1 = pixels[(index++)];
+              int r1 = argb1 >> 16 & 0xFF;
+              int g1 = argb1 >> 8 & 0xFF;
+              int b1 = argb1 & 0xFF;
+              
+
+
+
+              tintedTemp[x] = 
+              
+
+                (0xFF000000 | (r2 * r1 & 0xFF00) << 8 | g2 * g1 & 0xFF00 | (b2 * b1 & 0xFF00) >> 8);
+            }
+            
+            pw.setPixels(0, y, width, 1, PGraphicsFX2D.argbFormat, tintedTemp, 0, width);
+
+
+          }
+          
+
+
+
+        }
+        else if (targetType == 2) {
+          if ((format == 1) && 
+            ((tintColor & 0xFFFFFF) == 16777215)) {
+            int hi = tintColor & 0xFF000000;
+            int index = 0;
+            for (int y = 0; y < height; y++) {
+              for (int x = 0; x < width; x++) {
+                tintedTemp[x] = (hi | pixels[(index++)] & 0xFFFFFF);
+              }
+              
+              pw.setPixels(0, y, width, 1, PGraphicsFX2D.argbFormat, tintedTemp, 0, width);
+            }
+          } else {
+            int index = 0;
+            for (int y = 0; y < height; y++) {
+              if (format == 1) {
+                int alpha = tintColor & 0xFF000000;
+                for (int x = 0; x < width; x++) {
+                  int argb1 = pixels[(index++)];
+                  int r1 = argb1 >> 16 & 0xFF;
+                  int g1 = argb1 >> 8 & 0xFF;
+                  int b1 = argb1 & 0xFF;
+                  tintedTemp[x] = 
+                  
+
+                    (alpha | (r2 * r1 & 0xFF00) << 8 | g2 * g1 & 0xFF00 | (b2 * b1 & 0xFF00) >> 8);
+                }
+              } else if (format == 2) {
+                for (int x = 0; x < width; x++) {
+                  int argb1 = pixels[(index++)];
+                  int a1 = argb1 >> 24 & 0xFF;
+                  int r1 = argb1 >> 16 & 0xFF;
+                  int g1 = argb1 >> 8 & 0xFF;
+                  int b1 = argb1 & 0xFF;
+                  tintedTemp[x] = 
+                    ((a2 * a1 & 0xFF00) << 16 | 
+                    (r2 * r1 & 0xFF00) << 8 | 
+                    g2 * g1 & 0xFF00 | 
+                    (b2 * b1 & 0xFF00) >> 8);
+                }
+              } else if (format == 4) {
+                int lower = tintColor & 0xFFFFFF;
+                for (int x = 0; x < width; x++) {
+                  int a1 = pixels[(index++)];
+                  tintedTemp[x] = 
+                    ((a2 * a1 & 0xFF00) << 16 | lower);
+                }
+              }
+              
+              pw.setPixels(0, y, width, 1, PGraphicsFX2D.argbFormat, tintedTemp, 0, width);
+            }
+            
+          }
+          
+        }
+        
+      }
+      else
+      {
+        if ((targetType == 1) && (pixels[0] >> 24 == 0))
+        {
+
+          source.filter(14);
+        }
+        
+
+
+
+
+
+
+        pw.setPixels(0, 0, width, height, 
+          PGraphicsFX2D.argbFormat, pixels, 0, width);
+      }
+      tinted = tint;
+      tintedColor = tintColor;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public PShape loadShape(String filename)
+  {
+    return loadShape(filename, null);
+  }
+  
+
+  public PShape loadShape(String filename, String options)
+  {
+    String extension = PApplet.getExtension(filename);
+    if ((extension.equals("svg")) || (extension.equals("svgz"))) {
+      return new PShapeSVG(parent.loadXML(filename));
+    }
+    PGraphics.showWarning("Unsupported format: " + filename);
+    return null;
+  }
+  
+
+
+
+
+
+
+
+  protected FontCache fontCache = new FontCache();
+  
+
+  protected FontInfo textFontInfo;
+  
+  static final String MASK_WARNING = "mask() cannot be used on the main drawing surface";
+  
+
+  protected PFont createFont(String name, float size, boolean smooth, char[] charset)
+  {
+    PFont font = super.createFont(name, size, smooth, charset);
+    if (font.isStream()) {
+      fontCache.nameToFilename.put(font.getName(), name);
+    }
+    return font;
+  }
+  
+
+  protected void defaultFontOrDeath(String method, float size)
+  {
+    super.defaultFontOrDeath(method, size);
+    handleTextFont(textFont, size);
+  }
+  
+
+  protected boolean textModeCheck(int mode)
+  {
+    return mode == 4;
+  }
+  
+
+  public float textAscent()
+  {
+    if (textFont == null) {
+      defaultFontOrDeath("textAscent");
+    }
+    if (textFontInfo.font == null) {
+      return super.textAscent();
+    }
+    return textFontInfo.ascent;
+  }
+  
+
+  public float textDescent()
+  {
+    if (textFont == null) {
+      defaultFontOrDeath("textDescent");
+    }
+    if (textFontInfo.font == null) {
+      return super.textDescent();
+    }
+    return textFontInfo.descent;
+  }
+  
+
+  static final class FontInfo
+  {
+    static final int MAX_CACHED_COLORS_PER_FONT = 65536;
+    
+    Font font;
+    
+    float ascent;
+    
+    float descent;
+    
+    Map<Integer, PImage[]> tintCache;
+    
+
+    FontInfo() {}
+  }
+  
+
+  static final class FontCache
+  {
+    static final int MAX_CACHE_SIZE = 512;
+    Map<String, String> nameToFilename = new HashMap();
+    
+
+
+    final HashSet<String> nonNativeNames = new HashSet();
+    
+
+    FontCache() {}
+    
+
+    final LinkedHashMap<Key, PGraphicsFX2D.FontInfo> cache = new LinkedHashMap(16, 0.75F, true)
+    {
+      protected boolean removeEldestEntry(Map.Entry<PGraphicsFX2D.FontCache.Key, PGraphicsFX2D.FontInfo> eldest) {
+        return size() > 512;
+      }
+    };
+    
+
+
+    final Key retrievingKey = new Key();
+    
+
+    final Text measuringText = new Text();
+    
+    PGraphicsFX2D.FontInfo get(String name, float size) {
+      if (nonNativeNames.contains(name))
+      {
+
+
+        size = 0.0F;
+      }
+      retrievingKey.name = name;
+      retrievingKey.size = size;
+      return (PGraphicsFX2D.FontInfo)cache.get(retrievingKey);
+    }
+    
+    void put(String name, float size, PGraphicsFX2D.FontInfo fontInfo) {
+      if (font == null)
+      {
+
+
+        nonNativeNames.add(name);
+        size = 0.0F;
+      }
+      Key key = new Key();
+      name = name;
+      size = size;
+      cache.put(key, fontInfo);
+    }
+    
+    PGraphicsFX2D.FontInfo createFontInfo(Font font) {
+      PGraphicsFX2D.FontInfo result = new PGraphicsFX2D.FontInfo();
+      font = font;
+      if (font != null)
+      {
+        measuringText.setFont(font);
+        measuringText.setText(" ");
+        float lineHeight = (float)measuringText.getLayoutBounds().getHeight();
+        ascent = ((float)measuringText.getBaselineOffset());
+        descent = (lineHeight - ascent);
+      }
+      return result;
+    }
+    
+    static final class Key {
+      String name;
+      float size;
+      
+      Key() {}
+      
+      public boolean equals(Object o) { if (this == o) return true;
+        if ((o == null) || (getClass() != o.getClass())) return false;
+        Key that = (Key)o;
+        if (Float.compare(size, size) != 0) return false;
+        return name.equals(name);
+      }
+      
+      public int hashCode()
+      {
+        int result = name.hashCode();
+        result = 31 * result + (size != 0.0F ? Float.floatToIntBits(size) : 0);
+        return result;
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected void textFontImpl(PFont which, float size)
+  {
+    handleTextFont(which, size);
+    handleTextSize(size);
+  }
+  
+
+  protected void textSizeImpl(float size)
+  {
+    handleTextFont(textFont, size);
+    handleTextSize(size);
+  }
+  
+
+
+
+
+
+
+  protected void handleTextFont(PFont which, float size)
+  {
+    textFont = which;
+    
+    String fontName = which.getName();
+    String fontPsName = which.getPostScriptName();
+    
+    textFontInfo = fontCache.get(fontName, size);
+    if (textFontInfo == null) {
+      Font font = null;
+      
+      if (which.isStream())
+      {
+        String filename = (String)fontCache.nameToFilename.get(fontName);
+        font = Font.loadFont(parent.createInput(filename), size);
+      }
+      
+      if (font == null)
+      {
+        font = new Font(fontName, size);
+        if (!fontName.equalsIgnoreCase(font.getName()))
+        {
+          font = new Font(fontPsName, size);
+          if (!fontPsName.equalsIgnoreCase(font.getName())) {
+            font = null;
+          }
+        }
+      }
+      
+      if ((font == null) && (which.getNative() != null))
+      {
+
+        font = new Font(size);
+      }
+      
+      textFontInfo = fontCache.createFontInfo(font);
+      fontCache.put(fontName, size, textFontInfo);
+    }
+    
+    context.setFont(textFontInfo.font);
+  }
+  
+
+  protected void textLineImpl(char[] buffer, int start, int stop, float x, float y)
+  {
+    if (textFontInfo.font == null) {
+      super.textLineImpl(buffer, start, stop, x, y);
+    } else {
+      context.fillText(new String(buffer, start, stop - start), x, y);
+    }
+  }
+  
+  protected PImage getTintedGlyphImage(PFont.Glyph glyph, int tintColor)
+  {
+    if (textFontInfo.tintCache == null) {
+      textFontInfo.tintCache = new LinkedHashMap(16, 0.75F, true)
+      {
+        protected boolean removeEldestEntry(Map.Entry<Integer, PImage[]> eldest) {
+          return size() > 65536;
+        }
+      };
+    }
+    PImage[] tintedGlyphs = (PImage[])textFontInfo.tintCache.get(Integer.valueOf(tintColor));
+    int index = index;
+    if ((tintedGlyphs == null) || (tintedGlyphs.length <= index)) {
+      PImage[] newArray = new PImage[textFont.getGlyphCount()];
+      if (tintedGlyphs != null) {
+        System.arraycopy(tintedGlyphs, 0, newArray, 0, tintedGlyphs.length);
+      }
+      tintedGlyphs = newArray;
+      textFontInfo.tintCache.put(Integer.valueOf(tintColor), tintedGlyphs);
+    }
+    PImage tintedGlyph = tintedGlyphs[index];
+    if (tintedGlyph == null) {
+      tintedGlyph = image.copy();
+      tintedGlyphs[index] = tintedGlyph;
+    }
+    return tintedGlyph;
+  }
+  
+
+  protected void textCharImpl(char ch, float x, float y)
+  {
+    PFont.Glyph glyph = textFont.getGlyph(ch);
+    if (glyph != null) {
+      if (textMode == 4) {
+        float high = height / textFont.getSize();
+        float bwidth = width / textFont.getSize();
+        float lextent = leftExtent / textFont.getSize();
+        float textent = topExtent / textFont.getSize();
+        
+        float x1 = x + lextent * textSize;
+        float y1 = y - textent * textSize;
+        float x2 = x1 + bwidth * textSize;
+        float y2 = y1 + high * textSize;
+        
+        PImage glyphImage = fillColor == -1 ? 
+          image : getTintedGlyphImage(glyph, fillColor);
+        
+        textCharModelImpl(glyphImage, 
+          x1, y1, x2, y2, 
+          width, height);
+      }
+    } else if ((ch != ' ') && (ch != '')) {
+      showWarning(
+        "No glyph found for the " + ch + " (\\u" + PApplet.hex(ch, 4) + ") character");
+    }
+  }
+  
+
+  protected float textWidthImpl(char[] buffer, int start, int stop)
+  {
+    if (textFont == null) {
+      defaultFontOrDeath("textWidth");
+    }
+    
+    if (textFontInfo.font == null) {
+      return super.textWidthImpl(buffer, start, stop);
+    }
+    
+    fontCache.measuringText.setFont(textFontInfo.font);
+    fontCache.measuringText.setText(new String(buffer, start, stop - start));
+    return (float)fontCache.measuringText.getLayoutBounds().getWidth();
+  }
+  
+
+
+
+
+
+
+
+  public void pushMatrix()
+  {
+    if (transformCount == transformStack.length) {
+      throw new RuntimeException("pushMatrix() cannot use push more than " + 
+        transformStack.length + " times");
+    }
+    transformStack[transformCount] = context.getTransform(transformStack[transformCount]);
+    transformCount += 1;
+  }
+  
+
+  public void popMatrix()
+  {
+    if (transformCount == 0) {
+      throw new RuntimeException("missing a pushMatrix() to go with that popMatrix()");
+    }
+    
+    transformCount -= 1;
+    context.setTransform(transformStack[transformCount]);
+  }
+  
+
+
+
+
+
+
+
+  public void translate(float tx, float ty)
+  {
+    context.translate(tx, ty);
+  }
+  
+
+
+
+
+  public void rotate(float angle)
+  {
+    context.rotate(PApplet.degrees(angle));
+  }
+  
+
+  public void rotateX(float angle)
+  {
+    showDepthWarning("rotateX");
+  }
+  
+
+  public void rotateY(float angle)
+  {
+    showDepthWarning("rotateY");
+  }
+  
+
+  public void rotateZ(float angle)
+  {
+    showDepthWarning("rotateZ");
+  }
+  
+
+  public void rotate(float angle, float vx, float vy, float vz)
+  {
+    showVariationWarning("rotate");
+  }
+  
+
+  public void scale(float s)
+  {
+    context.scale(s, s);
+  }
+  
+
+  public void scale(float sx, float sy)
+  {
+    context.scale(sx, sy);
+  }
+  
+
+  public void scale(float sx, float sy, float sz)
+  {
+    showDepthWarningXYZ("scale");
+  }
+  
+
+  public void shearX(float angle)
+  {
+    Affine temp = new Affine();
+    temp.appendShear(Math.tan(angle), 0.0D);
+    context.transform(temp);
+  }
+  
+
+  public void shearY(float angle)
+  {
+    Affine temp = new Affine();
+    temp.appendShear(0.0D, Math.tan(angle));
+    context.transform(temp);
+  }
+  
+
+
+
+
+
+
+
+  public void resetMatrix()
+  {
+    context.setTransform(new Affine());
+  }
+  
+
+
+
+
+
+  public void applyMatrix(float n00, float n01, float n02, float n10, float n11, float n12)
+  {
+    context.transform(n00, n10, n01, n11, n02, n12);
+  }
+  
+
+
+
+
+
+
+
+  public void applyMatrix(float n00, float n01, float n02, float n03, float n10, float n11, float n12, float n13, float n20, float n21, float n22, float n23, float n30, float n31, float n32, float n33)
+  {
+    showVariationWarning("applyMatrix");
+  }
+  
+
+
+
+
+
+
+
+  public PMatrix getMatrix()
+  {
+    return getMatrix(null);
+  }
+  
+
+  public PMatrix2D getMatrix(PMatrix2D target)
+  {
+    if (target == null) {
+      target = new PMatrix2D();
+    }
+    
+
+    Affine t = context.getTransform();
+    
+
+    target.set((float)t.getMxx(), (float)t.getMxy(), (float)t.getTx(), 
+      (float)t.getMyx(), (float)t.getMyy(), (float)t.getTy());
+    return target;
+  }
+  
+
+  public PMatrix3D getMatrix(PMatrix3D target)
+  {
+    showVariationWarning("getMatrix");
+    return target;
+  }
+  
+
+
+
+
+  public void setMatrix(PMatrix2D source)
+  {
+    context.setTransform(m00, m10, 
+      m01, m11, 
+      m02, m12);
+  }
+  
+
+  public void setMatrix(PMatrix3D source)
+  {
+    showVariationWarning("setMatrix");
+  }
+  
+
+  public void printMatrix()
+  {
+    getMatrix(null).print();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public float screenX(float x, float y)
+  {
+    return (float)context.getTransform().transform(x, y).getX();
+  }
+  
+
+  public float screenY(float x, float y)
+  {
+    return (float)context.getTransform().transform(x, y).getY();
+  }
+  
+
+  public float screenX(float x, float y, float z)
+  {
+    showDepthWarningXYZ("screenX");
+    return 0.0F;
+  }
+  
+
+  public float screenY(float x, float y, float z)
+  {
+    showDepthWarningXYZ("screenY");
+    return 0.0F;
+  }
+  
+
+  public float screenZ(float x, float y, float z)
+  {
+    showDepthWarningXYZ("screenZ");
+    return 0.0F;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void strokeCap(int cap)
+  {
+    super.strokeCap(cap);
+    if (strokeCap == 2) {
+      context.setLineCap(StrokeLineCap.ROUND);
+    } else if (strokeCap == 4) {
+      context.setLineCap(StrokeLineCap.SQUARE);
+    } else {
+      context.setLineCap(StrokeLineCap.BUTT);
+    }
+  }
+  
+
+  public void strokeJoin(int join)
+  {
+    super.strokeJoin(join);
+    if (strokeJoin == 8) {
+      context.setLineJoin(StrokeLineJoin.MITER);
+    } else if (strokeJoin == 2) {
+      context.setLineJoin(StrokeLineJoin.ROUND);
+    } else {
+      context.setLineJoin(StrokeLineJoin.BEVEL);
+    }
+  }
+  
+
+  public void strokeWeight(float weight)
+  {
+    super.strokeWeight(weight);
+    context.setLineWidth(weight);
+  }
+  
+
+
+
+
+
+
+
+
+
+  protected void strokeFromCalc()
+  {
+    super.strokeFromCalc();
+    context.setStroke(new Color(strokeR, strokeG, strokeB, strokeA));
+  }
+  
+
+  protected boolean drawingThinLines()
+  {
+    return (stroke) && (strokeWeight == 1.0F);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected void fillFromCalc()
+  {
+    super.fillFromCalc();
+    context.setFill(new Color(fillR, fillG, fillB, fillA));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void backgroundImpl()
+  {
+    modified = false;
+    loaded = false;
+    
+
+
+    Paint savedFill = context.getFill();
+    BlendMode savedBlend = context.getGlobalBlendMode();
+    context.setFill(new Color(backgroundR, backgroundG, backgroundB, backgroundA));
+    context.setGlobalBlendMode(BlendMode.SRC_OVER);
+    context.fillRect(0.0D, 0.0D, width, height);
+    context.setFill(savedFill);
+    context.setGlobalBlendMode(savedBlend);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void loadPixels()
+  {
+    if ((pixels == null) || (pixels.length != pixelWidth * pixelHeight)) {
+      pixels = new int[pixelWidth * pixelHeight];
+      loaded = false;
+    }
+    
+    if (!loaded) {
+      if ((snapshotImage == null) || 
+        (snapshotImage.getWidth() != pixelWidth) || 
+        (snapshotImage.getHeight() != pixelHeight)) {
+        snapshotImage = new WritableImage(pixelWidth, pixelHeight);
+      }
+      
+      SnapshotParameters sp = new SnapshotParameters();
+      if (pixelDensity != 1) {
+        sp.setTransform(Transform.scale(pixelDensity, pixelDensity));
+      }
+      snapshotImage = surface).canvas.snapshot(sp, snapshotImage);
+      PixelReader pr = snapshotImage.getPixelReader();
+      pr.getPixels(0, 0, pixelWidth, pixelHeight, argbFormat, pixels, 0, pixelWidth);
+      
+      loaded = true;
+      modified = false;
+    }
+  }
+  
+
+
+
+
+
+
+
+  public int get(int x, int y)
+  {
+    loadPixels();
+    return super.get(x, y);
+  }
+  
+
+
+
+  protected void getImpl(int sourceX, int sourceY, int sourceWidth, int sourceHeight, PImage target, int targetX, int targetY)
+  {
+    loadPixels();
+    super.getImpl(sourceX, sourceY, sourceWidth, sourceHeight, 
+      target, targetX, targetY);
+  }
+  
+
+  public void set(int x, int y, int argb)
+  {
+    loadPixels();
+    super.set(x, y, argb);
+  }
+  
+
+
+
+
+  protected void setImpl(PImage sourceImage, int sourceX, int sourceY, int sourceWidth, int sourceHeight, int targetX, int targetY)
+  {
+    sourceImage.loadPixels();
+    
+    int sourceOffset = sourceX + pixelWidth * sourceY;
+    
+    PixelWriter pw = context.getPixelWriter();
+    pw.setPixels(targetX, targetY, sourceWidth, sourceHeight, 
+      argbFormat, 
+      pixels, 
+      sourceOffset, 
+      pixelWidth);
+    
+
+    if (loaded) {
+      int sourceStride = pixelWidth;
+      int targetStride = pixelWidth;
+      int targetOffset = targetX + targetY * targetStride;
+      for (int i = 0; i < sourceHeight; i++) {
+        System.arraycopy(pixels, sourceOffset + i * sourceStride, 
+          pixels, targetOffset + i * targetStride, sourceWidth);
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public void mask(PImage alpha)
+  {
+    showWarning("mask() cannot be used on the main drawing surface");
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static void showTodoWarning(String method, int issue)
+  {
+    showWarning(
+      method + "() is not yet available: " + "https://github.com/processing/processing/issues/" + issue);
+  }
+}

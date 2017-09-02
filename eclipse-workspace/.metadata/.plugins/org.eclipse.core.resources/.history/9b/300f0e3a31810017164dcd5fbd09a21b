@@ -1,0 +1,261 @@
+package jogamp.nativewindow.x11;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.nativewindow.util.Point;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import java.nio.ShortBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class X11Lib
+{
+  public static final int VisualNoMask = 0;
+  public static final int PictFormatBlueMask = 256;
+  public static final int VisualScreenMask = 2;
+  public static final int PictFormatRed = 8;
+  public static final int PictFormatType = 2;
+  public static final int VisualGreenMaskMask = 32;
+  public static final int PictFormatRedMask = 16;
+  public static final int VisualBlueMaskMask = 64;
+  public static final int PictFormatGreen = 32;
+  public static final int VisualAllMask = 511;
+  public static final int PictFormatAlpha = 512;
+  public static final int VisualIDMask = 1;
+  public static final int VisualDepthMask = 4;
+  public static final int PictFormatColormap = 2048;
+  public static final int PictFormatDepth = 4;
+  public static final int VisualColormapSizeMask = 128;
+  public static final int PictFormatID = 1;
+  public static final int VisualBitsPerRGBMask = 256;
+  public static final int PictFormatBlue = 128;
+  public static final int VisualRedMaskMask = 16;
+  public static final int PictFormatAlphaMask = 1024;
+  public static final int PictFormatGreenMask = 64;
+  public static final int VisualClassMask = 8;
+  
+  public X11Lib() {}
+  
+  public static native long XineramaGetLibHandle();
+  
+  public static native boolean XineramaReleaseLibHandle(long paramLong);
+  
+  public static native long XineramaGetQueryFunc(long paramLong);
+  
+  public static native boolean XineramaIsEnabled(long paramLong1, long paramLong2);
+  
+  public static native long XSynchronize(long paramLong, boolean paramBoolean);
+  
+  public static native int XFlush(long paramLong);
+  
+  public static native int XSync(long paramLong, boolean paramBoolean);
+  
+  public static native String XDisplayString(long paramLong);
+  
+  public static native long XOpenDisplay(String paramString);
+  
+  public static native int DefaultScreen(long paramLong);
+  
+  public static native int ScreenCount(long paramLong);
+  
+  public static native long RootWindow(long paramLong, int paramInt);
+  
+  public static native long XCreatePixmap(long paramLong1, long paramLong2, int paramInt1, int paramInt2, int paramInt3);
+  
+  public static native int XFreePixmap(long paramLong1, long paramLong2);
+  
+  public static native int XFree(long paramLong);
+  
+  public static boolean XF86VidModeGetGammaRampSize(long paramLong, int paramInt, IntBuffer paramIntBuffer)
+  {
+    boolean bool = Buffers.isDirect(paramIntBuffer);
+    return XF86VidModeGetGammaRampSize1(paramLong, paramInt, bool ? paramIntBuffer : Buffers.getArray(paramIntBuffer), bool ? Buffers.getDirectBufferByteOffset(paramIntBuffer) : Buffers.getIndirectBufferByteOffset(paramIntBuffer), bool);
+  }
+  
+
+
+  private static native boolean XF86VidModeGetGammaRampSize1(long paramLong, int paramInt1, Object paramObject, int paramInt2, boolean paramBoolean);
+  
+
+  public static boolean XF86VidModeGetGammaRampSize(long paramLong, int paramInt1, int[] paramArrayOfInt, int paramInt2)
+  {
+    if ((paramArrayOfInt != null) && (paramArrayOfInt.length <= paramInt2))
+      throw new RuntimeException("array offset argument \"size_offset\" (" + paramInt2 + ") equals or exceeds array length (" + paramArrayOfInt.length + ")");
+    return XF86VidModeGetGammaRampSize1(paramLong, paramInt1, paramArrayOfInt, 4 * paramInt2, false);
+  }
+  
+
+
+
+
+  public static boolean XF86VidModeGetGammaRamp(long paramLong, int paramInt1, int paramInt2, ShortBuffer paramShortBuffer1, ShortBuffer paramShortBuffer2, ShortBuffer paramShortBuffer3)
+  {
+    boolean bool1 = Buffers.isDirect(paramShortBuffer1);
+    boolean bool2 = Buffers.isDirect(paramShortBuffer2);
+    boolean bool3 = Buffers.isDirect(paramShortBuffer3);
+    return XF86VidModeGetGammaRamp1(paramLong, paramInt1, paramInt2, bool1 ? paramShortBuffer1 : Buffers.getArray(paramShortBuffer1), bool1 ? Buffers.getDirectBufferByteOffset(paramShortBuffer1) : Buffers.getIndirectBufferByteOffset(paramShortBuffer1), bool1, bool2 ? paramShortBuffer2 : Buffers.getArray(paramShortBuffer2), bool2 ? Buffers.getDirectBufferByteOffset(paramShortBuffer2) : Buffers.getIndirectBufferByteOffset(paramShortBuffer2), bool2, bool3 ? paramShortBuffer3 : Buffers.getArray(paramShortBuffer3), bool3 ? Buffers.getDirectBufferByteOffset(paramShortBuffer3) : Buffers.getIndirectBufferByteOffset(paramShortBuffer3), bool3);
+  }
+  
+
+
+
+  private static native boolean XF86VidModeGetGammaRamp1(long paramLong, int paramInt1, int paramInt2, Object paramObject1, int paramInt3, boolean paramBoolean1, Object paramObject2, int paramInt4, boolean paramBoolean2, Object paramObject3, int paramInt5, boolean paramBoolean3);
+  
+
+
+  public static boolean XF86VidModeGetGammaRamp(long paramLong, int paramInt1, int paramInt2, short[] paramArrayOfShort1, int paramInt3, short[] paramArrayOfShort2, int paramInt4, short[] paramArrayOfShort3, int paramInt5)
+  {
+    if ((paramArrayOfShort1 != null) && (paramArrayOfShort1.length <= paramInt3))
+      throw new RuntimeException("array offset argument \"red_array_offset\" (" + paramInt3 + ") equals or exceeds array length (" + paramArrayOfShort1.length + ")");
+    if ((paramArrayOfShort2 != null) && (paramArrayOfShort2.length <= paramInt4))
+      throw new RuntimeException("array offset argument \"green_array_offset\" (" + paramInt4 + ") equals or exceeds array length (" + paramArrayOfShort2.length + ")");
+    if ((paramArrayOfShort3 != null) && (paramArrayOfShort3.length <= paramInt5))
+      throw new RuntimeException("array offset argument \"blue_array_offset\" (" + paramInt5 + ") equals or exceeds array length (" + paramArrayOfShort3.length + ")");
+    return XF86VidModeGetGammaRamp1(paramLong, paramInt1, paramInt2, paramArrayOfShort1, 2 * paramInt3, false, paramArrayOfShort2, 2 * paramInt4, false, paramArrayOfShort3, 2 * paramInt5, false);
+  }
+  
+
+
+
+
+  public static boolean XF86VidModeSetGammaRamp(long paramLong, int paramInt1, int paramInt2, ShortBuffer paramShortBuffer1, ShortBuffer paramShortBuffer2, ShortBuffer paramShortBuffer3)
+  {
+    boolean bool1 = Buffers.isDirect(paramShortBuffer1);
+    boolean bool2 = Buffers.isDirect(paramShortBuffer2);
+    boolean bool3 = Buffers.isDirect(paramShortBuffer3);
+    return XF86VidModeSetGammaRamp1(paramLong, paramInt1, paramInt2, bool1 ? paramShortBuffer1 : Buffers.getArray(paramShortBuffer1), bool1 ? Buffers.getDirectBufferByteOffset(paramShortBuffer1) : Buffers.getIndirectBufferByteOffset(paramShortBuffer1), bool1, bool2 ? paramShortBuffer2 : Buffers.getArray(paramShortBuffer2), bool2 ? Buffers.getDirectBufferByteOffset(paramShortBuffer2) : Buffers.getIndirectBufferByteOffset(paramShortBuffer2), bool2, bool3 ? paramShortBuffer3 : Buffers.getArray(paramShortBuffer3), bool3 ? Buffers.getDirectBufferByteOffset(paramShortBuffer3) : Buffers.getIndirectBufferByteOffset(paramShortBuffer3), bool3);
+  }
+  
+
+
+
+  private static native boolean XF86VidModeSetGammaRamp1(long paramLong, int paramInt1, int paramInt2, Object paramObject1, int paramInt3, boolean paramBoolean1, Object paramObject2, int paramInt4, boolean paramBoolean2, Object paramObject3, int paramInt5, boolean paramBoolean3);
+  
+
+
+  public static boolean XF86VidModeSetGammaRamp(long paramLong, int paramInt1, int paramInt2, short[] paramArrayOfShort1, int paramInt3, short[] paramArrayOfShort2, int paramInt4, short[] paramArrayOfShort3, int paramInt5)
+  {
+    if ((paramArrayOfShort1 != null) && (paramArrayOfShort1.length <= paramInt3))
+      throw new RuntimeException("array offset argument \"red_array_offset\" (" + paramInt3 + ") equals or exceeds array length (" + paramArrayOfShort1.length + ")");
+    if ((paramArrayOfShort2 != null) && (paramArrayOfShort2.length <= paramInt4))
+      throw new RuntimeException("array offset argument \"green_array_offset\" (" + paramInt4 + ") equals or exceeds array length (" + paramArrayOfShort2.length + ")");
+    if ((paramArrayOfShort3 != null) && (paramArrayOfShort3.length <= paramInt5))
+      throw new RuntimeException("array offset argument \"blue_array_offset\" (" + paramInt5 + ") equals or exceeds array length (" + paramArrayOfShort3.length + ")");
+    return XF86VidModeSetGammaRamp1(paramLong, paramInt1, paramInt2, paramArrayOfShort1, 2 * paramInt3, false, paramArrayOfShort2, 2 * paramInt4, false, paramArrayOfShort3, 2 * paramInt5, false);
+  }
+  
+
+
+
+  public static boolean XRenderFindVisualFormat(long paramLong1, long paramLong2, XRenderPictFormat paramXRenderPictFormat)
+  {
+    if (paramXRenderPictFormat == null) {
+      throw new RuntimeException("dest is null");
+    }
+    ByteBuffer localByteBuffer = paramXRenderPictFormat.getBuffer();
+    if (!Buffers.isDirect(localByteBuffer)) {
+      throw new RuntimeException("dest buffer is not direct");
+    }
+    return XRenderFindVisualFormat1(paramLong1, paramLong2, localByteBuffer);
+  }
+  
+
+  private static native boolean XRenderFindVisualFormat1(long paramLong1, long paramLong2, ByteBuffer paramByteBuffer);
+  
+
+  public static XVisualInfo[] XGetVisualInfo(long paramLong1, long paramLong2, XVisualInfo paramXVisualInfo, int[] paramArrayOfInt, int paramInt)
+  {
+    if ((paramArrayOfInt != null) && (paramArrayOfInt.length <= paramInt)) {
+      throw new RuntimeException("array offset argument \"arg3_offset\" (" + paramInt + ") equals or exceeds array length (" + paramArrayOfInt.length + ")");
+    }
+    ByteBuffer localByteBuffer1 = XGetVisualInfo1(paramLong1, paramLong2, paramXVisualInfo == null ? null : paramXVisualInfo.getBuffer(), paramArrayOfInt, 4 * paramInt);
+    
+    if (localByteBuffer1 == null) return null;
+    Buffers.nativeOrder(localByteBuffer1);
+    int i = getFirstElement(paramArrayOfInt, paramInt);
+    if (i <= 0) return null;
+    int j = localByteBuffer1.capacity() / i;
+    if (j < XVisualInfo.size()) {
+      throw new RuntimeException("element-size " + localByteBuffer1.capacity() + "/" + i + "=" + j + " < " + XVisualInfo.size());
+    }
+    XVisualInfo[] arrayOfXVisualInfo = new XVisualInfo[i];
+    for (int k = 0; k < i; k++) {
+      localByteBuffer1.position(k * j);
+      localByteBuffer1.limit((1 + k) * j);
+      ByteBuffer localByteBuffer2 = localByteBuffer1.slice();
+      localByteBuffer1.position(0);
+      localByteBuffer1.limit(localByteBuffer1.capacity());
+      arrayOfXVisualInfo[k] = XVisualInfo.create(localByteBuffer2);
+    }
+    return arrayOfXVisualInfo;
+  }
+  
+  private static native ByteBuffer XGetVisualInfo1(long paramLong1, long paramLong2, ByteBuffer paramByteBuffer, Object paramObject, int paramInt);
+  
+  public static native int GetVisualIDFromWindow(long paramLong1, long paramLong2);
+  
+  public static native int DefaultVisualID(long paramLong, int paramInt);
+  
+  public static native long CreateWindow(long paramLong1, long paramLong2, int paramInt1, int paramInt2, int paramInt3, int paramInt4, boolean paramBoolean1, boolean paramBoolean2);
+  
+  public static native void DestroyWindow(long paramLong1, long paramLong2);
+  
+  public static native void SetWindowPosSize(long paramLong1, long paramLong2, int paramInt1, int paramInt2, int paramInt3, int paramInt4);
+  
+  public static Point GetRelativeLocation(long paramLong1, int paramInt1, long paramLong2, long paramLong3, int paramInt2, int paramInt3) { return (Point)GetRelativeLocation0(paramLong1, paramInt1, paramLong2, paramLong3, paramInt2, paramInt3); }
+  
+
+  private static native Object GetRelativeLocation0(long paramLong1, int paramInt1, long paramLong2, long paramLong3, int paramInt2, int paramInt3);
+  
+  public static boolean QueryExtension(long paramLong, String paramString) { return QueryExtension0(paramLong, paramString); }
+  
+  private static native boolean QueryExtension0(long paramLong, String paramString);
+  
+  public static native int XCloseDisplay(long paramLong);
+  
+  public static native void XUnlockDisplay(long paramLong);
+  public static native void XLockDisplay(long paramLong);
+  private static int getFirstElement(IntBuffer paramIntBuffer) { return paramIntBuffer.get(paramIntBuffer.position()); }
+  private static int getFirstElement(int[] paramArrayOfInt, int paramInt) { return paramArrayOfInt[paramInt]; }
+}

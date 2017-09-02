@@ -1,0 +1,127 @@
+package com.jogamp.nativewindow.util;
+
+
+
+
+
+
+
+
+
+
+public class Dimension
+  implements Cloneable, DimensionImmutable
+{
+  int width;
+  
+
+
+
+
+
+
+
+
+  int height;
+  
+
+
+
+
+
+
+
+
+  public Dimension()
+  {
+    this(0, 0);
+  }
+  
+  public Dimension(int[] paramArrayOfInt) {
+    this(paramArrayOfInt[0], paramArrayOfInt[1]);
+  }
+  
+  public Dimension(int paramInt1, int paramInt2) {
+    if ((paramInt1 < 0) || (paramInt2 < 0)) {
+      throw new IllegalArgumentException("width and height must be within: [0..2147483647]");
+    }
+    width = paramInt1;
+    height = paramInt2;
+  }
+  
+  public Object cloneMutable()
+  {
+    return clone();
+  }
+  
+  public Object clone()
+  {
+    try {
+      return super.clone();
+    } catch (CloneNotSupportedException localCloneNotSupportedException) {
+      throw new InternalError();
+    }
+  }
+  
+
+  public final int getWidth() { return width; }
+  
+  public final int getHeight() { return height; }
+  
+  public final void set(int paramInt1, int paramInt2) {
+    width = paramInt1;
+    height = paramInt2;
+  }
+  
+  public final void setWidth(int paramInt) { width = paramInt; }
+  
+
+  public final void setHeight(int paramInt) { height = paramInt; }
+  
+  public final Dimension scale(int paramInt) {
+    width *= paramInt;
+    height *= paramInt;
+    return this;
+  }
+  
+  public final Dimension add(Dimension paramDimension) { width += width;
+    height += height;
+    return this;
+  }
+  
+  public String toString()
+  {
+    return width + " x " + height;
+  }
+  
+  public int compareTo(DimensionImmutable paramDimensionImmutable)
+  {
+    int i = width * height;
+    int j = paramDimensionImmutable.getWidth() * paramDimensionImmutable.getHeight();
+    
+    if (i > j)
+      return 1;
+    if (i < j) {
+      return -1;
+    }
+    return 0;
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    if (this == paramObject) return true;
+    if ((paramObject instanceof Dimension)) {
+      Dimension localDimension = (Dimension)paramObject;
+      return (height == height) && (width == width);
+    }
+    
+    return false;
+  }
+  
+
+  public int hashCode()
+  {
+    int i = 31 + width;
+    return (i << 5) - i + height;
+  }
+}

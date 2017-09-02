@@ -1,0 +1,112 @@
+package jogamp.opengl.x11.glx;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.x11.X11GraphicsScreen;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import java.io.PrintStream;
+import java.nio.IntBuffer;
+import jogamp.nativewindow.WrappedSurface;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class X11ExternalGLXDrawable
+  extends X11GLXDrawable
+{
+  private X11ExternalGLXDrawable(GLDrawableFactory paramGLDrawableFactory, NativeSurface paramNativeSurface)
+  {
+    super(paramGLDrawableFactory, paramNativeSurface, true);
+  }
+  
+  protected static X11ExternalGLXDrawable create(GLDrawableFactory paramGLDrawableFactory, GLProfile paramGLProfile) {
+    long l1 = GLX.glXGetCurrentContext();
+    if (l1 == 0L) {
+      throw new GLException("Error: current context null");
+    }
+    long l2 = GLX.glXGetCurrentDisplay();
+    if (l2 == 0L) {
+      throw new GLException("Error: current display null");
+    }
+    long l3 = GLX.glXGetCurrentDrawable();
+    if (l3 == 0L) {
+      throw new GLException("Error: attempted to make an external GLDrawable without a drawable current");
+    }
+    IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(1);
+    
+    GLX.glXQueryContext(l2, l1, 32780, localIntBuffer);
+    X11GraphicsScreen localX11GraphicsScreen = (X11GraphicsScreen)X11GraphicsScreen.createScreenDevice(l2, localIntBuffer.get(0), false);
+    
+    GLX.glXQueryContext(l2, l1, 32787, localIntBuffer);
+    X11GLXGraphicsConfiguration localX11GLXGraphicsConfiguration = X11GLXGraphicsConfiguration.create(paramGLProfile, localX11GraphicsScreen, localIntBuffer.get(0));
+    
+
+    GLX.glXQueryDrawable(l2, l3, 32797, localIntBuffer);
+    int i = localIntBuffer.get(0);
+    GLX.glXQueryDrawable(l2, l3, 32798, localIntBuffer);
+    int j = localIntBuffer.get(0);
+    
+    GLX.glXQueryContext(l2, l1, 32785, localIntBuffer);
+    if (((localIntBuffer.get(0) & 0x8014) == 0) && 
+      (DEBUG)) {
+      System.err.println("X11ExternalGLXDrawable: WARNING: forcing GLX_RGBA_TYPE for newly created contexts (current 0x" + Integer.toHexString(localIntBuffer.get(0)) + ")");
+    }
+    
+    return new X11ExternalGLXDrawable(paramGLDrawableFactory, new WrappedSurface(localX11GLXGraphicsConfiguration, l3, i, j, true));
+  }
+  
+  public GLContext createContext(GLContext paramGLContext)
+  {
+    return new Context(this, paramGLContext);
+  }
+  
+  public void setSize(int paramInt1, int paramInt2) {
+    throw new GLException("Should not call this");
+  }
+  
+  static class Context extends X11GLXContext {
+    Context(X11GLXDrawable paramX11GLXDrawable, GLContext paramGLContext) {
+      super(paramGLContext);
+    }
+  }
+}

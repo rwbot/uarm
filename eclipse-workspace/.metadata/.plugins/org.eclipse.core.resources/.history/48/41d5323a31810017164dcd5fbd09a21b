@@ -1,0 +1,625 @@
+package jogamp.opengl.windows.wgl;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.gluegen.runtime.ProcAddressTable;
+import com.jogamp.gluegen.runtime.opengl.GLProcAddressResolver;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.GLRendererQuirks;
+import java.io.PrintStream;
+import java.nio.IntBuffer;
+import java.util.HashMap;
+import java.util.Map;
+import jogamp.nativewindow.windows.GDI;
+import jogamp.opengl.GLContextImpl;
+import jogamp.opengl.GLDrawableImpl;
+import jogamp.opengl.GLDynamicLookupHelper;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class WindowsWGLContext
+  extends GLContextImpl
+{
+  private int hasSwapInterval = 0;
+  private int hasSwapGroupNV = 0;
+  
+
+  static final Map<String, String> extensionNameMap = new HashMap();
+  static { extensionNameMap.put("GL_ARB_pbuffer", "WGL_ARB_pbuffer");
+    extensionNameMap.put("GL_ARB_pixel_format", "WGL_ARB_pixel_format");
+  }
+  
+  private boolean wglGetExtensionsStringEXTInitialized;
+  WindowsWGLContext(GLDrawableImpl paramGLDrawableImpl, GLContext paramGLContext)
+  {
+    super(paramGLDrawableImpl, paramGLContext);
+  }
+  
+  protected void resetStates(boolean paramBoolean)
+  {
+    wglGetExtensionsStringEXTInitialized = false;
+    wglGetExtensionsStringEXTAvailable = false;
+    wglGLReadDrawableAvailableSet = false;
+    wglGLReadDrawableAvailable = false;
+    
+    wglExtProcAddressTable = null;
+    hasSwapInterval = 0;
+    hasSwapGroupNV = 0;
+    super.resetStates(paramBoolean);
+  }
+  
+  public Object getPlatformGLExtensions()
+  {
+    return getWGLExt();
+  }
+  
+  final WGLExt getWGLExt() {
+    if (null == getWGLExtProcAddressTable()) {
+      throw new InternalError("Null WGLExtProcAddressTable");
+    }
+    if (_wglExt == null) {
+      _wglExt = new WGLExtImpl(this);
+    }
+    return _wglExt;
+  }
+  
+  public final boolean isGLReadDrawableAvailable()
+  {
+    if ((!wglGLReadDrawableAvailableSet) && (null != getWGLExtProcAddressTable())) {
+      WindowsWGLDrawableFactory localWindowsWGLDrawableFactory = (WindowsWGLDrawableFactory)drawable.getFactoryImpl();
+      AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = drawable.getNativeSurface().getGraphicsConfiguration();
+      AbstractGraphicsDevice localAbstractGraphicsDevice = localAbstractGraphicsConfiguration.getScreen().getDevice();
+      switch (localWindowsWGLDrawableFactory.isReadDrawableAvailable(localAbstractGraphicsDevice)) {
+      case 1: 
+        wglGLReadDrawableAvailable = true;
+        wglGLReadDrawableAvailableSet = true;
+        break;
+      case 0: 
+        wglGLReadDrawableAvailable = false;
+        wglGLReadDrawableAvailableSet = true;
+      }
+      
+    }
+    return wglGLReadDrawableAvailable;
+  }
+  
+  private final boolean wglMakeContextCurrent(long paramLong1, long paramLong2, long paramLong3) {
+    boolean bool = false;
+    if (wglGLReadDrawableAvailable)
+    {
+      bool = getWGLExt().wglMakeContextCurrent(paramLong1, paramLong2, paramLong3);
+    } else if (paramLong1 == paramLong2) {
+      bool = WGL.wglMakeCurrent(paramLong1, paramLong3);
+    }
+    else {
+      throw new InternalError("Given readDrawable but no driver support");
+    }
+    if ((DEBUG) && (!bool))
+    {
+
+      Throwable localThrowable = new Throwable("Info: wglMakeContextCurrent NOK: draw " + GLContext.toHexString(paramLong1) + ", read " + GLContext.toHexString(paramLong2) + ", ctx " + GLContext.toHexString(paramLong3) + ", werr " + GDI.GetLastError());
+      localThrowable.printStackTrace();
+    }
+    return bool;
+  }
+  
+  private final boolean wglReleaseContext() {
+    boolean bool1 = false;
+    if (wglGLReadDrawableAvailable)
+    {
+      bool1 = getWGLExt().wglMakeContextCurrent(0L, 0L, 0L);
+    } else {
+      bool1 = WGL.wglMakeCurrent(0L, 0L);
+    }
+    if (!bool1) {
+      int i = GDI.GetLastError();
+      boolean bool2 = i == 0;
+      if (DEBUG) {
+        Throwable localThrowable = new Throwable("Info: wglReleaseContext NOK: werr " + i + " -> ok " + bool2);
+        localThrowable.printStackTrace();
+      }
+      
+
+      return bool2;
+    }
+    return bool1;
+  }
+  
+  public final ProcAddressTable getPlatformExtProcAddressTable()
+  {
+    return getWGLExtProcAddressTable();
+  }
+  
+  public final WGLExtProcAddressTable getWGLExtProcAddressTable() {
+    return wglExtProcAddressTable;
+  }
+  
+  protected Map<String, String> getFunctionNameMap() {
+    return null;
+  }
+  
+  protected Map<String, String> getExtensionNameMap() { return extensionNameMap; }
+  
+  protected void destroyContextARBImpl(long paramLong)
+  {
+    WGL.wglMakeCurrent(0L, 0L);
+    WGL.wglDeleteContext(paramLong);
+  }
+  
+  protected long createContextARBImpl(long paramLong, boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3)
+  {
+    if (DEBUG) {
+      System.err.println(getThreadName() + " - WindowWGLContext.createContextARBImpl: " + getGLVersion(paramInt2, paramInt3, paramInt1, "@creation") + ", handle " + 
+        toHexString(drawable.getHandle()) + ", share " + toHexString(paramLong) + ", direct " + paramBoolean);
+    }
+    int i = 0 == (0x8 & paramInt1) ? 1 : 0;
+    int j = 0 != (0x2 & paramInt1) ? 1 : 0;
+    int k = 0 != (0x10 & paramInt1) ? 1 : 0;
+    int m = 0 != (0x20 & paramInt1) ? 1 : 0;
+    if (i == 0) {
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": WindowWGLContext.createContextARBImpl: GL ES not avail " + getGLVersion(paramInt2, paramInt3, paramInt1, "@creation"));
+      }
+      return 0L;
+    }
+    if (null == getWGLExtProcAddressTable()) {
+      localObject = getGLDynamicLookupHelper(paramInt2, paramInt1);
+      if (null == localObject) {
+        if (DEBUG) {
+          System.err.println(getThreadName() + " - WindowWGLContext.createContextARBImpl: Null GLDynamicLookupHelper");
+        }
+        return 0L;
+      }
+      updateGLXProcAddressTable(null, (GLDynamicLookupHelper)localObject);
+    }
+    
+    Object localObject = getWGLExt();
+    if (DEBUG) {
+      System.err.println(getThreadName() + " - WindowWGLContext.createContextARBImpl: " + ", wglCreateContextAttribsARB: " + 
+        toHexString(wglExtProcAddressTable._addressof_wglCreateContextAttribsARB));
+    }
+    
+    long l = 0L;
+    
+
+
+
+
+
+    int[] arrayOfInt = { 8337, paramInt2, 8338, paramInt3, 8340, 0, 0, 0, 0 };
+    
+
+
+
+
+
+
+    if ((paramInt2 > 3) || ((paramInt2 == 3) && (paramInt3 >= 2))) {
+      arrayOfInt[6] = 37158;
+      if (j != 0) {
+        arrayOfInt[7] = 2;
+      } else {
+        arrayOfInt[7] = 1;
+      }
+    }
+    
+    if (paramInt2 >= 3) {
+      if ((j == 0) && (k != 0)) {
+        arrayOfInt[5] |= 0x2;
+      }
+      if (m != 0) {
+        arrayOfInt[5] |= 0x1;
+      }
+    }
+    try
+    {
+      IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(arrayOfInt);
+      l = ((WGLExt)localObject).wglCreateContextAttribsARB(drawable.getHandle(), paramLong, localIntBuffer);
+    } catch (RuntimeException localRuntimeException) {
+      if (DEBUG) {
+        Throwable localThrowable = new Throwable("Info: WindowWGLContext.createContextARBImpl wglCreateContextAttribsARB failed with " + getGLVersion(paramInt2, paramInt3, paramInt1, "@creation"), localRuntimeException);
+        localThrowable.printStackTrace();
+      }
+    }
+    
+    if (0L != l) {
+      if (!wglMakeContextCurrent(drawable.getHandle(), drawableRead.getHandle(), l)) {
+        if (DEBUG) {
+          System.err.println("WindowsWGLContext.createContextARB couldn't make current " + getGLVersion(paramInt2, paramInt3, paramInt1, "@creation"));
+        }
+        WGL.wglMakeCurrent(0L, 0L);
+        WGL.wglDeleteContext(l);
+        l = 0L;
+      } else if (DEBUG) {
+        System.err.println(getThreadName() + ": createContextARBImpl: OK " + getGLVersion(paramInt2, paramInt3, paramInt1, "@creation") + ", share " + paramLong + ", direct " + paramBoolean);
+      }
+    } else if (DEBUG) {
+      System.err.println(getThreadName() + ": createContextARBImpl: NO " + getGLVersion(paramInt2, paramInt3, paramInt1, "@creation"));
+    }
+    return l;
+  }
+  
+
+  private boolean wglGetExtensionsStringEXTAvailable;
+  private boolean wglGLReadDrawableAvailableSet;
+  protected boolean createImpl(long paramLong)
+    throws GLException
+  {
+    AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = drawable.getNativeSurface().getGraphicsConfiguration();
+    AbstractGraphicsDevice localAbstractGraphicsDevice = localAbstractGraphicsConfiguration.getScreen().getDevice();
+    WindowsWGLDrawableFactory localWindowsWGLDrawableFactory = (WindowsWGLDrawableFactory)drawable.getFactoryImpl();
+    WindowsWGLContext localWindowsWGLContext = (WindowsWGLContext)localWindowsWGLDrawableFactory.getOrCreateSharedContext(localAbstractGraphicsDevice);
+    GLCapabilitiesImmutable localGLCapabilitiesImmutable = drawable.getChosenGLCapabilities();
+    
+    isGLReadDrawableAvailable();
+    
+    boolean bool1 = (isCreateContextARBAvail(localAbstractGraphicsDevice)) && (!localGLCapabilitiesImmutable.isBitmap());
+    boolean bool2 = (null != localWindowsWGLContext) && (localWindowsWGLContext.isCreatedWithARBMethod());
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": WindowsWGLContext.createImpl: START " + localGLCapabilitiesImmutable + ", share " + toHexString(paramLong));
+      System.err.println(getThreadName() + ": Use ARB[avail[" + getCreateContextARBAvailStr(localAbstractGraphicsDevice) + "], bitmap " + localGLCapabilitiesImmutable
+        .isBitmap() + " -> " + bool1 + "], shared " + bool2 + "]");
+    }
+    
+    GLProfile localGLProfile = localGLCapabilitiesImmutable.getGLProfile();
+    if (localGLProfile.isGLES())
+    {
+      throw new GLException(getThreadName() + ": Unable to create OpenGL ES context on desktopDevice " + localAbstractGraphicsDevice + ", config " + localAbstractGraphicsConfiguration + ", " + localGLProfile + ", shareWith " + toHexString(paramLong));
+    }
+    boolean bool3 = false;
+    
+
+    if ((bool1) && (bool2)) {
+      if (localWindowsWGLContext.getRendererQuirks().exist(10)) {
+        if (0 == localWindowsWGLContext.makeCurrent()) {
+          throw new GLException("Could not make Shared Context current: " + localWindowsWGLContext);
+        }
+        contextHandle = createContextARB(paramLong, true);
+        localWindowsWGLContext.release();
+        if (!wglMakeContextCurrent(drawable.getHandle(), drawableRead.getHandle(), contextHandle)) {
+          throw new GLException("Cannot make previous verified context current: 0x" + toHexString(contextHandle) + ", werr: " + GDI.GetLastError());
+        }
+      } else {
+        contextHandle = createContextARB(paramLong, true);
+      }
+      bool3 = true;
+      if ((DEBUG) && (0L != contextHandle)) {
+        System.err.println(getThreadName() + ": createImpl: OK (ARB, using sharedContext) share " + toHexString(paramLong));
+      }
+    }
+    
+    long l;
+    if (0L == contextHandle)
+    {
+
+      l = WGL.wglCreateContext(drawable.getHandle());
+      if (0L == l) {
+        throw new GLException("Unable to create temp OpenGL context for device context " + toHexString(drawable.getHandle()));
+      }
+      if (!WGL.wglMakeCurrent(drawable.getHandle(), l)) {
+        throw new GLException("Error making temp context current: 0x" + toHexString(l) + ", werr: " + GDI.GetLastError());
+      }
+      if (!setGLFunctionAvailability(true, 0, 0, 2, false, null == localWindowsWGLContext)) {
+        WGL.wglMakeCurrent(0L, 0L);
+        WGL.wglDeleteContext(l);
+        throw new GLException("setGLFunctionAvailability !strictMatch failed");
+      }
+      WGL.wglMakeCurrent(0L, 0L);
+      
+      if ((bool1) && (!bool3))
+      {
+        boolean bool4 = isFunctionAvailable("wglCreateContextAttribsARB");
+        boolean bool5 = isExtensionAvailable("WGL_ARB_create_context");
+        if ((bool4) && (bool5))
+        {
+          contextHandle = createContextARB(paramLong, true);
+          bool3 = true;
+          if (DEBUG) {
+            if (0L != contextHandle) {
+              System.err.println(getThreadName() + ": createImpl: OK (ARB, initial) share " + toHexString(paramLong));
+            } else {
+              System.err.println(getThreadName() + ": createImpl: NOT OK (ARB, initial) - creation failed - share " + toHexString(paramLong));
+            }
+          }
+        } else if (DEBUG) {
+          System.err.println(getThreadName() + ": createImpl: NOT OK (ARB, initial) - extension not available - share " + toHexString(paramLong) + ", isProcCreateContextAttribsARBAvailable " + bool4 + ", isExtGLXARBCreateContextAvailable " + bool5);
+        }
+      }
+    }
+    else
+    {
+      l = 0L;
+    }
+    
+    if (0L != contextHandle) {
+      paramLong = 0L;
+      if (0L != l) {
+        WGL.wglMakeCurrent(0L, 0L);
+        WGL.wglDeleteContext(l);
+        if (!wglMakeContextCurrent(drawable.getHandle(), drawableRead.getHandle(), contextHandle)) {
+          throw new GLException("Cannot make previous verified context current: 0x" + toHexString(contextHandle) + ", werr: " + GDI.GetLastError());
+        }
+      }
+    } else {
+      if ((localGLCapabilitiesImmutable.getGLProfile().isGL3()) && (bool3))
+      {
+
+        WGL.wglMakeCurrent(0L, 0L);
+        WGL.wglDeleteContext(l);
+        throw new GLException(getThreadName() + ": createImpl ctx !ARB but ARB is used, profile > GL2 requested (OpenGL >= 3.1). Requested: " + localGLCapabilitiesImmutable.getGLProfile() + ", current: " + getGLVersion());
+      }
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": createImpl ARB not used[avail " + bool1 + ", tried " + bool3 + "], fall back to !ARB context " + 
+          getGLVersion());
+      }
+      
+
+      contextHandle = l;
+      if (!wglMakeContextCurrent(drawable.getHandle(), drawableRead.getHandle(), contextHandle)) {
+        WGL.wglMakeCurrent(0L, 0L);
+        WGL.wglDeleteContext(contextHandle);
+        throw new GLException("Error making old context current: 0x" + toHexString(contextHandle) + ", werr: " + GDI.GetLastError());
+      }
+      if (0L != paramLong)
+      {
+
+
+        if (!WGL.wglShareLists(paramLong, contextHandle))
+        {
+          throw new GLException("wglShareLists(" + toHexString(paramLong) + ", " + toHexString(contextHandle) + ") failed: werr " + GDI.GetLastError());
+        }
+      }
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": createImpl: OK (old) share " + toHexString(paramLong));
+      }
+    }
+    
+    return true;
+  }
+  
+  protected void makeCurrentImpl() throws GLException
+  {
+    if (!wglMakeContextCurrent(drawable.getHandle(), drawableRead.getHandle(), contextHandle))
+    {
+
+
+
+      throw new GLException("Error making context " + toHexString(contextHandle) + " current on Thread " + getThreadName() + ", drawableWrite " + toHexString(drawable.getHandle()) + ", drawableRead " + toHexString(drawableRead.getHandle()) + ", werr: " + GDI.GetLastError() + ", " + this);
+    }
+  }
+  
+  protected void releaseImpl() throws GLException
+  {
+    if (!wglReleaseContext()) {
+      throw new GLException("Error freeing OpenGL context, werr: " + GDI.GetLastError());
+    }
+  }
+  
+  protected void destroyImpl() throws GLException
+  {
+    WGL.wglMakeCurrent(0L, 0L);
+    if (!WGL.wglDeleteContext(contextHandle)) {
+      throw new GLException("Unable to delete OpenGL context");
+    }
+  }
+  
+  protected void copyImpl(GLContext paramGLContext, int paramInt) throws GLException
+  {
+    if (!WGL.wglCopyContext(paramGLContext.getHandle(), getHandle(), paramInt)) {
+      throw new GLException("wglCopyContext failed");
+    }
+  }
+  
+
+  private boolean wglGLReadDrawableAvailable;
+  
+  private WGLExt _wglExt;
+  
+  private WGLExtProcAddressTable wglExtProcAddressTable;
+  protected final void updateGLXProcAddressTable(String paramString, GLDynamicLookupHelper paramGLDynamicLookupHelper)
+  {
+    if (null == paramGLDynamicLookupHelper) {
+      throw new GLException("No GLDynamicLookupHelper for " + this);
+    }
+    AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = drawable.getNativeSurface().getGraphicsConfiguration();
+    AbstractGraphicsDevice localAbstractGraphicsDevice = localAbstractGraphicsConfiguration.getScreen().getDevice();
+    String str = "WGL-" + localAbstractGraphicsDevice.getUniqueID();
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": Initializing WGL extension address table: " + str);
+    }
+    wglGetExtensionsStringEXTInitialized = false;
+    wglGetExtensionsStringEXTAvailable = false;
+    wglGLReadDrawableAvailableSet = false;
+    wglGLReadDrawableAvailable = false;
+    
+    ProcAddressTable localProcAddressTable = null;
+    synchronized (mappedContextTypeObjectLock) {
+      localProcAddressTable = (ProcAddressTable)mappedGLXProcAddress.get(str);
+    }
+    if (null != localProcAddressTable) {
+      wglExtProcAddressTable = ((WGLExtProcAddressTable)localProcAddressTable);
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": GLContext WGL ProcAddressTable reusing key(" + str + ") -> " + toHexString(localProcAddressTable.hashCode()));
+      }
+    } else {
+      wglExtProcAddressTable = new WGLExtProcAddressTable(new GLProcAddressResolver());
+      resetProcAddressTable(wglExtProcAddressTable, paramGLDynamicLookupHelper);
+      synchronized (mappedContextTypeObjectLock) {
+        mappedGLXProcAddress.put(str, getWGLExtProcAddressTable());
+        if (DEBUG) {
+          System.err.println(getThreadName() + ": GLContext WGL ProcAddressTable mapping key(" + str + ") -> " + toHexString(getWGLExtProcAddressTable().hashCode()));
+        }
+      }
+    }
+  }
+  
+  protected final StringBuilder getPlatformExtensionsStringImpl()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    
+    if (!wglGetExtensionsStringEXTInitialized) {
+      wglGetExtensionsStringEXTAvailable = (WGL.wglGetProcAddress("wglGetExtensionsStringEXT") != 0L);
+      wglGetExtensionsStringEXTInitialized = true;
+    }
+    if (wglGetExtensionsStringEXTAvailable) {
+      localStringBuilder.append(getWGLExt().wglGetExtensionsStringEXT());
+    }
+    return localStringBuilder;
+  }
+  
+  protected final Integer setSwapIntervalImpl2(int paramInt)
+  {
+    if (!drawable.getChosenGLCapabilities().isOnscreen()) {
+      return null;
+    }
+    if (0 == hasSwapInterval)
+      try {
+        if (isExtensionAvailable("WGL_EXT_swap_control")) {
+          hasSwapInterval = 1;
+          if (isExtensionAvailable("WGL_EXT_swap_control_tear")) {
+            hasSwapInterval = 2;
+            if (DEBUG) System.err.println("WGLContext.setSwapInterval.2 using: WGL_EXT_swap_control_tear, WGL_EXT_swap_control_tear");
+          } else {
+            hasSwapInterval = 1;
+            if (DEBUG) System.err.println("WGLContext.setSwapInterval.1 using: WGL_EXT_swap_control");
+          }
+        } else {
+          hasSwapInterval = -1;
+          if (DEBUG) System.err.println("WGLContext.setSwapInterval.0 N/A");
+        }
+      } catch (Throwable localThrowable1) { hasSwapInterval = -1; if (DEBUG) ExceptionUtils.dumpThrowable("", localThrowable1);
+      }
+    if (0 < hasSwapInterval) {
+      int i;
+      if ((1 == hasSwapInterval) && (0 > paramInt)) {
+        i = Math.abs(paramInt);
+      } else {
+        i = paramInt;
+      }
+      try {
+        WGLExt localWGLExt = getWGLExt();
+        if (localWGLExt.wglSwapIntervalEXT(i))
+          return Integer.valueOf(i);
+      } catch (Throwable localThrowable2) {
+        hasSwapInterval = -1; if (DEBUG) ExceptionUtils.dumpThrowable("", localThrowable2);
+      } }
+    return null;
+  }
+  
+  private final int initSwapGroupImpl(WGLExt paramWGLExt) {
+    if (0 == hasSwapGroupNV) {
+      try {
+        hasSwapGroupNV = (paramWGLExt.isExtensionAvailable("WGL_NV_swap_group") ? 1 : -1);
+      } catch (Throwable localThrowable) { hasSwapGroupNV = 1; }
+      if (DEBUG) {
+        System.err.println("initSwapGroupImpl: hasSwapGroupNV: " + hasSwapGroupNV);
+      }
+    }
+    return hasSwapGroupNV;
+  }
+  
+
+  protected final boolean queryMaxSwapGroupsImpl(int[] paramArrayOfInt1, int paramInt1, int[] paramArrayOfInt2, int paramInt2)
+  {
+    boolean bool = false;
+    WGLExt localWGLExt = getWGLExt();
+    if (initSwapGroupImpl(localWGLExt) > 0) {
+      NativeSurface localNativeSurface = drawable.getNativeSurface();
+      try {
+        IntBuffer localIntBuffer1 = Buffers.newDirectIntBuffer(paramArrayOfInt1.length - paramInt1);
+        IntBuffer localIntBuffer2 = Buffers.newDirectIntBuffer(paramArrayOfInt2.length - paramInt2);
+        
+        if (localWGLExt.wglQueryMaxSwapGroupsNV(localNativeSurface.getDisplayHandle(), localIntBuffer1, localIntBuffer2)) {
+          localIntBuffer1.get(paramArrayOfInt1, paramInt1, localIntBuffer1.remaining());
+          localIntBuffer2.get(paramArrayOfInt1, paramInt1, localIntBuffer2.remaining());
+          bool = true;
+        }
+      } catch (Throwable localThrowable) { hasSwapGroupNV = -1;
+      } }
+    return bool;
+  }
+  
+  protected final boolean joinSwapGroupImpl(int paramInt)
+  {
+    boolean bool = false;
+    WGLExt localWGLExt = getWGLExt();
+    if (initSwapGroupImpl(localWGLExt) > 0)
+      try {
+        if (localWGLExt.wglJoinSwapGroupNV(drawable.getHandle(), paramInt)) {
+          currentSwapGroup = paramInt;
+          bool = true;
+        }
+      } catch (Throwable localThrowable) { hasSwapGroupNV = -1;
+      }
+    return bool;
+  }
+  
+  protected final boolean bindSwapBarrierImpl(int paramInt1, int paramInt2)
+  {
+    boolean bool = false;
+    WGLExt localWGLExt = getWGLExt();
+    if (initSwapGroupImpl(localWGLExt) > 0)
+      try {
+        if (localWGLExt.wglBindSwapBarrierNV(paramInt1, paramInt2))
+          bool = true;
+      } catch (Throwable localThrowable) {
+        hasSwapGroupNV = -1;
+      }
+    return bool;
+  }
+}

@@ -1,0 +1,202 @@
+package jogamp.newt;
+
+import com.jogamp.common.util.ArrayHashSet;
+import com.jogamp.common.util.locks.LockFactory;
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.newt.MonitorDevice;
+import com.jogamp.newt.MonitorMode;
+import com.jogamp.newt.Screen;
+import com.jogamp.newt.event.MonitorEvent;
+import com.jogamp.newt.event.MonitorModeListener;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ScreenMonitorState
+{
+  private static boolean DEBUG = Screen.DEBUG;
+  
+  private final RecursiveLock lock = LockFactory.createRecursiveLock();
+  private final ArrayHashSet<MonitorDevice> allMonitors;
+  private final ArrayHashSet<MonitorMode> allMonitorModes;
+  private final MonitorDevice primaryMonitor;
+  private final ArrayList<MonitorModeListener> listener = new ArrayList();
+  
+  private static HashMap<String, ScreenMonitorState> screenFQN2ScreenMonitorState = new HashMap();
+  private static RecursiveLock screen2ScreenMonitorState = LockFactory.createRecursiveLock();
+  
+  protected static void mapScreenMonitorState(String paramString, ScreenMonitorState paramScreenMonitorState) {
+    screen2ScreenMonitorState.lock();
+    try {
+      ScreenMonitorState localScreenMonitorState = (ScreenMonitorState)screenFQN2ScreenMonitorState.get(paramString);
+      if (null != localScreenMonitorState) {
+        throw new RuntimeException("ScreenMonitorState " + localScreenMonitorState + " already mapped to " + paramString);
+      }
+      screenFQN2ScreenMonitorState.put(paramString, paramScreenMonitorState);
+      if (DEBUG) {
+        System.err.println("ScreenMonitorState.map " + paramString + " -> " + paramScreenMonitorState);
+      }
+      
+      screen2ScreenMonitorState.unlock(); } finally { screen2ScreenMonitorState.unlock();
+    }
+  }
+  
+
+
+
+  protected static void unmapScreenMonitorState(String paramString)
+  {
+    screen2ScreenMonitorState.lock();
+    try {
+      unmapScreenMonitorStateUnlocked(paramString);
+      
+      screen2ScreenMonitorState.unlock(); } finally { screen2ScreenMonitorState.unlock();
+    }
+  }
+  
+  protected static void unmapScreenMonitorStateUnlocked(String paramString) { ScreenMonitorState localScreenMonitorState = (ScreenMonitorState)screenFQN2ScreenMonitorState.remove(paramString);
+    if (DEBUG) {
+      System.err.println("ScreenMonitorState.unmap " + paramString + " -> " + localScreenMonitorState);
+    }
+  }
+  
+  protected static ScreenMonitorState getScreenMonitorState(String paramString) {
+    screen2ScreenMonitorState.lock();
+    try {
+      return getScreenMonitorStateUnlocked(paramString);
+    } finally {
+      screen2ScreenMonitorState.unlock();
+    }
+  }
+  
+  protected static ScreenMonitorState getScreenMonitorStateUnlocked(String paramString) { return (ScreenMonitorState)screenFQN2ScreenMonitorState.get(paramString); }
+  
+  protected static void lockScreenMonitorState()
+  {
+    screen2ScreenMonitorState.lock();
+  }
+  
+  protected static void unlockScreenMonitorState() {
+    screen2ScreenMonitorState.unlock();
+  }
+  
+
+  public ScreenMonitorState(ArrayHashSet<MonitorDevice> paramArrayHashSet, ArrayHashSet<MonitorMode> paramArrayHashSet1, MonitorDevice paramMonitorDevice)
+  {
+    allMonitors = paramArrayHashSet;
+    allMonitorModes = paramArrayHashSet1;
+    primaryMonitor = paramMonitorDevice;
+  }
+  
+  protected ArrayHashSet<MonitorDevice> getMonitorDevices() {
+    return allMonitors;
+  }
+  
+  protected MonitorDevice getPrimaryMonitorDevice() {
+    return primaryMonitor;
+  }
+  
+  protected ArrayHashSet<MonitorMode> getMonitorModes() {
+    return allMonitorModes;
+  }
+  
+  protected final int addListener(MonitorModeListener paramMonitorModeListener) {
+    lock();
+    try {
+      listener.add(paramMonitorModeListener);
+      if (DEBUG) {
+        System.err.println("ScreenMonitorState.addListener (size: " + listener.size() + "): " + paramMonitorModeListener);
+      }
+      return listener.size();
+    } finally {
+      unlock();
+    }
+  }
+  
+  protected final int removeListener(MonitorModeListener paramMonitorModeListener) {
+    lock();
+    try {
+      if (!listener.remove(paramMonitorModeListener)) {
+        throw new RuntimeException("MonitorModeListener " + paramMonitorModeListener + " not contained");
+      }
+      if (DEBUG) {
+        System.err.println("ScreenMonitorState.removeListener (size: " + listener.size() + "): " + paramMonitorModeListener);
+      }
+      return listener.size();
+    } finally {
+      unlock();
+    }
+  }
+  
+  protected final MonitorDevice getMonitor(MonitorDevice paramMonitorDevice) {
+    return (MonitorDevice)allMonitors.get(paramMonitorDevice);
+  }
+  
+  protected final void validateMonitor(MonitorDevice paramMonitorDevice) {
+    MonitorDevice localMonitorDevice = (MonitorDevice)allMonitors.get(paramMonitorDevice);
+    if (null == localMonitorDevice) {
+      throw new InternalError("Monitor unknown: " + paramMonitorDevice);
+    }
+  }
+  
+  protected final void fireMonitorModeChangeNotify(MonitorDevice paramMonitorDevice, MonitorMode paramMonitorMode) {
+    lock();
+    try {
+      validateMonitor(paramMonitorDevice);
+      MonitorEvent localMonitorEvent = new MonitorEvent((short)600, paramMonitorDevice, System.currentTimeMillis(), paramMonitorMode);
+      for (int i = 0; i < listener.size(); i++) {
+        ((MonitorModeListener)listener.get(i)).monitorModeChangeNotify(localMonitorEvent);
+      }
+    } finally {
+      unlock();
+    }
+  }
+  
+  protected void fireMonitorModeChanged(MonitorDevice paramMonitorDevice, MonitorMode paramMonitorMode, boolean paramBoolean) {
+    lock();
+    try {
+      validateMonitor(paramMonitorDevice);
+      MonitorEvent localMonitorEvent = new MonitorEvent((short)601, paramMonitorDevice, System.currentTimeMillis(), paramMonitorMode);
+      for (int i = 0; i < listener.size(); i++) {
+        ((MonitorModeListener)listener.get(i)).monitorModeChanged(localMonitorEvent, paramBoolean);
+      }
+    } finally {
+      unlock();
+    }
+  }
+  
+  protected final void lock() throws RuntimeException {
+    lock.lock();
+  }
+  
+  protected final void unlock() throws RuntimeException {
+    lock.unlock();
+  }
+}

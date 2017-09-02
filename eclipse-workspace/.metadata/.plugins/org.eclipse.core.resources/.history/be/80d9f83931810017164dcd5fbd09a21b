@@ -1,0 +1,324 @@
+package jogamp.graph.curve.tess;
+
+import com.jogamp.graph.geom.Triangle;
+import com.jogamp.graph.geom.Vertex;
+import com.jogamp.opengl.math.VectorUtil;
+import com.jogamp.opengl.math.VectorUtil.Winding;
+import com.jogamp.opengl.math.geom.AABBox;
+import java.util.ArrayList;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Loop
+{
+  private HEdge root = null;
+  private final AABBox box = new AABBox();
+  private GraphOutline initialOutline = null;
+  
+  public Loop(GraphOutline paramGraphOutline, VectorUtil.Winding paramWinding) {
+    initialOutline = paramGraphOutline;
+    root = initFromPolyline(initialOutline, paramWinding);
+  }
+  
+  public HEdge getHEdge() {
+    return root;
+  }
+  
+  public Triangle cut(boolean paramBoolean) {
+    if (isSimplex())
+    {
+      return new Triangle(root.getGraphPoint().getPoint(), root.getNext().getGraphPoint().getPoint(), root.getNext().getNext().getGraphPoint().getPoint(), checkVerticesBoundary(root));
+    }
+    HEdge localHEdge1 = root.getPrev();
+    HEdge localHEdge2 = root.getNext();
+    
+    HEdge localHEdge3 = findClosestValidNeighbor(localHEdge2.getNext(), paramBoolean);
+    if (localHEdge3 == null) {
+      root = root.getNext();
+      return null;
+    }
+    
+    GraphVertex localGraphVertex1 = root.getGraphPoint();
+    GraphVertex localGraphVertex2 = localHEdge2.getGraphPoint();
+    GraphVertex localGraphVertex3 = localHEdge3.getGraphPoint();
+    
+    HEdge localHEdge4 = new HEdge(localGraphVertex3, 1);
+    
+    HEdge.connect(localHEdge4, root);
+    HEdge.connect(localHEdge2, localHEdge4);
+    
+    HEdge localHEdge5 = localHEdge4.getSibling();
+    if (localHEdge5 == null) {
+      localHEdge5 = new HEdge(localHEdge4.getNext().getGraphPoint(), 1);
+      HEdge.makeSiblings(localHEdge4, localHEdge5);
+    }
+    
+    HEdge.connect(localHEdge1, localHEdge5);
+    HEdge.connect(localHEdge5, localHEdge3);
+    
+    Triangle localTriangle = createTriangle(localGraphVertex1.getPoint(), localGraphVertex2.getPoint(), localGraphVertex3.getPoint(), root);
+    root = localHEdge3;
+    return localTriangle;
+  }
+  
+  public boolean isSimplex() {
+    return root.getNext().getNext().getNext() == root;
+  }
+  
+
+
+
+  private HEdge initFromPolyline(GraphOutline paramGraphOutline, VectorUtil.Winding paramWinding)
+  {
+    ArrayList localArrayList = paramGraphOutline.getGraphPoint();
+    
+    if (localArrayList.size() < 3) {
+      throw new IllegalArgumentException("outline's vertices < 3: " + localArrayList.size());
+    }
+    VectorUtil.Winding localWinding = VectorUtil.getWinding(
+      ((GraphVertex)localArrayList.get(0)).getPoint(), 
+      ((GraphVertex)localArrayList.get(1)).getPoint(), 
+      ((GraphVertex)localArrayList.get(2)).getPoint());
+    
+
+    int i = (localWinding != paramWinding) && (paramWinding == VectorUtil.Winding.CW) ? 1 : 0;
+    
+
+
+    int k = paramWinding == VectorUtil.Winding.CCW ? 3 : 2;
+    
+    Object localObject1 = null;
+    Object localObject2 = null;
+    int j;
+    int m; if (i == 0) {
+      j = localArrayList.size();
+      m = 0;
+    } else {
+      j = -1;
+      m = localArrayList.size() - 1;
+    }
+    
+    while (m != j) {
+      GraphVertex localGraphVertex = (GraphVertex)localArrayList.get(m);
+      box.resize(localGraphVertex.getX(), localGraphVertex.getY(), localGraphVertex.getZ());
+      
+      HEdge localHEdge = new HEdge(localGraphVertex, k);
+      
+      localGraphVertex.addEdge(localHEdge);
+      if (localObject2 != null) {
+        ((HEdge)localObject2).setNext(localHEdge);
+        localHEdge.setPrev((HEdge)localObject2);
+      } else {
+        localObject1 = localHEdge;
+      }
+      
+      if (i == 0) {
+        if (m == localArrayList.size() - 1) {
+          localHEdge.setNext(localObject1);
+          localObject1.setPrev(localHEdge);
+        }
+        m++;
+      } else {
+        if (m == 0) {
+          localHEdge.setNext(localObject1);
+          localObject1.setPrev(localHEdge);
+        }
+        m--;
+      }
+      localObject2 = localHEdge;
+    }
+    return localObject1;
+  }
+  
+
+  public void addConstraintCurve(GraphOutline paramGraphOutline)
+  {
+    initFromPolyline(paramGraphOutline, VectorUtil.Winding.CW);
+    
+    GraphVertex localGraphVertex = locateClosestVertex(paramGraphOutline);
+    HEdge localHEdge1 = localGraphVertex.findBoundEdge();
+    HEdge localHEdge2 = localHEdge1.getPrev();
+    HEdge localHEdge3 = new HEdge(root.getGraphPoint(), 1);
+    
+    HEdge.connect(root.getPrev(), localHEdge3);
+    HEdge.connect(localHEdge3, localHEdge1);
+    
+    HEdge localHEdge4 = localHEdge3.getSibling();
+    if (localHEdge4 == null) {
+      localHEdge4 = new HEdge(localHEdge3.getNext().getGraphPoint(), 1);
+      HEdge.makeSiblings(localHEdge3, localHEdge4);
+    }
+    
+    HEdge.connect(localHEdge2, localHEdge4);
+    HEdge.connect(localHEdge4, root);
+  }
+  
+
+
+
+
+
+  private GraphVertex locateClosestVertex(GraphOutline paramGraphOutline)
+  {
+    HEdge localHEdge = null;
+    Object localObject = null;
+    
+    float f1 = Float.MAX_VALUE;
+    boolean bool = false;
+    ArrayList localArrayList1 = initialOutline.getGraphPoint();
+    ArrayList localArrayList2 = paramGraphOutline.getGraphPoint();
+    
+    for (int i = 0; i < localArrayList1.size() - 1; i++) {
+      GraphVertex localGraphVertex1 = (GraphVertex)localArrayList1.get(i);
+      GraphVertex localGraphVertex2 = (GraphVertex)localArrayList1.get(i + 1);
+      for (int j = 0; j < localArrayList2.size(); j++) {
+        GraphVertex localGraphVertex3 = (GraphVertex)localArrayList2.get(j);
+        float f2 = VectorUtil.distVec3(localGraphVertex1.getCoord(), localGraphVertex3.getCoord());
+        if (f2 < f1) {
+          for (GraphVertex localGraphVertex4 : localArrayList2) {
+            if ((localGraphVertex4 != localGraphVertex1) && (localGraphVertex4 != localGraphVertex2) && (localGraphVertex4 != localGraphVertex3))
+            {
+              bool = VectorUtil.isInCircleVec2(localGraphVertex1.getPoint(), localGraphVertex2.getPoint(), localGraphVertex3
+                .getPoint(), localGraphVertex4.getPoint());
+              if (bool)
+                break;
+            }
+          }
+          if (!bool) {
+            localObject = localGraphVertex3;
+            f1 = f2;
+            localHEdge = localGraphVertex1.findBoundEdge();
+          }
+        }
+      }
+    }
+    
+
+    if (localHEdge != null) {
+      root = localHEdge;
+    }
+    
+    return localObject;
+  }
+  
+  private HEdge findClosestValidNeighbor(HEdge paramHEdge, boolean paramBoolean) {
+    HEdge localHEdge1 = root.getNext();
+    
+    if (!VectorUtil.ccw(root.getGraphPoint().getPoint(), localHEdge1.getGraphPoint().getPoint(), paramHEdge
+      .getGraphPoint().getPoint())) {
+      return null;
+    }
+    
+    HEdge localHEdge2 = paramHEdge;
+    boolean bool = false;
+    
+    if (paramBoolean) {
+      Vertex localVertex = localHEdge2.getGraphPoint().getPoint();
+      HEdge localHEdge3 = localHEdge2.getNext();
+      while (localHEdge3 != localHEdge2)
+        if ((localHEdge3.getGraphPoint() == root.getGraphPoint()) || 
+          (localHEdge3.getGraphPoint() == localHEdge1.getGraphPoint()) || 
+          (localHEdge3.getGraphPoint().getPoint() == localVertex)) {
+          localHEdge3 = localHEdge3.getNext();
+        }
+        else {
+          bool = VectorUtil.isInCircleVec2(root.getGraphPoint().getPoint(), localHEdge1.getGraphPoint().getPoint(), localVertex, localHEdge3
+            .getGraphPoint().getPoint());
+          if (bool) {
+            break;
+          }
+          localHEdge3 = localHEdge3.getNext();
+        }
+    }
+    if (!bool) {
+      return localHEdge2;
+    }
+    return null;
+  }
+  
+
+
+
+
+
+
+
+  private Triangle createTriangle(Vertex paramVertex1, Vertex paramVertex2, Vertex paramVertex3, HEdge paramHEdge)
+  {
+    return new Triangle(paramVertex1, paramVertex2, paramVertex3, checkVerticesBoundary(paramHEdge));
+  }
+  
+  private boolean[] checkVerticesBoundary(HEdge paramHEdge) {
+    boolean[] arrayOfBoolean = new boolean[3];
+    if (paramHEdge.getGraphPoint().isBoundaryContained()) {
+      arrayOfBoolean[0] = true;
+    }
+    if (paramHEdge.getNext().getGraphPoint().isBoundaryContained()) {
+      arrayOfBoolean[1] = true;
+    }
+    if (paramHEdge.getNext().getNext().getGraphPoint().isBoundaryContained()) {
+      arrayOfBoolean[2] = true;
+    }
+    return arrayOfBoolean;
+  }
+  
+  public boolean checkInside(Vertex paramVertex) {
+    if (!box.contains(paramVertex.getX(), paramVertex.getY(), paramVertex.getZ())) {
+      return false;
+    }
+    
+    boolean bool = false;
+    Object localObject = root;
+    HEdge localHEdge = root.getNext();
+    do {
+      Vertex localVertex1 = ((HEdge)localObject).getGraphPoint().getPoint();
+      Vertex localVertex2 = localHEdge.getGraphPoint().getPoint();
+      
+      if ((localVertex2.getY() > paramVertex.getY() ? 1 : 0) != (localVertex1.getY() > paramVertex.getY() ? 1 : 0)) {
+        if (paramVertex.getX() < (localVertex1.getX() - localVertex2.getX()) * (paramVertex.getY() - localVertex2.getY()) / (localVertex1.getY() - localVertex2.getY()) + localVertex2.getX()) {
+          bool = !bool;
+        }
+      }
+      localObject = localHEdge;
+      localHEdge = ((HEdge)localObject).getNext();
+    }
+    while (localObject != root);
+    
+    return bool;
+  }
+  
+  public int computeLoopSize() {
+    int i = 0;
+    HEdge localHEdge = root;
+    do {
+      i++;
+      localHEdge = localHEdge.getNext();
+    } while (localHEdge != root);
+    return i;
+  }
+}

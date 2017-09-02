@@ -1,0 +1,210 @@
+package jogamp.opengl.macosx.cgl;
+
+import com.jogamp.common.nio.PointerBuffer;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.DefaultGraphicsConfiguration;
+import com.jogamp.nativewindow.MutableSurface;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.util.GLBuffers;
+import java.io.PrintStream;
+import java.lang.ref.WeakReference;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class MacOSXPbufferCGLDrawable
+  extends MacOSXCGLDrawable
+{
+  protected GLBackendImpl impl;
+  protected int pBufferTexTarget;
+  protected int pBufferTexWidth;
+  protected int pBufferTexHeight;
+  
+  public MacOSXPbufferCGLDrawable(GLDrawableFactory paramGLDrawableFactory, NativeSurface paramNativeSurface)
+  {
+    super(paramGLDrawableFactory, paramNativeSurface, false);
+  }
+  
+  protected void setRealizedImpl()
+  {
+    if (realized) {
+      createPbuffer();
+    } else {
+      destroyPbuffer();
+    }
+  }
+  
+  public GLContext createContext(GLContext paramGLContext)
+  {
+    return new MacOSXCGLContext(this, paramGLContext);
+  }
+  
+  protected int getTextureTarget() { return pBufferTexTarget; }
+  protected int getTextureWidth() { return pBufferTexWidth; }
+  protected int getTextureHeight() { return pBufferTexHeight; }
+  
+  protected void destroyPbuffer() {
+    MutableSurface localMutableSurface = (MutableSurface)getNativeSurface();
+    long l = localMutableSurface.getSurfaceHandle();
+    if (0L != l) { int i;
+      synchronized (createdContexts) {
+        for (i = 0; i < createdContexts.size();) {
+          WeakReference localWeakReference = (WeakReference)createdContexts.get(i);
+          MacOSXCGLContext localMacOSXCGLContext = (MacOSXCGLContext)localWeakReference.get();
+          if (localMacOSXCGLContext != null) {
+            localMacOSXCGLContext.detachPBuffer();
+            i++;
+          } else {
+            createdContexts.remove(i);
+          }
+        }
+      }
+      impl.destroy(l);
+      localMutableSurface.setSurfaceHandle(0L);
+    }
+  }
+  
+  private void createPbuffer() {
+    MutableSurface localMutableSurface = (MutableSurface)getNativeSurface();
+    DefaultGraphicsConfiguration localDefaultGraphicsConfiguration = (DefaultGraphicsConfiguration)localMutableSurface.getGraphicsConfiguration();
+    MacOSXCGLDrawableFactory.SharedResource localSharedResource = ((MacOSXCGLDrawableFactory)factory).getOrCreateSharedResourceImpl(localDefaultGraphicsConfiguration.getScreen().getDevice());
+    
+    if (DEBUG) {
+      System.out.println(getThreadName() + ": Pbuffer config: " + localDefaultGraphicsConfiguration);
+      if (null != localSharedResource) {
+        System.out.println("Pbuffer NPOT Texure  avail: " + localSharedResource.isNPOTTextureAvailable());
+        System.out.println("Pbuffer RECT Texture avail: " + localSharedResource.isRECTTextureAvailable());
+      } else {
+        System.out.println("Pbuffer no sr, no RECT/NPOT Texture avail");
+      }
+    }
+    
+    pBufferTexTarget = 3553;
+    if ((null != localSharedResource) && (localSharedResource.isNPOTTextureAvailable())) {
+      pBufferTexWidth = getSurfaceWidth();
+      pBufferTexHeight = getSurfaceHeight();
+    } else {
+      pBufferTexWidth = GLBuffers.getNextPowerOf2(getSurfaceWidth());
+      pBufferTexHeight = GLBuffers.getNextPowerOf2(getSurfaceHeight());
+    }
+    
+
+    long l = impl.create(pBufferTexTarget, 6408, getSurfaceWidth(), getSurfaceHeight());
+    if (DEBUG) {
+      System.err.println("MacOSXPbufferCGLDrawable tex: target " + toHexString(pBufferTexTarget) + ", pbufferSize " + 
+        getSurfaceWidth() + "x" + getSurfaceHeight() + ", texSize " + pBufferTexWidth + "x" + pBufferTexHeight + ", internal-fmt " + 
+        
+        toHexString(6408L));
+      System.err.println("MacOSXPbufferCGLDrawable pBuffer: " + toHexString(l));
+    }
+    
+    if (l == 0L) {
+      throw new GLException("pbuffer creation error: CGL.createPBuffer() failed");
+    }
+    
+    localMutableSurface.setSurfaceHandle(l);
+  }
+  
+  public void setOpenGLMode(MacOSXCGLDrawable.GLBackendType paramGLBackendType)
+  {
+    super.setOpenGLMode(paramGLBackendType);
+    createPbuffer();
+  }
+  
+  protected void initOpenGLImpl(MacOSXCGLDrawable.GLBackendType paramGLBackendType)
+  {
+    switch (1.$SwitchMap$jogamp$opengl$macosx$cgl$MacOSXCGLDrawable$GLBackendType[paramGLBackendType.ordinal()]) {
+    case 1: 
+      impl = new NSOpenGLImpl();
+      break;
+    case 2: 
+      impl = new CGLImpl();
+      break;
+    default: 
+      throw new InternalError("Illegal implementation mode " + paramGLBackendType); } }
+  
+  static abstract interface GLBackendImpl { public abstract long create(int paramInt1, int paramInt2, int paramInt3, int paramInt4);
+    
+    public abstract void destroy(long paramLong); }
+  
+  static class NSOpenGLImpl implements MacOSXPbufferCGLDrawable.GLBackendImpl { NSOpenGLImpl() {}
+    
+    public long create(int paramInt1, int paramInt2, int paramInt3, int paramInt4) { return CGL.createPBuffer(paramInt1, paramInt2, paramInt3, paramInt4); }
+    
+
+    public void destroy(long paramLong)
+    {
+      CGL.destroyPBuffer(paramLong);
+    }
+  }
+  
+  static class CGLImpl implements MacOSXPbufferCGLDrawable.GLBackendImpl {
+    CGLImpl() {}
+    
+    public long create(int paramInt1, int paramInt2, int paramInt3, int paramInt4) {
+      PointerBuffer localPointerBuffer = PointerBuffer.allocateDirect(1);
+      int i = CGL.CGLCreatePBuffer(paramInt3, paramInt4, paramInt1, paramInt2, 0, localPointerBuffer);
+      if (i != 0) {
+        throw new GLException("Error creating CGL-based pbuffer: error code " + i);
+      }
+      return localPointerBuffer.get(0);
+    }
+    
+    public void destroy(long paramLong)
+    {
+      int i = CGL.CGLDestroyPBuffer(paramLong);
+      if (i != 0) {
+        throw new GLException("Error destroying CGL-based pbuffer: error code " + i);
+      }
+    }
+  }
+}

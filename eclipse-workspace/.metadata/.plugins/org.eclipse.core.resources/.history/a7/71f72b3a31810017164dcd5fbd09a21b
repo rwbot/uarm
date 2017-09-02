@@ -1,0 +1,1272 @@
+package jogamp.opengl.util.glsl.fixedfunc;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.util.IntIntHashMap;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.GLArrayData;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLES2;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLRunnable2;
+import com.jogamp.opengl.GLUniformData;
+import com.jogamp.opengl.fixedfunc.GLPointerFuncUtil;
+import com.jogamp.opengl.util.PMVMatrix;
+import com.jogamp.opengl.util.glsl.ShaderCode;
+import com.jogamp.opengl.util.glsl.ShaderProgram;
+import com.jogamp.opengl.util.glsl.ShaderState;
+import com.jogamp.opengl.util.glsl.fixedfunc.ShaderSelectionMode;
+import java.io.PrintStream;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import java.nio.ShortBuffer;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class FixedFuncPipeline
+{
+  protected static final boolean DEBUG = PropertyAccess.isPropertyDefined("jogl.debug.FixedFuncPipeline", true);
+  
+  public static final int MAX_TEXTURE_UNITS = 8;
+  
+  public static final int MAX_LIGHTS = 8;
+  
+  public FixedFuncPipeline(GL2ES2 paramGL2ES2, ShaderSelectionMode paramShaderSelectionMode, PMVMatrix paramPMVMatrix)
+  {
+    shaderRootClass = FixedFuncPipeline.class;
+    shaderSrcRoot = "shaders";
+    shaderBinRoot = "shaders/bin";
+    vertexColorFile = "FixedFuncColor";
+    vertexColorLightFile = "FixedFuncColorLight";
+    fragmentColorFile = "FixedFuncColor";
+    fragmentColorTextureFile = "FixedFuncColorTexture";
+    init(paramGL2ES2, paramShaderSelectionMode, paramPMVMatrix);
+  }
+  
+
+
+  public FixedFuncPipeline(GL2ES2 paramGL2ES2, ShaderSelectionMode paramShaderSelectionMode, PMVMatrix paramPMVMatrix, Class<?> paramClass, String paramString1, String paramString2, String paramString3, String paramString4, String paramString5, String paramString6)
+  {
+    shaderRootClass = paramClass;
+    shaderSrcRoot = paramString1;
+    shaderBinRoot = paramString2;
+    vertexColorFile = paramString3;
+    vertexColorLightFile = paramString4;
+    fragmentColorFile = paramString5;
+    fragmentColorTextureFile = paramString6;
+    init(paramGL2ES2, paramShaderSelectionMode, paramPMVMatrix);
+  }
+  
+  public ShaderSelectionMode getShaderSelectionMode() { return requestedShaderSelectionMode; }
+  public void setShaderSelectionMode(ShaderSelectionMode paramShaderSelectionMode) { requestedShaderSelectionMode = paramShaderSelectionMode; }
+  public ShaderSelectionMode getCurrentShaderSelectionMode() { return currentShaderSelectionMode; }
+  
+  public boolean verbose() { return verbose; }
+  
+  public void setVerbose(boolean paramBoolean) { verbose = ((DEBUG) || (paramBoolean)); }
+  
+  public boolean isValid() {
+    return shaderState.linked();
+  }
+  
+  public ShaderState getShaderState() {
+    return shaderState;
+  }
+  
+  public int getActiveTextureUnit() {
+    return activeTextureUnit;
+  }
+  
+  public void destroy(GL2ES2 paramGL2ES2) {
+    if (null != shaderProgramColor) {
+      shaderProgramColor.release(paramGL2ES2, true);
+    }
+    if (null != shaderProgramColorLight) {
+      shaderProgramColorLight.release(paramGL2ES2, true);
+    }
+    if (null != shaderProgramColorTexture2) {
+      shaderProgramColorTexture2.release(paramGL2ES2, true);
+    }
+    if (null != shaderProgramColorTexture4) {
+      shaderProgramColorTexture4.release(paramGL2ES2, true);
+    }
+    if (null != shaderProgramColorTexture4) {
+      shaderProgramColorTexture4.release(paramGL2ES2, true);
+    }
+    if (null != shaderProgramColorTexture8Light) {
+      shaderProgramColorTexture8Light.release(paramGL2ES2, true);
+    }
+    shaderState.destroy(paramGL2ES2);
+  }
+  
+
+
+  public void glColor4f(GL2ES2 paramGL2ES2, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    colorStatic.put(0, paramFloat1);
+    colorStatic.put(1, paramFloat2);
+    colorStatic.put(2, paramFloat3);
+    colorStatic.put(3, paramFloat4);
+    
+    shaderState.useProgram(paramGL2ES2, true);
+    GLUniformData localGLUniformData = shaderState.getUniform("mgl_ColorStatic");
+    if (null != localGLUniformData)
+    {
+      shaderState.uniform(paramGL2ES2, localGLUniformData);
+    } else {
+      throw new GLException("Failed to update: mgl_ColorStatic");
+    }
+  }
+  
+
+
+
+  public void glEnableClientState(GL2ES2 paramGL2ES2, int paramInt)
+  {
+    glToggleClientState(paramGL2ES2, paramInt, true);
+  }
+  
+  public void glDisableClientState(GL2ES2 paramGL2ES2, int paramInt) {
+    glToggleClientState(paramGL2ES2, paramInt, false);
+  }
+  
+  private void glToggleClientState(GL2ES2 paramGL2ES2, int paramInt, boolean paramBoolean) {
+    String str = GLPointerFuncUtil.getPredefinedArrayIndexName(paramInt, clientActiveTextureUnit);
+    if (null == str) {
+      throw new GLException("arrayIndex " + toHexString(paramInt) + " unknown");
+    }
+    shaderState.useProgram(paramGL2ES2, true);
+    if (paramBoolean) {
+      shaderState.enableVertexAttribArray(paramGL2ES2, str);
+    } else {
+      shaderState.disableVertexAttribArray(paramGL2ES2, str);
+    }
+    switch (paramInt) {
+    case 32888: 
+      int i = paramBoolean ? 1 : 0;
+      
+
+      if (textureCoordEnabled.get(clientActiveTextureUnit) != i) {
+        textureCoordEnabled.put(clientActiveTextureUnit, i);
+        textureCoordEnabledDirty = true;
+      }
+      break;
+    case 32886: 
+      colorVAEnabledDirty = true;
+    }
+  }
+  
+  public void glVertexPointer(GL2ES2 paramGL2ES2, GLArrayData paramGLArrayData)
+  {
+    shaderState.useProgram(paramGL2ES2, true);
+    shaderState.vertexAttribPointer(paramGL2ES2, paramGLArrayData);
+  }
+  
+  public void glColorPointer(GL2ES2 paramGL2ES2, GLArrayData paramGLArrayData) {
+    shaderState.useProgram(paramGL2ES2, true);
+    shaderState.vertexAttribPointer(paramGL2ES2, paramGLArrayData);
+  }
+  
+  public void glNormalPointer(GL2ES2 paramGL2ES2, GLArrayData paramGLArrayData) {
+    shaderState.useProgram(paramGL2ES2, true);
+    shaderState.vertexAttribPointer(paramGL2ES2, paramGLArrayData);
+  }
+  
+
+
+
+
+  private boolean glEnableTexture(boolean paramBoolean, int paramInt)
+  {
+    boolean bool = 0 != (textureEnabledBits & 1 << activeTextureUnit);
+    if (bool != paramBoolean) {
+      if (paramBoolean) {
+        textureEnabledBits |= 1 << paramInt;
+        textureEnabled.put(paramInt, 1);
+      } else {
+        textureEnabledBits &= (1 << paramInt ^ 0xFFFFFFFF);
+        textureEnabled.put(paramInt, 0);
+      }
+      textureEnabledDirty = true;
+    }
+    return bool;
+  }
+  
+  public void glClientActiveTexture(int paramInt) {
+    paramInt -= 33984;
+    if ((0 <= paramInt) && (paramInt < 8)) {
+      clientActiveTextureUnit = paramInt;
+    } else {
+      throw new GLException("glClientActiveTexture textureUnit not within GL_TEXTURE0 + [0..8]: " + paramInt);
+    }
+  }
+  
+  public void glActiveTexture(int paramInt) {
+    paramInt -= 33984;
+    if ((0 <= paramInt) && (paramInt < 8)) {
+      activeTextureUnit = paramInt;
+    } else {
+      throw new GLException("glActivateTexture textureUnit not within GL_TEXTURE0 + [0..8]: " + paramInt);
+    }
+  }
+  
+  public void glTexCoordPointer(GL2ES2 paramGL2ES2, GLArrayData paramGLArrayData) {
+    if (32888 != paramGLArrayData.getIndex()) {
+      throw new GLException("Invalid GLArrayData Index " + toHexString(paramGLArrayData.getIndex()) + ", " + paramGLArrayData);
+    }
+    shaderState.useProgram(paramGL2ES2, true);
+    paramGLArrayData.setName(GLPointerFuncUtil.getPredefinedArrayIndexName(paramGLArrayData.getIndex(), clientActiveTextureUnit));
+    shaderState.vertexAttribPointer(paramGL2ES2, paramGLArrayData);
+  }
+  
+  public void glBindTexture(int paramInt1, int paramInt2) {
+    if (3553 == paramInt1) {
+      if (paramInt2 != boundTextureObject[activeTextureUnit]) {
+        boundTextureObject[activeTextureUnit] = paramInt2;
+        textureFormatDirty = true;
+      }
+    } else {
+      System.err.println("FixedFuncPipeline: Unimplemented glBindTexture for target " + toHexString(paramInt1) + ". Texture name " + toHexString(paramInt2));
+    }
+  }
+  
+
+  public void glTexImage2D(int paramInt1, int paramInt2, int paramInt3)
+  {
+    if (3553 == paramInt1) { int i;
+      switch (paramInt2) {
+      case 3: 
+      case 6407: 
+      case 32849: 
+      case 32850: 
+      case 36194: 
+        i = 3;
+        break;
+      case 4: 
+      case 6408: 
+      case 32854: 
+      case 32855: 
+      case 32856: 
+      case 32857: 
+        i = 4;
+        break;
+      default: 
+        System.err.println("FixedFuncPipeline: glTexImage2D TEXTURE_2D: Unimplemented internalformat " + toHexString(paramInt2));
+        i = 4;
+      }
+      
+      if (i != texID2Format.put(boundTextureObject[activeTextureUnit], i)) {
+        textureFormatDirty = true;
+      }
+    }
+    else {
+      System.err.println("FixedFuncPipeline: Unimplemented glTexImage2D: target " + toHexString(paramInt1) + ", internalformat " + toHexString(paramInt2));
+    }
+  }
+  
+
+
+
+
+
+  public void glTexEnvi(int paramInt1, int paramInt2, int paramInt3)
+  {
+    if ((8960 == paramInt1) && (8704 == paramInt2)) {
+      int i;
+      switch (paramInt3) {
+      case 260: 
+        i = 1;
+        break;
+      case 8448: 
+        i = 2;
+        break;
+      case 8449: 
+        i = 3;
+        break;
+      case 3042: 
+        i = 4;
+        break;
+      case 7681: 
+        i = 5;
+        break;
+      case 34160: 
+        i = 2;
+        System.err.println("FixedFuncPipeline: glTexEnv GL_TEXTURE_ENV_MODE: unimplemented mode: " + toHexString(paramInt3));
+        break;
+      default: 
+        throw new GLException("glTexEnv GL_TEXTURE_ENV_MODE: invalid mode: " + toHexString(paramInt3));
+      }
+      setTextureEnvMode(i);
+    } else if (verbose) {
+      System.err.println("FixedFuncPipeline: Unimplemented TexEnv: target " + toHexString(paramInt1) + ", pname " + toHexString(paramInt2) + ", mode: " + toHexString(paramInt3));
+    }
+  }
+  
+  private void setTextureEnvMode(int paramInt) { if (paramInt != textureEnvMode.get(activeTextureUnit)) {
+      textureEnvMode.put(activeTextureUnit, paramInt);
+      textureEnvModeDirty = true;
+    }
+  }
+  
+  public void glGetTexEnviv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer) { System.err.println("FixedFuncPipeline: Unimplemented glGetTexEnviv: target " + toHexString(paramInt1) + ", pname " + toHexString(paramInt2)); }
+  
+  public void glGetTexEnviv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3) {
+    System.err.println("FixedFuncPipeline: Unimplemented glGetTexEnviv: target " + toHexString(paramInt1) + ", pname " + toHexString(paramInt2));
+  }
+  
+
+
+  public void glPointSize(float paramFloat)
+  {
+    pointParams.put(0, paramFloat);
+    pointParamsDirty = true;
+  }
+  
+  public void glPointParameterf(int paramInt, float paramFloat) { switch (paramInt) {
+    case 33062: 
+      pointParams.put(2, paramFloat);
+      break;
+    case 33063: 
+      pointParams.put(3, paramFloat);
+      break;
+    case 33064: 
+      pointParams.put(7, paramFloat);
+    }
+    
+    pointParamsDirty = true;
+  }
+  
+  public void glPointParameterfv(int paramInt1, float[] paramArrayOfFloat, int paramInt2) { switch (paramInt1) {
+    case 33065: 
+      pointParams.put(4, paramArrayOfFloat[(paramInt2 + 0)]);
+      pointParams.put(5, paramArrayOfFloat[(paramInt2 + 1)]);
+      pointParams.put(6, paramArrayOfFloat[(paramInt2 + 2)]);
+    }
+    
+    pointParamsDirty = true;
+  }
+  
+  public void glPointParameterfv(int paramInt, FloatBuffer paramFloatBuffer) { int i = paramFloatBuffer.position();
+    switch (paramInt) {
+    case 33065: 
+      pointParams.put(4, paramFloatBuffer.get(i + 0));
+      pointParams.put(5, paramFloatBuffer.get(i + 1));
+      pointParams.put(6, paramFloatBuffer.get(i + 2));
+    }
+    
+    pointParamsDirty = true;
+  }
+  
+
+  private void glDrawPoints(GL2ES2 paramGL2ES2, GLRunnable2<Object, Object> paramGLRunnable2, Object paramObject)
+  {
+    if (paramGL2ES2.isGL2GL3()) {
+      paramGL2ES2.glEnable(34370);
+    }
+    if (paramGL2ES2.isGL2ES1()) {
+      paramGL2ES2.glEnable(34913);
+    }
+    loadShaderPoints(paramGL2ES2);
+    shaderState.attachShaderProgram(paramGL2ES2, shaderProgramPoints, true);
+    validate(paramGL2ES2, false);
+    
+    paramGLRunnable2.run(paramGL2ES2, paramObject);
+    
+    if (paramGL2ES2.isGL2ES1()) {
+      paramGL2ES2.glDisable(34913);
+    }
+    if (paramGL2ES2.isGL2GL3()) {
+      paramGL2ES2.glDisable(34370);
+    }
+    shaderState.attachShaderProgram(paramGL2ES2, selectShaderProgram(paramGL2ES2, currentShaderSelectionMode), true); }
+  
+  private static final GLRunnable2<Object, Object> glDrawArraysAction = new GLRunnable2()
+  {
+    public Object run(GL paramAnonymousGL, Object paramAnonymousObject) {
+      int[] arrayOfInt = (int[])paramAnonymousObject;
+      paramAnonymousGL.glDrawArrays(0, arrayOfInt[0], arrayOfInt[1]);
+      return null; } };
+  private static final String constMaxTextures0 = "#define MAX_TEXTURE_UNITS 0\n";
+  private static final String constMaxTextures2 = "#define MAX_TEXTURE_UNITS 2\n";
+  
+  private final void glDrawPointArrays(GL2ES2 paramGL2ES2, int paramInt1, int paramInt2) { glDrawPoints(paramGL2ES2, glDrawArraysAction, new int[] { paramInt1, paramInt2 }); }
+  
+
+
+
+
+  public void glLightfv(GL2ES2 paramGL2ES2, int paramInt1, int paramInt2, FloatBuffer paramFloatBuffer)
+  {
+    shaderState.useProgram(paramGL2ES2, true);
+    paramInt1 -= 16384;
+    if ((0 <= paramInt1) && (paramInt1 < 8)) {
+      GLUniformData localGLUniformData = null;
+      switch (paramInt2) {
+      case 4608: 
+        localGLUniformData = shaderState.getUniform("mgl_LightSource[" + paramInt1 + "].ambient");
+        break;
+      case 4609: 
+        localGLUniformData = shaderState.getUniform("mgl_LightSource[" + paramInt1 + "].diffuse");
+        break;
+      case 4610: 
+        localGLUniformData = shaderState.getUniform("mgl_LightSource[" + paramInt1 + "].specular");
+        break;
+      case 4611: 
+        localGLUniformData = shaderState.getUniform("mgl_LightSource[" + paramInt1 + "].position");
+        break;
+      case 4612: 
+        localGLUniformData = shaderState.getUniform("mgl_LightSource[" + paramInt1 + "].spotDirection");
+        break;
+      case 4613: 
+        localGLUniformData = shaderState.getUniform("mgl_LightSource[" + paramInt1 + "].spotExponent");
+        break;
+      case 4614: 
+        localGLUniformData = shaderState.getUniform("mgl_LightSource[" + paramInt1 + "].spotCutoff");
+        break;
+      case 4615: 
+        localGLUniformData = shaderState.getUniform("mgl_LightSource[" + paramInt1 + "].constantAttenuation");
+        break;
+      case 4616: 
+        localGLUniformData = shaderState.getUniform("mgl_LightSource[" + paramInt1 + "].linearAttenuation");
+        break;
+      case 4617: 
+        localGLUniformData = shaderState.getUniform("mgl_LightSource[" + paramInt1 + "].quadraticAttenuation");
+        break;
+      default: 
+        throw new GLException("glLightfv invalid pname: " + toHexString(paramInt2));
+      }
+      if (null != localGLUniformData) {
+        localGLUniformData.setData(paramFloatBuffer);
+        shaderState.uniform(paramGL2ES2, localGLUniformData);
+      }
+    } else {
+      throw new GLException("glLightfv light not within [0..8]: " + paramInt1);
+    }
+  }
+  
+  public void glMaterialfv(GL2ES2 paramGL2ES2, int paramInt1, int paramInt2, FloatBuffer paramFloatBuffer) {
+    shaderState.useProgram(paramGL2ES2, true);
+    
+    switch (paramInt1) {
+    case 1028: 
+    case 1032: 
+      break;
+    case 1029: 
+      System.err.println("FixedFuncPipeline: Unimplemented glMaterialfv GL_BACK face");
+      return;
+    }
+    
+    
+    GLUniformData localGLUniformData = null;
+    switch (paramInt2) {
+    case 4608: 
+      localGLUniformData = shaderState.getUniform("mgl_FrontMaterial.ambient");
+      break;
+    
+    case 5634: 
+      localGLUniformData = shaderState.getUniform("mgl_FrontMaterial.ambient");
+      if (null != localGLUniformData) {
+        localGLUniformData.setData(paramFloatBuffer);
+        shaderState.uniform(paramGL2ES2, localGLUniformData);
+      }
+    
+
+    case 4609: 
+      localGLUniformData = shaderState.getUniform("mgl_FrontMaterial.diffuse");
+      break;
+    case 4610: 
+      localGLUniformData = shaderState.getUniform("mgl_FrontMaterial.specular");
+      break;
+    case 5632: 
+      localGLUniformData = shaderState.getUniform("mgl_FrontMaterial.emission");
+      break;
+    case 5633: 
+      localGLUniformData = shaderState.getUniform("mgl_FrontMaterial.shininess");
+      break;
+    }
+    throw new GLException("glMaterialfv invalid pname: " + toHexString(paramInt2));
+    
+    if (null != localGLUniformData) {
+      localGLUniformData.setData(paramFloatBuffer);
+      shaderState.uniform(paramGL2ES2, localGLUniformData);
+    } else if (!verbose) {}
+  }
+  
+
+
+
+
+
+  public void glShadeModel(GL2ES2 paramGL2ES2, int paramInt)
+  {
+    shaderState.useProgram(paramGL2ES2, true);
+    GLUniformData localGLUniformData = shaderState.getUniform("mgl_ShadeModel");
+    if (null != localGLUniformData) {
+      localGLUniformData.setData(paramInt);
+      shaderState.uniform(paramGL2ES2, localGLUniformData);
+    }
+  }
+  
+
+
+
+
+
+
+  private static final String constMaxTextures4 = "#define MAX_TEXTURE_UNITS 4\n";
+  
+
+
+
+
+
+  private static final String constMaxTextures8 = "#define MAX_TEXTURE_UNITS 8\n";
+  
+
+
+
+
+
+  public void glAlphaFunc(int paramInt, float paramFloat)
+  {
+    int i;
+    
+
+
+
+
+
+    switch (paramInt) {
+    case 512: 
+      i = 1;
+      break;
+    case 513: 
+      i = 2;
+      break;
+    case 514: 
+      i = 3;
+      break;
+    case 515: 
+      i = 4;
+      break;
+    case 516: 
+      i = 5;
+      break;
+    case 517: 
+      i = 6;
+      break;
+    case 518: 
+      i = 7;
+      break;
+    case 519: 
+      i = 8;
+      break;
+    default: 
+      throw new GLException("glAlphaFunc invalid func: " + toHexString(paramInt));
+    }
+    if (0 < i) {
+      if (0 > alphaTestFunc) {
+        i *= -1;
+      }
+      if ((alphaTestFunc != i) || (alphaTestRef != paramFloat)) {
+        alphaTestFunc = i;
+        alphaTestRef = paramFloat;
+        alphaTestDirty = true;
+      }
+    }
+  }
+  
+
+
+
+
+  public boolean glEnable(int paramInt, boolean paramBoolean)
+  {
+    switch (paramInt) {
+    case 2929: 
+    case 2960: 
+    case 3024: 
+    case 3042: 
+    case 3089: 
+    case 32823: 
+    case 32926: 
+    case 32928: 
+      return true;
+    
+
+
+
+
+
+
+
+
+
+
+
+    case 2884: 
+      return true;
+    
+    case 3553: 
+      glEnableTexture(paramBoolean, activeTextureUnit);
+      return false;
+    
+    case 2896: 
+      lightingEnabled = paramBoolean;
+      return false;
+    
+
+    case 3008: 
+      if (((0 > alphaTestFunc) && (paramBoolean)) || ((0 < alphaTestFunc) && (!paramBoolean))) {
+        i = alphaTestFunc * -1;
+      } else {
+        i = alphaTestFunc;
+      }
+      if (i != alphaTestFunc) {
+        alphaTestDirty = true;
+        alphaTestFunc = i;
+      }
+      return false;
+    
+    case 2832: 
+      pointParams.put(1, paramBoolean ? 1.0F : 0.0F);
+      pointParamsDirty = true;
+      return false;
+    
+
+    case 34913: 
+      return false;
+    }
+    
+    int i = paramInt - 16384;
+    if ((0 <= i) && (i < 8)) {
+      if ((lightsEnabled.get(i) == 1) != paramBoolean) {
+        lightsEnabled.put(i, paramBoolean ? 1 : 0);
+        lightsEnabledDirty = true;
+        return false;
+      }
+    }
+    System.err.println("FixedFunctionPipeline: " + (paramBoolean ? "glEnable" : "glDisable") + " " + toHexString(paramInt) + " not handled in emulation and not supported in ES2");
+    return false;
+  }
+  
+
+
+
+  public void glDrawArrays(GL2ES2 paramGL2ES2, int paramInt1, int paramInt2, int paramInt3)
+  {
+    switch (paramInt1) {
+    case 8: 
+      paramInt1 = 5;
+      break;
+    case 9: 
+      paramInt1 = 6;
+      break;
+    case 0: 
+      glDrawPointArrays(paramGL2ES2, paramInt2, paramInt3);
+      return;
+    }
+    validate(paramGL2ES2, true);
+    if ((7 == paramInt1) && (!paramGL2ES2.isGL2())) {
+      for (int i = paramInt2; i < paramInt3 - 3; i += 4) {
+        paramGL2ES2.glDrawArrays(6, i, 4);
+      }
+    } else
+      paramGL2ES2.glDrawArrays(paramInt1, paramInt2, paramInt3);
+  }
+  
+  public void glDrawElements(GL2ES2 paramGL2ES2, int paramInt1, int paramInt2, int paramInt3, Buffer paramBuffer) {
+    validate(paramGL2ES2, true);
+    if ((7 == paramInt1) && (!paramGL2ES2.isGL2())) {
+      int i = paramBuffer.position();
+      Object localObject;
+      int j; if (5121 == paramInt3) {
+        localObject = (ByteBuffer)paramBuffer;
+        for (j = 0; j < paramInt2; j++) {
+          paramGL2ES2.glDrawArrays(6, 0xFF & ((ByteBuffer)localObject).get(i + j), 4);
+        }
+      } else if (5123 == paramInt3) {
+        localObject = (ShortBuffer)paramBuffer;
+        for (j = 0; j < paramInt2; j++) {
+          paramGL2ES2.glDrawArrays(6, 0xFFFF & ((ShortBuffer)localObject).get(i + j), 4);
+        }
+      } else {
+        localObject = (IntBuffer)paramBuffer;
+        for (j = 0; j < paramInt2; j++) {
+          paramGL2ES2.glDrawArrays(6, 0xFFFFFFFF & ((IntBuffer)localObject).get(i + j), 4);
+        }
+      }
+    }
+    else {
+      if (!paramGL2ES2.getContext().isCPUDataSourcingAvail()) {
+        throw new GLException("CPU data sourcing n/a w/ " + paramGL2ES2.getContext());
+      }
+      
+      ((GLES2)paramGL2ES2).glDrawElements(paramInt1, paramInt2, paramInt3, paramBuffer);
+    }
+  }
+  
+
+
+  public void glDrawElements(GL2ES2 paramGL2ES2, int paramInt1, int paramInt2, int paramInt3, long paramLong)
+  {
+    validate(paramGL2ES2, true);
+    if ((7 == paramInt1) && (!paramGL2ES2.isGL2())) {
+      throw new GLException("Cannot handle indexed QUADS on !GL2 w/ VBO due to lack of CPU index access");
+    }
+    paramGL2ES2.glDrawElements(paramInt1, paramInt2, paramInt3, paramLong);
+  }
+  
+
+
+
+  private final int textureEnabledCount()
+  {
+    int i = 0;
+    for (int j = 7; j >= 0; j--) {
+      if (0 != textureEnabled.get(j)) {
+        i++;
+      }
+    }
+    return i;
+  }
+  
+  public void validate(GL2ES2 paramGL2ES2, boolean paramBoolean) { Object localObject;
+    if (paramBoolean) {
+      if (ShaderSelectionMode.AUTO == requestedShaderSelectionMode)
+      {
+
+
+        if (0 != textureEnabledBits) {
+          if (lightingEnabled) {
+            localObject = ShaderSelectionMode.COLOR_TEXTURE8_LIGHT_PER_VERTEX;
+          } else {
+            int i = textureEnabledCount();
+            if (4 < i) {
+              localObject = ShaderSelectionMode.COLOR_TEXTURE8;
+            } else if (2 < i) {
+              localObject = ShaderSelectionMode.COLOR_TEXTURE4;
+            } else {
+              localObject = ShaderSelectionMode.COLOR_TEXTURE2;
+            }
+          }
+        }
+        else if (lightingEnabled) {
+          localObject = ShaderSelectionMode.COLOR_LIGHT_PER_VERTEX;
+        } else {
+          localObject = ShaderSelectionMode.COLOR;
+        }
+        
+        shaderState.attachShaderProgram(paramGL2ES2, selectShaderProgram(paramGL2ES2, (ShaderSelectionMode)localObject), true);
+      } else {
+        shaderState.useProgram(paramGL2ES2, true);
+      }
+    }
+    
+
+    if (pmvMatrix.update()) {
+      localObject = shaderState.getUniform("mgl_PMVMatrix");
+      if (null != localObject) {
+        FloatBuffer localFloatBuffer;
+        if ((ShaderSelectionMode.COLOR_TEXTURE8_LIGHT_PER_VERTEX == currentShaderSelectionMode) || (ShaderSelectionMode.COLOR_LIGHT_PER_VERTEX == currentShaderSelectionMode))
+        {
+          localFloatBuffer = pmvMatrix.glGetPMvMvitMatrixf();
+        } else {
+          localFloatBuffer = pmvMatrix.glGetPMvMatrixf();
+        }
+        if (localFloatBuffer != ((GLUniformData)localObject).getBuffer()) {
+          ((GLUniformData)localObject).setData(localFloatBuffer);
+        }
+        
+        shaderState.uniform(paramGL2ES2, (GLUniformData)localObject);
+      } else {
+        throw new GLException("Failed to update: mgl_PMVMatrix");
+      } }
+    int j;
+    if (colorVAEnabledDirty) {
+      localObject = shaderState.getUniform("mgl_ColorEnabled");
+      if (null != localObject) {
+        j = true == shaderState.isVertexAttribArrayEnabled("mgl_Color") ? 1 : 0;
+        if (j != ((GLUniformData)localObject).intValue()) {
+          ((GLUniformData)localObject).setData(j);
+          shaderState.uniform(paramGL2ES2, (GLUniformData)localObject);
+        }
+      } else {
+        throw new GLException("Failed to update: mgl_ColorEnabled");
+      }
+      colorVAEnabledDirty = false;
+    }
+    
+
+
+
+
+
+
+
+
+
+    if (alphaTestDirty) {
+      localObject = shaderState.getUniform("mgl_AlphaTestFunc");
+      if (null != localObject) {
+        ((GLUniformData)localObject).setData(alphaTestFunc);
+        shaderState.uniform(paramGL2ES2, (GLUniformData)localObject);
+      }
+      localObject = shaderState.getUniform("mgl_AlphaTestRef");
+      if (null != localObject) {
+        ((GLUniformData)localObject).setData(alphaTestRef);
+        shaderState.uniform(paramGL2ES2, (GLUniformData)localObject);
+      }
+      alphaTestDirty = false;
+    }
+    if (pointParamsDirty) {
+      localObject = shaderState.getUniform("mgl_PointParams");
+      if (null != localObject)
+      {
+        shaderState.uniform(paramGL2ES2, (GLUniformData)localObject);
+      }
+      pointParamsDirty = false;
+    }
+    
+    if (lightsEnabledDirty) {
+      localObject = shaderState.getUniform("mgl_LightsEnabled");
+      if (null != localObject)
+      {
+        shaderState.uniform(paramGL2ES2, (GLUniformData)localObject);
+      }
+      lightsEnabledDirty = false;
+    }
+    
+    if (textureCoordEnabledDirty) {
+      localObject = shaderState.getUniform("mgl_TexCoordEnabled");
+      if (null != localObject)
+      {
+        shaderState.uniform(paramGL2ES2, (GLUniformData)localObject);
+      }
+      textureCoordEnabledDirty = false;
+    }
+    
+    if (textureEnvModeDirty) {
+      localObject = shaderState.getUniform("mgl_TexEnvMode");
+      if (null != localObject)
+      {
+        shaderState.uniform(paramGL2ES2, (GLUniformData)localObject);
+      }
+      textureEnvModeDirty = false;
+    }
+    
+    if (textureFormatDirty) {
+      for (j = 0; j < 8; j++) {
+        textureFormat.put(j, texID2Format.get(boundTextureObject[j]));
+      }
+      localObject = shaderState.getUniform("mgl_TexFormat");
+      if (null != localObject)
+      {
+        shaderState.uniform(paramGL2ES2, (GLUniformData)localObject);
+      }
+      textureFormatDirty = false;
+    }
+    if (textureEnabledDirty) {
+      localObject = shaderState.getUniform("mgl_TextureEnabled");
+      if (null != localObject)
+      {
+        shaderState.uniform(paramGL2ES2, (GLUniformData)localObject);
+      }
+      textureEnabledDirty = false;
+    }
+    
+    if (verbose) {
+      System.err.println("validate: " + toString(null, DEBUG).toString());
+    }
+  }
+  
+  public StringBuilder toString(StringBuilder paramStringBuilder, boolean paramBoolean) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    paramStringBuilder.append("FixedFuncPipeline[");
+    paramStringBuilder.append(", textureEnabled: " + toHexString(textureEnabledBits) + ", ");Buffers.toString(paramStringBuilder, null, textureEnabled);
+    paramStringBuilder.append("\n\t, textureCoordEnabled: ");Buffers.toString(paramStringBuilder, null, textureCoordEnabled);
+    paramStringBuilder.append("\n\t lightingEnabled: " + lightingEnabled);
+    paramStringBuilder.append(", lightsEnabled: ");Buffers.toString(paramStringBuilder, null, lightsEnabled);
+    paramStringBuilder.append("\n\t, shaderProgramColor: " + shaderProgramColor);
+    paramStringBuilder.append("\n\t, shaderProgramColorTexture2: " + shaderProgramColorTexture2);
+    paramStringBuilder.append("\n\t, shaderProgramColorTexture4: " + shaderProgramColorTexture4);
+    paramStringBuilder.append("\n\t, shaderProgramColorTexture8: " + shaderProgramColorTexture8);
+    paramStringBuilder.append("\n\t, shaderProgramColorLight: " + shaderProgramColorLight);
+    paramStringBuilder.append("\n\t, shaderProgramColorTexture8Light: " + shaderProgramColorTexture8Light);
+    paramStringBuilder.append("\n\t, ShaderState: ");
+    shaderState.toString(paramStringBuilder, paramBoolean);
+    paramStringBuilder.append("]");
+    return paramStringBuilder;
+  }
+  
+  public String toString() {
+    return toString(null, DEBUG).toString();
+  }
+  
+
+
+
+
+  private final void customizeShader(GL2ES2 paramGL2ES2, ShaderCode paramShaderCode1, ShaderCode paramShaderCode2, String paramString)
+  {
+    int i = paramShaderCode1.defaultShaderCustomization(paramGL2ES2, true, true);
+    int j = paramShaderCode2.defaultShaderCustomization(paramGL2ES2, true, true);
+    paramShaderCode1.insertShaderSource(0, i, paramString);
+    paramShaderCode2.insertShaderSource(0, j, paramString);
+  }
+  
+  private final void loadShaderPoints(GL2ES2 paramGL2ES2) {
+    if (null != shaderProgramPoints) {
+      return;
+    }
+    
+    ShaderCode localShaderCode1 = ShaderCode.create(paramGL2ES2, 35633, shaderRootClass, shaderSrcRoot, shaderBinRoot, "FixedFuncPoints", true);
+    
+    ShaderCode localShaderCode2 = ShaderCode.create(paramGL2ES2, 35632, shaderRootClass, shaderSrcRoot, shaderBinRoot, "FixedFuncPoints", true);
+    
+    customizeShader(paramGL2ES2, localShaderCode1, localShaderCode2, "#define MAX_TEXTURE_UNITS 2\n");
+    shaderProgramPoints = new ShaderProgram();
+    shaderProgramPoints.add(localShaderCode1);
+    shaderProgramPoints.add(localShaderCode2);
+    if (!shaderProgramPoints.link(paramGL2ES2, System.err)) {
+      throw new GLException("Couldn't link VertexColor program: " + shaderProgramPoints);
+    }
+  }
+  
+  private final void loadShader(GL2ES2 paramGL2ES2, ShaderSelectionMode paramShaderSelectionMode) {
+    int i = ShaderSelectionMode.COLOR == paramShaderSelectionMode ? 1 : 0;
+    int j = ShaderSelectionMode.COLOR_TEXTURE2 == paramShaderSelectionMode ? 1 : 0;
+    int k = ShaderSelectionMode.COLOR_TEXTURE4 == paramShaderSelectionMode ? 1 : 0;
+    int m = ShaderSelectionMode.COLOR_TEXTURE8 == paramShaderSelectionMode ? 1 : 0;
+    int n = (j != 0) || (k != 0) || (m != 0) ? 1 : 0;
+    int i1 = ShaderSelectionMode.COLOR_LIGHT_PER_VERTEX == paramShaderSelectionMode ? 1 : 0;
+    int i2 = ShaderSelectionMode.COLOR_TEXTURE8_LIGHT_PER_VERTEX == paramShaderSelectionMode ? 1 : 0;
+    
+    if (((null != shaderProgramColor) && (i != 0)) || ((null != shaderProgramColorTexture2) && (j != 0)) || ((null != shaderProgramColorTexture4) && (k != 0)) || ((null != shaderProgramColorTexture8) && (m != 0)) || ((null != shaderProgramColorLight) && (i1 != 0)) || ((null != shaderProgramColorTexture8Light) && (i2 != 0))) {
+      return;
+    }
+    
+
+    ShaderCode localShaderCode1;
+    
+    ShaderCode localShaderCode2;
+    
+    if (i != 0) {
+      localShaderCode1 = ShaderCode.create(paramGL2ES2, 35633, shaderRootClass, shaderSrcRoot, shaderBinRoot, vertexColorFile, true);
+      
+      localShaderCode2 = ShaderCode.create(paramGL2ES2, 35632, shaderRootClass, shaderSrcRoot, shaderBinRoot, fragmentColorFile, true);
+      
+      customizeShader(paramGL2ES2, localShaderCode1, localShaderCode2, "#define MAX_TEXTURE_UNITS 0\n");
+      shaderProgramColor = new ShaderProgram();
+      shaderProgramColor.add(localShaderCode1);
+      shaderProgramColor.add(localShaderCode2);
+      if (!shaderProgramColor.link(paramGL2ES2, System.err)) {
+        throw new GLException("Couldn't link VertexColor program: " + shaderProgramColor);
+      }
+    } else if (n != 0) {
+      localShaderCode1 = ShaderCode.create(paramGL2ES2, 35633, shaderRootClass, shaderSrcRoot, shaderBinRoot, vertexColorFile, true);
+      localShaderCode2 = ShaderCode.create(paramGL2ES2, 35632, shaderRootClass, shaderSrcRoot, shaderBinRoot, fragmentColorTextureFile, true);
+      
+
+      if (j != 0) {
+        customizeShader(paramGL2ES2, localShaderCode1, localShaderCode2, "#define MAX_TEXTURE_UNITS 2\n");
+        shaderProgramColorTexture2 = new ShaderProgram();
+        shaderProgramColorTexture2.add(localShaderCode1);
+        shaderProgramColorTexture2.add(localShaderCode2);
+        if (!shaderProgramColorTexture2.link(paramGL2ES2, System.err)) {
+          throw new GLException("Couldn't link VertexColorTexture2 program: " + shaderProgramColorTexture2);
+        }
+      } else if (k != 0) {
+        customizeShader(paramGL2ES2, localShaderCode1, localShaderCode2, "#define MAX_TEXTURE_UNITS 4\n");
+        shaderProgramColorTexture4 = new ShaderProgram();
+        shaderProgramColorTexture4.add(localShaderCode1);
+        shaderProgramColorTexture4.add(localShaderCode2);
+        if (!shaderProgramColorTexture4.link(paramGL2ES2, System.err)) {
+          throw new GLException("Couldn't link VertexColorTexture4 program: " + shaderProgramColorTexture4);
+        }
+      } else if (m != 0) {
+        customizeShader(paramGL2ES2, localShaderCode1, localShaderCode2, "#define MAX_TEXTURE_UNITS 8\n");
+        shaderProgramColorTexture8 = new ShaderProgram();
+        shaderProgramColorTexture8.add(localShaderCode1);
+        shaderProgramColorTexture8.add(localShaderCode2);
+        if (!shaderProgramColorTexture8.link(paramGL2ES2, System.err)) {
+          throw new GLException("Couldn't link VertexColorTexture8 program: " + shaderProgramColorTexture8);
+        }
+      }
+    } else if (i1 != 0) {
+      localShaderCode1 = ShaderCode.create(paramGL2ES2, 35633, shaderRootClass, shaderSrcRoot, shaderBinRoot, vertexColorLightFile, true);
+      
+      localShaderCode2 = ShaderCode.create(paramGL2ES2, 35632, shaderRootClass, shaderSrcRoot, shaderBinRoot, fragmentColorFile, true);
+      
+      customizeShader(paramGL2ES2, localShaderCode1, localShaderCode2, "#define MAX_TEXTURE_UNITS 0\n");
+      shaderProgramColorLight = new ShaderProgram();
+      shaderProgramColorLight.add(localShaderCode1);
+      shaderProgramColorLight.add(localShaderCode2);
+      if (!shaderProgramColorLight.link(paramGL2ES2, System.err)) {
+        throw new GLException("Couldn't link VertexColorLight program: " + shaderProgramColorLight);
+      }
+    } else if (i2 != 0) {
+      localShaderCode1 = ShaderCode.create(paramGL2ES2, 35633, shaderRootClass, shaderSrcRoot, shaderBinRoot, vertexColorLightFile, true);
+      
+      localShaderCode2 = ShaderCode.create(paramGL2ES2, 35632, shaderRootClass, shaderSrcRoot, shaderBinRoot, fragmentColorTextureFile, true);
+      
+      customizeShader(paramGL2ES2, localShaderCode1, localShaderCode2, "#define MAX_TEXTURE_UNITS 8\n");
+      shaderProgramColorTexture8Light = new ShaderProgram();
+      shaderProgramColorTexture8Light.add(localShaderCode1);
+      shaderProgramColorTexture8Light.add(localShaderCode2);
+      if (!shaderProgramColorTexture8Light.link(paramGL2ES2, System.err)) {
+        throw new GLException("Couldn't link VertexColorLight program: " + shaderProgramColorTexture8Light);
+      }
+    }
+  }
+  
+  private ShaderProgram selectShaderProgram(GL2ES2 paramGL2ES2, ShaderSelectionMode paramShaderSelectionMode) {
+    if (ShaderSelectionMode.AUTO == paramShaderSelectionMode) {
+      paramShaderSelectionMode = ShaderSelectionMode.COLOR;
+    }
+    loadShader(paramGL2ES2, paramShaderSelectionMode);
+    ShaderProgram localShaderProgram;
+    switch (2.$SwitchMap$com$jogamp$opengl$util$glsl$fixedfunc$ShaderSelectionMode[paramShaderSelectionMode.ordinal()]) {
+    case 1: 
+      localShaderProgram = shaderProgramColorLight;
+      break;
+    case 2: 
+      localShaderProgram = shaderProgramColorTexture2;
+      break;
+    case 3: 
+      localShaderProgram = shaderProgramColorTexture4;
+      break;
+    case 4: 
+      localShaderProgram = shaderProgramColorTexture8;
+      break;
+    case 5: 
+      localShaderProgram = shaderProgramColorTexture8Light;
+      break;
+    case 6: 
+    default: 
+      localShaderProgram = shaderProgramColor;
+    }
+    currentShaderSelectionMode = paramShaderSelectionMode;
+    return localShaderProgram;
+  }
+  
+  private void init(GL2ES2 paramGL2ES2, ShaderSelectionMode paramShaderSelectionMode, PMVMatrix paramPMVMatrix) {
+    if (null == paramPMVMatrix) {
+      throw new GLException("PMVMatrix is null");
+    }
+    pmvMatrix = paramPMVMatrix;
+    requestedShaderSelectionMode = paramShaderSelectionMode;
+    shaderState = new ShaderState();
+    shaderState.setVerbose(verbose);
+    
+    shaderState.attachShaderProgram(paramGL2ES2, selectShaderProgram(paramGL2ES2, requestedShaderSelectionMode), true);
+    
+
+    if (!shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_PMVMatrix", 4, 4, paramPMVMatrix.glGetPMvMvitMatrixf()))) {
+      throw new GLException("Error setting PMVMatrix in shader: " + this);
+    }
+    
+    shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_ColorEnabled", 0));
+    shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_ColorStatic", 4, colorStatic));
+    
+    texID2Format.setKeyNotFoundValue(0);
+    shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_TexCoordEnabled", 1, textureCoordEnabled));
+    shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_TexEnvMode", 1, textureEnvMode));
+    shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_TexFormat", 1, textureFormat));
+    shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_TextureEnabled", 1, textureEnabled));
+    for (int i = 0; i < 8; i++) {
+      shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_Texture" + i, i));
+    }
+    shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_ShadeModel", 0));
+    
+
+    shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_AlphaTestFunc", alphaTestFunc));
+    shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_AlphaTestRef", alphaTestRef));
+    shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_PointParams", 4, pointParams));
+    for (i = 0; i < 8; i++) {
+      shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_LightSource[" + i + "].ambient", 4, defAmbient));
+      shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_LightSource[" + i + "].diffuse", 4, 0 == i ? one4f : defDiffuseN));
+      shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_LightSource[" + i + "].specular", 4, 0 == i ? one4f : defSpecularN));
+      shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_LightSource[" + i + "].position", 4, defPosition));
+      shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_LightSource[" + i + "].spotDirection", 3, defSpotDir));
+      shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_LightSource[" + i + "].spotExponent", 0.0F));
+      shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_LightSource[" + i + "].spotCutoff", 180.0F));
+      shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_LightSource[" + i + "].constantAttenuation", 1.0F));
+      shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_LightSource[" + i + "].linearAttenuation", 0.0F));
+      shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_LightSource[" + i + "].quadraticAttenuation", 0.0F));
+    }
+    shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_LightModel.ambient", 4, defLightModelAmbient));
+    shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_LightsEnabled", 1, lightsEnabled));
+    shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_FrontMaterial.ambient", 4, defMatAmbient));
+    shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_FrontMaterial.diffuse", 4, defMatDiffuse));
+    shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_FrontMaterial.specular", 4, defMatSpecular));
+    shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_FrontMaterial.emission", 4, defMatEmission));
+    shaderState.uniform(paramGL2ES2, new GLUniformData("mgl_FrontMaterial.shininess", 0.0F));
+    
+    shaderState.useProgram(paramGL2ES2, false);
+    if (verbose) {
+      System.err.println("init: " + toString(null, DEBUG).toString());
+    }
+  }
+  
+  private String toHexString(int paramInt) {
+    return "0x" + Integer.toHexString(paramInt);
+  }
+  
+  protected boolean verbose = DEBUG;
+  
+  private final FloatBuffer colorStatic = Buffers.copyFloatBuffer(one4f);
+  
+  private int activeTextureUnit = 0;
+  private int clientActiveTextureUnit = 0;
+  private final IntIntHashMap texID2Format = new IntIntHashMap();
+  private final int[] boundTextureObject = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  private int textureEnabledBits = 0;
+  private final IntBuffer textureEnabled = Buffers.newDirectIntBuffer(new int[] { 0, 0, 0, 0, 0, 0, 0, 0 });
+  private boolean textureEnabledDirty = false;
+  private final IntBuffer textureCoordEnabled = Buffers.newDirectIntBuffer(new int[] { 0, 0, 0, 0, 0, 0, 0, 0 });
+  private boolean textureCoordEnabledDirty = false;
+  
+  private final IntBuffer textureEnvMode = Buffers.newDirectIntBuffer(new int[] { 2, 2, 2, 2, 2, 2, 2, 2 });
+  private boolean textureEnvModeDirty = false;
+  private final IntBuffer textureFormat = Buffers.newDirectIntBuffer(new int[] { 0, 0, 0, 0, 0, 0, 0, 0 });
+  private boolean textureFormatDirty = false;
+  
+
+
+
+
+
+  private boolean colorVAEnabledDirty = false;
+  private boolean lightingEnabled = false;
+  private final IntBuffer lightsEnabled = Buffers.newDirectIntBuffer(new int[] { 0, 0, 0, 0, 0, 0, 0, 0 });
+  private boolean lightsEnabledDirty = false;
+  
+  private boolean alphaTestDirty = false;
+  private int alphaTestFunc = -8;
+  private float alphaTestRef = 0.0F;
+  
+  private boolean pointParamsDirty = false;
+  
+  private final FloatBuffer pointParams = Buffers.newDirectFloatBuffer(new float[] { 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F });
+  private PMVMatrix pmvMatrix;
+  private ShaderState shaderState;
+  private ShaderProgram shaderProgramColor;
+  private ShaderProgram shaderProgramColorTexture2;
+  private ShaderProgram shaderProgramColorTexture4;
+  private ShaderProgram shaderProgramColorTexture8;
+  private ShaderProgram shaderProgramColorLight;
+  private ShaderProgram shaderProgramColorTexture8Light;
+  private ShaderProgram shaderProgramPoints;
+  private ShaderSelectionMode requestedShaderSelectionMode = ShaderSelectionMode.AUTO;
+  private ShaderSelectionMode currentShaderSelectionMode = requestedShaderSelectionMode;
+  
+  private static final String mgl_PMVMatrix = "mgl_PMVMatrix";
+  
+  private static final String mgl_ColorEnabled = "mgl_ColorEnabled";
+  
+  private static final String mgl_ColorStatic = "mgl_ColorStatic";
+  
+  private static final String mgl_LightModel = "mgl_LightModel";
+  
+  private static final String mgl_LightSource = "mgl_LightSource";
+  
+  private static final String mgl_FrontMaterial = "mgl_FrontMaterial";
+  
+  private static final String mgl_LightsEnabled = "mgl_LightsEnabled";
+  private static final String mgl_AlphaTestFunc = "mgl_AlphaTestFunc";
+  private static final String mgl_AlphaTestRef = "mgl_AlphaTestRef";
+  private static final String mgl_ShadeModel = "mgl_ShadeModel";
+  private static final String mgl_PointParams = "mgl_PointParams";
+  private static final String mgl_TextureEnabled = "mgl_TextureEnabled";
+  private static final String mgl_Texture = "mgl_Texture";
+  private static final String mgl_TexCoordEnabled = "mgl_TexCoordEnabled";
+  private static final String mgl_TexEnvMode = "mgl_TexEnvMode";
+  private static final String mgl_TexFormat = "mgl_TexFormat";
+  private static final FloatBuffer neut4f = Buffers.newDirectFloatBuffer(new float[] { 0.0F, 0.0F, 0.0F, 1.0F });
+  private static final FloatBuffer one4f = Buffers.newDirectFloatBuffer(new float[] { 1.0F, 1.0F, 1.0F, 1.0F });
+  
+  public static final FloatBuffer defAmbient = neut4f;
+  public static final FloatBuffer defDiffuseN = neut4f;
+  public static final FloatBuffer defSpecularN = neut4f;
+  public static final FloatBuffer defPosition = Buffers.newDirectFloatBuffer(new float[] { 0.0F, 0.0F, 1.0F, 0.0F });
+  public static final FloatBuffer defSpotDir = Buffers.newDirectFloatBuffer(new float[] { 0.0F, 0.0F, -1.0F });
+  
+  public static final float defSpotExponent = 0.0F;
+  public static final float defSpotCutoff = 180.0F;
+  public static final float defConstantAtten = 1.0F;
+  public static final float defLinearAtten = 0.0F;
+  public static final float defQuadraticAtten = 0.0F;
+  public static final FloatBuffer defLightModelAmbient = Buffers.newDirectFloatBuffer(new float[] { 0.2F, 0.2F, 0.2F, 1.0F });
+  
+  public static final FloatBuffer defMatAmbient = Buffers.newDirectFloatBuffer(new float[] { 0.2F, 0.2F, 0.2F, 1.0F });
+  public static final FloatBuffer defMatDiffuse = Buffers.newDirectFloatBuffer(new float[] { 0.8F, 0.8F, 0.8F, 1.0F });
+  public static final FloatBuffer defMatSpecular = neut4f;
+  public static final FloatBuffer defMatEmission = neut4f;
+  public static final float defMatShininess = 0.0F;
+  private static final String vertexColorFileDef = "FixedFuncColor";
+  private static final String vertexColorLightFileDef = "FixedFuncColorLight";
+  private static final String fragmentColorFileDef = "FixedFuncColor";
+  private static final String fragmentColorTextureFileDef = "FixedFuncColorTexture";
+  private static final String shaderPointFileDef = "FixedFuncPoints";
+  private static final String shaderSrcRootDef = "shaders";
+  private static final String shaderBinRootDef = "shaders/bin";
+  private final Class<?> shaderRootClass;
+  private final String shaderSrcRoot;
+  private final String shaderBinRoot;
+  private final String vertexColorFile;
+  private final String vertexColorLightFile;
+  private final String fragmentColorFile;
+  private final String fragmentColorTextureFile;
+  
+  static {}
+}

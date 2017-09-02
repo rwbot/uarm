@@ -1,0 +1,117 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInputStream;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Script
+{
+  private final int _defaultLangSysOffset;
+  private final int _langSysCount;
+  private LangSysRecord[] _langSysRecords;
+  private LangSys _defaultLangSys;
+  private LangSys[] _langSys;
+  
+  protected Script(DataInputStream paramDataInputStream, int paramInt)
+    throws IOException
+  {
+    paramDataInputStream.reset();
+    paramDataInputStream.skipBytes(paramInt);
+    
+
+    _defaultLangSysOffset = paramDataInputStream.readUnsignedShort();
+    _langSysCount = paramDataInputStream.readUnsignedShort();
+    int i; if (_langSysCount > 0) {
+      _langSysRecords = new LangSysRecord[_langSysCount];
+      for (i = 0; i < _langSysCount; i++) {
+        _langSysRecords[i] = new LangSysRecord(paramDataInputStream);
+      }
+    }
+    
+
+    if (_langSysCount > 0) {
+      _langSys = new LangSys[_langSysCount];
+      for (i = 0; i < _langSysCount; i++) {
+        paramDataInputStream.reset();
+        paramDataInputStream.skipBytes(paramInt + _langSysRecords[i].getOffset());
+        _langSys[i] = new LangSys(paramDataInputStream);
+      }
+    }
+    if (_defaultLangSysOffset > 0) {
+      paramDataInputStream.reset();
+      paramDataInputStream.skipBytes(paramInt + _defaultLangSysOffset);
+      _defaultLangSys = new LangSys(paramDataInputStream);
+    }
+  }
+  
+  public int getLangSysCount() {
+    return _langSysCount;
+  }
+  
+  public LangSysRecord getLangSysRecord(int paramInt) {
+    return _langSysRecords[paramInt];
+  }
+  
+  public LangSys getDefaultLangSys() {
+    return _defaultLangSys;
+  }
+  
+  public LangSys getLangSys(int paramInt) {
+    return _langSys[paramInt];
+  }
+}

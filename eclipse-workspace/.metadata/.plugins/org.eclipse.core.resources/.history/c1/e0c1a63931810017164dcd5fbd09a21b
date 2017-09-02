@@ -1,0 +1,1125 @@
+package processing.data;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintWriter;
+import java.io.Reader;
+import java.io.Serializable;
+import java.io.StringReader;
+import java.io.StringWriter;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.Source;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpression;
+import javax.xml.xpath.XPathFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import processing.core.PApplet;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class XML
+  implements Serializable
+{
+  protected Node node;
+  protected XML parent;
+  protected XML[] children;
+  
+  protected XML() {}
+  
+  public XML(File file)
+    throws IOException, ParserConfigurationException, SAXException
+  {
+    this(file, null);
+  }
+  
+
+
+
+
+  public XML(File file, String options)
+    throws IOException, ParserConfigurationException, SAXException
+  {
+    this(PApplet.createReader(file), options);
+  }
+  
+
+  public XML(InputStream input)
+    throws IOException, ParserConfigurationException, SAXException
+  {
+    this(input, null);
+  }
+  
+
+
+
+
+
+
+  public XML(InputStream input, String options)
+    throws IOException, ParserConfigurationException, SAXException
+  {
+    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+    
+    try
+    {
+      factory.setAttribute("http://apache.org/xml/features/nonvalidating/load-external-dtd", Boolean.valueOf(false));
+    }
+    catch (IllegalArgumentException localIllegalArgumentException) {}
+    
+
+    factory.setExpandEntityReferences(false);
+    DocumentBuilder builder = factory.newDocumentBuilder();
+    Document document = builder.parse(new InputSource(input));
+    node = document.getDocumentElement();
+  }
+  
+
+
+
+
+  public XML(Reader reader)
+    throws IOException, ParserConfigurationException, SAXException
+  {
+    this(reader, null);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public XML(final Reader reader, String options)
+    throws IOException, ParserConfigurationException, SAXException
+  {
+    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+    
+    try
+    {
+      factory.setAttribute("http://apache.org/xml/features/nonvalidating/load-external-dtd", Boolean.valueOf(false));
+    }
+    catch (IllegalArgumentException localIllegalArgumentException) {}
+    
+
+
+
+
+    factory.setExpandEntityReferences(false);
+    
+
+
+
+    DocumentBuilder builder = factory.newDocumentBuilder();
+    
+
+
+
+
+
+
+
+
+
+    Document document = builder.parse(new InputSource(new Reader()
+    {
+      public int read(char[] cbuf, int off, int len) throws IOException {
+        int count = reader.read(cbuf, off, len);
+        for (int i = 0; i < count; i++) {
+          if (cbuf[(off + i)] == ' ') {
+            cbuf[(off + i)] = '\n';
+          }
+        }
+        return count;
+      }
+      
+      public void close() throws IOException
+      {
+        reader.close();
+      }
+    }));
+    node = document.getDocumentElement();
+  }
+  
+
+
+
+
+  public XML(String name)
+  {
+    try
+    {
+      DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+      DocumentBuilder builder = factory.newDocumentBuilder();
+      Document document = builder.newDocument();
+      node = document.createElement(name);
+      parent = null;
+    }
+    catch (ParserConfigurationException pce) {
+      throw new RuntimeException(pce);
+    }
+  }
+  
+
+
+  protected XML(XML parent, Node node)
+  {
+    this.node = node;
+    this.parent = parent;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static XML parse(String data)
+    throws IOException, ParserConfigurationException, SAXException
+  {
+    return parse(data, null);
+  }
+  
+
+  public static XML parse(String data, String options)
+    throws IOException, ParserConfigurationException, SAXException
+  {
+    return new XML(new StringReader(data), null);
+  }
+  
+
+
+
+
+
+  public boolean save(File file)
+  {
+    return save(file, null);
+  }
+  
+  public boolean save(File file, String options)
+  {
+    PrintWriter writer = PApplet.createWriter(file);
+    boolean result = write(writer);
+    writer.flush();
+    writer.close();
+    return result;
+  }
+  
+
+
+  public boolean write(PrintWriter output)
+  {
+    output.print(format(2));
+    output.flush();
+    return true;
+  }
+  
+
+
+
+
+
+
+
+  public XML getParent()
+  {
+    return parent;
+  }
+  
+
+
+  protected Object getNative()
+  {
+    return node;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public String getName()
+  {
+    return node.getNodeName();
+  }
+  
+
+
+
+  public void setName(String newName)
+  {
+    Document document = node.getOwnerDocument();
+    node = document.renameNode(node, null, newName);
+  }
+  
+
+
+
+
+
+
+  public String getLocalName()
+  {
+    return node.getLocalName();
+  }
+  
+
+
+
+
+
+  protected void checkChildren()
+  {
+    if (children == null) {
+      NodeList kids = node.getChildNodes();
+      int childCount = kids.getLength();
+      children = new XML[childCount];
+      for (int i = 0; i < childCount; i++) {
+        children[i] = new XML(this, kids.item(i));
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+  public int getChildCount()
+  {
+    checkChildren();
+    return children.length;
+  }
+  
+
+
+
+
+
+
+  public boolean hasChildren()
+  {
+    checkChildren();
+    return children.length > 0;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public String[] listChildren()
+  {
+    checkChildren();
+    String[] outgoing = new String[children.length];
+    for (int i = 0; i < children.length; i++) {
+      outgoing[i] = children[i].getName();
+    }
+    return outgoing;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public XML[] getChildren()
+  {
+    checkChildren();
+    return children;
+  }
+  
+
+
+
+
+
+
+  public XML getChild(int index)
+  {
+    checkChildren();
+    return children[index];
+  }
+  
+
+
+
+
+
+
+  public XML getChild(String name)
+  {
+    if ((name.length() > 0) && (name.charAt(0) == '/')) {
+      throw new IllegalArgumentException("getChild() should not begin with a slash");
+    }
+    if (name.indexOf('/') != -1) {
+      return getChildRecursive(PApplet.split(name, '/'), 0);
+    }
+    int childCount = getChildCount();
+    for (int i = 0; i < childCount; i++) {
+      XML kid = getChild(i);
+      String kidName = kid.getName();
+      if ((kidName != null) && (kidName.equals(name))) {
+        return kid;
+      }
+    }
+    return null;
+  }
+  
+
+
+
+
+
+
+
+
+
+  protected XML getChildRecursive(String[] items, int offset)
+  {
+    if (Character.isDigit(items[offset].charAt(0))) {
+      XML kid = getChild(Integer.parseInt(items[offset]));
+      if (offset == items.length - 1) {
+        return kid;
+      }
+      return kid.getChildRecursive(items, offset + 1);
+    }
+    
+    int childCount = getChildCount();
+    for (int i = 0; i < childCount; i++) {
+      XML kid = getChild(i);
+      String kidName = kid.getName();
+      if ((kidName != null) && (kidName.equals(items[offset]))) {
+        if (offset == items.length - 1) {
+          return kid;
+        }
+        return kid.getChildRecursive(items, offset + 1);
+      }
+    }
+    
+    return null;
+  }
+  
+
+
+
+
+
+
+
+
+  public XML[] getChildren(String name)
+  {
+    if ((name.length() > 0) && (name.charAt(0) == '/')) {
+      throw new IllegalArgumentException("getChildren() should not begin with a slash");
+    }
+    if (name.indexOf('/') != -1) {
+      return getChildrenRecursive(PApplet.split(name, '/'), 0);
+    }
+    
+
+    if (Character.isDigit(name.charAt(0))) {
+      return new XML[] { getChild(Integer.parseInt(name)) };
+    }
+    int childCount = getChildCount();
+    XML[] matches = new XML[childCount];
+    int matchCount = 0;
+    for (int i = 0; i < childCount; i++) {
+      XML kid = getChild(i);
+      String kidName = kid.getName();
+      if ((kidName != null) && (kidName.equals(name))) {
+        matches[(matchCount++)] = kid;
+      }
+    }
+    return (XML[])PApplet.subset(matches, 0, matchCount);
+  }
+  
+  protected XML[] getChildrenRecursive(String[] items, int offset)
+  {
+    if (offset == items.length - 1) {
+      return getChildren(items[offset]);
+    }
+    XML[] matches = getChildren(items[offset]);
+    XML[] outgoing = new XML[0];
+    for (int i = 0; i < matches.length; i++) {
+      XML[] kidMatches = matches[i].getChildrenRecursive(items, offset + 1);
+      outgoing = (XML[])PApplet.concat(outgoing, kidMatches);
+    }
+    return outgoing;
+  }
+  
+
+
+
+
+  public XML addChild(String tag)
+  {
+    Document document = node.getOwnerDocument();
+    Node newChild = document.createElement(tag);
+    return appendChild(newChild);
+  }
+  
+  public XML addChild(XML child)
+  {
+    Document document = node.getOwnerDocument();
+    Node newChild = document.importNode((Node)child.getNative(), true);
+    return appendChild(newChild);
+  }
+  
+
+  protected XML appendChild(Node newNode)
+  {
+    node.appendChild(newNode);
+    XML newbie = new XML(this, newNode);
+    if (children != null) {
+      children = ((XML[])PApplet.concat(children, new XML[] { newbie }));
+    }
+    return newbie;
+  }
+  
+
+
+
+
+  public void removeChild(XML kid)
+  {
+    node.removeChild(node);
+    children = null;
+  }
+  
+  public void trim()
+  {
+    try {
+      XPathFactory xpathFactory = XPathFactory.newInstance();
+      XPathExpression xpathExp = 
+        xpathFactory.newXPath().compile("//text()[normalize-space(.) = '']");
+      NodeList emptyTextNodes = (NodeList)
+        xpathExp.evaluate(node, XPathConstants.NODESET);
+      
+
+      for (int i = 0; i < emptyTextNodes.getLength(); i++) {
+        Node emptyTextNode = emptyTextNodes.item(i);
+        emptyTextNode.getParentNode().removeChild(emptyTextNode);
+      }
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public int getAttributeCount()
+  {
+    return node.getAttributes().getLength();
+  }
+  
+
+
+
+
+
+
+  public String[] listAttributes()
+  {
+    NamedNodeMap nnm = node.getAttributes();
+    String[] outgoing = new String[nnm.getLength()];
+    for (int i = 0; i < outgoing.length; i++) {
+      outgoing[i] = nnm.item(i).getNodeName();
+    }
+    return outgoing;
+  }
+  
+
+
+
+
+
+  public boolean hasAttribute(String name)
+  {
+    return node.getAttributes().getNamedItem(name) != null;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public String getString(String name)
+  {
+    return getString(name, null);
+  }
+  
+  public String getString(String name, String defaultValue)
+  {
+    NamedNodeMap attrs = node.getAttributes();
+    if (attrs != null) {
+      Node attr = attrs.getNamedItem(name);
+      if (attr != null) {
+        return attr.getNodeValue();
+      }
+    }
+    return defaultValue;
+  }
+  
+
+
+
+
+  public void setString(String name, String value)
+  {
+    ((Element)node).setAttribute(name, value);
+  }
+  
+
+
+
+
+  public int getInt(String name)
+  {
+    return getInt(name, 0);
+  }
+  
+
+
+
+
+  public void setInt(String name, int value)
+  {
+    setString(name, String.valueOf(value));
+  }
+  
+
+
+
+
+
+
+
+  public int getInt(String name, int defaultValue)
+  {
+    String value = getString(name);
+    return value == null ? defaultValue : Integer.parseInt(value);
+  }
+  
+
+
+
+
+  public void setLong(String name, long value)
+  {
+    setString(name, String.valueOf(value));
+  }
+  
+
+
+
+
+
+
+
+  public long getLong(String name, long defaultValue)
+  {
+    String value = getString(name);
+    return value == null ? defaultValue : Long.parseLong(value);
+  }
+  
+
+
+
+
+
+
+  public float getFloat(String name)
+  {
+    return getFloat(name, 0.0F);
+  }
+  
+
+
+
+
+
+
+
+  public float getFloat(String name, float defaultValue)
+  {
+    String value = getString(name);
+    return value == null ? defaultValue : Float.parseFloat(value);
+  }
+  
+
+
+
+
+  public void setFloat(String name, float value)
+  {
+    setString(name, String.valueOf(value));
+  }
+  
+  public double getDouble(String name)
+  {
+    return getDouble(name, 0.0D);
+  }
+  
+
+
+
+
+
+
+
+  public double getDouble(String name, double defaultValue)
+  {
+    String value = getString(name);
+    return value == null ? defaultValue : Double.parseDouble(value);
+  }
+  
+  public void setDouble(String name, double value)
+  {
+    setString(name, String.valueOf(value));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public String getContent()
+  {
+    return node.getTextContent();
+  }
+  
+  public String getContent(String defaultValue)
+  {
+    String s = node.getTextContent();
+    return s != null ? s : defaultValue;
+  }
+  
+
+
+
+
+
+
+
+  public int getIntContent()
+  {
+    return getIntContent(0);
+  }
+  
+
+
+
+  public int getIntContent(int defaultValue)
+  {
+    return PApplet.parseInt(node.getTextContent(), defaultValue);
+  }
+  
+
+
+
+
+
+
+
+  public float getFloatContent()
+  {
+    return getFloatContent(0.0F);
+  }
+  
+
+
+
+  public float getFloatContent(float defaultValue)
+  {
+    return PApplet.parseFloat(node.getTextContent(), defaultValue);
+  }
+  
+  public long getLongContent()
+  {
+    return getLongContent(0L);
+  }
+  
+  public long getLongContent(long defaultValue)
+  {
+    String c = node.getTextContent();
+    if (c != null) {
+      try {
+        return Long.parseLong(c);
+      } catch (NumberFormatException localNumberFormatException) {}
+    }
+    return defaultValue;
+  }
+  
+  public double getDoubleContent()
+  {
+    return getDoubleContent(0.0D);
+  }
+  
+  public double getDoubleContent(double defaultValue)
+  {
+    String c = node.getTextContent();
+    if (c != null) {
+      try {
+        return Double.parseDouble(c);
+      } catch (NumberFormatException localNumberFormatException) {}
+    }
+    return defaultValue;
+  }
+  
+
+
+
+
+  public void setContent(String text)
+  {
+    node.setTextContent(text);
+  }
+  
+  public void setIntContent(int value)
+  {
+    setContent(String.valueOf(value));
+  }
+  
+  public void setFloatContent(float value)
+  {
+    setContent(String.valueOf(value));
+  }
+  
+  public void setLongContent(long value)
+  {
+    setContent(String.valueOf(value));
+  }
+  
+  public void setDoubleContent(double value)
+  {
+    setContent(String.valueOf(value));
+  }
+  
+
+
+
+
+
+
+
+
+
+  public String format(int indent)
+  {
+    try
+    {
+      boolean useIndentAmount = false;
+      TransformerFactory factory = TransformerFactory.newInstance();
+      if (indent != -1) {
+        try {
+          factory.setAttribute("indent-number", Integer.valueOf(indent));
+        } catch (IllegalArgumentException localIllegalArgumentException) {
+          useIndentAmount = true;
+        }
+      }
+      Transformer transformer = factory.newTransformer();
+      
+
+
+      if ((indent == -1) || (parent == null)) {
+        transformer.setOutputProperty("omit-xml-declaration", "yes");
+      } else {
+        transformer.setOutputProperty("omit-xml-declaration", "no");
+      }
+      
+
+
+      transformer.setOutputProperty("method", "xml");
+      
+
+
+
+
+
+
+
+
+      if (useIndentAmount) {
+        transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", String.valueOf(indent));
+      }
+      
+
+
+      transformer.setOutputProperty("encoding", "UTF-8");
+      
+
+
+
+      transformer.setOutputProperty("indent", "yes");
+      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      String sep = System.getProperty("line.separator");
+      
+      StringWriter tempWriter = new StringWriter();
+      StreamResult tempResult = new StreamResult(tempWriter);
+      transformer.transform(new DOMSource(node), tempResult);
+      String[] tempLines = PApplet.split(tempWriter.toString(), sep);
+      
+      if (tempLines[0].startsWith("<?xml"))
+      {
+        int declEnd = tempLines[0].indexOf("?>") + 2;
+        
+        if (tempLines[0].length() == declEnd)
+        {
+
+          tempLines = PApplet.subset(tempLines, 1);
+
+        }
+        else
+        {
+          tempLines[0] = tempLines[0].substring(declEnd);
+        }
+      }
+      String singleLine = PApplet.join(PApplet.trim(tempLines), "");
+      if (indent == -1) {
+        return singleLine;
+      }
+      
+
+
+
+
+      if (singleLine.trim().length() == 0)
+      {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + sep + singleLine;
+      }
+      
+
+
+
+      StringWriter stringWriter = new StringWriter();
+      StreamResult xmlOutput = new StreamResult(stringWriter);
+      
+      Source source = new StreamSource(new StringReader(singleLine));
+      transformer.transform(source, xmlOutput);
+      String outgoing = stringWriter.toString();
+      
+
+      if (!outgoing.startsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")) {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + sep + outgoing;
+      }
+      return outgoing;
+    }
+    catch (Exception e)
+    {
+      e.printStackTrace();
+    }
+    return null;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public String toString()
+  {
+    return format(-1);
+  }
+}

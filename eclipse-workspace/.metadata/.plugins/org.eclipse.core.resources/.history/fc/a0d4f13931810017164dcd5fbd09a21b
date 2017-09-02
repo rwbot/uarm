@@ -1,0 +1,396 @@
+package com.jogamp.opengl.util.av;
+
+import com.jogamp.common.net.Uri;
+import com.jogamp.common.net.Uri.Encoded;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.util.texture.TextureSequence;
+import com.jogamp.opengl.util.texture.TextureSequence.TexSeqEventListener;
+import com.jogamp.opengl.util.texture.TextureSequence.TextureFrame;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract interface GLMediaPlayer
+  extends TextureSequence
+{
+  public static final boolean DEBUG = Debug.debug("GLMediaPlayer");
+  public static final boolean DEBUG_NATIVE = Debug.debug("GLMediaPlayer.Native");
+  
+
+
+
+
+
+
+
+
+  public static final int TEXTURE_COUNT_DEFAULT = 4;
+  
+
+
+
+
+
+
+
+
+  public static final int TEXTURE_COUNT_MIN = 1;
+  
+
+
+
+
+
+
+
+
+  public static final int STREAM_ID_NONE = -2;
+  
+
+
+
+
+
+
+
+  public static final int STREAM_ID_AUTO = -1;
+  
+
+
+
+
+
+
+
+  public static final Uri.Encoded CameraInputScheme = Uri.Encoded.cast("camera");
+  public static final String CameraPropSizeS = "size";
+  public static final String CameraPropWidth = "width";
+  public static final String CameraPropHeight = "height";
+  public static final String CameraPropRate = "rate";
+  public static final int MAXIMUM_VIDEO_ASYNC = 22;
+  
+  public abstract int getTextureCount();
+  
+  public abstract void setTextureUnit(int paramInt);
+  
+  public abstract void setTextureMinMagFilter(int[] paramArrayOfInt);
+  
+  public abstract void setTextureWrapST(int[] paramArrayOfInt);
+  
+  public abstract void initStream(Uri paramUri, int paramInt1, int paramInt2, int paramInt3) throws IllegalStateException, IllegalArgumentException;
+  
+  public static class StreamException extends Exception
+  {
+    public StreamException(Throwable paramThrowable) {
+      super();
+    }
+    
+    public StreamException(String paramString, Throwable paramThrowable) { super(paramThrowable); }
+  }
+  
+
+  public abstract StreamException getStreamException();
+  
+
+  public abstract void initGL(GL paramGL)
+    throws IllegalStateException, GLMediaPlayer.StreamException, GLException;
+  
+
+  public abstract AudioSink getAudioSink();
+  
+
+  public abstract State destroy(GL paramGL);
+  
+
+  public abstract boolean setPlaySpeed(float paramFloat);
+  
+
+  public abstract float getPlaySpeed();
+  
+
+  public abstract boolean setAudioVolume(float paramFloat);
+  
+
+  public abstract float getAudioVolume();
+  
+
+  public abstract State play();
+  
+
+  public abstract State pause(boolean paramBoolean);
+  
+  public abstract int seek(int paramInt);
+  
+  public static abstract interface GLMediaEventListener
+    extends TextureSequence.TexSeqEventListener<GLMediaPlayer>
+  {
+    public static final int EVENT_CHANGE_INIT = 1;
+    public static final int EVENT_CHANGE_UNINIT = 2;
+    public static final int EVENT_CHANGE_PLAY = 4;
+    public static final int EVENT_CHANGE_PAUSE = 8;
+    public static final int EVENT_CHANGE_EOS = 16;
+    public static final int EVENT_CHANGE_ERR = 32;
+    public static final int EVENT_CHANGE_VID = 65536;
+    public static final int EVENT_CHANGE_AID = 131072;
+    public static final int EVENT_CHANGE_SIZE = 262144;
+    public static final int EVENT_CHANGE_FPS = 524288;
+    public static final int EVENT_CHANGE_BPS = 1048576;
+    public static final int EVENT_CHANGE_LENGTH = 2097152;
+    public static final int EVENT_CHANGE_CODEC = 4194304;
+    
+    public abstract void attributesChanged(GLMediaPlayer paramGLMediaPlayer, int paramInt, long paramLong);
+  }
+  
+  public static enum State
+  {
+    Uninitialized(0), 
+    
+    Initialized(1), 
+    
+    Playing(2), 
+    
+    Paused(3);
+    
+    public final int id;
+    
+    private State(int paramInt) {
+      id = paramInt;
+    }
+  }
+  
+  public abstract State getState();
+  
+  public abstract int getVID();
+  
+  public abstract int getAID();
+  
+  public abstract int getDecodedFrameCount();
+  
+  public abstract int getPresentedFrameCount();
+  
+  public abstract int getVideoPTS();
+  
+  public abstract int getAudioPTS();
+  
+  public abstract TextureSequence.TextureFrame getLastTexture()
+    throws IllegalStateException;
+  
+  public abstract TextureSequence.TextureFrame getNextTexture(GL paramGL)
+    throws IllegalStateException;
+  
+  public abstract Uri getUri();
+  
+  public abstract String getVideoCodec();
+  
+  public abstract String getAudioCodec();
+  
+  public abstract int getVideoFrames();
+  
+  public abstract int getAudioFrames();
+  
+  public abstract int getDuration();
+  
+  public abstract long getStreamBitrate();
+  
+  public abstract int getVideoBitrate();
+  
+  public abstract int getAudioBitrate();
+  
+  public abstract float getFramerate();
+  
+  public abstract boolean isGLOriented();
+  
+  public abstract int getWidth();
+  
+  public abstract int getHeight();
+  
+  public abstract String toString();
+  
+  public abstract String getPerfString();
+  
+  public abstract void addEventListener(GLMediaEventListener paramGLMediaEventListener);
+  
+  public abstract void removeEventListener(GLMediaEventListener paramGLMediaEventListener);
+  
+  public abstract GLMediaEventListener[] getEventListeners();
+  
+  public abstract Object getAttachedObject(String paramString);
+  
+  public abstract Object attachObject(String paramString, Object paramObject);
+  
+  public abstract Object detachObject(String paramString);
+}

@@ -1,0 +1,185 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInputStream;
+import java.io.IOException;
+import jogamp.graph.font.typecast.ot.OTFont;
+import jogamp.graph.font.typecast.ot.OTFontCollection;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class TableFactory
+{
+  public TableFactory() {}
+  
+  public static Table create(OTFontCollection paramOTFontCollection, OTFont paramOTFont, DirectoryEntry paramDirectoryEntry, DataInputStream paramDataInputStream)
+    throws IOException
+  {
+    Object localObject = null;
+    
+
+    if (paramOTFontCollection != null) {
+      localObject = paramOTFontCollection.getTable(paramDirectoryEntry);
+      if (localObject != null) {
+        return localObject;
+      }
+    }
+    
+
+    switch (paramDirectoryEntry.getTag()) {
+    case 1111577413: 
+      localObject = new BaseTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1128678944: 
+      localObject = new CffTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1146308935: 
+      localObject = new DsigTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1161970772: 
+      break;
+    case 1161972803: 
+      break;
+    case 1161974595: 
+      break;
+    case 1195656518: 
+      break;
+    case 1196445523: 
+      localObject = new GposTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1196643650: 
+      localObject = new GsubTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1246975046: 
+      break;
+    case 1280594760: 
+      localObject = new LtshTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1296909912: 
+      break;
+    case 1296913220: 
+      break;
+    case 1330851634: 
+      localObject = new Os2Table(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1346587732: 
+      localObject = new PcltTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1447316824: 
+      localObject = new VdmxTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1668112752: 
+      localObject = new CmapTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1668707360: 
+      localObject = new CvtTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1718642541: 
+      localObject = new FpgmTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1719034226: 
+      break;
+    case 1734439792: 
+      localObject = new GaspTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1735162214: 
+      localObject = new GlyfTable(paramDirectoryEntry, paramDataInputStream, paramOTFont.getMaxpTable(), paramOTFont.getLocaTable());
+      break;
+    case 1751412088: 
+      localObject = new HdmxTable(paramDirectoryEntry, paramDataInputStream, paramOTFont.getMaxpTable());
+      break;
+    case 1751474532: 
+      localObject = new HeadTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1751672161: 
+      localObject = new HheaTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1752003704: 
+      localObject = new HmtxTable(paramDirectoryEntry, paramDataInputStream, paramOTFont.getHheaTable(), paramOTFont.getMaxpTable());
+      break;
+    case 1801810542: 
+      localObject = new KernTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1819239265: 
+      localObject = new LocaTable(paramDirectoryEntry, paramDataInputStream, paramOTFont.getHeadTable(), paramOTFont.getMaxpTable());
+      break;
+    case 1835104368: 
+      localObject = new MaxpTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1851878757: 
+      localObject = new NameTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1886545264: 
+      localObject = new PrepTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1886352244: 
+      localObject = new PostTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1986553185: 
+      localObject = new VheaTable(paramDirectoryEntry, paramDataInputStream);
+      break;
+    case 1986884728: 
+      localObject = new VmtxTable(paramDirectoryEntry, paramDataInputStream, paramOTFont.getVheaTable(), paramOTFont.getMaxpTable());
+    }
+    
+    
+
+    if ((paramOTFontCollection != null) && (localObject != null)) {
+      paramOTFontCollection.addTable((Table)localObject);
+    }
+    return localObject;
+  }
+}

@@ -1,0 +1,67 @@
+package com.jogamp.opengl.util.av;
+
+import com.jogamp.common.util.ReflectionUtil;
+import java.io.PrintStream;
+import jogamp.opengl.util.av.NullAudioSink;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AudioSinkFactory
+{
+  private static final String ALAudioSinkClazzName = "jogamp.opengl.openal.av.ALAudioSink";
+  private static final String JavaAudioSinkClazzName = "jogamp.opengl.util.av.JavaSoundAudioSink";
+  
+  public AudioSinkFactory() {}
+  
+  public static AudioSink createDefault()
+  {
+    ClassLoader localClassLoader = GLMediaPlayerFactory.class.getClassLoader();
+    AudioSink localAudioSink = create(localClassLoader, "jogamp.opengl.openal.av.ALAudioSink");
+    if (null == localAudioSink) {
+      localAudioSink = create(localClassLoader, "jogamp.opengl.util.av.JavaSoundAudioSink");
+    }
+    if (null == localAudioSink) {
+      localAudioSink = createNull();
+    }
+    return localAudioSink;
+  }
+  
+  public static AudioSink createNull() { return new NullAudioSink(); }
+  
+
+  public static AudioSink create(ClassLoader paramClassLoader, String paramString)
+  {
+    if (ReflectionUtil.isClassAvailable(paramString, paramClassLoader))
+      try {
+        AudioSink localAudioSink = (AudioSink)ReflectionUtil.createInstance(paramString, paramClassLoader);
+        if (localAudioSink.isInitialized()) {
+          return localAudioSink;
+        }
+      } catch (Throwable localThrowable) {
+        if (AudioSink.DEBUG) { System.err.println("Caught " + localThrowable.getClass().getName() + ": " + localThrowable.getMessage());localThrowable.printStackTrace();
+        }
+      }
+    return null;
+  }
+}

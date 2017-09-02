@@ -1,0 +1,484 @@
+package com.jogamp.opengl.util;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.GLArrayData;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.fixedfunc.GLPointerFuncUtil;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import java.nio.ShortBuffer;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLArrayDataWrapper
+  implements GLArrayData
+{
+  public static final boolean DEBUG = Debug.debug("GLArrayData");
+  protected boolean alive;
+  protected int index;
+  protected int location;
+  protected String name;
+  protected int componentsPerElement;
+  protected int componentType;
+  protected Class<?> componentClazz;
+  protected int componentByteSize;
+  protected boolean normalized;
+  protected int strideB;
+  protected int strideL;
+  protected Buffer buffer;
+  protected int mappedElementCount;
+  protected boolean isVertexAttribute;
+  protected long vboOffset;
+  protected int vboName;
+  protected boolean vboEnabled;
+  protected int vboUsage;
+  protected int vboTarget;
+  
+  public static GLArrayDataWrapper createFixed(int paramInt1, int paramInt2, int paramInt3, boolean paramBoolean, int paramInt4, Buffer paramBuffer, int paramInt5, long paramLong, int paramInt6, int paramInt7) throws GLException
+  {
+    GLArrayDataWrapper localGLArrayDataWrapper = new GLArrayDataWrapper();
+    localGLArrayDataWrapper.init(null, paramInt1, paramInt2, paramInt3, paramBoolean, paramInt4, paramBuffer, 0, false, paramInt5, paramLong, paramInt6, paramInt7);
+    
+    return localGLArrayDataWrapper;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static GLArrayDataWrapper createFixed(int paramInt1, int paramInt2, int paramInt3, boolean paramBoolean, int paramInt4, int paramInt5, int paramInt6, long paramLong, int paramInt7, int paramInt8)
+    throws GLException
+  {
+    GLArrayDataWrapper localGLArrayDataWrapper = new GLArrayDataWrapper();
+    localGLArrayDataWrapper.init(null, paramInt1, paramInt2, paramInt3, paramBoolean, paramInt4, null, paramInt5, false, paramInt6, paramLong, paramInt7, paramInt8);
+    
+    return localGLArrayDataWrapper;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static GLArrayDataWrapper createGLSL(String paramString, int paramInt1, int paramInt2, boolean paramBoolean, int paramInt3, Buffer paramBuffer, int paramInt4, long paramLong, int paramInt5, int paramInt6)
+    throws GLException
+  {
+    GLArrayDataWrapper localGLArrayDataWrapper = new GLArrayDataWrapper();
+    localGLArrayDataWrapper.init(paramString, -1, paramInt1, paramInt2, paramBoolean, paramInt3, paramBuffer, 0, true, paramInt4, paramLong, paramInt5, paramInt6);
+    
+    return localGLArrayDataWrapper;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static GLArrayDataWrapper createGLSL(String paramString, int paramInt1, int paramInt2, boolean paramBoolean, int paramInt3, int paramInt4, int paramInt5, long paramLong, int paramInt6, int paramInt7)
+    throws GLException
+  {
+    GLArrayDataWrapper localGLArrayDataWrapper = new GLArrayDataWrapper();
+    localGLArrayDataWrapper.init(paramString, -1, paramInt1, paramInt2, paramBoolean, paramInt3, null, paramInt4, true, paramInt5, paramLong, paramInt6, paramInt7);
+    
+    return localGLArrayDataWrapper;
+  }
+  
+
+
+
+
+
+
+
+  public final boolean validate(GLProfile paramGLProfile, boolean paramBoolean)
+  {
+    if (!alive) {
+      if (paramBoolean) {
+        throw new GLException("Instance !alive " + this);
+      }
+      return false;
+    }
+    if ((isVertexAttribute()) && (!paramGLProfile.hasGLSL())) {
+      if (paramBoolean) {
+        throw new GLException("GLSL not supported on " + paramGLProfile + ", " + this);
+      }
+      return false;
+    }
+    return paramGLProfile.isValidArrayDataType(getIndex(), getComponentCount(), getComponentType(), isVertexAttribute(), paramBoolean);
+  }
+  
+
+
+
+  public void associate(Object paramObject, boolean paramBoolean) {}
+  
+
+
+
+  public final boolean isVertexAttribute()
+  {
+    return isVertexAttribute;
+  }
+  
+  public final int getIndex() { return index; }
+  
+
+  public final int getLocation() { return location; }
+  
+  public final int setLocation(int paramInt) {
+    location = paramInt;return location;
+  }
+  
+  public final int setLocation(GL2ES2 paramGL2ES2, int paramInt) {
+    location = paramGL2ES2.glGetAttribLocation(paramInt, name);
+    return location;
+  }
+  
+  public final int setLocation(GL2ES2 paramGL2ES2, int paramInt1, int paramInt2)
+  {
+    location = paramInt2;
+    paramGL2ES2.glBindAttribLocation(paramInt1, paramInt2, name);
+    return paramInt2;
+  }
+  
+  public final String getName() {
+    return name;
+  }
+  
+  public final long getVBOOffset() { return vboEnabled ? vboOffset : 0L; }
+  
+  public final int getVBOName() {
+    return vboEnabled ? vboName : 0;
+  }
+  
+  public final boolean isVBO() { return vboEnabled; }
+  
+  public final int getVBOUsage() {
+    return vboEnabled ? vboUsage : 0;
+  }
+  
+  public final int getVBOTarget() { return vboEnabled ? vboTarget : 0; }
+  
+  public Buffer getBuffer() {
+    return buffer;
+  }
+  
+  public final int getComponentCount() { return componentsPerElement; }
+  
+  public final int getComponentType() {
+    return componentType;
+  }
+  
+  public final int getComponentSizeInBytes() { return componentByteSize; }
+  
+  public final int getElementCount()
+  {
+    if (0 != mappedElementCount)
+      return mappedElementCount;
+    if (null != buffer) {
+      int i = 0 == buffer.position() ? buffer.limit() : buffer.position();
+      return i * componentByteSize / strideB;
+    }
+    return 0;
+  }
+  
+
+  public final int getSizeInBytes()
+  {
+    if (0 != mappedElementCount)
+      return mappedElementCount * componentsPerElement * componentByteSize;
+    if (null != buffer) {
+      return buffer.position() == 0 ? buffer.limit() * componentByteSize : buffer.position() * componentByteSize;
+    }
+    return 0;
+  }
+  
+  public final boolean getNormalized()
+  {
+    return normalized;
+  }
+  
+  public final int getStride() { return strideB; }
+  
+  public final Class<?> getBufferClass() { return componentClazz; }
+  
+  public void destroy(GL paramGL)
+  {
+    buffer = null;
+    vboName = 0;
+    vboEnabled = false;
+    vboOffset = 0L;
+    alive = false;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public String toString()
+  {
+    return "GLArrayDataWrapper[" + name + ", index " + index + ", location " + location + ", isVertexAttribute " + isVertexAttribute + ", dataType 0x" + Integer.toHexString(componentType) + ", bufferClazz " + componentClazz + ", elements " + getElementCount() + ", components " + componentsPerElement + ", stride " + strideB + "b " + strideL + "c" + ", mappedElementCount " + mappedElementCount + ", buffer " + buffer + ", vboEnabled " + vboEnabled + ", vboName " + vboName + ", vboUsage 0x" + Integer.toHexString(vboUsage) + ", vboTarget 0x" + Integer.toHexString(vboTarget) + ", vboOffset " + vboOffset + ", alive " + alive + "]";
+  }
+  
+
+
+  public static final Class<?> getBufferClass(int paramInt)
+  {
+    switch (paramInt) {
+    case 5120: 
+    case 5121: 
+      return ByteBuffer.class;
+    case 5122: 
+    case 5123: 
+      return ShortBuffer.class;
+    case 5124: 
+    case 5125: 
+    case 5132: 
+      return IntBuffer.class;
+    case 5126: 
+      return FloatBuffer.class;
+    }
+    throw new GLException("Given OpenGL data type not supported: " + paramInt);
+  }
+  
+
+  public void setName(String paramString)
+  {
+    location = -1;
+    name = paramString;
+  }
+  
+
+
+
+
+  public void setVBOEnabled(boolean paramBoolean)
+  {
+    vboEnabled = paramBoolean;
+  }
+  
+
+
+
+
+
+  public void setVBOName(int paramInt)
+  {
+    vboName = paramInt;
+    setVBOEnabled(0 != paramInt);
+  }
+  
+
+
+  public void setVBOUsage(int paramInt)
+  {
+    vboUsage = paramInt;
+  }
+  
+
+
+  public void setVBOTarget(int paramInt)
+  {
+    vboTarget = paramInt;
+  }
+  
+
+
+  protected void init(String paramString, int paramInt1, int paramInt2, int paramInt3, boolean paramBoolean1, int paramInt4, Buffer paramBuffer, int paramInt5, boolean paramBoolean2, int paramInt6, long paramLong, int paramInt7, int paramInt8)
+    throws GLException
+  {
+    if ((0 < paramInt5) && (null != paramBuffer)) {
+      throw new IllegalArgumentException("mappedElementCount:=" + paramInt5 + " specified, but passing non null buffer");
+    }
+    isVertexAttribute = paramBoolean2;
+    index = paramInt1;
+    location = -1;
+    
+
+    if (34963 != paramInt8)
+    {
+      if (((0 == paramInt7) && (0 == paramInt8)) || (34962 == paramInt8))
+      {
+        name = (null == paramString ? GLPointerFuncUtil.getPredefinedArrayIndexName(paramInt1) : paramString);
+        if (null == name) {
+          throw new GLException("Not a valid array buffer index: " + paramInt1);
+        }
+      } else if (0 < paramInt8) {
+        throw new GLException("Invalid GPUBuffer target: 0x" + Integer.toHexString(paramInt8));
+      }
+    }
+    componentType = paramInt3;
+    componentClazz = getBufferClass(paramInt3);
+    if (GLBuffers.isGLTypeFixedPoint(paramInt3)) {
+      normalized = paramBoolean1;
+    } else {
+      normalized = false;
+    }
+    componentByteSize = GLBuffers.sizeOfGLType(paramInt3);
+    if (0 > componentByteSize) {
+      throw new GLException("Given componentType not supported: " + paramInt3 + ":\n\t" + this);
+    }
+    if (0 >= paramInt2) {
+      throw new GLException("Invalid number of components: " + paramInt2);
+    }
+    componentsPerElement = paramInt2;
+    
+    if ((0 < paramInt4) && (paramInt4 < paramInt2 * componentByteSize)) {
+      throw new GLException("stride (" + paramInt4 + ") lower than component bytes, " + paramInt2 + " * " + componentByteSize);
+    }
+    if ((0 < paramInt4) && (paramInt4 % componentByteSize != 0)) {
+      throw new GLException("stride (" + paramInt4 + ") not a multiple of bpc " + componentByteSize);
+    }
+    buffer = paramBuffer;
+    mappedElementCount = paramInt5;
+    strideB = (0 == paramInt4 ? paramInt2 * componentByteSize : paramInt4);
+    strideL = (strideB / componentByteSize);
+    vboName = paramInt6;
+    vboEnabled = (0 != paramInt6);
+    vboOffset = paramLong;
+    
+    switch (paramInt7) {
+    case 0: 
+    case 35040: 
+    case 35044: 
+    case 35048: 
+      break;
+    default: 
+      throw new GLException("invalid gpuBufferUsage: " + paramInt7 + ":\n\t" + this);
+    }
+    switch (paramInt8) {
+    case 0: 
+    case 34962: 
+    case 34963: 
+      break;
+    default: 
+      throw new GLException("invalid gpuBufferTarget: " + paramInt8 + ":\n\t" + this);
+    }
+    vboUsage = paramInt7;
+    vboTarget = paramInt8;
+    alive = true;
+  }
+  
+
+
+
+
+  protected GLArrayDataWrapper() {}
+  
+
+
+
+
+  public GLArrayDataWrapper(GLArrayDataWrapper paramGLArrayDataWrapper)
+  {
+    alive = alive;
+    index = index;
+    location = location;
+    name = name;
+    componentsPerElement = componentsPerElement;
+    componentType = componentType;
+    componentClazz = componentClazz;
+    componentByteSize = componentByteSize;
+    normalized = normalized;
+    strideB = strideB;
+    strideL = strideL;
+    if (null != buffer) {
+      if (buffer.position() == 0) {
+        buffer = Buffers.slice(buffer);
+      } else {
+        buffer = Buffers.slice(buffer, 0, buffer.limit());
+      }
+    } else {
+      buffer = null;
+    }
+    mappedElementCount = mappedElementCount;
+    isVertexAttribute = isVertexAttribute;
+    vboOffset = vboOffset;
+    vboName = vboName;
+    vboEnabled = vboEnabled;
+    vboUsage = vboUsage;
+    vboTarget = vboTarget;
+  }
+}

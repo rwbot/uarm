@@ -1,0 +1,347 @@
+package com.jogamp.common.nio;
+
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.DoubleBuffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import java.nio.LongBuffer;
+import java.nio.ShortBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class CachedBufferFactory
+{
+  public static final int DEFAULT_ALLOCATION_SIZE = 1048576;
+  private final int ALLOCATION_SIZE;
+  private ByteBuffer currentBuffer;
+  
+  private CachedBufferFactory()
+  {
+    this(1048576, 1048576);
+  }
+  
+  private CachedBufferFactory(int paramInt1, int paramInt2) {
+    currentBuffer = Buffers.newDirectByteBuffer(paramInt1);
+    ALLOCATION_SIZE = paramInt2;
+  }
+  
+
+
+
+
+  public static CachedBufferFactory create()
+  {
+    return new CachedBufferFactory();
+  }
+  
+
+
+
+  public static CachedBufferFactory create(int paramInt)
+  {
+    return new CachedBufferFactory(paramInt, 1048576);
+  }
+  
+
+
+
+
+
+  public static CachedBufferFactory create(int paramInt, boolean paramBoolean)
+  {
+    return new CachedBufferFactory(paramInt, paramBoolean ? -1 : 1048576);
+  }
+  
+
+
+  public static CachedBufferFactory create(int paramInt1, int paramInt2)
+  {
+    return new CachedBufferFactory(paramInt1, paramInt2);
+  }
+  
+
+
+
+  public static CachedBufferFactory createSynchronized()
+  {
+    return new SynchronizedCachedBufferFactory(null);
+  }
+  
+
+
+  public static CachedBufferFactory createSynchronized(int paramInt)
+  {
+    return new SynchronizedCachedBufferFactory(paramInt, 1048576, null);
+  }
+  
+
+
+  public static CachedBufferFactory createSynchronized(int paramInt, boolean paramBoolean)
+  {
+    return new SynchronizedCachedBufferFactory(paramInt, paramBoolean ? -1 : 1048576, null);
+  }
+  
+
+
+  public static CachedBufferFactory createSynchronized(int paramInt1, int paramInt2)
+  {
+    return new CachedBufferFactory(paramInt1, paramInt2);
+  }
+  
+
+
+
+  public boolean isFixed()
+  {
+    return ALLOCATION_SIZE == -1;
+  }
+  
+
+
+
+  public int getAllocationSize()
+  {
+    return ALLOCATION_SIZE;
+  }
+  
+
+
+  private void checkIfFixed()
+  {
+    if (ALLOCATION_SIZE == 0) {
+      throw new RuntimeException("fixed size buffer factory ran out ouf bounds.");
+    }
+  }
+  
+  public void destroy() {
+    if (null != currentBuffer) {
+      currentBuffer.clear();
+      currentBuffer = null;
+    }
+  }
+  
+  public ByteBuffer newDirectByteBuffer(int paramInt)
+  {
+    if (paramInt > currentBuffer.capacity()) {
+      checkIfFixed();
+      return Buffers.newDirectByteBuffer(paramInt);
+    }
+    
+
+    if (paramInt > currentBuffer.remaining()) {
+      checkIfFixed();
+      currentBuffer = Buffers.newDirectByteBuffer(ALLOCATION_SIZE);
+    }
+    
+    currentBuffer.limit(currentBuffer.position() + paramInt);
+    ByteBuffer localByteBuffer = currentBuffer.slice().order(currentBuffer.order());
+    currentBuffer.position(currentBuffer.limit());
+    currentBuffer.limit(currentBuffer.capacity());
+    return localByteBuffer;
+  }
+  
+  public ByteBuffer newDirectByteBuffer(byte[] paramArrayOfByte, int paramInt1, int paramInt2)
+  {
+    return (ByteBuffer)newDirectByteBuffer(paramInt2).put(paramArrayOfByte, paramInt1, paramInt2).rewind();
+  }
+  
+  public ByteBuffer newDirectByteBuffer(byte[] paramArrayOfByte, int paramInt) {
+    return newDirectByteBuffer(paramArrayOfByte, paramInt, paramArrayOfByte.length - paramInt);
+  }
+  
+  public ByteBuffer newDirectByteBuffer(byte[] paramArrayOfByte) {
+    return newDirectByteBuffer(paramArrayOfByte, 0);
+  }
+  
+  public DoubleBuffer newDirectDoubleBuffer(int paramInt) {
+    return newDirectByteBuffer(paramInt * 8).asDoubleBuffer();
+  }
+  
+  public DoubleBuffer newDirectDoubleBuffer(double[] paramArrayOfDouble, int paramInt1, int paramInt2) {
+    return (DoubleBuffer)newDirectDoubleBuffer(paramInt2).put(paramArrayOfDouble, paramInt1, paramInt2).rewind();
+  }
+  
+  public DoubleBuffer newDirectDoubleBuffer(double[] paramArrayOfDouble, int paramInt) {
+    return newDirectDoubleBuffer(paramArrayOfDouble, paramInt, paramArrayOfDouble.length - paramInt);
+  }
+  
+  public DoubleBuffer newDirectDoubleBuffer(double[] paramArrayOfDouble) {
+    return newDirectDoubleBuffer(paramArrayOfDouble, 0);
+  }
+  
+  public FloatBuffer newDirectFloatBuffer(int paramInt) {
+    return newDirectByteBuffer(paramInt * 4).asFloatBuffer();
+  }
+  
+  public FloatBuffer newDirectFloatBuffer(float[] paramArrayOfFloat, int paramInt1, int paramInt2) {
+    return (FloatBuffer)newDirectFloatBuffer(paramInt2).put(paramArrayOfFloat, paramInt1, paramInt2).rewind();
+  }
+  
+  public FloatBuffer newDirectFloatBuffer(float[] paramArrayOfFloat, int paramInt) {
+    return newDirectFloatBuffer(paramArrayOfFloat, paramInt, paramArrayOfFloat.length - paramInt);
+  }
+  
+  public FloatBuffer newDirectFloatBuffer(float[] paramArrayOfFloat) {
+    return newDirectFloatBuffer(paramArrayOfFloat, 0);
+  }
+  
+  public IntBuffer newDirectIntBuffer(int paramInt) {
+    return newDirectByteBuffer(paramInt * 4).asIntBuffer();
+  }
+  
+  public IntBuffer newDirectIntBuffer(int[] paramArrayOfInt, int paramInt1, int paramInt2) {
+    return (IntBuffer)newDirectIntBuffer(paramInt2).put(paramArrayOfInt, paramInt1, paramInt2).rewind();
+  }
+  
+  public IntBuffer newDirectIntBuffer(int[] paramArrayOfInt, int paramInt) {
+    return newDirectIntBuffer(paramArrayOfInt, paramInt, paramArrayOfInt.length - paramInt);
+  }
+  
+  public IntBuffer newDirectIntBuffer(int[] paramArrayOfInt) {
+    return newDirectIntBuffer(paramArrayOfInt, 0);
+  }
+  
+  public LongBuffer newDirectLongBuffer(int paramInt) {
+    return newDirectByteBuffer(paramInt * 8).asLongBuffer();
+  }
+  
+  public LongBuffer newDirectLongBuffer(long[] paramArrayOfLong, int paramInt1, int paramInt2) {
+    return (LongBuffer)newDirectLongBuffer(paramInt2).put(paramArrayOfLong, paramInt1, paramInt2).rewind();
+  }
+  
+  public LongBuffer newDirectLongBuffer(long[] paramArrayOfLong, int paramInt) {
+    return newDirectLongBuffer(paramArrayOfLong, paramInt, paramArrayOfLong.length - paramInt);
+  }
+  
+  public LongBuffer newDirectLongBuffer(long[] paramArrayOfLong) {
+    return newDirectLongBuffer(paramArrayOfLong, 0);
+  }
+  
+  public ShortBuffer newDirectShortBuffer(int paramInt) {
+    return newDirectByteBuffer(paramInt * 2).asShortBuffer();
+  }
+  
+  public ShortBuffer newDirectShortBuffer(short[] paramArrayOfShort, int paramInt1, int paramInt2) {
+    return (ShortBuffer)newDirectShortBuffer(paramInt2).put(paramArrayOfShort, paramInt1, paramInt2).rewind();
+  }
+  
+  public ShortBuffer newDirectShortBuffer(short[] paramArrayOfShort, int paramInt) {
+    return newDirectShortBuffer(paramArrayOfShort, paramInt, paramArrayOfShort.length - paramInt);
+  }
+  
+  public ShortBuffer newDirectShortBuffer(short[] paramArrayOfShort) {
+    return newDirectShortBuffer(paramArrayOfShort, 0);
+  }
+  
+  public CharBuffer newDirectCharBuffer(int paramInt) {
+    return newDirectByteBuffer(paramInt * 2).asCharBuffer();
+  }
+  
+  public CharBuffer newDirectCharBuffer(char[] paramArrayOfChar, int paramInt1, int paramInt2) {
+    return (CharBuffer)newDirectCharBuffer(paramInt2).put(paramArrayOfChar, paramInt1, paramInt2).rewind();
+  }
+  
+  public CharBuffer newDirectCharBuffer(char[] paramArrayOfChar, int paramInt) {
+    return newDirectCharBuffer(paramArrayOfChar, paramInt, paramArrayOfChar.length - paramInt);
+  }
+  
+  public CharBuffer newDirectCharBuffer(char[] paramArrayOfChar) {
+    return newDirectCharBuffer(paramArrayOfChar, 0);
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    if (paramObject == null) {
+      return false;
+    }
+    if (getClass() != paramObject.getClass()) {
+      return false;
+    }
+    CachedBufferFactory localCachedBufferFactory = (CachedBufferFactory)paramObject;
+    if (ALLOCATION_SIZE != ALLOCATION_SIZE) {
+      return false;
+    }
+    if ((currentBuffer != currentBuffer) && ((currentBuffer == null) || (!currentBuffer.equals(currentBuffer)))) {
+      return false;
+    }
+    return true;
+  }
+  
+  public String toString()
+  {
+    return getClass().getName() + "[static:" + isFixed() + " alloc size:" + getAllocationSize() + "]";
+  }
+  
+  private static class SynchronizedCachedBufferFactory
+    extends CachedBufferFactory
+  {
+    private SynchronizedCachedBufferFactory()
+    {
+      super();
+    }
+    
+    private SynchronizedCachedBufferFactory(int paramInt1, int paramInt2) {
+      super(paramInt2, null);
+    }
+    
+    public synchronized ByteBuffer newDirectByteBuffer(int paramInt)
+    {
+      return super.newDirectByteBuffer(paramInt);
+    }
+  }
+}

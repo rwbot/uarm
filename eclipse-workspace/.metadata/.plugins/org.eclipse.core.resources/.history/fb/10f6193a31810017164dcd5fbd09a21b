@@ -1,0 +1,173 @@
+package jogamp.newt;
+
+import com.jogamp.common.util.ArrayHashSet;
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.Rectangle;
+import com.jogamp.newt.MonitorDevice;
+import com.jogamp.newt.MonitorMode;
+import com.jogamp.newt.Screen;
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class MonitorDeviceImpl
+  extends MonitorDevice
+{
+  public MonitorDeviceImpl(ScreenImpl paramScreenImpl, int paramInt, boolean paramBoolean1, boolean paramBoolean2, DimensionImmutable paramDimensionImmutable, MonitorMode paramMonitorMode, float[] paramArrayOfFloat, Rectangle paramRectangle1, Rectangle paramRectangle2, ArrayHashSet<MonitorMode> paramArrayHashSet)
+  {
+    super(paramScreenImpl, paramInt, paramBoolean1, paramBoolean2, paramDimensionImmutable, paramMonitorMode, paramArrayOfFloat, paramRectangle1, paramRectangle2, paramArrayHashSet);
+  }
+  
+  public final MonitorMode queryCurrentMode() throws IllegalStateException
+  {
+    ScreenImpl localScreenImpl = (ScreenImpl)screen;
+    if (!localScreenImpl.isNativeValid()) {
+      throw new IllegalStateException("Screen is not created natively: " + localScreenImpl);
+    }
+    ScreenMonitorState localScreenMonitorState = localScreenImpl.getScreenMonitorStatus(true);
+    localScreenMonitorState.lock();
+    try {
+      MonitorMode localMonitorMode1 = localScreenImpl.queryCurrentMonitorModeIntern(this);
+      if (null == localMonitorMode1) {
+        throw new InternalError("getCurrentMonitorModeIntern() == null");
+      }
+      MonitorMode localMonitorMode2 = (MonitorMode)supportedModes.get(localMonitorMode1);
+      if (null == localMonitorMode2)
+      {
+        localMonitorMode2 = (MonitorMode)localScreenMonitorState.getMonitorModes().getOrAdd(localMonitorMode1);
+        localMonitorMode2 = (MonitorMode)supportedModes.getOrAdd(localMonitorMode2);
+        if (Screen.DEBUG) {
+          System.err.println("Adding new mode: " + localMonitorMode1 + " -> " + localMonitorMode2);
+        }
+      }
+      
+      if (getCurrentMode().hashCode() != localMonitorMode2.hashCode()) {
+        setCurrentModeValue(localMonitorMode2, isPrimary);
+        localScreenMonitorState.fireMonitorModeChanged(this, localMonitorMode2, true);
+      }
+      return localMonitorMode2;
+    } finally {
+      localScreenMonitorState.unlock();
+    }
+  }
+  
+  public final boolean setCurrentMode(MonitorMode paramMonitorMode) throws IllegalStateException
+  {
+    ScreenImpl localScreenImpl = (ScreenImpl)screen;
+    if (!localScreenImpl.isNativeValid()) {
+      throw new IllegalStateException("Screen is not created natively: " + localScreenImpl);
+    }
+    if (Screen.DEBUG) {
+      System.err.println("Screen.setCurrentMode.0: " + this + " -> " + paramMonitorMode);
+    }
+    ScreenMonitorState localScreenMonitorState = localScreenImpl.getScreenMonitorStatus(true);
+    localScreenMonitorState.lock();
+    try {
+      MonitorMode localMonitorMode1 = queryCurrentMode();
+      MonitorMode localMonitorMode2 = (MonitorMode)supportedModes.get(paramMonitorMode);
+      if (null == localMonitorMode2) {
+        throw new IllegalArgumentException("Given mode not in set of modes. Current mode " + paramMonitorMode + ", " + this);
+      }
+      if (localMonitorMode2.equals(localMonitorMode1)) {
+        if (Screen.DEBUG) {
+          System.err.println("Screen.setCurrentMode: 0.0 is-current (skip) " + localMonitorMode2 + " == " + localMonitorMode1);
+        }
+        return true;
+      }
+      long l;
+      if (Screen.DEBUG) {
+        l = System.currentTimeMillis();
+      } else {
+        l = 0L;
+      }
+      
+      localScreenMonitorState.fireMonitorModeChangeNotify(this, localMonitorMode2);
+      if (Screen.DEBUG) {
+        System.err.println("Screen.setCurrentMode (" + (System.currentTimeMillis() - l) + "ms): fireModeChangeNotify() " + localMonitorMode2);
+      }
+      
+      MonitorMode localMonitorMode3 = localScreenImpl.setCurrentMonitorModeImpl(this, localMonitorMode2);
+      MonitorMode localMonitorMode4; if (localMonitorMode3 != 0) {
+        if (Screen.DEBUG) {
+          System.err.println("Screen.setCurrentMode (" + (System.currentTimeMillis() - l) + "ms): setCurrentModeImpl() " + localMonitorMode2 + ", success(1): " + localMonitorMode3);
+        }
+      }
+      else {
+        localMonitorMode4 = queryCurrentMode();
+        localMonitorMode3 = localMonitorMode4.hashCode() == localMonitorMode2.hashCode() ? 1 : 0;
+        if (Screen.DEBUG) {
+          System.err.println("Screen.setCurrentMode.2: queried " + localMonitorMode4);
+          System.err.println("Screen.setCurrentMode (" + (System.currentTimeMillis() - l) + "ms): setCurrentModeImpl() " + localMonitorMode2 + ", success(2): " + localMonitorMode3);
+        }
+      }
+      if (localMonitorMode3 != 0) {
+        setCurrentModeValue(localMonitorMode2, isPrimary);
+        modeChanged = (!isOriginalMode());
+      }
+      localScreenMonitorState.fireMonitorModeChanged(this, localMonitorMode2, localMonitorMode3);
+      if (Screen.DEBUG) {
+        System.err.println("Screen.setCurrentMode (" + (System.currentTimeMillis() - l) + "ms): X.X: success " + localMonitorMode3 + ": " + this);
+      }
+      return localMonitorMode3;
+    } finally {
+      localScreenMonitorState.unlock();
+    }
+  }
+  
+  private final void setCurrentModeValue(MonitorMode paramMonitorMode, boolean paramBoolean) {
+    currentMode = paramMonitorMode;
+    isPrimary = paramBoolean;
+  }
+  
+  final Rectangle getMutuableViewportPU() { return viewportPU; }
+  final Rectangle getMutuableViewportWU() { return viewportWU; }
+  
+  final ArrayHashSet<MonitorMode> getSupportedModesImpl() {
+    return supportedModes;
+  }
+  
+  final void setIsClone(boolean paramBoolean) {
+    isClone = paramBoolean;
+  }
+  
+  final void setIsPrimary(boolean paramBoolean) { isPrimary = paramBoolean; }
+}

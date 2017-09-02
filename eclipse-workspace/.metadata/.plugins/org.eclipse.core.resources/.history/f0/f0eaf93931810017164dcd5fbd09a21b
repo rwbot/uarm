@@ -1,0 +1,208 @@
+package jogamp.graph.font.typecast.ot;
+
+import java.io.BufferedInputStream;
+import java.io.DataInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import jogamp.graph.font.typecast.ot.mac.ResourceHeader;
+import jogamp.graph.font.typecast.ot.mac.ResourceMap;
+import jogamp.graph.font.typecast.ot.mac.ResourceReference;
+import jogamp.graph.font.typecast.ot.mac.ResourceType;
+import jogamp.graph.font.typecast.ot.table.DirectoryEntry;
+import jogamp.graph.font.typecast.ot.table.TTCHeader;
+import jogamp.graph.font.typecast.ot.table.Table;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class OTFontCollection
+{
+  private String _pathName;
+  private String _fileName;
+  private TTCHeader _ttcHeader;
+  private OTFont[] _fonts;
+  private final ArrayList<Table> _tables = new ArrayList();
+  private boolean _resourceFork = false;
+  
+
+
+  protected OTFontCollection() {}
+  
+
+  public static OTFontCollection create(File paramFile)
+    throws IOException
+  {
+    OTFontCollection localOTFontCollection = new OTFontCollection();
+    localOTFontCollection.read(paramFile);
+    return localOTFontCollection;
+  }
+  
+
+
+  public static OTFontCollection create(InputStream paramInputStream, int paramInt)
+    throws IOException
+  {
+    OTFontCollection localOTFontCollection = new OTFontCollection();
+    localOTFontCollection.read(paramInputStream, paramInt);
+    return localOTFontCollection;
+  }
+  
+  public String getPathName() {
+    return _pathName;
+  }
+  
+  public String getFileName() {
+    return _fileName;
+  }
+  
+  public OTFont getFont(int paramInt) {
+    return _fonts[paramInt];
+  }
+  
+  public int getFontCount() {
+    return _fonts.length;
+  }
+  
+  public TTCHeader getTtcHeader() {
+    return _ttcHeader;
+  }
+  
+  public Table getTable(DirectoryEntry paramDirectoryEntry) {
+    for (int i = 0; i < _tables.size(); i++) {
+      Table localTable = (Table)_tables.get(i);
+      if ((localTable.getDirectoryEntry().getTag() == paramDirectoryEntry.getTag()) && 
+        (localTable.getDirectoryEntry().getOffset() == paramDirectoryEntry.getOffset())) {
+        return localTable;
+      }
+    }
+    return null;
+  }
+  
+  public void addTable(Table paramTable) {
+    _tables.add(paramTable);
+  }
+  
+
+  protected void read(File paramFile)
+    throws IOException
+  {
+    _pathName = paramFile.getPath();
+    _fileName = paramFile.getName();
+    
+    if (!paramFile.exists()) {
+      throw new IOException("File <" + paramFile.getName() + "> doesn't exist.");
+    }
+    
+
+
+    if (paramFile.length() == 0L) {
+      paramFile = new File(paramFile, "..namedfork/rsrc");
+      if (!paramFile.exists()) {
+        throw new IOException();
+      }
+      _resourceFork = true;
+    }
+    int i = (int)paramFile.length();
+    BufferedInputStream localBufferedInputStream = new BufferedInputStream(new FileInputStream(paramFile), i);
+    try {
+      readImpl(localBufferedInputStream, i);
+    } finally {
+      localBufferedInputStream.close();
+    }
+  }
+  
+
+
+  protected void read(InputStream paramInputStream, int paramInt)
+    throws IOException
+  {
+    _pathName = "";
+    _fileName = "";
+    Object localObject;
+    if (paramInputStream.markSupported()) {
+      localObject = paramInputStream;
+    } else {
+      localObject = new BufferedInputStream(paramInputStream, paramInt);
+    }
+    readImpl((InputStream)localObject, paramInt);
+  }
+  
+
+  private void readImpl(InputStream paramInputStream, int paramInt)
+    throws IOException
+  {
+    if (!paramInputStream.markSupported()) {
+      throw new IllegalArgumentException("stream of type " + paramInputStream.getClass().getName() + " doesn't support mark");
+    }
+    paramInputStream.mark(paramInt);
+    DataInputStream localDataInputStream = new DataInputStream(paramInputStream);
+    if ((_resourceFork) || (_pathName.endsWith(".dfont")))
+    {
+
+      ResourceHeader localResourceHeader = new ResourceHeader(localDataInputStream);
+      
+
+      localDataInputStream.reset();
+      localDataInputStream.skip(localResourceHeader.getMapOffset());
+      ResourceMap localResourceMap = new ResourceMap(localDataInputStream);
+      
+
+      ResourceType localResourceType = localResourceMap.getResourceType("sfnt");
+      
+
+      _fonts = new OTFont[localResourceType.getCount()];
+      for (int j = 0; j < localResourceType.getCount(); j++) {
+        ResourceReference localResourceReference = localResourceType.getReference(j);
+        _fonts[j] = new OTFont(this);
+        
+        int k = localResourceHeader.getDataOffset() + localResourceReference.getDataOffset() + 4;
+        _fonts[j].read(localDataInputStream, k, k);
+      }
+    }
+    else if (TTCHeader.isTTC(localDataInputStream))
+    {
+
+      localDataInputStream.reset();
+      _ttcHeader = new TTCHeader(localDataInputStream);
+      _fonts = new OTFont[_ttcHeader.getDirectoryCount()];
+      for (int i = 0; i < _ttcHeader.getDirectoryCount(); i++) {
+        _fonts[i] = new OTFont(this);
+        _fonts[i].read(localDataInputStream, _ttcHeader.getTableDirectory(i), 0);
+      }
+    }
+    else
+    {
+      _fonts = new OTFont[1];
+      _fonts[0] = new OTFont(this);
+      _fonts[0].read(localDataInputStream, 0, 0);
+    }
+  }
+}

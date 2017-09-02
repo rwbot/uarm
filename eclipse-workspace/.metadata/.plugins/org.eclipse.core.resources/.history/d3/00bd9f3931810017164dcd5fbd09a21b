@@ -1,0 +1,87 @@
+package processing.opengl;
+
+
+
+
+public class VertexBuffer
+{
+  protected static final int INIT_VERTEX_BUFFER_SIZE = 256;
+  
+
+
+  protected static final int INIT_INDEX_BUFFER_SIZE = 512;
+  
+
+
+  public int glId;
+  
+
+
+  int target;
+  
+
+
+  int elementSize;
+  
+
+  int ncoords;
+  
+
+  boolean index;
+  
+
+  protected PGL pgl;
+  
+
+  protected int context;
+  
+
+  private PGraphicsOpenGL.GLResourceVertexBuffer glres;
+  
+
+
+  VertexBuffer(PGraphicsOpenGL pg, int target, int ncoords, int esize)
+  {
+    this(pg, target, ncoords, esize, false);
+  }
+  
+  VertexBuffer(PGraphicsOpenGL pg, int target, int ncoords, int esize, boolean index) {
+    pgl = pgl;
+    context = pgl.createEmptyContext();
+    
+    this.target = target;
+    this.ncoords = ncoords;
+    elementSize = esize;
+    this.index = index;
+    create();
+    init();
+  }
+  
+  protected void create() {
+    context = pgl.getCurrentContext();
+    glres = new PGraphicsOpenGL.GLResourceVertexBuffer(this);
+  }
+  
+  protected void init() {
+    int size = index ? ncoords * 512 * elementSize : 
+      ncoords * 256 * elementSize;
+    pgl.bindBuffer(target, glId);
+    pgl.bufferData(target, size, null, PGL.STATIC_DRAW);
+  }
+  
+  protected void dispose() {
+    if (glres != null) {
+      glres.dispose();
+      glId = 0;
+      glres = null;
+    }
+  }
+  
+  protected boolean contextIsOutdated() {
+    boolean outdated = !pgl.contextIsCurrent(context);
+    if (outdated) {
+      dispose();
+    }
+    return outdated;
+  }
+}

@@ -1,0 +1,116 @@
+package com.jogamp.opengl.math;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public final class Binary64
+{
+  static final long NEGATIVE_ZERO_BITS = Long.MIN_VALUE;
+  static final long MASK_SIGN = Long.MIN_VALUE;
+  static final long MASK_EXPONENT = 9218868437227405312L;
+  static final long MASK_SIGNIFICAND = 4503599627370495L;
+  static final long BIAS = 1023L;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public Binary64() {}
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static long unpackGetExponentUnbiased(double paramDouble)
+  {
+    long l1 = Double.doubleToRawLongBits(paramDouble);
+    long l2 = l1 & MASK_EXPONENT;
+    long l3 = l2 >> 52;
+    return l3 - BIAS;
+  }
+  
+
+
+
+
+
+
+
+  public static long unpackGetSignificand(double paramDouble)
+  {
+    long l = Double.doubleToRawLongBits(paramDouble);
+    return l & MASK_SIGNIFICAND;
+  }
+  
+
+
+
+
+
+
+
+  public static long unpackGetSign(double paramDouble)
+  {
+    long l = Double.doubleToRawLongBits(paramDouble);
+    return (l & MASK_SIGN) >> 63 & 1L;
+  }
+}

@@ -1,0 +1,104 @@
+package g4p_controls;
+
+import com.jogamp.nativewindow.WindowClosingProtocol.WindowClosingMode;
+import com.jogamp.newt.event.WindowListener;
+import com.jogamp.newt.opengl.GLWindow;
+import java.util.Iterator;
+import java.util.LinkedList;
+import processing.core.PMatrix;
+import processing.core.PSurface;
+import processing.core.PVector;
+
+public class GWindowNEWT
+  extends GWindow
+{
+  private PMatrix orgMatrix = null;
+  
+  protected GWindowNEWT(String paramString, int paramInt1, int paramInt2, boolean paramBoolean)
+  {
+    super(paramString, paramInt1, paramInt2);
+    is3D = paramBoolean;
+    renderer_type = (paramBoolean ? "processing.opengl.PGraphics3D" : "processing.opengl.PGraphics2D");
+  }
+  
+  public void setup()
+  {
+    super.setup();
+    orgMatrix = getMatrix();
+  }
+  
+  public void draw()
+  {
+    super.draw();
+    pushMatrix();
+    if (is3D)
+    {
+      hint(2);
+      setMatrix(orgMatrix);
+    }
+    Iterator localIterator = windowControls.iterator();
+    while (localIterator.hasNext())
+    {
+      GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+      if ((registeredMethods & 0x1) == 1) {
+        localGAbstractControl.draw();
+      }
+    }
+    if (is3D) {
+      hint(-2);
+    }
+    popMatrix();
+  }
+  
+  protected void initListeners()
+  {
+    GLWindow localGLWindow = getCanvas();
+    for (WindowListener localWindowListener : localGLWindow.getWindowListeners()) {
+      if (localWindowListener.getClass().getName().startsWith("processing")) {
+        localGLWindow.removeWindowListener(localWindowListener);
+      }
+    }
+    localGLWindow.addWindowListener(new GWindow.WindowAdapterNEWT(this, this));
+  }
+  
+  public void setActionOnClose(int paramInt)
+  {
+    GLWindow localGLWindow = getCanvas();
+    if (paramInt == 3843) {
+      localGLWindow.setDefaultCloseOperation(WindowClosingProtocol.WindowClosingMode.DO_NOTHING_ON_CLOSE);
+    } else {
+      localGLWindow.setDefaultCloseOperation(WindowClosingProtocol.WindowClosingMode.DISPOSE_ON_CLOSE);
+    }
+    actionOnClose = paramInt;
+  }
+  
+  private GLWindow getCanvas()
+  {
+    return (GLWindow)surface.getNative();
+  }
+  
+  protected void fireCloseWindowEvent()
+  {
+    getCanvas().destroy();
+  }
+  
+  public boolean isVisible()
+  {
+    return getCanvas().isVisible();
+  }
+  
+  public String getTitle()
+  {
+    return getCanvas().getTitle();
+  }
+  
+  public PVector getPosition(PVector paramPVector)
+  {
+    if (paramPVector == null) {
+      paramPVector = new PVector();
+    }
+    x = getCanvas().getX();
+    y = getCanvas().getY();
+    return paramPVector;
+  }
+}

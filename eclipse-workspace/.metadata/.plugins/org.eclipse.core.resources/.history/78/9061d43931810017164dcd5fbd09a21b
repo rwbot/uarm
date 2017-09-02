@@ -1,0 +1,73 @@
+package jogamp.common;
+
+import com.jogamp.common.util.PropertyAccess;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Debug
+  extends PropertyAccess
+{
+  static { AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public Object run() {
+        Debug.addTrustedPrefix("jogamp.");
+        return null;
+      } }); }
+  
+  private static final boolean verbose = isPropertyDefined("jogamp.verbose", true);
+  private static final boolean debugAll = isPropertyDefined("jogamp.debug", true);
+  
+
+
+
+  public static final boolean verbose()
+  {
+    return verbose;
+  }
+  
+  public static final boolean debugAll() {
+    return debugAll;
+  }
+  
+  public static final boolean debug(String paramString) {
+    return (debugAll()) || (isPropertyDefined("jogamp.debug." + paramString, true));
+  }
+  
+  public Debug() {}
+  
+  public static final void initSingleton() {}
+}

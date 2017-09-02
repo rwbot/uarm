@@ -1,0 +1,80 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+public class LocaTable
+  implements Table
+{
+  private final DirectoryEntry _de;
+  private int[] _offsets = null;
+  private short _factor = 0;
+  
+
+
+  protected LocaTable(DirectoryEntry paramDirectoryEntry, DataInput paramDataInput, HeadTable paramHeadTable, MaxpTable paramMaxpTable)
+    throws IOException
+  {
+    _de = ((DirectoryEntry)paramDirectoryEntry.clone());
+    _offsets = new int[paramMaxpTable.getNumGlyphs() + 1];
+    int i = paramHeadTable.getIndexToLocFormat() == 0 ? 1 : 0;
+    int j; if (i != 0) {
+      _factor = 2;
+      for (j = 0; j <= paramMaxpTable.getNumGlyphs(); j++) {
+        _offsets[j] = paramDataInput.readUnsignedShort();
+      }
+    } else {
+      _factor = 1;
+      for (j = 0; j <= paramMaxpTable.getNumGlyphs(); j++) {
+        _offsets[j] = paramDataInput.readInt();
+      }
+    }
+  }
+  
+  public int getOffset(int paramInt) {
+    if (_offsets == null) {
+      return 0;
+    }
+    return _offsets[paramInt] * _factor;
+  }
+  
+  public int getType()
+  {
+    return 1819239265;
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("'loca' Table - Index To Location Table\n--------------------------------------\n")
+      .append("Size = ").append(_de.getLength()).append(" bytes, ")
+      .append(_offsets.length).append(" entries\n");
+    for (int i = 0; i < _offsets.length; i++)
+    {
+      localStringBuilder.append("        Idx ").append(i).append(" -> glyfOff 0x").append(getOffset(i)).append("\n");
+    }
+    return localStringBuilder.toString();
+  }
+  
+
+
+
+
+
+
+  public DirectoryEntry getDirectoryEntry()
+  {
+    return _de;
+  }
+}

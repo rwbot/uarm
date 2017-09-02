@@ -1,0 +1,971 @@
+package jogamp.opengl.x11.glx;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.PointerBuffer;
+import com.jogamp.gluegen.runtime.opengl.GLProcAddressResolver;
+import com.jogamp.opengl.GLException;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import java.nio.LongBuffer;
+import jogamp.nativewindow.x11.XVisualInfo;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLX
+{
+  public static final int GLX_TRANSPARENT_BLUE_VALUE = 39;
+  public static final int GLX_ACCUM_ALPHA_SIZE = 17;
+  public static final int GLX_TRUE_COLOR_EXT = 32770;
+  public static final int GLX_ACCUM_RED_SIZE = 14;
+  public static final int GLX_X_VISUAL_TYPE = 34;
+  public static final int GLX_SHARE_CONTEXT_EXT = 32778;
+  public static final int GLX_SCREEN_EXT = 32780;
+  public static final int GLX_SAMPLE_BUFFERS_ARB = 100000;
+  public static final int GLX_TRANSPARENT_RED_VALUE_EXT = 37;
+  public static final int GLX_CONTEXT_DEBUG_BIT_ARB = 1;
+  public static final int GLX_STATIC_GRAY_EXT = 32775;
+  public static final int GLX_X_VISUAL_TYPE_EXT = 34;
+  public static final int GLX_STEREO = 6;
+  public static final int GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB = 2;
+  public static final int GLX_CONTEXT_ALLOW_BUFFER_BYTE_ORDER_MISMATCH_ARB = 8341;
+  public static final int GLX_GREEN_SIZE = 9;
+  public static final int GLX_TRANSPARENT_INDEX = 32777;
+  public static final int GLX_TRANSPARENT_INDEX_VALUE_EXT = 36;
+  public static final int GLX_PSEUDO_COLOR = 32772;
+  public static final int GLX_STATIC_COLOR_EXT = 32773;
+  public static final int GLX_DOUBLEBUFFER = 5;
+  public static final int GLX_TRANSPARENT_TYPE_EXT = 35;
+  public static final int GLX_CONTEXT_RELEASE_BEHAVIOR_ARB = 8343;
+  public static final int GLX_DEPTH_BUFFER_BIT = 32;
+  public static final int GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB = 2;
+  public static final int GLX_WIDTH = 32797;
+  public static final int GLX_STEREO_NOTIFY_MASK_EXT = 1;
+  public static final int GLX_LARGEST_PBUFFER = 32796;
+  public static final int GLX_NON_CONFORMANT_VISUAL_EXT = 32781;
+  public static final int GLX_HEIGHT = 32798;
+  public static final int GLX_DIRECT_COLOR_EXT = 32771;
+  public static final int GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB = 8370;
+  public static final int GLX_VISUAL_CAVEAT_EXT = 32;
+  public static final int GLX_BACK_LEFT_BUFFER_BIT = 4;
+  public static final int GLX_BAD_CONTEXT = 5;
+  public static final int GLX_PBUFFER_HEIGHT = 32832;
+  public static final int GLX_BAD_ATTRIBUTE = 2;
+  public static final int GLX_SAMPLES_ARB = 100001;
+  public static final int GLX_SAMPLE_BUFFERS = 100000;
+  public static final int GLX_WINDOW_BIT = 1;
+  public static final int GLX_TRANSPARENT_ALPHA_VALUE = 40;
+  public static final int GLX_FBCONFIG_ID = 32787;
+  public static final int GLX_TRANSPARENT_INDEX_VALUE = 36;
+  public static final int GLX_PSEUDO_COLOR_EXT = 32772;
+  public static final int GLX_BLUE_SIZE = 10;
+  public static final int GLX_BUFFER_SWAP_COMPLETE_INTEL_MASK = 67108864;
+  public static final int GLX_PBUFFER_CLOBBER_MASK = 134217728;
+  public static final int GLX_CONTEXT_ROBUST_ACCESS_BIT_ARB = 4;
+  public static final int GLX_CONTEXT_RESET_ISOLATION_BIT_ARB = 8;
+  public static final int GLX_MAX_PBUFFER_WIDTH = 32790;
+  public static final int GLX_RENDER_TYPE = 32785;
+  public static final int GLX_NONE_EXT = 32768;
+  public static final int GLX_CONTEXT_CORE_PROFILE_BIT_ARB = 1;
+  public static final int GLX_NONE = 32768;
+  public static final int GLX_CONTEXT_MAJOR_VERSION_ARB = 8337;
+  public static final int GLX_RGBA = 4;
+  public static final int GLX_DEPTH_SIZE = 12;
+  public static final int GLX_CONTEXT_MINOR_VERSION_ARB = 8338;
+  public static final int GLX_TRANSPARENT_GREEN_VALUE = 38;
+  public static final int GLX_VENDOR = 1;
+  public static final int GLX_COPY_COMPLETE_INTEL = 33153;
+  public static final int GLX_NO_RESET_NOTIFICATION_ARB = 33377;
+  public static final int GLX_BUFFER_SIZE = 2;
+  public static final int GLX_PBUFFER = 32803;
+  public static final int GLX_FRONT_LEFT_BUFFER_BIT = 1;
+  public static final int GLX_SCREEN = 32780;
+  public static final int GLX_TRANSPARENT_TYPE = 35;
+  public static final int GLX_VISUAL_ID_EXT = 32779;
+  public static final int GLX_SLOW_VISUAL_EXT = 32769;
+  public static final int GLX_ACCUM_BUFFER_BIT = 128;
+  public static final int GLX_SAMPLES = 100001;
+  public static final int GLX_SAVED = 32801;
+  public static final int GLX_TRANSPARENT_ALPHA_VALUE_EXT = 40;
+  public static final int GLX_FRONT_RIGHT_BUFFER_BIT = 2;
+  public static final int GLX_CONTEXT_RELEASE_BEHAVIOR_NONE_ARB = 0;
+  public static final int GLX_COLOR_INDEX_TYPE = 32789;
+  public static final int GLX_MAX_SWAP_INTERVAL_EXT = 8434;
+  public static final int GLX_MAX_PBUFFER_PIXELS = 32792;
+  public static final int GLX_LOSE_CONTEXT_ON_RESET_ARB = 33362;
+  public static final int GLX_STENCIL_SIZE = 13;
+  public static final int GLX_PBUFFER_WIDTH = 32833;
+  public static final int GLX_RGBA_BIT = 1;
+  public static final int GLX_DIRECT_COLOR = 32771;
+  public static final int GLX_USE_GL = 1;
+  public static final int GLX_TRANSPARENT_RED_VALUE = 37;
+  public static final int GLX_PBUFFER_BIT = 4;
+  public static final int GLX_CONTEXT_ES_PROFILE_BIT_EXT = 4;
+  public static final int GLX_RGBA_UNSIGNED_FLOAT_BIT_EXT = 8;
+  public static final int GLX_PRESERVED_CONTENTS = 32795;
+  public static final int GLX_SAMPLES_3DFX = 32849;
+  public static final int GLX_NO_EXTENSION = 3;
+  public static final int GLX_DAMAGED = 32800;
+  public static final int GLX_RGBA_FLOAT_TYPE_ARB = 8377;
+  public static final int GLX_GRAY_SCALE_EXT = 32774;
+  public static final int GLX_PIXMAP_BIT = 2;
+  public static final int GLX_STATIC_COLOR = 32773;
+  public static final int GLX_TRANSPARENT_BLUE_VALUE_EXT = 39;
+  public static final int GLX_FLIP_COMPLETE_INTEL = 33154;
+  public static final int GLX_BAD_VISUAL = 4;
+  public static final int GLX_STEREO_TREE_EXT = 8437;
+  public static final int GLX_TRANSPARENT_GREEN_VALUE_EXT = 38;
+  public static final int GLX_LEVEL = 3;
+  public static final int GLX_GRAY_SCALE = 32774;
+  public static final int GLX_STEREO_NOTIFY_EXT = 0;
+  public static final int GLX_X_RENDERABLE = 32786;
+  public static final int GLX_BACK_RIGHT_BUFFER_BIT = 8;
+  public static final int GLX_BAD_ENUM = 7;
+  public static final int GLX_FRAMEBUFFER_SRGB_CAPABLE_EXT = 8370;
+  public static final int GLX_SAMPLE_BUFFERS_3DFX = 32848;
+  public static final int GLX_LATE_SWAPS_TEAR_EXT = 8435;
+  public static final int GLX_CONTEXT_RESET_NOTIFICATION_STRATEGY_ARB = 33366;
+  public static final int GLX_RGBA_UNSIGNED_FLOAT_TYPE_EXT = 8369;
+  public static final int GLX_CONFIG_CAVEAT = 32;
+  public static final int GLX_TRANSPARENT_INDEX_EXT = 32777;
+  public static final int GLX_COLOR_INDEX_BIT = 2;
+  public static final int GLX_EVENT_MASK = 32799;
+  public static final int GLX_SWAP_INTERVAL_EXT = 8433;
+  public static final int GLX_SLOW_CONFIG = 32769;
+  public static final int GLX_BACK_BUFFER_AGE_EXT = 8436;
+  public static final int GLX_VERSION = 2;
+  public static final int GLX_TRANSPARENT_RGB_EXT = 32776;
+  public static final long GLX_DONT_CARE = 4294967295L;
+  public static final int GLX_CONTEXT_FLAGS_ARB = 8340;
+  public static final int GLX_EXTENSIONS = 3;
+  public static final int GLX_BAD_VALUE = 6;
+  public static final int GLX_ACCUM_BLUE_SIZE = 16;
+  public static final int GLX_STENCIL_BUFFER_BIT = 64;
+  public static final int GLX_ACCUM_GREEN_SIZE = 15;
+  public static final int GLX_ALPHA_SIZE = 11;
+  public static final int GLX_WINDOW = 32802;
+  public static final int GLX_AUX_BUFFERS_BIT = 16;
+  public static final int GLX_VISUAL_ID = 32779;
+  public static final int GLX_RGBA_TYPE = 32788;
+  public static final int GLX_DRAWABLE_TYPE = 32784;
+  public static final int GLX_MAX_PBUFFER_HEIGHT = 32791;
+  public static final int GLX_CONTEXT_PROFILE_MASK_ARB = 37158;
+  public static final int GLX_EXCHANGE_COMPLETE_INTEL = 33152;
+  public static final int GLX_AUX_BUFFERS = 7;
+  public static final int GLX_RED_SIZE = 8;
+  public static final int GLX_CONTEXT_RELEASE_BEHAVIOR_FLUSH_ARB = 8344;
+  public static final int GLX_TRUE_COLOR = 32770;
+  public static final int GLX_RGBA_FLOAT_BIT_ARB = 4;
+  public static final int GLX_TRANSPARENT_RGB = 32776;
+  public static final int GLX_STATIC_GRAY = 32775;
+  public static final int GLX_BAD_SCREEN = 1;
+  public static final int GLX_CONTEXT_ES2_PROFILE_BIT_EXT = 4;
+  public static final int GLX_NON_CONFORMANT_CONFIG = 32781;
+  
+  public GLX() {}
+  
+  public static long glXCreateContext(long paramLong1, XVisualInfo paramXVisualInfo, long paramLong2, boolean paramBoolean)
+  {
+    long l = glxProcAddressTable_addressof_glXCreateContext;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXCreateContext" }));
+    }
+    return dispatch_glXCreateContext0(paramLong1, paramXVisualInfo == null ? null : paramXVisualInfo.getBuffer(), paramLong2, paramBoolean, l);
+  }
+  
+
+  private static native long dispatch_glXCreateContext0(long paramLong1, ByteBuffer paramByteBuffer, long paramLong2, boolean paramBoolean, long paramLong3);
+  
+
+  public static void glXDestroyContext(long paramLong1, long paramLong2)
+  {
+    long l = glxProcAddressTable_addressof_glXDestroyContext;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXDestroyContext" }));
+    }
+    dispatch_glXDestroyContext0(paramLong1, paramLong2, l);
+  }
+  
+
+  private static native void dispatch_glXDestroyContext0(long paramLong1, long paramLong2, long paramLong3);
+  
+
+  public static boolean glXMakeCurrent(long paramLong1, long paramLong2, long paramLong3)
+  {
+    long l = glxProcAddressTable_addressof_glXMakeCurrent;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXMakeCurrent" }));
+    }
+    return dispatch_glXMakeCurrent0(paramLong1, paramLong2, paramLong3, l);
+  }
+  
+
+  private static native boolean dispatch_glXMakeCurrent0(long paramLong1, long paramLong2, long paramLong3, long paramLong4);
+  
+
+  public static void glXCopyContext(long paramLong1, long paramLong2, long paramLong3, long paramLong4)
+  {
+    long l = glxProcAddressTable_addressof_glXCopyContext;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXCopyContext" }));
+    }
+    dispatch_glXCopyContext0(paramLong1, paramLong2, paramLong3, paramLong4, l);
+  }
+  
+
+  private static native void dispatch_glXCopyContext0(long paramLong1, long paramLong2, long paramLong3, long paramLong4, long paramLong5);
+  
+
+  public static void glXSwapBuffers(long paramLong1, long paramLong2)
+  {
+    long l = glxProcAddressTable_addressof_glXSwapBuffers;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXSwapBuffers" }));
+    }
+    dispatch_glXSwapBuffers0(paramLong1, paramLong2, l);
+  }
+  
+
+  private static native void dispatch_glXSwapBuffers0(long paramLong1, long paramLong2, long paramLong3);
+  
+
+  public static long glXCreateGLXPixmap(long paramLong1, XVisualInfo paramXVisualInfo, long paramLong2)
+  {
+    long l = glxProcAddressTable_addressof_glXCreateGLXPixmap;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXCreateGLXPixmap" }));
+    }
+    return dispatch_glXCreateGLXPixmap0(paramLong1, paramXVisualInfo == null ? null : paramXVisualInfo.getBuffer(), paramLong2, l);
+  }
+  
+
+  private static native long dispatch_glXCreateGLXPixmap0(long paramLong1, ByteBuffer paramByteBuffer, long paramLong2, long paramLong3);
+  
+
+  public static void glXDestroyGLXPixmap(long paramLong1, long paramLong2)
+  {
+    long l = glxProcAddressTable_addressof_glXDestroyGLXPixmap;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXDestroyGLXPixmap" }));
+    }
+    dispatch_glXDestroyGLXPixmap0(paramLong1, paramLong2, l);
+  }
+  
+
+
+  private static native void dispatch_glXDestroyGLXPixmap0(long paramLong1, long paramLong2, long paramLong3);
+  
+
+
+  public static boolean glXQueryExtension(long paramLong, IntBuffer paramIntBuffer1, IntBuffer paramIntBuffer2)
+  {
+    if (!Buffers.isDirect(paramIntBuffer1))
+      throw new GLException("Argument \"errorb\" is not a direct buffer");
+    if (!Buffers.isDirect(paramIntBuffer2))
+      throw new GLException("Argument \"event\" is not a direct buffer");
+    long l = glxProcAddressTable_addressof_glXQueryExtension;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXQueryExtension" }));
+    }
+    return dispatch_glXQueryExtension0(paramLong, paramIntBuffer1, Buffers.getDirectBufferByteOffset(paramIntBuffer1), paramIntBuffer2, Buffers.getDirectBufferByteOffset(paramIntBuffer2), l);
+  }
+  
+
+
+
+  private static native boolean dispatch_glXQueryExtension0(long paramLong1, Object paramObject1, int paramInt1, Object paramObject2, int paramInt2, long paramLong2);
+  
+
+
+
+  public static boolean glXQueryVersion(long paramLong, IntBuffer paramIntBuffer1, IntBuffer paramIntBuffer2)
+  {
+    if (!Buffers.isDirect(paramIntBuffer1))
+      throw new GLException("Argument \"maj\" is not a direct buffer");
+    if (!Buffers.isDirect(paramIntBuffer2))
+      throw new GLException("Argument \"min\" is not a direct buffer");
+    long l = glxProcAddressTable_addressof_glXQueryVersion;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXQueryVersion" }));
+    }
+    return dispatch_glXQueryVersion0(paramLong, paramIntBuffer1, Buffers.getDirectBufferByteOffset(paramIntBuffer1), paramIntBuffer2, Buffers.getDirectBufferByteOffset(paramIntBuffer2), l);
+  }
+  
+
+
+  private static native boolean dispatch_glXQueryVersion0(long paramLong1, Object paramObject1, int paramInt1, Object paramObject2, int paramInt2, long paramLong2);
+  
+
+
+  public static boolean glXIsDirect(long paramLong1, long paramLong2)
+  {
+    long l = glxProcAddressTable_addressof_glXIsDirect;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXIsDirect" }));
+    }
+    return dispatch_glXIsDirect0(paramLong1, paramLong2, l);
+  }
+  
+
+
+  private static native boolean dispatch_glXIsDirect0(long paramLong1, long paramLong2, long paramLong3);
+  
+
+  public static int glXGetConfig(long paramLong, XVisualInfo paramXVisualInfo, int paramInt, IntBuffer paramIntBuffer)
+  {
+    if (!Buffers.isDirect(paramIntBuffer))
+      throw new GLException("Argument \"value\" is not a direct buffer");
+    long l = glxProcAddressTable_addressof_glXGetConfig;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXGetConfig" }));
+    }
+    return dispatch_glXGetConfig0(paramLong, paramXVisualInfo == null ? null : paramXVisualInfo.getBuffer(), paramInt, paramIntBuffer, Buffers.getDirectBufferByteOffset(paramIntBuffer), l);
+  }
+  
+
+
+  private static native int dispatch_glXGetConfig0(long paramLong1, ByteBuffer paramByteBuffer, int paramInt1, Object paramObject, int paramInt2, long paramLong2);
+  
+
+  public static long glXGetCurrentContext()
+  {
+    long l = glxProcAddressTable_addressof_glXGetCurrentContext;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXGetCurrentContext" }));
+    }
+    return dispatch_glXGetCurrentContext0(l);
+  }
+  
+
+  private static native long dispatch_glXGetCurrentContext0(long paramLong);
+  
+
+  public static long glXGetCurrentDrawable()
+  {
+    long l = glxProcAddressTable_addressof_glXGetCurrentDrawable;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXGetCurrentDrawable" }));
+    }
+    return dispatch_glXGetCurrentDrawable0(l);
+  }
+  
+
+  private static native long dispatch_glXGetCurrentDrawable0(long paramLong);
+  
+
+  public static void glXWaitGL()
+  {
+    long l = glxProcAddressTable_addressof_glXWaitGL;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXWaitGL" }));
+    }
+    dispatch_glXWaitGL0(l);
+  }
+  
+
+  private static native void dispatch_glXWaitGL0(long paramLong);
+  
+
+  public static void glXWaitX()
+  {
+    long l = glxProcAddressTable_addressof_glXWaitX;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXWaitX" }));
+    }
+    dispatch_glXWaitX0(l);
+  }
+  
+
+  private static native void dispatch_glXWaitX0(long paramLong);
+  
+
+  public static void glXUseXFont(long paramLong, int paramInt1, int paramInt2, int paramInt3)
+  {
+    long l = glxProcAddressTable_addressof_glXUseXFont;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXUseXFont" }));
+    }
+    dispatch_glXUseXFont0(paramLong, paramInt1, paramInt2, paramInt3, l);
+  }
+  
+
+  private static native void dispatch_glXUseXFont0(long paramLong1, int paramInt1, int paramInt2, int paramInt3, long paramLong2);
+  
+
+  public static String glXQueryExtensionsString(long paramLong, int paramInt)
+  {
+    long l = glxProcAddressTable_addressof_glXQueryExtensionsString;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXQueryExtensionsString" }));
+    }
+    return dispatch_glXQueryExtensionsString0(paramLong, paramInt, l);
+  }
+  
+
+  private static native String dispatch_glXQueryExtensionsString0(long paramLong1, int paramInt, long paramLong2);
+  
+
+  public static String glXQueryServerString(long paramLong, int paramInt1, int paramInt2)
+  {
+    long l = glxProcAddressTable_addressof_glXQueryServerString;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXQueryServerString" }));
+    }
+    return dispatch_glXQueryServerString0(paramLong, paramInt1, paramInt2, l);
+  }
+  
+
+  private static native String dispatch_glXQueryServerString0(long paramLong1, int paramInt1, int paramInt2, long paramLong2);
+  
+
+  public static String glXGetClientString(long paramLong, int paramInt)
+  {
+    long l = glxProcAddressTable_addressof_glXGetClientString;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXGetClientString" }));
+    }
+    return dispatch_glXGetClientString0(paramLong, paramInt, l);
+  }
+  
+
+  private static native String dispatch_glXGetClientString0(long paramLong1, int paramInt, long paramLong2);
+  
+
+  public static long glXGetCurrentDisplay()
+  {
+    long l = glxProcAddressTable_addressof_glXGetCurrentDisplay;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXGetCurrentDisplay" }));
+    }
+    return dispatch_glXGetCurrentDisplay0(l);
+  }
+  
+
+  private static native long dispatch_glXGetCurrentDisplay0(long paramLong);
+  
+
+  public static long glXGetProcAddress(String paramString)
+  {
+    long l = glxProcAddressTable_addressof_glXGetProcAddress;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXGetProcAddress" }));
+    }
+    return dispatch_glXGetProcAddress0(paramString, l);
+  }
+  
+
+  private static native long dispatch_glXGetProcAddress0(String paramString, long paramLong);
+  
+
+  public static long glXGetProcAddressARB(String paramString)
+  {
+    long l = glxProcAddressTable_addressof_glXGetProcAddressARB;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXGetProcAddressARB" }));
+    }
+    return dispatch_glXGetProcAddressARB0(paramString, l);
+  }
+  
+
+
+  private static native long dispatch_glXGetProcAddressARB0(String paramString, long paramLong);
+  
+
+  public static int glXGetFBConfigAttrib(long paramLong1, long paramLong2, int paramInt, IntBuffer paramIntBuffer)
+  {
+    if (!Buffers.isDirect(paramIntBuffer))
+      throw new GLException("Argument \"value\" is not a direct buffer");
+    long l = glxProcAddressTable_addressof_glXGetFBConfigAttrib;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXGetFBConfigAttrib" }));
+    }
+    return dispatch_glXGetFBConfigAttrib0(paramLong1, paramLong2, paramInt, paramIntBuffer, Buffers.getDirectBufferByteOffset(paramIntBuffer), l);
+  }
+  
+
+
+  private static native int dispatch_glXGetFBConfigAttrib0(long paramLong1, long paramLong2, int paramInt1, Object paramObject, int paramInt2, long paramLong3);
+  
+
+
+  public static long glXCreateWindow(long paramLong1, long paramLong2, long paramLong3, IntBuffer paramIntBuffer)
+  {
+    if (!Buffers.isDirect(paramIntBuffer))
+      throw new GLException("Argument \"attrib_list\" is not a direct buffer");
+    long l = glxProcAddressTable_addressof_glXCreateWindow;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXCreateWindow" }));
+    }
+    return dispatch_glXCreateWindow0(paramLong1, paramLong2, paramLong3, paramIntBuffer, Buffers.getDirectBufferByteOffset(paramIntBuffer), l);
+  }
+  
+
+
+  private static native long dispatch_glXCreateWindow0(long paramLong1, long paramLong2, long paramLong3, Object paramObject, int paramInt, long paramLong4);
+  
+
+  public static void glXDestroyWindow(long paramLong1, long paramLong2)
+  {
+    long l = glxProcAddressTable_addressof_glXDestroyWindow;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXDestroyWindow" }));
+    }
+    dispatch_glXDestroyWindow0(paramLong1, paramLong2, l);
+  }
+  
+
+
+  private static native void dispatch_glXDestroyWindow0(long paramLong1, long paramLong2, long paramLong3);
+  
+
+  public static long glXCreatePixmap(long paramLong1, long paramLong2, long paramLong3, IntBuffer paramIntBuffer)
+  {
+    if (!Buffers.isDirect(paramIntBuffer))
+      throw new GLException("Argument \"attrib_list\" is not a direct buffer");
+    long l = glxProcAddressTable_addressof_glXCreatePixmap;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXCreatePixmap" }));
+    }
+    return dispatch_glXCreatePixmap0(paramLong1, paramLong2, paramLong3, paramIntBuffer, Buffers.getDirectBufferByteOffset(paramIntBuffer), l);
+  }
+  
+
+
+  private static native long dispatch_glXCreatePixmap0(long paramLong1, long paramLong2, long paramLong3, Object paramObject, int paramInt, long paramLong4);
+  
+
+  public static void glXDestroyPixmap(long paramLong1, long paramLong2)
+  {
+    long l = glxProcAddressTable_addressof_glXDestroyPixmap;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXDestroyPixmap" }));
+    }
+    dispatch_glXDestroyPixmap0(paramLong1, paramLong2, l);
+  }
+  
+
+
+  private static native void dispatch_glXDestroyPixmap0(long paramLong1, long paramLong2, long paramLong3);
+  
+
+  public static long glXCreatePbuffer(long paramLong1, long paramLong2, IntBuffer paramIntBuffer)
+  {
+    if (!Buffers.isDirect(paramIntBuffer))
+      throw new GLException("Argument \"attrib_list\" is not a direct buffer");
+    long l = glxProcAddressTable_addressof_glXCreatePbuffer;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXCreatePbuffer" }));
+    }
+    return dispatch_glXCreatePbuffer0(paramLong1, paramLong2, paramIntBuffer, Buffers.getDirectBufferByteOffset(paramIntBuffer), l);
+  }
+  
+
+
+  private static native long dispatch_glXCreatePbuffer0(long paramLong1, long paramLong2, Object paramObject, int paramInt, long paramLong3);
+  
+
+  public static void glXDestroyPbuffer(long paramLong1, long paramLong2)
+  {
+    long l = glxProcAddressTable_addressof_glXDestroyPbuffer;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXDestroyPbuffer" }));
+    }
+    dispatch_glXDestroyPbuffer0(paramLong1, paramLong2, l);
+  }
+  
+
+
+  private static native void dispatch_glXDestroyPbuffer0(long paramLong1, long paramLong2, long paramLong3);
+  
+
+  public static void glXQueryDrawable(long paramLong1, long paramLong2, int paramInt, IntBuffer paramIntBuffer)
+  {
+    if (!Buffers.isDirect(paramIntBuffer))
+      throw new GLException("Argument \"value\" is not a direct buffer");
+    long l = glxProcAddressTable_addressof_glXQueryDrawable;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXQueryDrawable" }));
+    }
+    dispatch_glXQueryDrawable0(paramLong1, paramLong2, paramInt, paramIntBuffer, Buffers.getDirectBufferByteOffset(paramIntBuffer), l);
+  }
+  
+
+
+  private static native void dispatch_glXQueryDrawable0(long paramLong1, long paramLong2, int paramInt1, Object paramObject, int paramInt2, long paramLong3);
+  
+
+  public static long glXCreateNewContext(long paramLong1, long paramLong2, int paramInt, long paramLong3, boolean paramBoolean)
+  {
+    long l = glxProcAddressTable_addressof_glXCreateNewContext;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXCreateNewContext" }));
+    }
+    return dispatch_glXCreateNewContext0(paramLong1, paramLong2, paramInt, paramLong3, paramBoolean, l);
+  }
+  
+
+  private static native long dispatch_glXCreateNewContext0(long paramLong1, long paramLong2, int paramInt, long paramLong3, boolean paramBoolean, long paramLong4);
+  
+
+  public static boolean glXMakeContextCurrent(long paramLong1, long paramLong2, long paramLong3, long paramLong4)
+  {
+    long l = glxProcAddressTable_addressof_glXMakeContextCurrent;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXMakeContextCurrent" }));
+    }
+    return dispatch_glXMakeContextCurrent0(paramLong1, paramLong2, paramLong3, paramLong4, l);
+  }
+  
+
+  private static native boolean dispatch_glXMakeContextCurrent0(long paramLong1, long paramLong2, long paramLong3, long paramLong4, long paramLong5);
+  
+
+  public static long glXGetCurrentReadDrawable()
+  {
+    long l = glxProcAddressTable_addressof_glXGetCurrentReadDrawable;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXGetCurrentReadDrawable" }));
+    }
+    return dispatch_glXGetCurrentReadDrawable0(l);
+  }
+  
+
+
+  private static native long dispatch_glXGetCurrentReadDrawable0(long paramLong);
+  
+
+  public static int glXQueryContext(long paramLong1, long paramLong2, int paramInt, IntBuffer paramIntBuffer)
+  {
+    if (!Buffers.isDirect(paramIntBuffer))
+      throw new GLException("Argument \"value\" is not a direct buffer");
+    long l = glxProcAddressTable_addressof_glXQueryContext;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXQueryContext" }));
+    }
+    return dispatch_glXQueryContext0(paramLong1, paramLong2, paramInt, paramIntBuffer, Buffers.getDirectBufferByteOffset(paramIntBuffer), l);
+  }
+  
+
+
+  private static native int dispatch_glXQueryContext0(long paramLong1, long paramLong2, int paramInt1, Object paramObject, int paramInt2, long paramLong3);
+  
+
+  public static void glXSelectEvent(long paramLong1, long paramLong2, long paramLong3)
+  {
+    long l = glxProcAddressTable_addressof_glXSelectEvent;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXSelectEvent" }));
+    }
+    dispatch_glXSelectEvent0(paramLong1, paramLong2, paramLong3, l);
+  }
+  
+
+
+  private static native void dispatch_glXSelectEvent0(long paramLong1, long paramLong2, long paramLong3, long paramLong4);
+  
+
+  public static void glXGetSelectedEvent(long paramLong1, long paramLong2, LongBuffer paramLongBuffer)
+  {
+    if (!Buffers.isDirect(paramLongBuffer))
+      throw new GLException("Argument \"event_mask\" is not a direct buffer");
+    long l = glxProcAddressTable_addressof_glXGetSelectedEvent;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXGetSelectedEvent" }));
+    }
+    dispatch_glXGetSelectedEvent0(paramLong1, paramLong2, paramLongBuffer, Buffers.getDirectBufferByteOffset(paramLongBuffer), l);
+  }
+  
+
+
+  private static native void dispatch_glXGetSelectedEvent0(long paramLong1, long paramLong2, Object paramObject, int paramInt, long paramLong3);
+  
+
+  public static void glXSwapIntervalEXT(long paramLong1, long paramLong2, int paramInt)
+  {
+    long l = glxProcAddressTable_addressof_glXSwapIntervalEXT;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXSwapIntervalEXT" }));
+    }
+    dispatch_glXSwapIntervalEXT0(paramLong1, paramLong2, paramInt, l);
+  }
+  
+
+
+  private static native void dispatch_glXSwapIntervalEXT0(long paramLong1, long paramLong2, int paramInt, long paramLong3);
+  
+
+  private static GLXProcAddressTable glxProcAddressTable = new GLXProcAddressTable(new GLProcAddressResolver());
+  public static GLXProcAddressTable getGLXProcAddressTable() { return glxProcAddressTable; }
+  
+
+
+
+
+
+  public static int glXGetFBConfigAttributes(long paramLong1, long paramLong2, IntBuffer paramIntBuffer1, IntBuffer paramIntBuffer2)
+  {
+    if ((paramIntBuffer1 == null) || (paramIntBuffer2 == null)) {
+      throw new RuntimeException("arrays buffers are null");
+    }
+    if ((!Buffers.isDirect(paramIntBuffer1)) || (!Buffers.isDirect(paramIntBuffer2))) {
+      throw new RuntimeException("arrays buffers are not direct");
+    }
+    if (paramIntBuffer1.remaining() > paramIntBuffer2.remaining()) {
+      throw new RuntimeException("not enough values " + paramIntBuffer2 + " for attributes " + paramIntBuffer1);
+    }
+    long l = glxProcAddressTable_addressof_glXGetFBConfigAttrib;
+    return dispatch_glXGetFBConfigAttributes(paramLong1, paramLong2, paramIntBuffer1.remaining(), paramIntBuffer1, Buffers.getDirectBufferByteOffset(paramIntBuffer1), paramIntBuffer2, 
+      Buffers.getDirectBufferByteOffset(paramIntBuffer2), l);
+  }
+  
+  private static native int dispatch_glXGetFBConfigAttributes(long paramLong1, long paramLong2, int paramInt1, Object paramObject1, int paramInt2, Object paramObject2, int paramInt3, long paramLong3);
+  
+  public static XVisualInfo glXGetVisualFromFBConfig(long paramLong1, long paramLong2)
+  {
+    long l = glxProcAddressTable_addressof_glXGetVisualFromFBConfig;
+    if (l == 0L) {
+      throw new GLException("Method \"glXGetVisualFromFBConfig\" not available");
+    }
+    ByteBuffer localByteBuffer = dispatch_glXGetVisualFromFBConfig(paramLong1, paramLong2, l);
+    if (localByteBuffer == null) return null;
+    return XVisualInfo.create(Buffers.nativeOrder(localByteBuffer));
+  }
+  
+
+
+
+  private static native ByteBuffer dispatch_glXGetVisualFromFBConfig(long paramLong1, long paramLong2, long paramLong3);
+  
+
+
+  public static PointerBuffer glXChooseFBConfig(long paramLong, int paramInt, IntBuffer paramIntBuffer1, IntBuffer paramIntBuffer2)
+  {
+    if (!Buffers.isDirect(paramIntBuffer1))
+      throw new GLException("Argument \"attribList\" is not a direct buffer");
+    if (!Buffers.isDirect(paramIntBuffer2))
+      throw new GLException("Argument \"nitems\" is not a direct buffer");
+    long l = glxProcAddressTable_addressof_glXChooseFBConfig;
+    if (l == 0L) {
+      throw new GLException("Method \"glXChooseFBConfig\" not available");
+    }
+    ByteBuffer localByteBuffer = dispatch_glXChooseFBConfig(paramLong, paramInt, paramIntBuffer1, Buffers.getDirectBufferByteOffset(paramIntBuffer1), paramIntBuffer2, Buffers.getDirectBufferByteOffset(paramIntBuffer2), l);
+    if (localByteBuffer == null) return null;
+    return PointerBuffer.wrap(Buffers.nativeOrder(localByteBuffer));
+  }
+  
+
+
+
+  private static native ByteBuffer dispatch_glXChooseFBConfig(long paramLong1, int paramInt1, Object paramObject1, int paramInt2, Object paramObject2, int paramInt3, long paramLong2);
+  
+
+
+  public static PointerBuffer glXGetFBConfigs(long paramLong, int paramInt, IntBuffer paramIntBuffer)
+  {
+    if (!Buffers.isDirect(paramIntBuffer))
+      throw new GLException("Argument \"nelements\" is not a direct buffer");
+    long l = glxProcAddressTable_addressof_glXGetFBConfigs;
+    if (l == 0L) {
+      throw new GLException(String.format("Method \"%s\" not available", new Object[] { "glXGetFBConfigs" }));
+    }
+    ByteBuffer localByteBuffer = dispatch_glXGetFBConfigs(paramLong, paramInt, paramIntBuffer, Buffers.getDirectBufferByteOffset(paramIntBuffer), l);
+    if (localByteBuffer == null) return null;
+    return PointerBuffer.wrap(Buffers.nativeOrder(localByteBuffer));
+  }
+  
+
+
+
+  private static native ByteBuffer dispatch_glXGetFBConfigs(long paramLong1, int paramInt1, Object paramObject, int paramInt2, long paramLong2);
+  
+
+
+  public static XVisualInfo glXChooseVisual(long paramLong, int paramInt, IntBuffer paramIntBuffer)
+  {
+    if (!Buffers.isDirect(paramIntBuffer))
+      throw new GLException("Argument \"attribList\" is not a direct buffer");
+    long l = glxProcAddressTable_addressof_glXChooseVisual;
+    if (l == 0L) {
+      throw new GLException("Method \"glXChooseVisual\" not available");
+    }
+    ByteBuffer localByteBuffer = dispatch_glXChooseVisual(paramLong, paramInt, paramIntBuffer, Buffers.getDirectBufferByteOffset(paramIntBuffer), l);
+    if (localByteBuffer == null) return null;
+    return XVisualInfo.create(Buffers.nativeOrder(localByteBuffer));
+  }
+  
+
+  private static native ByteBuffer dispatch_glXChooseVisual(long paramLong1, int paramInt1, Object paramObject, int paramInt2, long paramLong2);
+  
+
+  static long glXGetProcAddress(long paramLong, String paramString)
+  {
+    if (paramLong == 0L) {
+      throw new GLException("Passed null pointer for method \"glXGetProcAddress\"");
+    }
+    return dispatch_glXGetProcAddress0(paramString, paramLong);
+  }
+  
+
+  private static native boolean initializeImpl();
+  
+
+  private static native int getCStringLengthImpl(long paramLong);
+  
+  static
+  {
+    if (!initializeImpl()) {
+      throw new RuntimeException("Initialization failure");
+    }
+  }
+}

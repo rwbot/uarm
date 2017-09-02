@@ -1,0 +1,367 @@
+package com.jogamp.newt;
+
+import com.jogamp.common.util.ArrayHashSet;
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.Rectangle;
+import com.jogamp.nativewindow.util.RectangleImmutable;
+import com.jogamp.nativewindow.util.SurfaceSize;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class MonitorDevice
+{
+  protected final Screen screen;
+  protected final int nativeId;
+  protected final DimensionImmutable sizeMM;
+  protected final MonitorMode originalMode;
+  protected final ArrayHashSet<MonitorMode> supportedModes;
+  protected final float[] pixelScale;
+  protected final Rectangle viewportPU;
+  protected final Rectangle viewportWU;
+  protected boolean isClone;
+  protected boolean isPrimary;
+  protected MonitorMode currentMode;
+  protected boolean modeChanged;
+  
+  protected MonitorDevice(Screen paramScreen, int paramInt, boolean paramBoolean1, boolean paramBoolean2, DimensionImmutable paramDimensionImmutable, MonitorMode paramMonitorMode, float[] paramArrayOfFloat, Rectangle paramRectangle1, Rectangle paramRectangle2, ArrayHashSet<MonitorMode> paramArrayHashSet)
+  {
+    screen = paramScreen;
+    nativeId = paramInt;
+    sizeMM = paramDimensionImmutable;
+    originalMode = paramMonitorMode;
+    supportedModes = paramArrayHashSet;
+    pixelScale = new float[] { 1.0F, null != paramArrayOfFloat ? paramArrayOfFloat : 1.0F };
+    viewportPU = paramRectangle1;
+    viewportWU = paramRectangle2;
+    
+    isClone = paramBoolean1;
+    isPrimary = paramBoolean2;
+    currentMode = paramMonitorMode;
+    modeChanged = false;
+  }
+  
+  public final Screen getScreen()
+  {
+    return screen;
+  }
+  
+
+
+
+
+
+
+
+
+  public final boolean equals(Object paramObject)
+  {
+    if (this == paramObject) return true;
+    if ((paramObject instanceof MonitorDevice)) {
+      MonitorDevice localMonitorDevice = (MonitorDevice)paramObject;
+      return nativeId == nativeId;
+    }
+    return false;
+  }
+  
+
+
+
+
+
+
+  public final int hashCode()
+  {
+    return nativeId;
+  }
+  
+  public final int getId() {
+    return nativeId;
+  }
+  
+  public final boolean isClone() { return isClone; }
+  
+
+
+  public final boolean isPrimary()
+  {
+    return isPrimary;
+  }
+  
+
+  public final DimensionImmutable getSizeMM()
+  {
+    return sizeMM;
+  }
+  
+
+
+
+
+
+
+
+
+  public final float[] getPixelsPerMM(float[] paramArrayOfFloat)
+  {
+    return getPixelsPerMM(getCurrentMode(), paramArrayOfFloat);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final float[] getPixelsPerMM(MonitorMode paramMonitorMode, float[] paramArrayOfFloat)
+  {
+    DimensionImmutable localDimensionImmutable1 = getSizeMM();
+    DimensionImmutable localDimensionImmutable2 = paramMonitorMode.getSurfaceSize().getResolution();
+    paramArrayOfFloat[0] = (localDimensionImmutable2.getWidth() / localDimensionImmutable1.getWidth());
+    paramArrayOfFloat[1] = (localDimensionImmutable2.getHeight() / localDimensionImmutable1.getHeight());
+    return paramArrayOfFloat;
+  }
+  
+
+
+
+
+
+  public final MonitorMode getOriginalMode()
+  {
+    return originalMode;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final List<MonitorMode> getSupportedModes()
+  {
+    return supportedModes.getData();
+  }
+  
+
+
+
+
+
+
+  public final RectangleImmutable getViewport()
+  {
+    return viewportPU;
+  }
+  
+
+
+
+
+
+
+  public final RectangleImmutable getViewportInWindowUnits()
+  {
+    return viewportWU;
+  }
+  
+
+
+
+
+
+
+  public float[] getPixelScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(pixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+
+
+
+
+
+
+
+
+  public final boolean contains(int paramInt1, int paramInt2)
+  {
+    return (paramInt1 >= viewportPU.getX()) && (paramInt1 < viewportPU.getX() + viewportPU.getWidth()) && (paramInt2 >= viewportPU.getY()) && (paramInt2 < viewportPU.getY() + viewportPU.getHeight());
+  }
+  
+
+
+
+
+
+  public static void unionOfViewports(Rectangle paramRectangle1, Rectangle paramRectangle2, List<MonitorDevice> paramList)
+  {
+    int i = Integer.MAX_VALUE;int j = Integer.MAX_VALUE;
+    int k = Integer.MIN_VALUE;int m = Integer.MIN_VALUE;
+    int n = Integer.MAX_VALUE;int i1 = Integer.MAX_VALUE;
+    int i2 = Integer.MIN_VALUE;int i3 = Integer.MIN_VALUE;
+    for (int i4 = paramList.size() - 1; i4 >= 0; i4--) { RectangleImmutable localRectangleImmutable;
+      if (null != paramRectangle1) {
+        localRectangleImmutable = ((MonitorDevice)paramList.get(i4)).getViewport();
+        i = Math.min(i, localRectangleImmutable.getX());
+        k = Math.max(k, localRectangleImmutable.getX() + localRectangleImmutable.getWidth());
+        j = Math.min(j, localRectangleImmutable.getY());
+        m = Math.max(m, localRectangleImmutable.getY() + localRectangleImmutable.getHeight());
+      }
+      if (null != paramRectangle2) {
+        localRectangleImmutable = ((MonitorDevice)paramList.get(i4)).getViewportInWindowUnits();
+        n = Math.min(n, localRectangleImmutable.getX());
+        i2 = Math.max(i2, localRectangleImmutable.getX() + localRectangleImmutable.getWidth());
+        i1 = Math.min(i1, localRectangleImmutable.getY());
+        i3 = Math.max(i3, localRectangleImmutable.getY() + localRectangleImmutable.getHeight());
+      }
+    }
+    if (null != paramRectangle1) {
+      paramRectangle1.set(i, j, k - i, m - j);
+    }
+    if (null != paramRectangle2) {
+      paramRectangle2.set(n, i1, i2 - n, i3 - i1);
+    }
+  }
+  
+  public final boolean isOriginalMode() {
+    return currentMode.hashCode() == originalMode.hashCode();
+  }
+  
+
+
+
+
+
+
+
+  public final boolean isModeChangedByUs()
+  {
+    return (modeChanged) && (!isOriginalMode());
+  }
+  
+
+
+
+
+
+
+  public final MonitorMode getCurrentMode()
+  {
+    return currentMode;
+  }
+  
+
+
+
+
+
+  public abstract MonitorMode queryCurrentMode()
+    throws IllegalStateException;
+  
+
+
+
+
+  public abstract boolean setCurrentMode(MonitorMode paramMonitorMode)
+    throws IllegalStateException;
+  
+
+
+
+
+  public String toString()
+  {
+    int i = 0;
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("Monitor[Id ").append(Display.toHexString(nativeId)).append(" [");
+    
+    if (isClone()) {
+      localStringBuilder.append("clone");
+      i = 1;
+    }
+    if (isPrimary()) {
+      if (i != 0) {
+        localStringBuilder.append(", ");
+      }
+      localStringBuilder.append("primary");
+    }
+    
+    i = 0;
+    localStringBuilder.append("], ").append(sizeMM).append(" mm, pixelScale [").append(pixelScale[0]).append(", ")
+      .append(pixelScale[1]).append("], viewport ").append(viewportPU).append(" [pixels], ").append(viewportWU)
+      .append(" [window], orig ").append(originalMode).append(", curr ")
+      .append(currentMode).append(", modeChanged ").append(modeChanged).append(", modeCount ")
+      .append(supportedModes.size()).append("]");
+    return localStringBuilder.toString();
+  }
+}

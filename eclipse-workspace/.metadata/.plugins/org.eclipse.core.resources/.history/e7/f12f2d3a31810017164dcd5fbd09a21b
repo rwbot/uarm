@@ -1,0 +1,171 @@
+package jogamp.opengl.util.pngj;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.zip.CRC32;
+import jogamp.opengl.util.pngj.chunks.ChunkHelper;
+
+
+
+
+class PngIDatChunkInputStream
+  extends InputStream
+{
+  private final InputStream inputStream;
+  private final CRC32 crcEngine;
+  private boolean checkCrc = true;
+  private int lenLastChunk;
+  private final byte[] idLastChunk = new byte[4];
+  private int toReadThisChunk = 0;
+  private boolean ended = false;
+  private long offset;
+  
+  static class IdatChunkInfo
+  {
+    public final int len;
+    public final long offset;
+    
+    private IdatChunkInfo(int paramInt, long paramLong) {
+      len = paramInt;
+      offset = paramLong;
+    }
+  }
+  
+  List<IdatChunkInfo> foundChunksInfo = new ArrayList();
+  
+
+
+
+  PngIDatChunkInputStream(InputStream paramInputStream, int paramInt, long paramLong)
+  {
+    offset = paramLong;
+    inputStream = paramInputStream;
+    lenLastChunk = paramInt;
+    toReadThisChunk = paramInt;
+    
+    System.arraycopy(ChunkHelper.b_IDAT, 0, idLastChunk, 0, 4);
+    crcEngine = new CRC32();
+    crcEngine.update(idLastChunk, 0, 4);
+    foundChunksInfo.add(new IdatChunkInfo(lenLastChunk, paramLong - 8L, null));
+    
+
+    if (lenLastChunk == 0) {
+      endChunkGoForNext();
+    }
+  }
+  
+
+  public void close()
+    throws IOException
+  {
+    super.close();
+  }
+  
+
+
+  private void endChunkGoForNext()
+  {
+    do
+    {
+      int i = PngHelperInternal.readInt4(inputStream);
+      offset += 4L;
+      if (checkCrc) {
+        int j = (int)crcEngine.getValue();
+        if ((lenLastChunk > 0) && (i != j))
+          throw new PngjBadCrcException("error reading idat; offset: " + offset);
+        crcEngine.reset();
+      }
+      lenLastChunk = PngHelperInternal.readInt4(inputStream);
+      toReadThisChunk = lenLastChunk;
+      PngHelperInternal.readBytes(inputStream, idLastChunk, 0, 4);
+      offset += 8L;
+      
+      ended = (!Arrays.equals(idLastChunk, ChunkHelper.b_IDAT));
+      if (!ended) {
+        foundChunksInfo.add(new IdatChunkInfo(lenLastChunk, offset - 8L, null));
+        if (checkCrc) {
+          crcEngine.update(idLastChunk, 0, 4);
+        }
+        
+      }
+    } while ((lenLastChunk == 0) && (!ended));
+  }
+  
+
+
+
+
+  void forceChunkEnd()
+  {
+    if (!ended) {
+      byte[] arrayOfByte = new byte[toReadThisChunk];
+      PngHelperInternal.readBytes(inputStream, arrayOfByte, 0, toReadThisChunk);
+      if (checkCrc)
+        crcEngine.update(arrayOfByte, 0, toReadThisChunk);
+      endChunkGoForNext();
+    }
+  }
+  
+
+
+
+  public int read(byte[] paramArrayOfByte, int paramInt1, int paramInt2)
+    throws IOException
+  {
+    if (ended)
+      return -1;
+    if (toReadThisChunk == 0)
+      throw new PngjExceptionInternal("this should not happen");
+    int i = inputStream.read(paramArrayOfByte, paramInt1, paramInt2 >= toReadThisChunk ? toReadThisChunk : paramInt2);
+    if (i > 0) {
+      if (checkCrc)
+        crcEngine.update(paramArrayOfByte, paramInt1, i);
+      offset += i;
+      toReadThisChunk -= i;
+    }
+    if (toReadThisChunk == 0) {
+      endChunkGoForNext();
+    }
+    return i;
+  }
+  
+  public int read(byte[] paramArrayOfByte) throws IOException
+  {
+    return read(paramArrayOfByte, 0, paramArrayOfByte.length);
+  }
+  
+
+  public int read()
+    throws IOException
+  {
+    byte[] arrayOfByte = new byte[1];
+    int i = read(arrayOfByte, 0, 1);
+    return i < 0 ? -1 : arrayOfByte[0];
+  }
+  
+  int getLenLastChunk() {
+    return lenLastChunk;
+  }
+  
+  byte[] getIdLastChunk() {
+    return idLastChunk;
+  }
+  
+  long getOffset() {
+    return offset;
+  }
+  
+  boolean isEnded() {
+    return ended;
+  }
+  
+
+
+  void disableCrcCheck()
+  {
+    checkCrc = false;
+  }
+}

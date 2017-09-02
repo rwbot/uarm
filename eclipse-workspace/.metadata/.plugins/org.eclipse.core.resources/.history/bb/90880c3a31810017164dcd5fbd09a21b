@@ -1,0 +1,121 @@
+package jogamp.nativewindow.jawt.windows;
+
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.awt.AWTGraphicsConfiguration;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.lang.reflect.Method;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Win32SunJDKReflection
+{
+  private static Class win32GraphicsDeviceClass;
+  private static Class win32GraphicsConfigClass;
+  private static Method win32GraphicsConfigGetConfigMethod;
+  private static Method win32GraphicsConfigGetVisualMethod;
+  private static boolean initted;
+  
+  static
+  {
+    AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public Object run() {
+        try {
+          Win32SunJDKReflection.access$002(Class.forName("sun.awt.Win32GraphicsDevice"));
+          Win32SunJDKReflection.access$102(Class.forName("sun.awt.Win32GraphicsConfig"));
+          Win32SunJDKReflection.access$202(Win32SunJDKReflection.win32GraphicsConfigClass.getDeclaredMethod("getConfig", new Class[] { Win32SunJDKReflection.win32GraphicsDeviceClass, Integer.TYPE }));
+          Win32SunJDKReflection.win32GraphicsConfigGetConfigMethod.setAccessible(true);
+          Win32SunJDKReflection.access$302(Win32SunJDKReflection.win32GraphicsConfigClass.getDeclaredMethod("getVisual", new Class[0]));
+          Win32SunJDKReflection.win32GraphicsConfigGetVisualMethod.setAccessible(true);
+          Win32SunJDKReflection.access$402(true);
+        }
+        catch (Exception localException) {}
+        
+        return null;
+      }
+    });
+  }
+  
+  public static GraphicsConfiguration graphicsConfigurationGet(GraphicsDevice paramGraphicsDevice, int paramInt) {
+    if (!initted) {
+      return null;
+    }
+    try
+    {
+      return (GraphicsConfiguration)win32GraphicsConfigGetConfigMethod.invoke(null, new Object[] { paramGraphicsDevice, Integer.valueOf(paramInt) });
+    } catch (Exception localException) {}
+    return null;
+  }
+  
+  public static int graphicsConfigurationGetPixelFormatID(AbstractGraphicsConfiguration paramAbstractGraphicsConfiguration)
+  {
+    try {
+      if ((paramAbstractGraphicsConfiguration instanceof AWTGraphicsConfiguration)) {
+        return graphicsConfigurationGetPixelFormatID(((AWTGraphicsConfiguration)paramAbstractGraphicsConfiguration).getAWTGraphicsConfiguration());
+      }
+      return 0;
+    } catch (Exception localException) {}
+    return 0;
+  }
+  
+  public static int graphicsConfigurationGetPixelFormatID(GraphicsConfiguration paramGraphicsConfiguration)
+  {
+    if (!initted) {
+      return 0;
+    }
+    try
+    {
+      return ((Integer)win32GraphicsConfigGetVisualMethod.invoke(paramGraphicsConfiguration, (Object[])null)).intValue();
+    } catch (Exception localException) {}
+    return 0;
+  }
+  
+  public Win32SunJDKReflection() {}
+}

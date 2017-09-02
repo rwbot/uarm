@@ -1,0 +1,332 @@
+package jogamp.opengl.util.pngj;
+
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+public class ImageLine
+{
+  public final ImageInfo imgInfo;
+  private int rown = 0;
+  
+
+
+  public final int[] scanline;
+  
+
+  public final byte[] scanlineb;
+  
+
+  protected FilterType filterUsed;
+  
+
+  final int channels;
+  
+
+  final int bitDepth;
+  
+
+  final int elementsPerRow;
+  
+
+  public final SampleType sampleType;
+  
+
+  public final boolean samplesUnpacked;
+  
+
+
+  public static enum SampleType
+  {
+    INT, 
+    
+    BYTE;
+    
+
+
+
+
+
+
+
+    private SampleType() {}
+  }
+  
+
+
+
+
+
+
+
+  public ImageLine(ImageInfo paramImageInfo)
+  {
+    this(paramImageInfo, SampleType.INT, false);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public ImageLine(ImageInfo paramImageInfo, SampleType paramSampleType, boolean paramBoolean)
+  {
+    this(paramImageInfo, paramSampleType, paramBoolean, null, null);
+  }
+  
+
+
+  ImageLine(ImageInfo paramImageInfo, SampleType paramSampleType, boolean paramBoolean, int[] paramArrayOfInt, byte[] paramArrayOfByte)
+  {
+    imgInfo = paramImageInfo;
+    channels = channels;
+    bitDepth = bitDepth;
+    filterUsed = FilterType.FILTER_UNKNOWN;
+    sampleType = paramSampleType;
+    samplesUnpacked = ((paramBoolean) || (!packed));
+    elementsPerRow = (samplesUnpacked ? samplesPerRow : samplesPerRowPacked);
+    if (paramSampleType == SampleType.INT) {
+      scanline = (paramArrayOfInt != null ? paramArrayOfInt : new int[elementsPerRow]);
+      scanlineb = null;
+    } else if (paramSampleType == SampleType.BYTE) {
+      scanlineb = (paramArrayOfByte != null ? paramArrayOfByte : new byte[elementsPerRow]);
+      scanline = null;
+    } else {
+      throw new PngjExceptionInternal("bad ImageLine initialization"); }
+    rown = -1;
+  }
+  
+  public int getRown()
+  {
+    return rown;
+  }
+  
+  public void setRown(int paramInt)
+  {
+    rown = paramInt;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  static void unpackInplaceInt(ImageInfo paramImageInfo, int[] paramArrayOfInt1, int[] paramArrayOfInt2, boolean paramBoolean)
+  {
+    int i = bitDepth;
+    if (i >= 8)
+      return;
+    int j = ImageLineHelper.getMaskForPackedFormatsLs(i);
+    int k = 8 - i;
+    int m = 8 * samplesPerRowPacked - i * samplesPerRow;
+    int n;
+    int i1; if (m != 8) {
+      n = j << m;
+      i1 = m;
+    } else {
+      n = j;
+      i1 = 0;
+    }
+    int i3 = samplesPerRow - 1; for (int i4 = samplesPerRowPacked - 1; i3 >= 0; i3--) {
+      int i2 = (paramArrayOfInt1[i4] & n) >> i1;
+      if (paramBoolean)
+        i2 <<= k;
+      paramArrayOfInt2[i3] = i2;
+      n <<= i;
+      i1 += i;
+      if (i1 == 8) {
+        n = j;
+        i1 = 0;
+        i4--;
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  static void packInplaceInt(ImageInfo paramImageInfo, int[] paramArrayOfInt1, int[] paramArrayOfInt2, boolean paramBoolean)
+  {
+    int i = bitDepth;
+    if (i >= 8)
+      return;
+    int j = ImageLineHelper.getMaskForPackedFormatsLs(i);
+    int k = 8 - i;
+    int m = 8 - i;
+    
+    int i2 = 8 - i;
+    int i1 = paramArrayOfInt1[0];
+    paramArrayOfInt2[0] = 0;
+    if (paramBoolean)
+      i1 >>= k;
+    i1 = (i1 & j) << i2;
+    int i3 = 0; for (int i4 = 0; i4 < samplesPerRow; i4++) {
+      int n = paramArrayOfInt1[i4];
+      if (paramBoolean)
+        n >>= k;
+      paramArrayOfInt2[i3] |= (n & j) << i2;
+      i2 -= i;
+      if (i2 < 0) {
+        i2 = m;
+        i3++;
+        paramArrayOfInt2[i3] = 0;
+      }
+    }
+    paramArrayOfInt2[0] |= i1;
+  }
+  
+  static void unpackInplaceByte(ImageInfo paramImageInfo, byte[] paramArrayOfByte1, byte[] paramArrayOfByte2, boolean paramBoolean) {
+    int i = bitDepth;
+    if (i >= 8)
+      return;
+    int j = ImageLineHelper.getMaskForPackedFormatsLs(i);
+    int k = 8 - i;
+    int m = 8 * samplesPerRowPacked - i * samplesPerRow;
+    int n;
+    int i1; if (m != 8) {
+      n = j << m;
+      i1 = m;
+    } else {
+      n = j;
+      i1 = 0;
+    }
+    int i3 = samplesPerRow - 1; for (int i4 = samplesPerRowPacked - 1; i3 >= 0; i3--) {
+      int i2 = (paramArrayOfByte1[i4] & n) >> i1;
+      if (paramBoolean)
+        i2 <<= k;
+      paramArrayOfByte2[i3] = ((byte)i2);
+      n <<= i;
+      i1 += i;
+      if (i1 == 8) {
+        n = j;
+        i1 = 0;
+        i4--;
+      }
+    }
+  }
+  
+
+
+
+  static void packInplaceByte(ImageInfo paramImageInfo, byte[] paramArrayOfByte1, byte[] paramArrayOfByte2, boolean paramBoolean)
+  {
+    int i = bitDepth;
+    if (i >= 8)
+      return;
+    int j = ImageLineHelper.getMaskForPackedFormatsLs(i);
+    int k = 8 - i;
+    int m = 8 - i;
+    
+    int i2 = 8 - i;
+    int i1 = paramArrayOfByte1[0];
+    paramArrayOfByte2[0] = 0;
+    if (paramBoolean)
+      i1 >>= k;
+    i1 = (i1 & j) << i2;
+    int i3 = 0; for (int i4 = 0; i4 < samplesPerRow; i4++) {
+      int n = paramArrayOfByte1[i4];
+      if (paramBoolean)
+        n >>= k;
+      int tmp107_105 = i3; byte[] tmp107_104 = paramArrayOfByte2;tmp107_104[tmp107_105] = ((byte)(tmp107_104[tmp107_105] | (n & j) << i2));
+      i2 -= i;
+      if (i2 < 0) {
+        i2 = m;
+        i3++;
+        paramArrayOfByte2[i3] = 0;
+      }
+    }
+    int tmp152_151 = 0; byte[] tmp152_150 = paramArrayOfByte2;tmp152_150[tmp152_151] = ((byte)(tmp152_150[tmp152_151] | i1));
+  }
+  
+
+
+
+
+  public ImageLine unpackToNewImageLine()
+  {
+    ImageLine localImageLine = new ImageLine(imgInfo, sampleType, true);
+    if (sampleType == SampleType.INT) {
+      unpackInplaceInt(imgInfo, scanline, scanline, false);
+    } else
+      unpackInplaceByte(imgInfo, scanlineb, scanlineb, false);
+    return localImageLine;
+  }
+  
+
+
+
+
+  public ImageLine packToNewImageLine()
+  {
+    ImageLine localImageLine = new ImageLine(imgInfo, sampleType, false);
+    if (sampleType == SampleType.INT) {
+      packInplaceInt(imgInfo, scanline, scanline, false);
+    } else
+      packInplaceByte(imgInfo, scanlineb, scanlineb, false);
+    return localImageLine;
+  }
+  
+  public FilterType getFilterUsed() {
+    return filterUsed;
+  }
+  
+  public void setFilterUsed(FilterType paramFilterType) {
+    filterUsed = paramFilterType;
+  }
+  
+  public int[] getScanlineInt() {
+    return scanline;
+  }
+  
+  public byte[] getScanlineByte() {
+    return scanlineb;
+  }
+  
+
+
+
+  public String toString()
+  {
+    return "row=" + rown + " cols=" + imgInfo.cols + " bpc=" + imgInfo.bitDepth + " size=" + scanline.length;
+  }
+  
+
+
+  public static void showLineInfo(ImageLine paramImageLine)
+  {
+    System.out.println(paramImageLine);
+    ImageLineHelper.ImageLineStats localImageLineStats = new ImageLineHelper.ImageLineStats(paramImageLine);
+    System.out.println(localImageLineStats);
+    System.out.println(ImageLineHelper.infoFirstLastPixels(paramImageLine));
+  }
+}

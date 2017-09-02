@@ -1,0 +1,261 @@
+package com.jogamp.opengl.util.stereo;
+
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.RectangleImmutable;
+import com.jogamp.opengl.FBObject;
+import com.jogamp.opengl.FBObject.Attachment.Type;
+import com.jogamp.opengl.FBObject.Colorbuffer;
+import com.jogamp.opengl.FBObject.TextureAttachment;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLEventListener;
+import java.io.PrintStream;
+import jogamp.opengl.GLDrawableHelper;
+import jogamp.opengl.GLDrawableHelper.GLEventListenerAction;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class StereoClientRenderer
+  implements GLEventListener
+{
+  private final GLDrawableHelper helper;
+  private final StereoDeviceRenderer deviceRenderer;
+  private final boolean ownsDevice;
+  private final FBObject[] fbos;
+  private final int magFilter;
+  private final int minFilter;
+  private int numSamples;
+  private final FBObject.TextureAttachment[] fboTexs;
+  
+  public StereoClientRenderer(StereoDeviceRenderer paramStereoDeviceRenderer, boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3)
+  {
+    int i = paramStereoDeviceRenderer.getTextureCount();
+    if ((0 > i) || (2 < i)) {
+      throw new IllegalArgumentException("fboCount must be within [0..2], has " + i + ", due to " + paramStereoDeviceRenderer);
+    }
+    helper = new GLDrawableHelper();
+    deviceRenderer = paramStereoDeviceRenderer;
+    ownsDevice = paramBoolean;
+    magFilter = paramInt1;
+    minFilter = paramInt2;
+    
+    numSamples = paramInt3;
+    
+    fbos = new FBObject[i];
+    for (int j = 0; j < i; j++) {
+      fbos[j] = new FBObject();
+    }
+    fboTexs = new FBObject.TextureAttachment[i];
+  }
+  
+  private void initFBOs(GL paramGL, DimensionImmutable[] paramArrayOfDimensionImmutable) {
+    for (int i = 0; i < fbos.length; i++) {
+      fbos[i].init(paramGL, paramArrayOfDimensionImmutable[i].getWidth(), paramArrayOfDimensionImmutable[i].getHeight(), numSamples);
+      if ((i > 0) && (fbos[(i - 1)].getNumSamples() != fbos[i].getNumSamples())) {
+        throw new InternalError("sample size mismatch: \n\t0: " + fbos[(i - 1)] + "\n\t1: " + fbos[i]);
+      }
+      numSamples = fbos[i].getNumSamples();
+      
+      if (numSamples > 0) {
+        fbos[i].attachColorbuffer(paramGL, 0, true);
+        fbos[i].attachRenderbuffer(paramGL, FBObject.Attachment.Type.DEPTH, 0);
+        FBObject localFBObject = new FBObject();
+        
+        localFBObject.init(paramGL, paramArrayOfDimensionImmutable[i].getWidth(), paramArrayOfDimensionImmutable[i].getHeight(), 0);
+        localFBObject.attachTexture2D(paramGL, 0, false, magFilter, minFilter, 33071, 33071);
+        localFBObject.attachRenderbuffer(paramGL, FBObject.Attachment.Type.DEPTH, 0);
+        
+        fbos[i].setSamplingSink(localFBObject);
+        fbos[i].resetSamplingSink(paramGL);
+        fboTexs[i] = fbos[i].getSamplingSink().getTextureAttachment();
+      } else {
+        fboTexs[i] = fbos[i].attachTexture2D(paramGL, 0, false, magFilter, minFilter, 33071, 33071);
+        fbos[i].attachRenderbuffer(paramGL, FBObject.Attachment.Type.DEPTH, 0);
+      }
+      fbos[i].unbind(paramGL);
+      System.err.println("FBO[" + i + "]: " + fbos[i]);
+    }
+  }
+  
+
+  private void resetFBOs(GL paramGL, DimensionImmutable paramDimensionImmutable)
+  {
+    for (int i = 0; i < fbos.length; i++) {
+      fbos[i].reset(paramGL, paramDimensionImmutable.getWidth(), paramDimensionImmutable.getHeight(), numSamples);
+      if ((i > 0) && (fbos[(i - 1)].getNumSamples() != fbos[i].getNumSamples())) {
+        throw new InternalError("sample size mismatch: \n\t0: " + fbos[(i - 1)] + "\n\t1: " + fbos[i]);
+      }
+      numSamples = fbos[i].getNumSamples();
+      if (numSamples > 0) {
+        fboTexs[i] = fbos[i].getSamplingSink().getTextureAttachment();
+      } else
+        fboTexs[i] = fbos[i].getColorbuffer(0).getTextureAttachment();
+    }
+  }
+  
+  public final StereoDeviceRenderer getStereoDeviceRenderer() {
+    return deviceRenderer;
+  }
+  
+  public final void addGLEventListener(StereoGLEventListener paramStereoGLEventListener) { helper.addGLEventListener(paramStereoGLEventListener); }
+  
+  public final void removeGLEventListener(StereoGLEventListener paramStereoGLEventListener) {
+    helper.removeGLEventListener(paramStereoGLEventListener);
+  }
+  
+  public void init(GLAutoDrawable paramGLAutoDrawable)
+  {
+    GL2ES2 localGL2ES2 = paramGLAutoDrawable.getGL().getGL2ES2();
+    deviceRenderer.init(localGL2ES2);
+    
+
+
+
+    DimensionImmutable[] arrayOfDimensionImmutable = {deviceRenderer.getTextureCount() > 1 ? deviceRenderer.getEyeSurfaceSize() : deviceRenderer.getTotalSurfaceSize() };
+    initFBOs(localGL2ES2, arrayOfDimensionImmutable);
+    helper.init(paramGLAutoDrawable, false);
+    
+    localGL2ES2.setSwapInterval(1);
+  }
+  
+  public void dispose(GLAutoDrawable paramGLAutoDrawable)
+  {
+    GL2ES2 localGL2ES2 = paramGLAutoDrawable.getGL().getGL2ES2();
+    helper.disposeAllGLEventListener(paramGLAutoDrawable, false);
+    for (int i = 0; i < fbos.length; i++) {
+      fbos[i].destroy(localGL2ES2);
+      fboTexs[i] = null;
+    }
+    if (ownsDevice) {
+      deviceRenderer.dispose(localGL2ES2);
+    }
+  }
+  
+  public void display(GLAutoDrawable paramGLAutoDrawable)
+  {
+    GL2ES2 localGL2ES2 = paramGLAutoDrawable.getGL().getGL2ES2();
+    
+    deviceRenderer.beginFrame(localGL2ES2);
+    
+    if (0 < numSamples) {
+      localGL2ES2.glEnable(32925);
+    }
+    
+    int i = fbos.length;
+    int j;
+    if (1 >= i) {
+      j = 2;
+    } else {
+      j = 0;
+    }
+    
+    int[] arrayOfInt = deviceRenderer.getDevice().getEyeRenderOrder();
+    int k = arrayOfInt.length;
+    
+    final ViewerPose localViewerPose = deviceRenderer.updateViewerPose();
+    
+    if (1 == i) {
+      fbos[0].bind(localGL2ES2);
+    }
+    int n;
+    for (int m = 0; m < k; m++) {
+      n = arrayOfInt[m];
+      if (1 < i) {
+        fbos[n].bind(localGL2ES2);
+      }
+      
+      final StereoDeviceRenderer.Eye localEye = deviceRenderer.getEye(n);
+      final RectangleImmutable localRectangleImmutable = localEye.getViewport();
+      localGL2ES2.glViewport(localRectangleImmutable.getX(), localRectangleImmutable.getY(), localRectangleImmutable.getWidth(), localRectangleImmutable.getHeight());
+      
+      final int i1 = m > 0 ? 0x1 | j : 0;
+      GLDrawableHelper.GLEventListenerAction local1 = new GLDrawableHelper.GLEventListenerAction() {
+        public void run(GLAutoDrawable paramAnonymousGLAutoDrawable, GLEventListener paramAnonymousGLEventListener) {
+          StereoGLEventListener localStereoGLEventListener = (StereoGLEventListener)paramAnonymousGLEventListener;
+          localStereoGLEventListener.reshapeForEye(paramAnonymousGLAutoDrawable, localRectangleImmutable.getX(), localRectangleImmutable.getY(), localRectangleImmutable.getWidth(), localRectangleImmutable.getHeight(), localEye
+            .getEyeParameter(), localViewerPose);
+          localStereoGLEventListener.display(paramAnonymousGLAutoDrawable, i1);
+        } };
+      helper.runForAllGLEventListener(paramGLAutoDrawable, local1);
+      
+      if (1 < i) {
+        fbos[n].unbind(localGL2ES2);
+      }
+    }
+    
+    if (1 == i) {
+      fbos[0].unbind(localGL2ES2);
+    }
+    
+    localGL2ES2.glViewport(0, 0, paramGLAutoDrawable.getSurfaceWidth(), paramGLAutoDrawable.getSurfaceHeight());
+    
+    if (deviceRenderer.ppAvailable()) {
+      deviceRenderer.ppBegin(localGL2ES2);
+      if (1 == i) {
+        fbos[0].use(localGL2ES2, fboTexs[0]);
+        for (m = 0; m < k; m++) {
+          deviceRenderer.ppOneEye(localGL2ES2, arrayOfInt[m]);
+        }
+        fbos[0].unuse(localGL2ES2);
+      } else {
+        for (m = 0; m < k; m++) {
+          n = arrayOfInt[m];
+          fbos[n].use(localGL2ES2, fboTexs[n]);
+          deviceRenderer.ppOneEye(localGL2ES2, n);
+          fbos[n].unuse(localGL2ES2);
+        }
+      }
+      deviceRenderer.ppEnd(localGL2ES2);
+    }
+    
+    if (!paramGLAutoDrawable.getAutoSwapBufferMode()) {
+      paramGLAutoDrawable.swapBuffers();
+    }
+    deviceRenderer.endFrame(localGL2ES2);
+  }
+  
+  public void reshape(GLAutoDrawable paramGLAutoDrawable, int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    if (!paramGLAutoDrawable.getAutoSwapBufferMode()) {
+      GL2ES2 localGL2ES2 = paramGLAutoDrawable.getGL().getGL2ES2();
+      localGL2ES2.glViewport(0, 0, paramInt3, paramInt4);
+    }
+  }
+}

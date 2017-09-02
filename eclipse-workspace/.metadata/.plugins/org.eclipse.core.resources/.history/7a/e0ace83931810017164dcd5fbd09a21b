@@ -1,0 +1,100 @@
+package com.jogamp.newt.opengl.util.stereo;
+
+import com.jogamp.nativewindow.util.Dimension;
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.PointImmutable;
+import com.jogamp.nativewindow.util.Rectangle;
+import com.jogamp.newt.Display;
+import com.jogamp.newt.MonitorDevice;
+import com.jogamp.newt.MonitorMode;
+import com.jogamp.newt.NewtFactory;
+import com.jogamp.newt.Screen;
+import com.jogamp.newt.util.MonitorModeUtil;
+import com.jogamp.opengl.util.stereo.StereoDevice;
+import java.io.PrintStream;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class StereoDeviceUtil
+{
+  public StereoDeviceUtil() {}
+  
+  public static MonitorDevice getMonitorDevice(StereoDevice paramStereoDevice, boolean paramBoolean)
+  {
+    PointImmutable localPointImmutable = paramStereoDevice.getPosition();
+    DimensionImmutable localDimensionImmutable = paramStereoDevice.getSurfaceSize();
+    int i = paramStereoDevice.getRequiredRotation();
+    Rectangle localRectangle = new Rectangle(localPointImmutable.getX(), localPointImmutable.getY(), 128, 128);
+    
+    Display localDisplay = NewtFactory.createDisplay(null);
+    Screen localScreen = NewtFactory.createScreen(localDisplay, 0);
+    localScreen.addReference();
+    MonitorDevice localMonitorDevice = localScreen.getMainMonitor(localRectangle);
+    System.err.println("StereoDevice Monitor: " + localMonitorDevice);
+    MonitorMode localMonitorMode1 = localMonitorDevice.getCurrentMode();
+    if ((paramBoolean) && (i != localMonitorMode1.getRotation())) {
+      System.err.println("StereoDevice Current Mode: " + localMonitorMode1 + ", requires rotation: " + i);
+      Object localObject;
+      if ((90 == i) || (270 == i)) {
+        localObject = new Dimension(localDimensionImmutable.getHeight(), localDimensionImmutable.getWidth());
+      } else {
+        localObject = localDimensionImmutable;
+      }
+      List localList1 = localMonitorDevice.getSupportedModes();
+      List localList2 = MonitorModeUtil.filterByResolution(localList1, (DimensionImmutable)localObject);
+      List localList3 = MonitorModeUtil.filterByRotation(localList2, i);
+      if (localList3.size() > 0) {
+        localMonitorMode2 = (MonitorMode)localList3.get(0);
+        System.err.println("StereoDevice Set Mode: " + localMonitorMode2);
+        localMonitorDevice.setCurrentMode(localMonitorMode2);
+      }
+      MonitorMode localMonitorMode2 = localMonitorDevice.queryCurrentMode();
+      System.err.println("StereoDevice Post-Set Mode: " + localMonitorMode2);
+    } else {
+      System.err.println("StereoDevice Keeps Mode: " + localMonitorMode1);
+    }
+    return localMonitorDevice;
+  }
+}

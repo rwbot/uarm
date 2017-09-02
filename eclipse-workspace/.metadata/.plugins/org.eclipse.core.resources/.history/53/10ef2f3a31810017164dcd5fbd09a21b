@@ -1,0 +1,137 @@
+package jogamp.opengl.util.pngj.chunks;
+
+import java.io.ByteArrayInputStream;
+import jogamp.opengl.util.pngj.ImageInfo;
+import jogamp.opengl.util.pngj.PngHelperInternal;
+import jogamp.opengl.util.pngj.PngjException;
+
+
+
+
+
+
+
+
+
+
+public class PngChunkIHDR
+  extends PngChunkSingle
+{
+  public static final String ID = "IHDR";
+  private int cols;
+  private int rows;
+  private int bitspc;
+  private int colormodel;
+  private int compmeth;
+  private int filmeth;
+  private int interlaced;
+  
+  public PngChunkIHDR(ImageInfo paramImageInfo)
+  {
+    super("IHDR", paramImageInfo);
+  }
+  
+  public PngChunk.ChunkOrderingConstraint getOrderingConstraint()
+  {
+    return PngChunk.ChunkOrderingConstraint.NA;
+  }
+  
+  public ChunkRaw createRawChunk()
+  {
+    ChunkRaw localChunkRaw = new ChunkRaw(13, ChunkHelper.b_IHDR, true);
+    int i = 0;
+    PngHelperInternal.writeInt4tobytes(cols, data, i);
+    i += 4;
+    PngHelperInternal.writeInt4tobytes(rows, data, i);
+    i += 4;
+    data[(i++)] = ((byte)bitspc);
+    data[(i++)] = ((byte)colormodel);
+    data[(i++)] = ((byte)compmeth);
+    data[(i++)] = ((byte)filmeth);
+    data[(i++)] = ((byte)interlaced);
+    return localChunkRaw;
+  }
+  
+  public void parseFromRaw(ChunkRaw paramChunkRaw)
+  {
+    if (len != 13)
+      throw new PngjException("Bad IDHR len " + len);
+    ByteArrayInputStream localByteArrayInputStream = paramChunkRaw.getAsByteStream();
+    cols = PngHelperInternal.readInt4(localByteArrayInputStream);
+    rows = PngHelperInternal.readInt4(localByteArrayInputStream);
+    
+    bitspc = PngHelperInternal.readByte(localByteArrayInputStream);
+    colormodel = PngHelperInternal.readByte(localByteArrayInputStream);
+    compmeth = PngHelperInternal.readByte(localByteArrayInputStream);
+    filmeth = PngHelperInternal.readByte(localByteArrayInputStream);
+    interlaced = PngHelperInternal.readByte(localByteArrayInputStream);
+  }
+  
+  public void cloneDataFromRead(PngChunk paramPngChunk)
+  {
+    PngChunkIHDR localPngChunkIHDR = (PngChunkIHDR)paramPngChunk;
+    cols = cols;
+    rows = rows;
+    bitspc = bitspc;
+    colormodel = colormodel;
+    compmeth = compmeth;
+    filmeth = filmeth;
+    interlaced = interlaced;
+  }
+  
+  public int getCols() {
+    return cols;
+  }
+  
+  public void setCols(int paramInt) {
+    cols = paramInt;
+  }
+  
+  public int getRows() {
+    return rows;
+  }
+  
+  public void setRows(int paramInt) {
+    rows = paramInt;
+  }
+  
+  public int getBitspc() {
+    return bitspc;
+  }
+  
+  public void setBitspc(int paramInt) {
+    bitspc = paramInt;
+  }
+  
+  public int getColormodel() {
+    return colormodel;
+  }
+  
+  public void setColormodel(int paramInt) {
+    colormodel = paramInt;
+  }
+  
+  public int getCompmeth() {
+    return compmeth;
+  }
+  
+  public void setCompmeth(int paramInt) {
+    compmeth = paramInt;
+  }
+  
+  public int getFilmeth() {
+    return filmeth;
+  }
+  
+  public void setFilmeth(int paramInt) {
+    filmeth = paramInt;
+  }
+  
+  public int getInterlaced() {
+    return interlaced;
+  }
+  
+  public void setInterlaced(int paramInt) {
+    interlaced = paramInt;
+  }
+}

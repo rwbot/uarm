@@ -1,0 +1,191 @@
+package com.jogamp.common.util;
+
+import java.security.AccessControlException;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.HashSet;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class PropertyAccess
+{
+  public static final String jnlp_prefix = "jnlp.";
+  public static final String javaws_prefix = "javaws.";
+  static final HashSet<String> trustedPrefixes = new HashSet();
+  static { trustedPrefixes.add("javaws.");
+    trustedPrefixes.add("jnlp.");
+    
+
+    trusted = new HashSet();
+    trusted.add("sun.java2d.opengl");
+    trusted.add("sun.java2d.noddraw");
+    trusted.add("sun.java2d.d3d");
+    trusted.add("sun.awt.noerasebackground");
+  }
+  
+
+
+  protected static final void addTrustedPrefix(String paramString)
+    throws AccessControlException
+  {
+    SecurityUtil.checkAllPermissions();
+    trustedPrefixes.add(paramString);
+  }
+  
+  public static final boolean isTrusted(String paramString) {
+    int i = paramString.indexOf('.');
+    if (0 <= i) {
+      return (trustedPrefixes.contains(paramString.substring(0, i + 1))) || (trusted.contains(paramString));
+    }
+    return false;
+  }
+  
+
+  public static final int getIntProperty(String paramString, boolean paramBoolean, int paramInt)
+  {
+    int i = paramInt;
+    try {
+      String str = getProperty(paramString, paramBoolean);
+      if (null != str) {
+        i = Integer.parseInt(str);
+      }
+    } catch (NumberFormatException localNumberFormatException) {}
+    return i;
+  }
+  
+  public static final long getLongProperty(String paramString, boolean paramBoolean, long paramLong)
+  {
+    long l = paramLong;
+    try {
+      String str = getProperty(paramString, paramBoolean);
+      if (null != str) {
+        l = Long.parseLong(str);
+      }
+    } catch (NumberFormatException localNumberFormatException) {}
+    return l;
+  }
+  
+  public static final boolean getBooleanProperty(String paramString, boolean paramBoolean)
+  {
+    return Boolean.valueOf(getProperty(paramString, paramBoolean)).booleanValue();
+  }
+  
+  public static final boolean getBooleanProperty(String paramString, boolean paramBoolean1, boolean paramBoolean2)
+  {
+    String str = getProperty(paramString, paramBoolean1);
+    if (null != str) {
+      return Boolean.valueOf(str).booleanValue();
+    }
+    return paramBoolean2;
+  }
+  
+  public static final boolean isPropertyDefined(String paramString, boolean paramBoolean)
+  {
+    return getProperty(paramString, paramBoolean) != null;
+  }
+  
+
+
+
+
+
+
+
+
+
+  static final HashSet<String> trusted;
+  
+
+
+
+
+
+
+
+  public static final String getProperty(String paramString, boolean paramBoolean)
+    throws SecurityException, NullPointerException, IllegalArgumentException
+  {
+    if (null == paramString) {
+      throw new NullPointerException("propertyKey is NULL");
+    }
+    if (0 == paramString.length()) {
+      throw new IllegalArgumentException("propertyKey is empty");
+    }
+    String str = null;
+    
+    if (isTrusted(paramString))
+    {
+      str = getTrustedPropKey(paramString);
+    }
+    else {
+      str = System.getProperty(paramString);
+    }
+    if ((null == str) && (paramBoolean))
+    {
+      if (!paramString.startsWith("jnlp."))
+      {
+
+        str = getTrustedPropKey("jnlp." + paramString);
+      }
+    }
+    return str;
+  }
+  
+  public static final String getProperty(String paramString1, boolean paramBoolean, String paramString2)
+    throws SecurityException, NullPointerException, IllegalArgumentException
+  {
+    String str = getProperty(paramString1, paramBoolean);
+    if (null != str) {
+      return str;
+    }
+    return paramString2;
+  }
+  
+  private static final String getTrustedPropKey(String paramString)
+  {
+    (String)AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public String run() {
+        try {
+          return System.getProperty(val$propertyKey);
+        } catch (SecurityException localSecurityException) {
+          throw new SecurityException("Could not access trusted property '" + val$propertyKey + "'", localSecurityException);
+        }
+      }
+    });
+  }
+  
+  public PropertyAccess() {}
+}

@@ -1,0 +1,118 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class CmapIndexEntry
+  implements Comparable
+{
+  private final int _platformId;
+  private final int _encodingId;
+  private final int _offset;
+  private CmapFormat _format;
+  
+  protected CmapIndexEntry(DataInput paramDataInput)
+    throws IOException
+  {
+    _platformId = paramDataInput.readUnsignedShort();
+    _encodingId = paramDataInput.readUnsignedShort();
+    _offset = paramDataInput.readInt();
+  }
+  
+  public int getPlatformId() {
+    return _platformId;
+  }
+  
+  public int getEncodingId() {
+    return _encodingId;
+  }
+  
+  public int getOffset() {
+    return _offset;
+  }
+  
+  public CmapFormat getFormat() {
+    return _format;
+  }
+  
+  public void setFormat(CmapFormat paramCmapFormat) {
+    _format = paramCmapFormat;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public String toString()
+  {
+    return "platform id: " + _platformId + " (" + ID.getPlatformName((short)_platformId) + "), encoding id: " + _encodingId + " (" + ID.getEncodingName((short)_platformId, (short)_encodingId) + "), offset: " + _offset;
+  }
+  
+  public int compareTo(Object paramObject)
+  {
+    CmapIndexEntry localCmapIndexEntry = (CmapIndexEntry)paramObject;
+    if (getOffset() < localCmapIndexEntry.getOffset())
+      return -1;
+    if (getOffset() > localCmapIndexEntry.getOffset()) {
+      return 1;
+    }
+    return 0;
+  }
+}

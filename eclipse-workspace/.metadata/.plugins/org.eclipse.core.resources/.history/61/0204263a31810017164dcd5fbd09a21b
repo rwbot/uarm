@@ -1,0 +1,3200 @@
+package jogamp.opengl.glu.mipmap;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.opengl.GL;
+import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import java.nio.ShortBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ScaleInternal
+{
+  public static final float UINT_MAX = -1.0F;
+  
+  public ScaleInternal() {}
+  
+  public static void scale_internal(int paramInt1, int paramInt2, int paramInt3, ShortBuffer paramShortBuffer1, int paramInt4, int paramInt5, ShortBuffer paramShortBuffer2)
+  {
+    float[] arrayOfFloat = new float[4];
+    
+
+
+
+    if ((paramInt2 == paramInt4 * 2) && (paramInt3 == paramInt5 * 2)) {
+      HalveImage.halveImage(paramInt1, paramInt2, paramInt3, paramShortBuffer1, paramShortBuffer2);
+      return;
+    }
+    float f9 = paramInt3 / paramInt5;
+    float f4 = paramInt2 / paramInt4;
+    float f5 = f4 / 2.0F;
+    float f10 = f9 / 2.0F;
+    for (int i = 0; i < paramInt5; i++) {
+      float f6 = f9 * (i + 0.5F);
+      float f8; float f7; if (paramInt3 > paramInt5) {
+        f8 = f6 + f10;
+        f7 = f6 - f10;
+      } else {
+        f8 = f6 + 0.5F;
+        f7 = f6 - 0.5F;
+      }
+      for (int j = 0; j < paramInt4; j++) {
+        float f1 = f4 * (j + 0.5F);
+        float f3; float f2; if (paramInt2 > paramInt4) {
+          f3 = f1 + f5;
+          f2 = f1 - f5;
+        } else {
+          f3 = f1 + 0.5F;
+          f2 = f1 - 0.5F;
+        }
+        
+
+
+        float tmp192_191 = (arrayOfFloat[2] = arrayOfFloat[3] = 0.0F);arrayOfFloat[1] = tmp192_191;arrayOfFloat[0] = tmp192_191;
+        float f14 = 0.0F;
+        
+        f6 = f7;
+        int m = (int)Math.floor(f6);
+        while (f6 < f8) {
+          int i2 = (m + paramInt3) % paramInt3;
+          float f12; if (f8 < m + 1) {
+            f12 = f8 - f6;
+          } else {
+            f12 = m + 1 - f6;
+          }
+          
+          f1 = f2;
+          int n = (int)Math.floor(f1);
+          
+          while (f1 < f3) {
+            int i1 = (n + paramInt2) % paramInt2;
+            float f11; if (f3 < n + 1) {
+              f11 = f3 - f1;
+            } else {
+              f11 = n + 1 - f1;
+            }
+            
+            float f13 = f11 * f12;
+            f14 += f13;
+            i3 = (i1 + i2 * paramInt2) * paramInt1;
+            for (k = 0; k < paramInt1; k++) {
+              arrayOfFloat[k] += paramShortBuffer1.get(i3 + k) * f13;
+            }
+            
+            n++;
+            f1 = n;
+          }
+          m++;
+          f6 = m;
+        }
+        
+        int i3 = (j + i * paramInt4) * paramInt1;
+        for (int k = 0; k < paramInt1; k++)
+        {
+
+          paramShortBuffer2.put(i3 + k, (short)(int)((arrayOfFloat[k] + 0.5F) / f14));
+        }
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+  public static void scale_internal_ubyte(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer1, int paramInt4, int paramInt5, ByteBuffer paramByteBuffer2, int paramInt6, int paramInt7, int paramInt8)
+  {
+    float[] arrayOfFloat = new float[4];
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    if ((paramInt2 == paramInt4 * 2) && (paramInt3 == paramInt5 * 2)) {
+      HalveImage.halveImage_ubyte(paramInt1, paramInt2, paramInt3, paramByteBuffer1, paramByteBuffer2, paramInt6, paramInt7, paramInt8);
+      
+      return;
+    }
+    float f2 = paramInt3 / paramInt5;
+    float f1 = paramInt2 / paramInt4;
+    int i8 = (int)Math.floor(f2);
+    float f11 = f2 - i8;
+    int i9 = (int)Math.floor(f1);
+    float f12 = f1 - i9;
+    
+    float f4 = f1 * f2;
+    
+    int i6 = 0;
+    float f9 = 0.0F;
+    int i7 = i8;
+    float f10 = f11;
+    
+    for (int i = 0; i < paramInt5; i++)
+    {
+      if (i7 >= paramInt3)
+        i7 = paramInt3 - 1;
+      int i4 = 0;
+      float f7 = 0.0F;
+      int i5;
+      float f8;
+      if ((paramInt2 == 1) && (paramInt4 == 1)) {
+        i5 = 0;
+        f8 = 0.0F;
+      } else {
+        i5 = i9;
+        f8 = f12;
+      }
+      
+      for (int j = 0; j < paramInt4; j++)
+      {
+
+
+
+        float tmp190_189 = (arrayOfFloat[2] = arrayOfFloat[3] = 0.0F);arrayOfFloat[1] = tmp190_189;arrayOfFloat[0] = tmp190_189;
+        
+
+        int m = i4 * paramInt8;
+        float f6;
+        int n; float f3; int i2; int i12; int i10; int i13; if ((i7 > i6) && (i5 > i4))
+        {
+          f6 = 1.0F - f9;
+          n = m + i6 * paramInt7;
+          f3 = f6 * (1.0F - f7);
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer1.position(i2);
+            arrayOfFloat[k] += (0xFF & paramByteBuffer1.get()) * f3;k++;
+          }
+          
+          i12 = n;
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            n += paramInt8;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer1.position(i2);
+              arrayOfFloat[k] += (0xFF & paramByteBuffer1.get()) * f6;k++;
+            }
+          }
+          
+          n += paramInt8;
+          i13 = n;
+          f3 = f6 * f8;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer1.position(i2);
+            arrayOfFloat[k] += (0xFF & paramByteBuffer1.get()) * f3;k++;
+          }
+          
+
+
+          f6 = f10;
+          f3 = f6 * (1.0F - f7);
+          n = m + i7 * paramInt7;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer1.position(i2);
+            arrayOfFloat[k] += (0xFF & paramByteBuffer1.get()) * f3;k++;
+          }
+          
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            n += paramInt8;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer1.position(i2);
+              arrayOfFloat[k] += (0xFF & paramByteBuffer1.get()) * f6;k++;
+            }
+          }
+          
+          n += paramInt8;
+          f3 = f6 * f8;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer1.position(i2);
+            arrayOfFloat[k] += (0xFF & paramByteBuffer1.get()) * f3;k++;
+          }
+          
+
+
+          for (i11 = i6 + 1; i11 < i7;) {
+            i12 += paramInt7;
+            i13 += paramInt7;
+            for (k = 0; k < paramInt1; i13 += paramInt6) {
+              float f13 = 0.0F;
+              paramByteBuffer1.position(i12);
+              f13 = (0xFF & paramByteBuffer1.get()) * (1.0F - f7);
+              paramByteBuffer1.position(i13);
+              f13 += (0xFF & paramByteBuffer1.get()) * f8;
+              arrayOfFloat[k] += f13;k++;i12 += paramInt6;
+            }
+            i11++; continue;
+            
+
+
+
+
+
+
+
+
+
+
+            if (i7 > i6) {
+              float f5 = f8 - f7;
+              f3 = (1.0F - f9) * f5;
+              n = m + i6 * paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer1.position(i2);
+                arrayOfFloat[k] += (0xFF & paramByteBuffer1.get()) * f3;k++;
+              }
+              
+              for (i11 = i6 + 1; i11 < i7; i11++) {
+                n += paramInt7;
+                k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                  paramByteBuffer1.position(i2);
+                  arrayOfFloat[k] += (0xFF & paramByteBuffer1.get()) * f5;k++;
+                }
+              }
+              
+              f3 = f5 * f10;
+              n += paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer1.position(i2);
+                arrayOfFloat[k] += (0xFF & paramByteBuffer1.get()) * f3;k++;
+              }
+            }
+            if (i5 > i4) {
+              f6 = f10 - f9;
+              f3 = (1.0F - f7) * f6;
+              n = m + i6 * paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer1.position(i2);
+                arrayOfFloat[k] += (0xFF & paramByteBuffer1.get()) * f3;k++;
+              }
+              
+              for (i10 = i4 + 1; i10 < i5; i10++) {
+                n += paramInt8;
+                k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                  paramByteBuffer1.position(i2);
+                  arrayOfFloat[k] += (0xFF & paramByteBuffer1.get()) * f6;k++;
+                }
+              }
+              
+              n += paramInt8;
+              f3 = f6 * f8;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer1.position(i2);
+                arrayOfFloat[k] += (0xFF & paramByteBuffer1.get()) * f3;k++;
+              }
+            }
+            
+            f3 = (f10 - f9) * (f8 - f7);
+            n = m + i6 * paramInt7;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer1.position(i2);
+              arrayOfFloat[k] += (0xFF & paramByteBuffer1.get()) * f3;k++;
+            }
+          }
+        }
+        
+
+        int i1 = m + paramInt8 + (i6 + 1) * paramInt7;
+        for (int i11 = i6 + 1; i11 < i7; i11++) {
+          n = i1;
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer1.position(i2);
+              arrayOfFloat[k] += (0xFF & paramByteBuffer1.get());k++;
+            }
+            
+            n += paramInt8;
+          }
+          i1 += paramInt7;
+        }
+        
+        int i3 = (j + i * paramInt4) * paramInt1;
+        for (int k = 0; k < paramInt1; k++) {
+          paramByteBuffer2.position(i3 + k);
+          paramByteBuffer2.put((byte)(int)(arrayOfFloat[k] / f4));
+        }
+        i4 = i5;
+        f7 = f8;
+        i5 += i9;
+        f8 += f12;
+        if (f8 > 1.0F) {
+          f8 -= 1.0F;
+          i5++;
+        }
+        
+
+        if (i5 > paramInt2 - 1) {
+          int i14 = i5 - paramInt2 + 1;
+          i4 -= i14;
+          i5 -= i14;
+        }
+      }
+      i6 = i7;
+      f9 = f10;
+      i7 += i8;
+      f10 += f11;
+      if (f10 > 1.0F) {
+        f10 -= 1.0F;
+        i7++;
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public static void scale_internal_byte(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer1, int paramInt4, int paramInt5, ByteBuffer paramByteBuffer2, int paramInt6, int paramInt7, int paramInt8)
+  {
+    float[] arrayOfFloat = new float[4];
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    if ((paramInt2 == paramInt4 * 2) && (paramInt3 == paramInt5 * 2)) {
+      HalveImage.halveImage_byte(paramInt1, paramInt2, paramInt3, paramByteBuffer1, paramByteBuffer2, paramInt6, paramInt7, paramInt8);
+      
+      return;
+    }
+    float f2 = paramInt3 / paramInt5;
+    float f1 = paramInt2 / paramInt4;
+    int i8 = (int)Math.floor(f2);
+    float f11 = f2 - i8;
+    int i9 = (int)Math.floor(f1);
+    float f12 = f1 - i9;
+    
+    float f4 = f1 * f2;
+    
+    int i6 = 0;
+    float f9 = 0.0F;
+    int i7 = i8;
+    float f10 = f11;
+    
+    for (int i = 0; i < paramInt5; i++)
+    {
+      if (i7 >= paramInt3)
+        i7 = paramInt3 - 1;
+      int i4 = 0;
+      float f7 = 0.0F;
+      int i5;
+      float f8;
+      if ((paramInt2 == 1) && (paramInt4 == 1)) {
+        i5 = 0;
+        f8 = 0.0F;
+      } else {
+        i5 = i9;
+        f8 = f12;
+      }
+      
+      for (int j = 0; j < paramInt4; j++)
+      {
+
+
+
+        float tmp190_189 = (arrayOfFloat[2] = arrayOfFloat[3] = 0.0F);arrayOfFloat[1] = tmp190_189;arrayOfFloat[0] = tmp190_189;
+        
+
+        int m = i4 * paramInt8;
+        float f6; int n; float f3; int i2; int i12; int i10; int i13; if ((i7 > i6) && (i5 > i4))
+        {
+          f6 = 1.0F - f9;
+          n = m + i6 * paramInt7;
+          f3 = f6 * (1.0F - f7);
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer1.position(i2);
+            arrayOfFloat[k] += paramByteBuffer1.get() * f3;k++;
+          }
+          
+          i12 = n;
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            n += paramInt8;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer1.position(i2);
+              arrayOfFloat[k] += paramByteBuffer1.get() * f6;k++;
+            }
+          }
+          
+          n += paramInt8;
+          i13 = n;
+          f3 = f6 * f8;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer1.position(i2);
+            arrayOfFloat[k] += paramByteBuffer1.get() * f3;k++;
+          }
+          
+
+
+          f6 = f10;
+          f3 = f6 * (1.0F - f7);
+          n = m + i7 * paramInt7;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer1.position(i2);
+            arrayOfFloat[k] += paramByteBuffer1.get() * f3;k++;
+          }
+          
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            n += paramInt8;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer1.position(i2);
+              arrayOfFloat[k] += paramByteBuffer1.get() * f6;k++;
+            }
+          }
+          
+          n += paramInt8;
+          f3 = f6 * f8;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer1.position(i2);
+            arrayOfFloat[k] += paramByteBuffer1.get() * f3;k++;
+          }
+          
+
+
+          for (i11 = i6 + 1; i11 < i7;) {
+            i12 += paramInt7;
+            i13 += paramInt7;
+            for (k = 0; k < paramInt1; i13 += paramInt6) {
+              float f13 = 0.0F;
+              paramByteBuffer1.position(i12);
+              f13 = paramByteBuffer1.get() * (1.0F - f7);
+              paramByteBuffer1.position(i13);
+              f13 += paramByteBuffer1.get() * f8;
+              arrayOfFloat[k] += f13;k++;i12 += paramInt6;
+            }
+            i11++; continue;
+            
+
+
+
+
+
+
+
+
+
+
+            if (i7 > i6) {
+              float f5 = f8 - f7;
+              f3 = (1.0F - f9) * f5;
+              n = m + i6 * paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer1.position(i2);
+                arrayOfFloat[k] += paramByteBuffer1.get() * f3;k++;
+              }
+              
+              for (i11 = i6 + 1; i11 < i7; i11++) {
+                n += paramInt7;
+                k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                  paramByteBuffer1.position(i2);
+                  arrayOfFloat[k] += paramByteBuffer1.get() * f5;k++;
+                }
+              }
+              
+              f3 = f5 * f10;
+              n += paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer1.position(i2);
+                arrayOfFloat[k] += paramByteBuffer1.get() * f3;k++;
+              }
+            }
+            if (i5 > i4) {
+              f6 = f10 - f9;
+              f3 = (1.0F - f7) * f6;
+              n = m + i6 * paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer1.position(i2);
+                arrayOfFloat[k] += paramByteBuffer1.get() * f3;k++;
+              }
+              
+              for (i10 = i4 + 1; i10 < i5; i10++) {
+                n += paramInt8;
+                k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                  paramByteBuffer1.position(i2);
+                  arrayOfFloat[k] += paramByteBuffer1.get() * f6;k++;
+                }
+              }
+              
+              n += paramInt8;
+              f3 = f6 * f8;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer1.position(i2);
+                arrayOfFloat[k] += paramByteBuffer1.get() * f3;k++;
+              }
+            }
+            
+            f3 = (f10 - f9) * (f8 - f7);
+            n = m + i6 * paramInt7;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer1.position(i2);
+              arrayOfFloat[k] += paramByteBuffer1.get() * f3;k++;
+            }
+          }
+        }
+        
+
+        int i1 = m + paramInt8 + (i6 + 1) * paramInt7;
+        for (int i11 = i6 + 1; i11 < i7; i11++) {
+          n = i1;
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer1.position(i2);
+              arrayOfFloat[k] += paramByteBuffer1.get();k++;
+            }
+            
+            n += paramInt8;
+          }
+          i1 += paramInt7;
+        }
+        
+        int i3 = (j + i * paramInt4) * paramInt1;
+        for (int k = 0; k < paramInt1; k++) {
+          paramByteBuffer2.position(i3 + k);
+          paramByteBuffer2.put((byte)(int)(arrayOfFloat[k] / f4));
+        }
+        i4 = i5;
+        f7 = f8;
+        i5 += i9;
+        f8 += f12;
+        if (f8 > 1.0F) {
+          f8 -= 1.0F;
+          i5++;
+        }
+        
+
+        if (i5 > paramInt2 - 1) {
+          int i14 = i5 - paramInt2 + 1;
+          i4 -= i14;
+          i5 -= i14;
+        }
+      }
+      i6 = i7;
+      f9 = f10;
+      i7 += i8;
+      f10 += f11;
+      if (f10 > 1.0F) {
+        f10 -= 1.0F;
+        i7++;
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public static void scale_internal_ushort(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer, int paramInt4, int paramInt5, ShortBuffer paramShortBuffer, int paramInt6, int paramInt7, int paramInt8, boolean paramBoolean)
+  {
+    float[] arrayOfFloat = new float[4];
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    if ((paramInt2 == paramInt4 * 2) && (paramInt3 == paramInt5 * 2)) {
+      HalveImage.halveImage_ushort(paramInt1, paramInt2, paramInt3, paramByteBuffer, paramShortBuffer, paramInt6, paramInt7, paramInt8, paramBoolean);
+      
+      return;
+    }
+    float f2 = paramInt3 / paramInt5;
+    float f1 = paramInt2 / paramInt4;
+    int i8 = (int)Math.floor(f2);
+    float f11 = f2 - i8;
+    int i9 = (int)Math.floor(f1);
+    float f12 = f1 - i9;
+    
+    float f4 = f1 * f2;
+    
+    int i6 = 0;
+    float f9 = 0.0F;
+    int i7 = i8;
+    float f10 = f11;
+    
+    for (int i = 0; i < paramInt5; i++)
+    {
+      if (i7 >= paramInt3)
+        i7 = paramInt3 - 1;
+      int i4 = 0;
+      float f7 = 0.0F;
+      int i5;
+      float f8;
+      if ((paramInt2 == 1) && (paramInt4 == 1)) {
+        i5 = 0;
+        f8 = 0.0F;
+      } else {
+        i5 = i9;
+        f8 = f12;
+      }
+      
+      for (int j = 0; j < paramInt4; j++)
+      {
+
+
+
+        float tmp192_191 = (arrayOfFloat[2] = arrayOfFloat[3] = 0.0F);arrayOfFloat[1] = tmp192_191;arrayOfFloat[0] = tmp192_191;
+        
+
+        int m = i4 * paramInt8;
+        float f6; int n; float f3; int i2; int i12; int i10; int i13; if ((i7 > i6) && (i5 > i4))
+        {
+          f6 = 1.0F - f9;
+          n = m + i6 * paramInt7;
+          f3 = f6 * (1.0F - f7);
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              arrayOfFloat[k] += (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort())) * f3;
+            } else {
+              arrayOfFloat[k] += (0xFFFF & paramByteBuffer.getShort()) * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+          i12 = n;
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            n += paramInt8;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                arrayOfFloat[k] += (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort())) * f6;
+              } else {
+                arrayOfFloat[k] += (0xFFFF & paramByteBuffer.getShort()) * f6;
+              }
+              k++;
+            }
+          }
+          
+
+
+
+
+
+          n += paramInt8;
+          i13 = n;
+          f3 = f6 * f8;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              arrayOfFloat[k] += (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort())) * f3;
+            } else {
+              arrayOfFloat[k] += (0xFFFF & paramByteBuffer.getShort()) * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+
+
+          f6 = f10;
+          f3 = f6 * (1.0F - f7);
+          n = m + i7 * paramInt7;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              arrayOfFloat[k] += (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort())) * f3;
+            } else {
+              arrayOfFloat[k] += (0xFFFF & paramByteBuffer.getShort()) * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            n += paramInt8;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                arrayOfFloat[k] += (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort())) * f6;
+              } else {
+                arrayOfFloat[k] += (0xFFFF & paramByteBuffer.getShort()) * f6;
+              }
+              k++;
+            }
+          }
+          
+
+
+
+
+
+          n += paramInt8;
+          f3 = f6 * f8;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              arrayOfFloat[k] += (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort())) * f3;
+            } else {
+              arrayOfFloat[k] += (0xFFFF & paramByteBuffer.getShort()) * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+
+
+          for (i11 = i6 + 1; i11 < i7;) {
+            i12 += paramInt7;
+            i13 += paramInt7;
+            for (k = 0; k < paramInt1; i13 += paramInt6) { float f13;
+              if (paramBoolean) {
+                paramByteBuffer.position(i12);
+                f13 = (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort())) * (1.0F - f7);
+                paramByteBuffer.position(i13);
+                f13 += (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort())) * f8;
+                arrayOfFloat[k] += f13;
+              } else {
+                paramByteBuffer.position(i12);
+                f13 = (0xFFFF & paramByteBuffer.getShort()) * (1.0F - f7);
+                paramByteBuffer.position(i13);
+                f13 += (0xFFFF & paramByteBuffer.getShort()) * f8;
+                arrayOfFloat[k] += f13;
+              }
+              k++;i12 += paramInt6;
+            }
+            i11++; continue;
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            if (i7 > i6) {
+              float f5 = f8 - f7;
+              f3 = (1.0F - f9) * f5;
+              n = m + i6 * paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  arrayOfFloat[k] += (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort())) * f3;
+                } else {
+                  arrayOfFloat[k] += (0xFFFF & paramByteBuffer.getShort()) * f3;
+                }
+                k++;
+              }
+              
+
+
+
+
+
+              for (i11 = i6 + 1; i11 < i7; i11++) {
+                n += paramInt7;
+                k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                  paramByteBuffer.position(i2);
+                  if (paramBoolean) {
+                    arrayOfFloat[k] += (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort())) * f5;
+                  } else {
+                    arrayOfFloat[k] += (0xFFFF & paramByteBuffer.getShort()) * f5;
+                  }
+                  k++;
+                }
+              }
+              
+
+
+
+
+
+              f3 = f5 * f10;
+              n += paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  arrayOfFloat[k] += (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort())) * f3;
+                } else {
+                  arrayOfFloat[k] += (0xFFFF & paramByteBuffer.getShort()) * f3;
+                }
+                k++;
+              }
+            }
+            
+
+
+
+
+            if (i5 > i4) {
+              f6 = f10 - f9;
+              f3 = (1.0F - f7) * f6;
+              n = m + i6 * paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  arrayOfFloat[k] += (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort())) * f3;
+                } else {
+                  arrayOfFloat[k] += (0xFFFF & paramByteBuffer.getShort()) * f3;
+                }
+                k++;
+              }
+              
+
+
+
+
+
+              for (i10 = i4 + 1; i10 < i5; i10++) {
+                n += paramInt8;
+                k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                  paramByteBuffer.position(i2);
+                  if (paramBoolean) {
+                    arrayOfFloat[k] += (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort())) * f6;
+                  } else {
+                    arrayOfFloat[k] += (0xFFFF & paramByteBuffer.getShort()) * f6;
+                  }
+                  k++;
+                }
+              }
+              
+
+
+
+
+
+              n += paramInt8;
+              f3 = f6 * f8;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  arrayOfFloat[k] += (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort())) * f3;
+                } else {
+                  arrayOfFloat[k] += (0xFFFF & paramByteBuffer.getShort()) * f3;
+                }
+                k++;
+              }
+            }
+            
+
+
+
+
+
+            f3 = (f10 - f9) * (f8 - f7);
+            n = m + i6 * paramInt7;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                arrayOfFloat[k] += (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort())) * f3;
+              } else {
+                arrayOfFloat[k] += (0xFFFF & paramByteBuffer.getShort()) * f3;
+              }
+              k++;
+            }
+          }
+        }
+        
+
+
+
+
+
+
+        int i1 = m + paramInt8 + (i6 + 1) * paramInt7;
+        for (int i11 = i6 + 1; i11 < i7; i11++) {
+          n = i1;
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                arrayOfFloat[k] += (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort()));
+              } else {
+                arrayOfFloat[k] += (0xFFFF & paramByteBuffer.getShort());
+              }
+              k++;
+            }
+            
+
+
+
+
+
+            n += paramInt8;
+          }
+          i1 += paramInt7;
+        }
+        
+        int i3 = (j + i * paramInt4) * paramInt1;
+        for (int k = 0; k < paramInt1; k++) {
+          paramShortBuffer.position(i3 + k);
+          paramShortBuffer.put((short)(int)(arrayOfFloat[k] / f4));
+        }
+        i4 = i5;
+        f7 = f8;
+        i5 += i9;
+        f8 += f12;
+        if (f8 > 1.0F) {
+          f8 -= 1.0F;
+          i5++;
+        }
+        
+
+        if (i5 > paramInt2 - 1) {
+          int i14 = i5 - paramInt2 + 1;
+          i4 -= i14;
+          i5 -= i14;
+        }
+      }
+      i6 = i7;
+      f9 = f10;
+      i7 += i8;
+      f10 += f11;
+      if (f10 > 1.0F) {
+        f10 -= 1.0F;
+        i7++;
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public static void scale_internal_short(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer, int paramInt4, int paramInt5, ShortBuffer paramShortBuffer, int paramInt6, int paramInt7, int paramInt8, boolean paramBoolean)
+  {
+    float[] arrayOfFloat = new float[4];
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    if ((paramInt2 == paramInt4 * 2) && (paramInt3 == paramInt5 * 2)) {
+      HalveImage.halveImage_short(paramInt1, paramInt2, paramInt3, paramByteBuffer, paramShortBuffer, paramInt6, paramInt7, paramInt8, paramBoolean);
+      
+      return;
+    }
+    float f2 = paramInt3 / paramInt5;
+    float f1 = paramInt2 / paramInt4;
+    int i8 = (int)Math.floor(f2);
+    float f11 = f2 - i8;
+    int i9 = (int)Math.floor(f1);
+    float f12 = f1 - i9;
+    
+    float f4 = f1 * f2;
+    
+    int i6 = 0;
+    float f9 = 0.0F;
+    int i7 = i8;
+    float f10 = f11;
+    
+    for (int i = 0; i < paramInt5; i++)
+    {
+      if (i7 >= paramInt3)
+        i7 = paramInt3 - 1;
+      int i4 = 0;
+      float f7 = 0.0F;
+      int i5;
+      float f8;
+      if ((paramInt2 == 1) && (paramInt4 == 1)) {
+        i5 = 0;
+        f8 = 0.0F;
+      } else {
+        i5 = i9;
+        f8 = f12;
+      }
+      
+      for (int j = 0; j < paramInt4; j++)
+      {
+
+
+
+        float tmp192_191 = (arrayOfFloat[2] = arrayOfFloat[3] = 0.0F);arrayOfFloat[1] = tmp192_191;arrayOfFloat[0] = tmp192_191;
+        
+
+        int m = i4 * paramInt8;
+        float f6; int n; float f3; int i2; int i14; int i12; int i10; int i13; if ((i7 > i6) && (i5 > i4))
+        {
+          f6 = 1.0F - f9;
+          n = m + i6 * paramInt7;
+          f3 = f6 * (1.0F - f7);
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              i14 = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+              arrayOfFloat[k] += i14 * f3;
+            } else {
+              arrayOfFloat[k] += paramByteBuffer.getShort() * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+
+          i12 = n;
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            n += paramInt8;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                i14 = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+                arrayOfFloat[k] += i14 * f6;
+              } else {
+                arrayOfFloat[k] += paramByteBuffer.getShort() * f6;
+              }
+              k++;
+            }
+          }
+          
+
+
+
+
+
+
+          n += paramInt8;
+          i13 = n;
+          f3 = f6 * f8;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              i14 = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+              arrayOfFloat[k] += i14 * f3;
+            } else {
+              arrayOfFloat[k] += paramByteBuffer.getShort() * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+
+
+
+          f6 = f10;
+          f3 = f6 * (1.0F - f7);
+          n = m + i7 * paramInt7;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              i14 = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+              arrayOfFloat[k] += i14 * f3;
+            } else {
+              arrayOfFloat[k] += paramByteBuffer.getShort() * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            n += paramInt8;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                i14 = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+                arrayOfFloat[k] += i14 * f6;
+              } else {
+                arrayOfFloat[k] += paramByteBuffer.getShort() * f6;
+              }
+              k++;
+            }
+          }
+          
+
+
+
+
+
+
+          n += paramInt8;
+          f3 = f6 * f8;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              i14 = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+              arrayOfFloat[k] += i14 * f3;
+            } else {
+              arrayOfFloat[k] += paramByteBuffer.getShort() * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+
+
+
+          for (i11 = i6 + 1; i11 < i7;) {
+            i12 += paramInt7;
+            i13 += paramInt7;
+            for (k = 0; k < paramInt1; i13 += paramInt6) {
+              if (paramBoolean) {
+                paramByteBuffer.position(i12);
+                i14 = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+                arrayOfFloat[k] += i14 * (1.0F - f7);
+                paramByteBuffer.position(i13);
+                i14 = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+                arrayOfFloat[k] += i14 * f8;
+              } else {
+                paramByteBuffer.position(i12);
+                arrayOfFloat[k] += paramByteBuffer.getShort() * (1.0F - f7);
+                paramByteBuffer.position(i13);
+                arrayOfFloat[k] += paramByteBuffer.getShort() * f8;
+              }
+              k++;i12 += paramInt6;
+            }
+            i11++; continue;
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            if (i7 > i6) {
+              float f5 = f8 - f7;
+              f3 = (1.0F - f9) * f5;
+              n = m + i6 * paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  i14 = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+                  arrayOfFloat[k] += i14 * f3;
+                } else {
+                  arrayOfFloat[k] += paramByteBuffer.getShort() * f3;
+                }
+                k++;
+              }
+              
+
+
+
+
+
+
+              for (i11 = i6 + 1; i11 < i7; i11++) {
+                n += paramInt7;
+                k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                  paramByteBuffer.position(i2);
+                  if (paramBoolean) {
+                    i14 = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+                    arrayOfFloat[k] += i14 * f5;
+                  } else {
+                    arrayOfFloat[k] += paramByteBuffer.getShort() * f5;
+                  }
+                  k++;
+                }
+              }
+              
+
+
+
+
+
+
+              f3 = f5 * f10;
+              n += paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  i14 = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+                  arrayOfFloat[k] += i14 * f3;
+                } else {
+                  arrayOfFloat[k] += paramByteBuffer.getShort() * f3;
+                }
+                k++;
+              }
+            }
+            
+
+
+
+
+
+            if (i5 > i4) {
+              f6 = f10 - f9;
+              f3 = (1.0F - f7) * f6;
+              n = m + i6 * paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  i14 = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+                  arrayOfFloat[k] += i14 * f3;
+                } else {
+                  arrayOfFloat[k] += paramByteBuffer.getShort() * f3;
+                }
+                k++;
+              }
+              
+
+
+
+
+
+
+              for (i10 = i4 + 1; i10 < i5; i10++) {
+                n += paramInt8;
+                k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                  paramByteBuffer.position(i2);
+                  if (paramBoolean) {
+                    i14 = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+                    arrayOfFloat[k] += i14 * f6;
+                  } else {
+                    arrayOfFloat[k] += paramByteBuffer.getShort() * f6;
+                  }
+                  k++;
+                }
+              }
+              
+
+
+
+
+
+
+              n += paramInt8;
+              f3 = f6 * f8;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  i14 = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+                  arrayOfFloat[k] += i14 * f3;
+                } else {
+                  arrayOfFloat[k] += paramByteBuffer.getShort() * f3;
+                }
+                k++;
+              }
+            }
+            
+
+
+
+
+
+
+            f3 = (f10 - f9) * (f8 - f7);
+            n = m + i6 * paramInt7;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                i14 = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+                arrayOfFloat[k] += i14 * f3;
+              } else {
+                arrayOfFloat[k] += paramByteBuffer.getShort() * f3;
+              }
+              k++;
+            }
+          }
+        }
+        
+
+
+
+
+
+
+
+        int i1 = m + paramInt8 + (i6 + 1) * paramInt7;
+        for (int i11 = i6 + 1; i11 < i7; i11++) {
+          n = i1;
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                i14 = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+                arrayOfFloat[k] += i14;
+              } else {
+                arrayOfFloat[k] += paramByteBuffer.getShort();
+              }
+              k++;
+            }
+            
+
+
+
+
+
+
+            n += paramInt8;
+          }
+          i1 += paramInt7;
+        }
+        
+        int i3 = (j + i * paramInt4) * paramInt1;
+        for (int k = 0; k < paramInt1; k++) {
+          paramShortBuffer.position(i3 + k);
+          paramShortBuffer.put((short)(int)(arrayOfFloat[k] / f4));
+        }
+        i4 = i5;
+        f7 = f8;
+        i5 += i9;
+        f8 += f12;
+        if (f8 > 1.0F) {
+          f8 -= 1.0F;
+          i5++;
+        }
+        
+
+        if (i5 > paramInt2 - 1) {
+          int i15 = i5 - paramInt2 + 1;
+          i4 -= i15;
+          i5 -= i15;
+        }
+      }
+      i6 = i7;
+      f9 = f10;
+      i7 += i8;
+      f10 += f11;
+      if (f10 > 1.0F) {
+        f10 -= 1.0F;
+        i7++;
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public static void scale_internal_uint(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer, int paramInt4, int paramInt5, IntBuffer paramIntBuffer, int paramInt6, int paramInt7, int paramInt8, boolean paramBoolean)
+  {
+    float[] arrayOfFloat = new float[4];
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    if ((paramInt2 == paramInt4 * 2) && (paramInt3 == paramInt5 * 2)) {
+      HalveImage.halveImage_uint(paramInt1, paramInt2, paramInt3, paramByteBuffer, paramIntBuffer, paramInt6, paramInt7, paramInt8, paramBoolean);
+      
+      return;
+    }
+    float f2 = paramInt3 / paramInt5;
+    float f1 = paramInt2 / paramInt4;
+    int i8 = (int)Math.floor(f2);
+    float f11 = f2 - i8;
+    int i9 = (int)Math.floor(f1);
+    float f12 = f1 - i9;
+    
+    float f4 = f1 * f2;
+    
+    int i6 = 0;
+    float f9 = 0.0F;
+    int i7 = i8;
+    float f10 = f11;
+    
+    for (int i = 0; i < paramInt5; i++)
+    {
+      if (i7 >= paramInt3)
+        i7 = paramInt3 - 1;
+      int i4 = 0;
+      float f7 = 0.0F;
+      int i5;
+      float f8;
+      if ((paramInt2 == 1) && (paramInt4 == 1)) {
+        i5 = 0;
+        f8 = 0.0F;
+      } else {
+        i5 = i9;
+        f8 = f12;
+      }
+      
+      for (int j = 0; j < paramInt4; j++)
+      {
+
+
+
+        float tmp192_191 = (arrayOfFloat[2] = arrayOfFloat[3] = 0.0F);arrayOfFloat[1] = tmp192_191;arrayOfFloat[0] = tmp192_191;
+        
+
+        int m = i4 * paramInt8;
+        float f6; int n; float f3; int i2; int i12; int i10; int i13; if ((i7 > i6) && (i5 > i4))
+        {
+          f6 = 1.0F - f9;
+          n = m + i6 * paramInt7;
+          f3 = f6 * (1.0F - f7);
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              arrayOfFloat[k] += (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt())) * f3;
+            } else {
+              arrayOfFloat[k] += (0xFFFFFFFF & paramByteBuffer.getInt()) * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+          i12 = n;
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            n += paramInt8;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                arrayOfFloat[k] += (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt())) * f6;
+              } else {
+                arrayOfFloat[k] += (0xFFFFFFFF & paramByteBuffer.getInt()) * f6;
+              }
+              k++;
+            }
+          }
+          
+
+
+
+
+
+          n += paramInt8;
+          i13 = n;
+          f3 = f6 * f8;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              arrayOfFloat[k] += (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt())) * f3;
+            } else {
+              arrayOfFloat[k] += (0xFFFFFFFF & paramByteBuffer.getInt()) * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+
+
+          f6 = f10;
+          f3 = f6 * (1.0F - f7);
+          n = m + i7 * paramInt7;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              arrayOfFloat[k] += (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt())) * f3;
+            } else {
+              arrayOfFloat[k] += (0xFFFFFFFF & paramByteBuffer.getInt()) * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            n += paramInt8;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                arrayOfFloat[k] += (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt())) * f6;
+              } else {
+                arrayOfFloat[k] += (0xFFFFFFFF & paramByteBuffer.getInt()) * f6;
+              }
+              k++;
+            }
+          }
+          
+
+
+
+
+
+          n += paramInt8;
+          f3 = f6 * f8;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              arrayOfFloat[k] += (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt())) * f3;
+            } else {
+              arrayOfFloat[k] += (0xFFFFFFFF & paramByteBuffer.getInt()) * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+
+
+          for (i11 = i6 + 1; i11 < i7;) {
+            i12 += paramInt7;
+            i13 += paramInt7;
+            for (k = 0; k < paramInt1; i13 += paramInt6) {
+              if (paramBoolean) {
+                paramByteBuffer.position(i12);
+                arrayOfFloat[k] += (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt())) * (1.0F - f7);
+                paramByteBuffer.position(i13);
+                arrayOfFloat[k] += (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt())) * f8;
+              } else {
+                paramByteBuffer.position(i12);
+                arrayOfFloat[k] += (0xFFFFFFFF & paramByteBuffer.getInt()) * (1.0F - f7);
+                paramByteBuffer.position(i13);
+                arrayOfFloat[k] += (0xFFFFFFFF & paramByteBuffer.getInt()) * f8;
+              }
+              k++;i12 += paramInt6;
+            }
+            i11++; continue;
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            if (i7 > i6) {
+              float f5 = f8 - f7;
+              f3 = (1.0F - f9) * f5;
+              n = m + i6 * paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  arrayOfFloat[k] += (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt())) * f3;
+                } else {
+                  arrayOfFloat[k] += (0xFFFFFFFF & paramByteBuffer.getInt()) * f3;
+                }
+                k++;
+              }
+              
+
+
+
+
+
+              for (i11 = i6 + 1; i11 < i7; i11++) {
+                n += paramInt7;
+                k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                  paramByteBuffer.position(i2);
+                  if (paramBoolean) {
+                    arrayOfFloat[k] += (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt())) * f5;
+                  } else {
+                    arrayOfFloat[k] += (0xFFFFFFFF & paramByteBuffer.getInt()) * f5;
+                  }
+                  k++;
+                }
+              }
+              
+
+
+
+
+
+              f3 = f5 * f10;
+              n += paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  arrayOfFloat[k] += (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt())) * f3;
+                } else {
+                  arrayOfFloat[k] += (0xFFFFFFFF & paramByteBuffer.getInt()) * f3;
+                }
+                k++;
+              }
+            }
+            
+
+
+
+
+            if (i5 > i4) {
+              f6 = f10 - f9;
+              f3 = (1.0F - f7) * f6;
+              n = m + i6 * paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  arrayOfFloat[k] += (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt())) * f3;
+                } else {
+                  arrayOfFloat[k] += (0xFFFFFFFF & paramByteBuffer.getInt()) * f3;
+                }
+                k++;
+              }
+              
+
+
+
+
+
+              for (i10 = i4 + 1; i10 < i5; i10++) {
+                n += paramInt8;
+                k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                  paramByteBuffer.position(i2);
+                  if (paramBoolean) {
+                    arrayOfFloat[k] += (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt())) * f6;
+                  } else {
+                    arrayOfFloat[k] += (0xFFFFFFFF & paramByteBuffer.getInt()) * f6;
+                  }
+                  k++;
+                }
+              }
+              
+
+
+
+
+
+              n += paramInt8;
+              f3 = f6 * f8;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  arrayOfFloat[k] += (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt())) * f3;
+                } else {
+                  arrayOfFloat[k] += (0xFFFFFFFF & paramByteBuffer.getInt()) * f3;
+                }
+                k++;
+              }
+            }
+            
+
+
+
+
+
+            f3 = (f10 - f9) * (f8 - f7);
+            n = m + i6 * paramInt7;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              long l1 = 0xFFFFFFFF & paramByteBuffer.getInt(i2);
+              paramByteBuffer.position(i2);
+              long l2 = 0xFFFFFFFF & paramByteBuffer.getInt();
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                arrayOfFloat[k] += (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt())) * f3;
+              } else {
+                arrayOfFloat[k] += (0xFFFFFFFF & paramByteBuffer.getInt()) * f3;
+              }
+              k++;
+            }
+          }
+        }
+        
+
+
+
+
+
+
+
+
+
+        int i1 = m + paramInt8 + (i6 + 1) * paramInt7;
+        for (int i11 = i6 + 1; i11 < i7; i11++) {
+          n = i1;
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                arrayOfFloat[k] += (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt()));
+              } else {
+                arrayOfFloat[k] += (0xFFFFFFFF & paramByteBuffer.getInt());
+              }
+              k++;
+            }
+            
+
+
+
+
+
+            n += paramInt8;
+          }
+          i1 += paramInt7;
+        }
+        
+        int i3 = (j + i * paramInt4) * paramInt1;
+        float f13 = 0.0F;
+        for (int k = 0; k < paramInt1; k++) {
+          f13 = arrayOfFloat[k] / f4;
+          paramIntBuffer.position(i3 + k);
+          if (f13 >= -1.0F) {
+            paramIntBuffer.put((int)f13);
+          } else {
+            paramIntBuffer.put((int)(arrayOfFloat[k] / f4));
+          }
+        }
+        i4 = i5;
+        f7 = f8;
+        i5 += i9;
+        f8 += f12;
+        if (f8 > 1.0F) {
+          f8 -= 1.0F;
+          i5++;
+        }
+        
+
+        if (i5 > paramInt2 - 1) {
+          int i14 = i5 - paramInt2 + 1;
+          i4 -= i14;
+          i5 -= i14;
+        }
+      }
+      i6 = i7;
+      f9 = f10;
+      i7 += i8;
+      f10 += f11;
+      if (f10 > 1.0F) {
+        f10 -= 1.0F;
+        i7++;
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public static void scale_internal_int(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer, int paramInt4, int paramInt5, IntBuffer paramIntBuffer, int paramInt6, int paramInt7, int paramInt8, boolean paramBoolean)
+  {
+    float[] arrayOfFloat = new float[4];
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    if ((paramInt2 == paramInt4 * 2) && (paramInt3 == paramInt5 * 2)) {
+      HalveImage.halveImage_int(paramInt1, paramInt2, paramInt3, paramByteBuffer, paramIntBuffer, paramInt6, paramInt7, paramInt8, paramBoolean);
+      
+      return;
+    }
+    float f2 = paramInt3 / paramInt5;
+    float f1 = paramInt2 / paramInt4;
+    int i8 = (int)Math.floor(f2);
+    float f11 = f2 - i8;
+    int i9 = (int)Math.floor(f1);
+    float f12 = f1 - i9;
+    
+    float f4 = f1 * f2;
+    
+    int i6 = 0;
+    float f9 = 0.0F;
+    int i7 = i8;
+    float f10 = f11;
+    
+    for (int i = 0; i < paramInt5; i++)
+    {
+      if (i7 >= paramInt3)
+        i7 = paramInt3 - 1;
+      int i4 = 0;
+      float f7 = 0.0F;
+      int i5;
+      float f8;
+      if ((paramInt2 == 1) && (paramInt4 == 1)) {
+        i5 = 0;
+        f8 = 0.0F;
+      } else {
+        i5 = i9;
+        f8 = f12;
+      }
+      
+      for (int j = 0; j < paramInt4; j++)
+      {
+
+
+
+        float tmp192_191 = (arrayOfFloat[2] = arrayOfFloat[3] = 0.0F);arrayOfFloat[1] = tmp192_191;arrayOfFloat[0] = tmp192_191;
+        
+
+        int m = i4 * paramInt8;
+        float f6; int n; float f3; int i2; long l; int i12; int i10; int i13; if ((i7 > i6) && (i5 > i4))
+        {
+          f6 = 1.0F - f9;
+          n = m + i6 * paramInt7;
+          f3 = f6 * (1.0F - f7);
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              l = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+              arrayOfFloat[k] += (float)l * f3;
+            } else {
+              arrayOfFloat[k] += paramByteBuffer.getInt() * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+
+          i12 = n;
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            n += paramInt8;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                l = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+                arrayOfFloat[k] += (float)l * f6;
+              } else {
+                arrayOfFloat[k] += paramByteBuffer.getInt() * f6;
+              }
+              k++;
+            }
+          }
+          
+
+
+
+
+
+
+          n += paramInt8;
+          i13 = n;
+          f3 = f6 * f8;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              l = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+              arrayOfFloat[k] += (float)l * f3;
+            } else {
+              arrayOfFloat[k] += paramByteBuffer.getInt() * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+
+
+
+          f6 = f10;
+          f3 = f6 * (1.0F - f7);
+          n = m + i7 * paramInt7;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              l = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+              arrayOfFloat[k] += (float)l * f3;
+            } else {
+              arrayOfFloat[k] += paramByteBuffer.getInt() * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            n += paramInt8;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                l = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+                arrayOfFloat[k] += (float)l * f6;
+              } else {
+                arrayOfFloat[k] += paramByteBuffer.getInt() * f6;
+              }
+              k++;
+            }
+          }
+          
+
+
+
+
+
+
+          n += paramInt8;
+          f3 = f6 * f8;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              l = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+              arrayOfFloat[k] += (float)l * f3;
+            } else {
+              arrayOfFloat[k] += paramByteBuffer.getInt() * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+
+
+
+          for (i11 = i6 + 1; i11 < i7;) {
+            i12 += paramInt7;
+            i13 += paramInt7;
+            for (k = 0; k < paramInt1; i13 += paramInt6) {
+              if (paramBoolean) {
+                paramByteBuffer.position(i12);
+                l = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+                arrayOfFloat[k] += (float)l * (1.0F - f7);
+                paramByteBuffer.position(i13);
+                l = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+                arrayOfFloat[k] += (float)l * f8;
+              } else {
+                paramByteBuffer.position(i12);
+                arrayOfFloat[k] += paramByteBuffer.getInt() * (1.0F - f7);
+                paramByteBuffer.position(i13);
+                arrayOfFloat[k] += paramByteBuffer.getInt() * f8;
+              }
+              k++;i12 += paramInt6;
+            }
+            i11++; continue;
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            if (i7 > i6) {
+              float f5 = f8 - f7;
+              f3 = (1.0F - f9) * f5;
+              n = m + i6 * paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  l = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+                  arrayOfFloat[k] += (float)l * f3;
+                } else {
+                  arrayOfFloat[k] += paramByteBuffer.getInt() * f3;
+                }
+                k++;
+              }
+              
+
+
+
+
+
+
+              for (i11 = i6 + 1; i11 < i7; i11++) {
+                n += paramInt7;
+                k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                  paramByteBuffer.position(i2);
+                  if (paramBoolean) {
+                    l = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+                    arrayOfFloat[k] += (float)l * f5;
+                  } else {
+                    arrayOfFloat[k] += paramByteBuffer.getInt() * f5;
+                  }
+                  k++;
+                }
+              }
+              
+
+
+
+
+
+
+              f3 = f5 * f10;
+              n += paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  l = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+                  arrayOfFloat[k] += (float)l * f3;
+                } else {
+                  arrayOfFloat[k] += paramByteBuffer.getInt() * f3;
+                }
+                k++;
+              }
+            }
+            
+
+
+
+
+
+            if (i5 > i4) {
+              f6 = f10 - f9;
+              f3 = (1.0F - f7) * f6;
+              n = m + i6 * paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  l = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+                  arrayOfFloat[k] += (float)l * f3;
+                } else {
+                  arrayOfFloat[k] += paramByteBuffer.getInt() * f3;
+                }
+                k++;
+              }
+              
+
+
+
+
+
+
+              for (i10 = i4 + 1; i10 < i5; i10++) {
+                n += paramInt8;
+                k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                  paramByteBuffer.position(i2);
+                  if (paramBoolean) {
+                    l = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+                    arrayOfFloat[k] += (float)l * f6;
+                  } else {
+                    arrayOfFloat[k] += paramByteBuffer.getInt() * f6;
+                  }
+                  k++;
+                }
+              }
+              
+
+
+
+
+
+
+              n += paramInt8;
+              f3 = f6 * f8;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  l = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+                  arrayOfFloat[k] += (float)l * f3;
+                } else {
+                  arrayOfFloat[k] += paramByteBuffer.getInt() * f3;
+                }
+                k++;
+              }
+            }
+            
+
+
+
+
+
+
+            f3 = (f10 - f9) * (f8 - f7);
+            n = m + i6 * paramInt7;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                l = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+                arrayOfFloat[k] += (float)l * f3;
+              } else {
+                arrayOfFloat[k] += paramByteBuffer.getInt() * f3;
+              }
+              k++;
+            }
+          }
+        }
+        
+
+
+
+
+
+
+
+        int i1 = m + paramInt8 + (i6 + 1) * paramInt7;
+        for (int i11 = i6 + 1; i11 < i7; i11++) {
+          n = i1;
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                l = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+                arrayOfFloat[k] += (float)l;
+              } else {
+                arrayOfFloat[k] += paramByteBuffer.getInt();
+              }
+              k++;
+            }
+            
+
+
+
+
+
+
+            n += paramInt8;
+          }
+          i1 += paramInt7;
+        }
+        
+        int i3 = (j + i * paramInt4) * paramInt1;
+        for (int k = 0; k < paramInt1; k++) {
+          paramIntBuffer.position(i3 + k);
+          paramIntBuffer.put((int)(arrayOfFloat[k] / f4));
+        }
+        i4 = i5;
+        f7 = f8;
+        i5 += i9;
+        f8 += f12;
+        if (f8 > 1.0F) {
+          f8 -= 1.0F;
+          i5++;
+        }
+        
+
+        if (i5 > paramInt2 - 1) {
+          int i14 = i5 - paramInt2 + 1;
+          i4 -= i14;
+          i5 -= i14;
+        }
+      }
+      i6 = i7;
+      f9 = f10;
+      i7 += i8;
+      f10 += f11;
+      if (f10 > 1.0F) {
+        f10 -= 1.0F;
+        i7++;
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public static void scale_internal_float(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer, int paramInt4, int paramInt5, FloatBuffer paramFloatBuffer, int paramInt6, int paramInt7, int paramInt8, boolean paramBoolean)
+  {
+    float[] arrayOfFloat = new float[4];
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    if ((paramInt2 == paramInt4 * 2) && (paramInt3 == paramInt5 * 2)) {
+      HalveImage.halveImage_float(paramInt1, paramInt2, paramInt3, paramByteBuffer, paramFloatBuffer, paramInt6, paramInt7, paramInt8, paramBoolean);
+      
+      return;
+    }
+    float f2 = paramInt3 / paramInt5;
+    float f1 = paramInt2 / paramInt4;
+    int i8 = (int)Math.floor(f2);
+    float f11 = f2 - i8;
+    int i9 = (int)Math.floor(f1);
+    float f12 = f1 - i9;
+    
+    float f4 = f1 * f2;
+    
+    int i6 = 0;
+    float f9 = 0.0F;
+    int i7 = i8;
+    float f10 = f11;
+    
+    for (int i = 0; i < paramInt5; i++)
+    {
+      if (i7 >= paramInt3)
+        i7 = paramInt3 - 1;
+      int i4 = 0;
+      float f7 = 0.0F;
+      int i5;
+      float f8;
+      if ((paramInt2 == 1) && (paramInt4 == 1)) {
+        i5 = 0;
+        f8 = 0.0F;
+      } else {
+        i5 = i9;
+        f8 = f12;
+      }
+      
+      for (int j = 0; j < paramInt4; j++)
+      {
+
+
+
+        float tmp192_191 = (arrayOfFloat[2] = arrayOfFloat[3] = 0.0F);arrayOfFloat[1] = tmp192_191;arrayOfFloat[0] = tmp192_191;
+        
+
+        int m = i4 * paramInt8;
+        float f6; int n; float f3; int i2; float f13; int i12; int i10; int i13; if ((i7 > i6) && (i5 > i4))
+        {
+          f6 = 1.0F - f9;
+          n = m + i6 * paramInt7;
+          f3 = f6 * (1.0F - f7);
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              f13 = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+              arrayOfFloat[k] += f13 * f3;
+            } else {
+              arrayOfFloat[k] += paramByteBuffer.getFloat() * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+
+          i12 = n;
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            n += paramInt8;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                f13 = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+                arrayOfFloat[k] += f13 * f6;
+              } else {
+                arrayOfFloat[k] += paramByteBuffer.getFloat() * f6;
+              }
+              k++;
+            }
+          }
+          
+
+
+
+
+
+
+          n += paramInt8;
+          i13 = n;
+          f3 = f6 * f8;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              f13 = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+              arrayOfFloat[k] += f13 * f3;
+            } else {
+              arrayOfFloat[k] += paramByteBuffer.getFloat() * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+
+
+
+          f6 = f10;
+          f3 = f6 * (1.0F - f7);
+          n = m + i7 * paramInt7;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              f13 = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+              arrayOfFloat[k] += f13 * f3;
+            } else {
+              arrayOfFloat[k] += paramByteBuffer.getFloat() * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            n += paramInt8;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                f13 = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+                arrayOfFloat[k] += f13 * f6;
+              } else {
+                arrayOfFloat[k] += paramByteBuffer.getFloat() * f6;
+              }
+              k++;
+            }
+          }
+          
+
+
+
+
+
+
+          n += paramInt8;
+          f3 = f6 * f8;
+          k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+            paramByteBuffer.position(i2);
+            if (paramBoolean) {
+              f13 = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+              arrayOfFloat[k] += f13 * f3;
+            } else {
+              arrayOfFloat[k] += paramByteBuffer.getFloat() * f3;
+            }
+            k++;
+          }
+          
+
+
+
+
+
+
+
+
+          for (i11 = i6 + 1; i11 < i7;) {
+            i12 += paramInt7;
+            i13 += paramInt7;
+            for (k = 0; k < paramInt1; i13 += paramInt6) {
+              if (paramBoolean) {
+                paramByteBuffer.position(i12);
+                f13 = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+                arrayOfFloat[k] += f13 * (1.0F - f7);
+                paramByteBuffer.position(i13);
+                f13 = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+                arrayOfFloat[k] += f13 * f8;
+              } else {
+                paramByteBuffer.position(i12);
+                arrayOfFloat[k] += paramByteBuffer.getFloat() * (1.0F - f7);
+                paramByteBuffer.position(i13);
+                arrayOfFloat[k] += paramByteBuffer.getFloat() * f8;
+              }
+              k++;i12 += paramInt6;
+            }
+            i11++; continue;
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            if (i7 > i6) {
+              float f5 = f8 - f7;
+              f3 = (1.0F - f9) * f5;
+              n = m + i6 * paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  f13 = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+                  arrayOfFloat[k] += f13 * f3;
+                } else {
+                  arrayOfFloat[k] += paramByteBuffer.getFloat() * f3;
+                }
+                k++;
+              }
+              
+
+
+
+
+
+
+              for (i11 = i6 + 1; i11 < i7; i11++) {
+                n += paramInt7;
+                k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                  paramByteBuffer.position(i2);
+                  if (paramBoolean) {
+                    f13 = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+                    arrayOfFloat[k] += f13 * f5;
+                  } else {
+                    arrayOfFloat[k] += paramByteBuffer.getFloat() * f5;
+                  }
+                  k++;
+                }
+              }
+              
+
+
+
+
+
+
+              f3 = f5 * f10;
+              n += paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  f13 = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+                  arrayOfFloat[k] += f13 * f3;
+                } else {
+                  arrayOfFloat[k] += paramByteBuffer.getFloat() * f3;
+                }
+                k++;
+              }
+            }
+            
+
+
+
+
+
+            if (i5 > i4) {
+              f6 = f10 - f9;
+              f3 = (1.0F - f7) * f6;
+              n = m + i6 * paramInt7;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  f13 = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+                  arrayOfFloat[k] += f13 * f3;
+                } else {
+                  arrayOfFloat[k] += paramByteBuffer.getFloat() * f3;
+                }
+                k++;
+              }
+              
+
+
+
+
+
+
+              for (i10 = i4 + 1; i10 < i5; i10++) {
+                n += paramInt8;
+                k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                  paramByteBuffer.position(i2);
+                  if (paramBoolean) {
+                    f13 = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+                    arrayOfFloat[k] += f13 * f6;
+                  } else {
+                    arrayOfFloat[k] += paramByteBuffer.getFloat() * f6;
+                  }
+                  k++;
+                }
+              }
+              
+
+
+
+
+
+
+              n += paramInt8;
+              f3 = f6 * f8;
+              k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+                paramByteBuffer.position(i2);
+                if (paramBoolean) {
+                  f13 = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+                  arrayOfFloat[k] += f13 * f3;
+                } else {
+                  arrayOfFloat[k] += paramByteBuffer.getFloat() * f3;
+                }
+                k++;
+              }
+            }
+            
+
+
+
+
+
+
+            f3 = (f10 - f9) * (f8 - f7);
+            n = m + i6 * paramInt7;
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                f13 = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+                arrayOfFloat[k] += f13 * f3;
+              } else {
+                arrayOfFloat[k] += paramByteBuffer.getFloat() * f3;
+              }
+              k++;
+            }
+          }
+        }
+        
+
+
+
+
+
+
+
+        int i1 = m + paramInt8 + (i6 + 1) * paramInt7;
+        for (int i11 = i6 + 1; i11 < i7; i11++) {
+          n = i1;
+          for (i10 = i4 + 1; i10 < i5; i10++) {
+            k = 0; for (i2 = n; k < paramInt1; i2 += paramInt6) {
+              paramByteBuffer.position(i2);
+              if (paramBoolean) {
+                f13 = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+                arrayOfFloat[k] += f13;
+              } else {
+                arrayOfFloat[k] += paramByteBuffer.getFloat();
+              }
+              k++;
+            }
+            
+
+
+
+
+
+
+            n += paramInt8;
+          }
+          i1 += paramInt7;
+        }
+        
+        int i3 = (j + i * paramInt4) * paramInt1;
+        for (int k = 0; k < paramInt1; k++) {
+          paramFloatBuffer.position(i3 + k);
+          paramFloatBuffer.put(arrayOfFloat[k] / f4);
+        }
+        i4 = i5;
+        f7 = f8;
+        i5 += i9;
+        f8 += f12;
+        if (f8 > 1.0F) {
+          f8 -= 1.0F;
+          i5++;
+        }
+        
+
+        if (i5 > paramInt2 - 1) {
+          int i14 = i5 - paramInt2 + 1;
+          i4 -= i14;
+          i5 -= i14;
+        }
+      }
+      i6 = i7;
+      f9 = f10;
+      i7 += i8;
+      f10 += f11;
+      if (f10 > 1.0F) {
+        f10 -= 1.0F;
+        i7++;
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+  public static void scaleInternalPackedPixel(int paramInt1, Extract paramExtract, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer1, int paramInt4, int paramInt5, ByteBuffer paramByteBuffer2, int paramInt6, int paramInt7, boolean paramBoolean)
+  {
+    float[] arrayOfFloat1 = new float[4];
+    float[] arrayOfFloat2 = new float[4];
+    float[] arrayOfFloat3 = new float[4];
+    float[] arrayOfFloat4 = new float[4];
+    
+
+
+
+
+
+    int i2 = 0;
+    
+
+
+
+
+
+
+
+
+    if ((paramInt2 == paramInt4 * 2) && (paramInt3 == paramInt5 * 2)) {
+      HalveImage.halveImagePackedPixel(paramInt1, paramExtract, paramInt2, paramInt3, paramByteBuffer1, paramByteBuffer2, paramInt6, paramInt7, paramBoolean);
+      
+      return;
+    }
+    float f2 = paramInt3 / paramInt5;
+    float f1 = paramInt2 / paramInt4;
+    int i7 = (int)Math.floor(f2);
+    float f11 = f2 - i7;
+    int i8 = (int)Math.floor(f1);
+    float f12 = f1 - i8;
+    
+    float f4 = f1 * f2;
+    
+    int i5 = 0;
+    float f9 = 0.0F;
+    int i6 = i7;
+    float f10 = f12;
+    
+    for (int i = 0; i < paramInt5; i++)
+    {
+      if (i6 >= paramInt3)
+        i6 = paramInt3 - 1;
+      int i3 = 0;
+      float f7 = 0.0F;
+      int i4 = i8;
+      float f8 = f12;
+      
+      for (int j = 0; j < paramInt4; j++)
+      {
+
+        float tmp190_189 = (arrayOfFloat1[2] = arrayOfFloat1[3] = 0.0F);arrayOfFloat1[1] = tmp190_189;arrayOfFloat1[0] = tmp190_189;
+        
+
+        int m = i3 * paramInt6;
+        float f6; int n; float f3; int i11; int i9; int i12; if ((i6 > i5) && (i4 > i3))
+        {
+          f6 = 1.0F - f9;
+          n = m + i5 * paramInt7;
+          f3 = f6 * (1.0F - f7);
+          paramByteBuffer1.position(n);
+          paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat2);
+          for (k = 0; k < paramInt1; k++) {
+            arrayOfFloat1[k] += arrayOfFloat2[k] * f3;
+          }
+          i11 = n;
+          for (i9 = i3 + 1; i9 < i4; i9++) {
+            n += paramInt6;
+            paramByteBuffer1.position(n);
+            paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat2);
+            for (k = 0; k < paramInt1; k++) {
+              arrayOfFloat1[k] += arrayOfFloat2[k] * f6;
+            }
+          }
+          n += paramInt6;
+          i12 = n;
+          f3 = f6 * f8;
+          paramByteBuffer1.position(n);
+          paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat2);
+          for (k = 0; k < paramInt1; k++) {
+            arrayOfFloat1[k] += arrayOfFloat2[k] * f3;
+          }
+          
+
+          f6 = f10;
+          f3 = f6 * (1.0F - f7);
+          n = m + i6 * paramInt7;
+          paramByteBuffer1.position(n);
+          paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat2);
+          for (k = 0; k < paramInt1; k++) {
+            arrayOfFloat1[k] += arrayOfFloat2[k] * f3;
+          }
+          for (i9 = i3 + 1; i9 < i4; i9++) {
+            n += paramInt6;
+            paramByteBuffer1.position(n);
+            paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat2);
+            for (k = 0; k < paramInt1; k++) {
+              arrayOfFloat1[k] += arrayOfFloat2[k] * f6;
+            }
+          }
+          n += paramInt6;
+          f3 = f6 * f8;
+          paramByteBuffer1.position(n);
+          for (k = 0; k < paramInt1; k++) {
+            arrayOfFloat1[k] += arrayOfFloat2[k] * f3;
+          }
+          
+
+          for (i10 = i5 + 1; i10 < i6;) {
+            i11 += paramInt7;
+            i12 += paramInt7;
+            paramByteBuffer1.position(i11);
+            paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat2);
+            paramByteBuffer1.position(i12);
+            paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat3);
+            for (k = 0; k < paramInt1; k++) {
+              arrayOfFloat1[k] += arrayOfFloat2[k] * (1.0F - f7) + arrayOfFloat3[k] * f8;
+            }
+            i10++; continue;
+            
+
+
+
+
+
+
+
+
+
+            if (i6 > i5) {
+              float f5 = f8 - f7;
+              f3 = (1.0F - f9) * f5;
+              n = m + i5 * paramInt7;
+              paramByteBuffer1.position(n);
+              paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat2);
+              for (k = 0; k < paramInt1; k++) {
+                arrayOfFloat1[k] += arrayOfFloat2[k] * f3;
+              }
+              for (i10 = i5 + 1; i10 < i6; i10++) {
+                n += paramInt7;
+                paramByteBuffer1.position(n);
+                paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat2);
+                for (k = 0; k < paramInt1; k++) {
+                  arrayOfFloat1[k] += arrayOfFloat2[k] * f5;
+                }
+              }
+              f3 = f5 * f10;
+              n += paramInt7;
+              paramByteBuffer1.position(n);
+              paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat2);
+              for (k = 0; k < paramInt1; k++)
+                arrayOfFloat1[k] += arrayOfFloat2[k] * f3;
+            }
+            if (i4 > i3) {
+              f6 = f10 - f9;
+              f3 = (1.0F - f7) * f6;
+              n = m + i5 * paramInt7;
+              paramByteBuffer1.position(n);
+              paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat2);
+              for (k = 0; k < paramInt1; k++) {
+                arrayOfFloat1[k] += arrayOfFloat2[k] * f3;
+              }
+              for (i9 = i3 + 1; i9 < i4; i9++) {
+                n += paramInt6;
+                paramByteBuffer1.position(n);
+                paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat2);
+                for (k = 0; k < paramInt1; k++) {
+                  arrayOfFloat1[k] += arrayOfFloat2[k] * f6;
+                }
+              }
+              n += paramInt6;
+              f3 = f6 * f8;
+              paramByteBuffer1.position(n);
+              paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat2);
+              for (k = 0; k < paramInt1; k++) {
+                arrayOfFloat1[k] += arrayOfFloat2[k] * f3;
+              }
+            }
+            f3 = (f10 - f9) * (f8 - f7);
+            n = m + i5 * paramInt7;
+            paramByteBuffer1.position(n);
+            paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat2);
+            for (k = 0; k < paramInt1; k++) {
+              arrayOfFloat1[k] += arrayOfFloat2[k] * f3;
+            }
+          }
+        }
+        
+        int i1 = m + paramInt6 + (i5 + 1) * paramInt7;
+        for (int i10 = i5 + 1; i10 < i6; i10++) {
+          n = i1;
+          for (i9 = i3 + 1; i9 < i4; i9++) {
+            paramByteBuffer1.position(n);
+            paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat2);
+            for (k = 0; k < paramInt1; k++) {
+              arrayOfFloat1[k] += arrayOfFloat2[k] * f3;
+            }
+            n += paramInt6;
+          }
+          i1 += paramInt7;
+        }
+        
+        i2 = j + i * paramInt4;
+        for (int k = 0; k < paramInt1; k++) {
+          arrayOfFloat1[k] /= f4;
+        }
+        paramExtract.shove(arrayOfFloat4, i2, paramByteBuffer2);
+        i3 = i4;
+        f7 = f8;
+        i4 += i8;
+        f8 += f12;
+        if (f8 > 1.0F) {
+          f8 -= 1.0F;
+          i4++;
+        }
+        
+
+        if (i4 > paramInt2 - 1) {
+          int i13 = i4 - paramInt2 + 1;
+          i3 -= i13;
+          i4 -= i13;
+        }
+      }
+      i5 = i6;
+      f9 = f10;
+      i6 += i7;
+      f10 += f11;
+      if (f10 > 1.0F) {
+        f10 -= 1.0F;
+        i6++;
+      }
+    }
+    assert (i2 == paramInt4 * paramInt5 - 1);
+  }
+  
+
+
+
+
+
+
+
+  public static void scaleInternal3D(int paramInt1, int paramInt2, int paramInt3, int paramInt4, ShortBuffer paramShortBuffer1, int paramInt5, int paramInt6, int paramInt7, ShortBuffer paramShortBuffer2)
+  {
+    float[] arrayOfFloat = new float[4];
+    
+    float f3;
+    float f2;
+    float f8;
+    float f7 = f8 = f2 = f3 = 0.0F;
+    
+    float f14 = paramInt4 / paramInt7;
+    float f9 = paramInt3 / paramInt6;
+    float f4 = paramInt2 / paramInt5;
+    float f15 = f14 / 2.0F;
+    float f10 = f9 / 2.0F;
+    float f5 = f4 / 2.0F;
+    for (int k = 0; k < paramInt7; k++) {
+      float f11 = f14 * (k + 0.5F);
+      float f13; float f12; if (paramInt4 > paramInt7) {
+        f13 = f11 + f15;
+        f12 = f11 - f15;
+      } else {
+        f13 = f11 + 0.5F;
+        f12 = f11 - 0.5F;
+      }
+      for (int i = 0; i < paramInt6; i++) {
+        float f6 = f9 * (i + 0.5F);
+        if (paramInt3 > paramInt6) {
+          f13 = f6 + f10;
+          f12 = f6 - f10;
+        } else {
+          f13 = f6 + 0.5F;
+          f12 = f6 - 0.5F;
+        }
+        for (int j = 0; j < paramInt5; j++) {
+          float f1 = f4 * (j + 0.5F);
+          if (paramInt4 > paramInt7) {
+            f13 = f1 + f5;
+            f12 = f1 - f5;
+          } else {
+            f13 = f1 + 0.5F;
+            f12 = f1 - 0.5F;
+          }
+          
+
+
+
+          float tmp250_249 = (arrayOfFloat[2] = arrayOfFloat[3] = 0.0F);arrayOfFloat[1] = tmp250_249;arrayOfFloat[0] = tmp250_249;
+          float f20 = 0.0F;
+          
+          f11 = f12;
+          int n = (int)Math.floor(f11);
+          while (f11 < f13) {
+            int i5 = (n + paramInt4) % paramInt4;
+            float f18; if (f13 < n + 1) {
+              f18 = f13 - f11;
+            } else {
+              f18 = n + 1 - f11;
+            }
+            
+            f6 = f7;
+            int i1 = (int)Math.floor(f6);
+            while (f6 < f8) {
+              int i4 = (i1 + paramInt3) % paramInt3;
+              float f17; if (f8 < i1 + 1) {
+                f17 = f8 - f6;
+              } else {
+                f17 = i1 + 1 - f6;
+              }
+              
+              f1 = f2;
+              int i2 = (int)Math.floor(f1);
+              
+              while (f1 < f3) {
+                int i3 = (i2 + paramInt2) % paramInt2;
+                float f16; if (f3 < i2 + 1) {
+                  f16 = f3 - f1;
+                } else {
+                  f16 = i2 + 1 - f1;
+                }
+                
+                float f19 = f16 * f17 * f18;
+                f20 += f19;
+                
+                i6 = (i3 + i4 * paramInt2 + i5 * paramInt2 * paramInt3) * paramInt1;
+                for (m = 0; m < paramInt1; m++) {
+                  assert ((0 <= i6 + m) && (i6 + m < paramInt2 * paramInt3 * paramInt4 * paramInt1));
+                  arrayOfFloat[m] += paramShortBuffer1.get(i6 + m) * f19;
+                }
+                i2++;
+                f1 = i2;
+              }
+              i1++;
+              f6 = i1;
+            }
+            n++;
+            f11 = n;
+          }
+          
+          int i6 = (j + i * paramInt5 + k * paramInt5 * paramInt6) * paramInt1;
+          for (int m = 0; m < paramInt1; m++)
+          {
+            assert ((0 <= i6 + m) && (i6 + m < paramInt5 * paramInt6 * paramInt7 * paramInt1));
+            paramShortBuffer2.put(i6 + m, (short)(int)((arrayOfFloat[m] + 0.5F) / f20));
+          }
+        }
+      }
+    }
+  }
+  
+
+
+
+  public static int gluScaleImage3D(GL paramGL, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, ByteBuffer paramByteBuffer1, int paramInt6, int paramInt7, int paramInt8, int paramInt9, ByteBuffer paramByteBuffer2)
+  {
+    PixelStorageModes localPixelStorageModes = new PixelStorageModes();
+    
+    if ((paramInt2 == 0) || (paramInt3 == 0) || (paramInt4 == 0) || (paramInt6 == 0) || (paramInt7 == 0) || (paramInt8 == 0))
+    {
+      return 0;
+    }
+    
+    if ((paramInt2 < 0) || (paramInt3 < 0) || (paramInt4 < 0) || (paramInt6 < 0) || (paramInt7 < 0) || (paramInt8 < 0))
+    {
+      return 100901;
+    }
+    
+    if ((!Mipmap.legalFormat(paramInt1)) || (!Mipmap.legalType(paramInt5)) || 
+      (!Mipmap.legalType(paramInt9)) || (paramInt5 == 6656) || (paramInt9 == 6656))
+    {
+      return 100900;
+    }
+    
+    if (!Mipmap.isLegalFormatForPackedPixelType(paramInt1, paramInt5)) {
+      return 100904;
+    }
+    
+    if (!Mipmap.isLegalFormatForPackedPixelType(paramInt1, paramInt9)) {
+      return 100904;
+    }
+    ShortBuffer localShortBuffer1;
+    ShortBuffer localShortBuffer2;
+    try {
+      localShortBuffer1 = Buffers.newDirectByteBuffer(Mipmap.imageSize3D(paramInt2, paramInt3, paramInt4, paramInt1, 5123)).asShortBuffer();
+      
+      localShortBuffer2 = Buffers.newDirectByteBuffer(Mipmap.imageSize3D(paramInt2, paramInt3, paramInt4, paramInt1, 5123)).asShortBuffer();
+    } catch (OutOfMemoryError localOutOfMemoryError) {
+      return 100902;
+    }
+    Mipmap.retrieveStoreModes3D(paramGL, localPixelStorageModes);
+    
+    Image.fillImage3D(localPixelStorageModes, paramInt2, paramInt3, paramInt4, paramInt1, paramInt5, 
+      Mipmap.is_index(paramInt1), paramByteBuffer1, localShortBuffer1);
+    int i = Mipmap.elements_per_group(paramInt1, 0);
+    scaleInternal3D(i, paramInt2, paramInt3, paramInt4, localShortBuffer1, paramInt6, paramInt7, paramInt8, localShortBuffer2);
+    
+    Image.emptyImage3D(localPixelStorageModes, paramInt6, paramInt7, paramInt8, paramInt1, paramInt9, 
+      Mipmap.is_index(paramInt1), localShortBuffer2, paramByteBuffer2);
+    
+    return 0;
+  }
+}

@@ -1,0 +1,90 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class CoverageFormat2
+  extends Coverage
+{
+  private final int _rangeCount;
+  private final RangeRecord[] _rangeRecords;
+  
+  protected CoverageFormat2(DataInput paramDataInput)
+    throws IOException
+  {
+    _rangeCount = paramDataInput.readUnsignedShort();
+    _rangeRecords = new RangeRecord[_rangeCount];
+    for (int i = 0; i < _rangeCount; i++) {
+      _rangeRecords[i] = new RangeRecord(paramDataInput);
+    }
+  }
+  
+  public int getFormat()
+  {
+    return 2;
+  }
+  
+  public int findGlyph(int paramInt)
+  {
+    for (int i = 0; i < _rangeCount; i++) {
+      int j = _rangeRecords[i].getCoverageIndex(paramInt);
+      if (j > -1) {
+        return j;
+      }
+    }
+    return -1;
+  }
+}

@@ -1,0 +1,567 @@
+package com.jogamp.common.os;
+
+import com.jogamp.common.jvm.JNILibLoaderBase;
+import com.jogamp.common.net.Uri;
+import com.jogamp.common.util.JarUtil;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.common.util.ReflectionUtil;
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.common.util.cache.TempJarCache;
+import java.io.PrintStream;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.concurrent.TimeUnit;
+import jogamp.common.Debug;
+import jogamp.common.jvm.JVMUtil;
+import jogamp.common.os.MachineDataInfoRuntime;
+import jogamp.common.os.PlatformPropsImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Platform
+  extends PlatformPropsImpl
+{
+  private static final String useTempJarCachePropName = "jogamp.gluegen.UseTempJarCache";
+  private static final String libBaseName = "gluegen-rt";
+  public static final boolean USE_TEMP_JAR_CACHE;
+  
+  public static enum OSType
+  {
+    LINUX,  FREEBSD,  ANDROID,  MACOS,  SUNOS,  HPUX,  WINDOWS,  OPENKODE;
+    
+    private OSType() {}
+  }
+  
+  public static enum CPUFamily { X86, 
+    
+    ARM, 
+    
+    PPC, 
+    
+    SPARC, 
+    
+    MIPS, 
+    
+    PA_RISC, 
+    
+    IA64, 
+    
+    SuperH;
+    
+    private CPUFamily() {}
+  }
+  
+  public static enum CPUType { ARM(Platform.CPUFamily.ARM, true), 
+    
+    ARMv5(Platform.CPUFamily.ARM, true), 
+    
+    ARMv6(Platform.CPUFamily.ARM, true), 
+    
+    ARMv7(Platform.CPUFamily.ARM, true), 
+    
+
+
+    X86_32(Platform.CPUFamily.X86, true), 
+    
+    PPC(Platform.CPUFamily.PPC, true), 
+    
+    MIPS_32(Platform.CPUFamily.MIPS, true), 
+    
+    SuperH(Platform.CPUFamily.SuperH, true), 
+    
+    SPARC_32(Platform.CPUFamily.SPARC, true), 
+    
+
+
+    ARM64(Platform.CPUFamily.ARM, false), 
+    
+    ARMv8_A(Platform.CPUFamily.ARM, false), 
+    
+    X86_64(Platform.CPUFamily.X86, false), 
+    
+    PPC64(Platform.CPUFamily.PPC, false), 
+    
+    MIPS_64(Platform.CPUFamily.MIPS, false), 
+    
+    IA64(Platform.CPUFamily.IA64, false), 
+    
+    SPARCV9_64(Platform.CPUFamily.SPARC, false), 
+    
+    PA_RISC2_0(Platform.CPUFamily.PA_RISC, false);
+    
+    public final Platform.CPUFamily family;
+    public final boolean is32Bit;
+    
+    private CPUType(Platform.CPUFamily paramCPUFamily, boolean paramBoolean)
+    {
+      family = paramCPUFamily;
+      is32Bit = paramBoolean;
+    }
+    
+
+
+
+    public final boolean isCompatible(CPUType paramCPUType)
+    {
+      if (null == paramCPUType)
+        return false;
+      if (paramCPUType == this) {
+        return true;
+      }
+      return (family == family) && (is32Bit == is32Bit);
+    }
+    
+
+    public static final CPUType query(String paramString)
+    {
+      if (null == paramString) {
+        throw new IllegalArgumentException("Null cpuABILower arg");
+      }
+      if ((paramString.equals("x86")) || 
+        (paramString.equals("i386")) || 
+        (paramString.equals("i486")) || 
+        (paramString.equals("i586")) || 
+        (paramString.equals("i686")))
+        return X86_32;
+      if ((paramString.equals("x86_64")) || 
+        (paramString.equals("amd64")))
+        return X86_64;
+      if (paramString.equals("ia64"))
+        return IA64;
+      if (paramString.equals("aarch64"))
+        return ARM64;
+      if (paramString.startsWith("arm")) {
+        if ((paramString.equals("armv8-a")) || 
+          (paramString.equals("arm-v8-a")) || 
+          (paramString.equals("arm-8-a")) || 
+          (paramString.equals("arm64-v8a")))
+          return ARMv8_A;
+        if (paramString.startsWith("arm64"))
+          return ARM64;
+        if ((paramString.startsWith("armv7")) || 
+          (paramString.startsWith("arm-v7")) || 
+          (paramString.startsWith("arm-7")) || 
+          (paramString.startsWith("armeabi-v7")))
+          return ARMv7;
+        if ((paramString.startsWith("armv5")) || 
+          (paramString.startsWith("arm-v5")) || 
+          (paramString.startsWith("arm-5")))
+          return ARMv5;
+        if ((paramString.startsWith("armv6")) || 
+          (paramString.startsWith("arm-v6")) || 
+          (paramString.startsWith("arm-6"))) {
+          return ARMv6;
+        }
+        return ARM;
+      }
+      if (paramString.equals("sparcv9"))
+        return SPARCV9_64;
+      if (paramString.equals("sparc"))
+        return SPARC_32;
+      if (paramString.equals("pa_risc2.0"))
+        return PA_RISC2_0;
+      if (paramString.startsWith("ppc64"))
+        return PPC64;
+      if (paramString.startsWith("ppc"))
+        return PPC;
+      if (paramString.startsWith("mips64"))
+        return MIPS_64;
+      if (paramString.startsWith("mips"))
+        return MIPS_32;
+      if (paramString.startsWith("superh")) {
+        return SuperH;
+      }
+      throw new RuntimeException("Please port CPUType detection to your platform (CPU_ABI string '" + paramString + "')");
+    }
+  }
+  
+  public static enum ABIType
+  {
+    GENERIC_ABI(0), 
+    
+    EABI_GNU_ARMEL(1), 
+    
+    EABI_GNU_ARMHF(2), 
+    
+    EABI_AARCH64(3);
+    
+    public final int id;
+    
+    private ABIType(int paramInt) {
+      id = paramInt;
+    }
+    
+
+
+
+    public final boolean isCompatible(ABIType paramABIType)
+    {
+      if (null == paramABIType) {
+        return false;
+      }
+      return paramABIType == this;
+    }
+    
+    public static final ABIType query(Platform.CPUType paramCPUType, String paramString)
+    {
+      if (null == paramCPUType)
+        throw new IllegalArgumentException("Null cpuType");
+      if (null == paramString)
+        throw new IllegalArgumentException("Null cpuABILower");
+      if (Platform.CPUFamily.ARM == family) {
+        if (!is32Bit)
+          return EABI_AARCH64;
+        if (paramString.equals("armeabi-v7a-hard")) {
+          return EABI_GNU_ARMHF;
+        }
+        return EABI_GNU_ARMEL;
+      }
+      
+      return GENERIC_ABI;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  static
+  {
+    boolean[] arrayOfBoolean1 = { false };
+    final boolean[] arrayOfBoolean2 = { false };
+    final boolean[] arrayOfBoolean3 = { false };
+    
+    AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public Object run()
+      {
+        PlatformPropsImpl.initSingleton();
+        
+        ClassLoader localClassLoader = Platform.class.getClassLoader();
+        
+
+
+        Uri localUri2 = null;
+        try {
+          localUri2 = JarUtil.getJarUri(Platform.class.getName(), localClassLoader);
+        } catch (Exception localException2) {}
+        Uri localUri1 = localUri2;
+        
+        val$_isRunningFromJarURL[0] = (null != localUri1 ? 1 : false);
+        
+        arrayOfBoolean2[0] = ((PlatformPropsImpl.OS_TYPE != Platform.OSType.ANDROID) && (null != localUri1) && 
+          (PropertyAccess.getBooleanProperty("jogamp.gluegen.UseTempJarCache", true, true)) ? 1 : false);
+        
+
+        if ((arrayOfBoolean2[0] != 0) && (TempJarCache.initSingleton())) {
+          try {
+            JNILibLoaderBase.addNativeJarLibs(new Class[] { Debug.class }, null);
+          }
+          catch (Exception localException1) {
+            System.err.println("Caught " + localException1.getClass().getSimpleName() + ": " + localException1.getMessage() + ", while JNILibLoaderBase.addNativeJarLibs(..)");
+          }
+        }
+        DynamicLibraryBundle.GlueJNILibLoader.loadLibrary("gluegen-rt", false, localClassLoader);
+        
+
+        JVMUtil.initSingleton();
+        
+
+        if ((!PropertyAccess.getBooleanProperty("java.awt.headless", true)) && 
+          (ReflectionUtil.isClassAvailable("java.awt.Component", localClassLoader)) && 
+          (ReflectionUtil.isClassAvailable("java.awt.GraphicsEnvironment", localClassLoader))) {
+          try {
+            arrayOfBoolean3[0] = (false == ((Boolean)ReflectionUtil.callStaticMethod("java.awt.GraphicsEnvironment", "isHeadless", null, null, localClassLoader)).booleanValue() ? 1 : false);
+          } catch (Throwable localThrowable) {}
+        }
+        return null;
+      } });
+    isRunningFromJarURL = arrayOfBoolean1[0];
+    USE_TEMP_JAR_CACHE = arrayOfBoolean2[0];
+    AWT_AVAILABLE = arrayOfBoolean3[0];
+    
+
+
+
+    MachineDataInfoRuntime.initialize(); }
+  private static final MachineDataInfo machineDescription = MachineDataInfoRuntime.getRuntime();
+  
+  public static final boolean AWT_AVAILABLE;
+  
+  private static final boolean isRunningFromJarURL;
+  
+
+  public static final boolean isRunningFromJarURL()
+  {
+    return isRunningFromJarURL;
+  }
+  
+
+
+
+
+
+
+
+  public static boolean isLittleEndian()
+  {
+    return LITTLE_ENDIAN;
+  }
+  
+
+
+
+  public static String getOSName()
+  {
+    return OS;
+  }
+  
+
+
+  public static String getOSVersion()
+  {
+    return OS_VERSION;
+  }
+  
+
+
+  public static VersionNumber getOSVersionNumber()
+  {
+    return OS_VERSION_NUMBER;
+  }
+  
+
+
+  public static String getArchName()
+  {
+    return ARCH;
+  }
+  
+
+
+
+  public static OSType getOSType()
+  {
+    return OS_TYPE;
+  }
+  
+
+
+  public static CPUFamily getCPUFamily()
+  {
+    return CPU_ARCHfamily;
+  }
+  
+
+
+  public static CPUType getCPUType()
+  {
+    return CPU_ARCH;
+  }
+  
+
+
+
+  public static boolean is32Bit()
+  {
+    return CPU_ARCHis32Bit;
+  }
+  
+
+
+
+  public static boolean is64Bit()
+  {
+    return !CPU_ARCHis32Bit;
+  }
+  
+
+
+
+
+
+
+
+
+  public static ABIType getABIType()
+  {
+    return ABI_TYPE;
+  }
+  
+
+
+
+
+
+  public static String getOSAndArch()
+  {
+    return os_and_arch;
+  }
+  
+
+
+  public static String getJavaVendor()
+  {
+    return JAVA_VENDOR;
+  }
+  
+
+
+  public static String getJavaVMName()
+  {
+    return JAVA_VM_NAME;
+  }
+  
+
+
+  public static String getJavaRuntimeName()
+  {
+    return JAVA_RUNTIME_NAME;
+  }
+  
+
+
+  public static String getJavaVendorURL()
+  {
+    return JAVA_VENDOR_URL;
+  }
+  
+
+
+  public static String getJavaVersion()
+  {
+    return JAVA_VERSION;
+  }
+  
+
+
+  public static VersionNumber getJavaVersionNumber()
+  {
+    return JAVA_VERSION_NUMBER;
+  }
+  
+
+
+  public static String getNewline()
+  {
+    return NEWLINE;
+  }
+  
+
+
+  public static MachineDataInfo getMachineDataInfo()
+  {
+    return machineDescription;
+  }
+  
+  public static boolean isAWTAvailable()
+  {
+    return AWT_AVAILABLE;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static synchronized long getCurrentSleepJitter()
+  {
+    getCurrentSleepJitterImpl(TimeUnit.MILLISECONDS.toNanos(10L), 10);
+    return getCurrentSleepJitterImpl(TimeUnit.MILLISECONDS.toNanos(10L), 10);
+  }
+  
+  private static long getCurrentSleepJitterImpl(long paramLong, int paramInt) { long l1 = paramLong / paramInt;
+    long l2 = System.nanoTime();
+    for (int i = paramInt; i > 0; i--)
+      try { TimeUnit.NANOSECONDS.sleep(l1);
+      } catch (InterruptedException localInterruptedException) {}
+    return (System.nanoTime() - l2 - paramLong) / paramInt;
+  }
+  
+  private Platform() {}
+  
+  public static void initSingleton() {}
+  
+  public static native long currentTimeMillis();
+  
+  public static native long currentTimeMicros();
+}

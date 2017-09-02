@@ -1,0 +1,374 @@
+package processing.core;
+
+
+
+
+
+
+
+public class PSurfaceNone
+  implements PSurface
+{
+  protected PApplet sketch;
+  
+
+
+
+
+  protected PGraphics graphics;
+  
+
+
+
+
+  protected Thread thread;
+  
+
+
+
+
+  protected boolean paused;
+  
+
+
+
+
+  protected Object pauseObject = new Object();
+  
+  protected float frameRateTarget = 60.0F;
+  protected long frameRatePeriod = 16666666L;
+  
+  public PSurfaceNone(PGraphics graphics)
+  {
+    this.graphics = graphics;
+  }
+  
+
+  public void initOffscreen(PApplet sketch)
+  {
+    this.sketch = sketch;
+    
+    setSize(sketch.sketchWidth(), sketch.sketchHeight());
+  }
+  
+
+
+
+
+
+
+
+
+
+  public void initFrame(PApplet sketch)
+  {
+    throw new IllegalStateException("initFrame() not available with " + 
+      getClass().getSimpleName());
+  }
+  
+  public Object getNative()
+  {
+    return null;
+  }
+  
+
+
+
+
+
+  public void setTitle(String title) {}
+  
+
+
+
+
+  public void setIcon(PImage image) {}
+  
+
+
+
+
+  public void setVisible(boolean visible) {}
+  
+
+
+
+
+  public void setResizable(boolean resizable) {}
+  
+
+
+
+
+  public void placeWindow(int[] location, int[] editorLocation) {}
+  
+
+
+
+
+  public void placePresent(int stopColor) {}
+  
+
+
+
+
+  public void setupExternalMessages() {}
+  
+
+
+
+
+  public void setAlwaysOnTop(boolean always) {}
+  
+
+
+
+
+  public void setLocation(int x, int y) {}
+  
+
+
+
+
+  public void setSize(int wide, int high)
+  {
+    if ((wide == sketch.width) && (high == sketch.height))
+    {
+
+
+      return;
+    }
+    
+
+    sketch.width = wide;
+    sketch.height = high;
+    
+
+    graphics.setSize(wide, high);
+  }
+  
+
+
+
+
+
+  public void setCursor(int kind) {}
+  
+
+
+
+
+
+  public void setCursor(PImage image, int hotspotX, int hotspotY) {}
+  
+
+
+
+
+
+  public void showCursor() {}
+  
+
+
+
+
+
+  public void hideCursor() {}
+  
+
+
+
+
+
+  public Thread createThread()
+  {
+    return new AnimationThread();
+  }
+  
+  public void startThread()
+  {
+    if (thread == null) {
+      thread = createThread();
+      thread.start();
+    } else {
+      throw new IllegalStateException("Thread already started in " + 
+        getClass().getSimpleName());
+    }
+  }
+  
+  public boolean stopThread()
+  {
+    if (thread == null) {
+      return false;
+    }
+    thread = null;
+    return true;
+  }
+  
+  public boolean isStopped()
+  {
+    return thread == null;
+  }
+  
+
+  public void pauseThread()
+  {
+    PApplet.debug("PApplet.run() paused, calling object wait...");
+    paused = true;
+  }
+  
+
+  protected void checkPause()
+  {
+    if (paused) {
+      synchronized (pauseObject) {
+        try {
+          pauseObject.wait();
+        }
+        catch (InterruptedException localInterruptedException) {}
+      }
+    }
+  }
+  
+
+
+
+  public void resumeThread()
+  {
+    paused = false;
+    synchronized (pauseObject) {
+      pauseObject.notifyAll();
+    }
+  }
+  
+  public void setFrameRate(float fps)
+  {
+    frameRateTarget = fps;
+    frameRatePeriod = ((1.0E9D / frameRateTarget));
+  }
+  
+  public class AnimationThread
+    extends Thread
+  {
+    public AnimationThread()
+    {
+      super();
+    }
+    
+    public void callDraw()
+    {
+      sketch.handleDraw();
+    }
+    
+
+
+
+
+    public void run()
+    {
+      long beforeTime = System.nanoTime();
+      long overSleepTime = 0L;
+      
+      int noDelays = 0;
+      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      sketch.start();
+      
+      while ((Thread.currentThread() == thread) && (!sketch.finished)) {
+        checkPause();
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+        callDraw();
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        long afterTime = System.nanoTime();
+        long timeDiff = afterTime - beforeTime;
+        
+        long sleepTime = frameRatePeriod - timeDiff - overSleepTime;
+        
+        if (sleepTime > 0L) {
+          try {
+            Thread.sleep(sleepTime / 1000000L, (int)(sleepTime % 1000000L));
+            noDelays = 0;
+          }
+          catch (InterruptedException localInterruptedException) {}
+          overSleepTime = System.nanoTime() - afterTime - sleepTime;
+        }
+        else {
+          overSleepTime = 0L;
+          noDelays++;
+          
+          if (noDelays > 15) {
+            Thread.yield();
+            noDelays = 0;
+          }
+        }
+        
+        beforeTime = System.nanoTime();
+      }
+      
+      sketch.dispose();
+      
+
+
+      if (sketch.exitCalled) {
+        sketch.exitActual();
+      }
+    }
+  }
+}

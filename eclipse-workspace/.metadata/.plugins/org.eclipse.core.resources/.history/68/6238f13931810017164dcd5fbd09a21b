@@ -1,0 +1,117 @@
+package com.jogamp.opengl.util;
+
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLDrawable;
+import com.jogamp.opengl.GLDrawableFactory;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Gamma
+{
+  private Gamma() {}
+  
+  public static boolean setDisplayGamma(GLDrawable paramGLDrawable, float paramFloat1, float paramFloat2, float paramFloat3)
+    throws IllegalArgumentException
+  {
+    return GLDrawableFactory.getFactory(paramGLDrawable.getGLProfile()).setDisplayGamma(paramGLDrawable.getNativeSurface(), paramFloat1, paramFloat2, paramFloat3);
+  }
+  
+
+
+  public static boolean setDisplayGamma(GLAutoDrawable paramGLAutoDrawable, float paramFloat1, float paramFloat2, float paramFloat3)
+    throws IllegalArgumentException
+  {
+    RecursiveLock localRecursiveLock = paramGLAutoDrawable.getUpstreamLock();
+    localRecursiveLock.lock();
+    try {
+      return GLDrawableFactory.getFactory(paramGLAutoDrawable.getGLProfile()).setDisplayGamma(paramGLAutoDrawable.getNativeSurface(), paramFloat1, paramFloat2, paramFloat3);
+    } finally {
+      localRecursiveLock.unlock();
+    }
+  }
+  
+
+
+
+
+
+  public static void resetDisplayGamma(GLDrawable paramGLDrawable)
+  {
+    GLDrawableFactory.getFactory(paramGLDrawable.getGLProfile()).resetDisplayGamma(paramGLDrawable.getNativeSurface());
+  }
+  
+
+
+
+  public static void resetDisplayGamma(GLAutoDrawable paramGLAutoDrawable)
+  {
+    RecursiveLock localRecursiveLock = paramGLAutoDrawable.getUpstreamLock();
+    localRecursiveLock.lock();
+    try {
+      GLDrawableFactory.getFactory(paramGLAutoDrawable.getGLProfile()).resetDisplayGamma(paramGLAutoDrawable.getNativeSurface());
+      
+      localRecursiveLock.unlock(); } finally { localRecursiveLock.unlock();
+    }
+  }
+  
+
+
+  public static void resetAllDisplayGamma(GLDrawable paramGLDrawable)
+  {
+    GLDrawableFactory.getFactory(paramGLDrawable.getGLProfile()).resetAllDisplayGamma();
+  }
+}

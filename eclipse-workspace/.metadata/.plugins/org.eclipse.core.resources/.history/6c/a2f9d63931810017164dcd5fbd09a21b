@@ -1,0 +1,292 @@
+package jogamp.common.util.locks;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.util.InterruptSource.Thread;
+import com.jogamp.common.util.InterruptedRuntimeException;
+import com.jogamp.common.util.SourcedInterruptedException;
+import com.jogamp.common.util.locks.SingletonInstance;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.UnknownHostException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class SingletonInstanceServerSocket
+  extends SingletonInstance
+{
+  private static int serverInstanceCount = 0;
+  private final Server singletonServer;
+  private final String fullName;
+  
+  public SingletonInstanceServerSocket(long paramLong, int paramInt) {
+    super(paramLong);
+    
+
+    InetAddress localInetAddress = null;
+    try {
+      localInetAddress = InetAddress.getByName(null);
+    } catch (UnknownHostException localUnknownHostException1) {}
+    if (null == localInetAddress) {
+      try {
+        localInetAddress = InetAddress.getByName("localhost");
+        if ((null != localInetAddress) && (!localInetAddress.isLoopbackAddress())) localInetAddress = null;
+      } catch (UnknownHostException localUnknownHostException2) {}
+    }
+    if (null == localInetAddress) {
+      try {
+        localInetAddress = InetAddress.getByAddress(new byte[] { Byte.MAX_VALUE, 0, 0, 1 });
+        if ((null != localInetAddress) && (!localInetAddress.isLoopbackAddress())) localInetAddress = null;
+      } catch (UnknownHostException localUnknownHostException3) {}
+    }
+    if (null == localInetAddress) {
+      try {
+        localInetAddress = InetAddress.getLocalHost();
+      } catch (UnknownHostException localUnknownHostException4) {}
+    }
+    if (null == localInetAddress) {
+      throw new RuntimeException(infoPrefix() + " EEE Could not determine local InetAddress");
+    }
+    
+    fullName = (localInetAddress.toString() + ":" + paramInt);
+    singletonServer = new Server(localInetAddress, paramInt);
+    Runtime.getRuntime().addShutdownHook(new InterruptSource.Thread()
+    {
+      public void run() {
+        singletonServer.kill();
+      }
+    });
+  }
+  
+  public final InetAddress getLocalInetAddress() {
+    return singletonServer.getLocalInetAddress();
+  }
+  
+  public final int getPortNumber() {
+    return singletonServer.getPortNumber();
+  }
+  
+  public final String getName() {
+    return fullName;
+  }
+  
+  protected boolean tryLockImpl() {
+    if (singletonServer.isRunning()) {
+      return false;
+    }
+    
+
+    Socket localSocket = singletonServer.connect();
+    if (null != localSocket) {
+      try {
+        localSocket.close();
+      } catch (IOException localIOException) {}
+      return false;
+    }
+    
+    if (!singletonServer.start()) {
+      return false;
+    }
+    
+    return true;
+  }
+  
+  protected boolean unlockImpl()
+  {
+    return singletonServer.shutdown();
+  }
+  
+  public class Server implements Runnable
+  {
+    private final InetAddress localInetAddress;
+    private final int portNumber;
+    private volatile boolean shallQuit = false;
+    private volatile boolean alive = false;
+    
+    private final Object syncOnStartStop = new Object();
+    private ServerSocket serverSocket = null;
+    private Thread serverThread = null;
+    
+    public Server(InetAddress paramInetAddress, int paramInt) {
+      localInetAddress = paramInetAddress;
+      portNumber = paramInt;
+    }
+    
+    public final InetAddress getLocalInetAddress() { return localInetAddress; }
+    public final int getPortNumber() { return portNumber; }
+    
+    public final boolean start() {
+      if (alive) { return true;
+      }
+      String str;
+      synchronized (Server.class) {
+        SingletonInstanceServerSocket.access$108();
+        str = "SingletonServerSocket" + SingletonInstanceServerSocket.serverInstanceCount + "-" + fullName;
+      }
+      synchronized (syncOnStartStop) {
+        shallQuit = false;
+        serverThread = new InterruptSource.Thread(null, this, str);
+        serverThread.setDaemon(true);
+        serverThread.start();
+        try {
+          while ((!alive) && (!shallQuit)) {
+            syncOnStartStop.wait();
+          }
+        } catch (InterruptedException localInterruptedException1) {
+          InterruptedException localInterruptedException2 = SourcedInterruptedException.wrap(localInterruptedException1);
+          shutdown(false);
+          throw new InterruptedRuntimeException(localInterruptedException2);
+        }
+      }
+      boolean bool = isBound();
+      if (!bool) {
+        shutdown(true);
+      }
+      return bool;
+    }
+    
+
+    public final boolean shutdown() { return shutdown(true); }
+    
+    private final boolean shutdown(boolean paramBoolean) {
+      if (!alive) return true;
+      try
+      {
+        synchronized (syncOnStartStop) {
+          shallQuit = true;
+          connect();
+          if (paramBoolean) {
+            try {
+              while (alive) {
+                syncOnStartStop.wait();
+              }
+            } catch (InterruptedException localInterruptedException) {
+              throw new InterruptedRuntimeException(localInterruptedException);
+            }
+          }
+        }
+      } finally {
+        if (alive) {
+          System.err.println(infoPrefix() + " EEE " + getName() + " - Unable to remove lock: ServerThread still alive ?");
+          kill();
+        }
+      }
+      return true;
+    }
+    
+
+
+
+
+    public final void kill()
+    {
+      if (alive) {
+        System.err.println(infoPrefix() + " XXX " + getName() + " - Kill @ JVM Shutdown");
+      }
+      alive = false;
+      shallQuit = false;
+      if ((null != serverThread) && (serverThread.isAlive())) {
+        try {
+          serverThread.stop();
+        } catch (Throwable localThrowable1) {}
+      }
+      if (null != serverSocket)
+        try {
+          ServerSocket localServerSocket = serverSocket;
+          serverSocket = null;
+          localServerSocket.close();
+        } catch (Throwable localThrowable2) {}
+    }
+    
+    public final boolean isRunning() {
+      return alive;
+    }
+    
+    public final boolean isBound() { return (alive) && (null != serverSocket) && (serverSocket.isBound()); }
+    
+    public final Socket connect()
+    {
+      try {
+        return new Socket(localInetAddress, portNumber);
+      } catch (Exception localException) {}
+      return null;
+    }
+    
+
+    public void run()
+    {
+      System.err.println(infoPrefix() + " III - Start");
+      try
+      {
+        synchronized (syncOnStartStop) {
+          try {
+            serverSocket = new ServerSocket(portNumber, 1, localInetAddress);
+            serverSocket.setReuseAddress(true);
+            alive = true;
+          } catch (IOException localIOException1) {
+            System.err.println(infoPrefix() + " III - Unable to install ServerSocket: " + localIOException1.getMessage());
+            shallQuit = true;
+          } finally {
+            syncOnStartStop.notifyAll();
+          }
+        }
+        
+        while (!shallQuit) {
+          try {
+            ??? = serverSocket.accept();
+            ???.close();
+          } catch (IOException ???) {
+            System.err.println(infoPrefix() + " EEE - Exception during accept: " + ???.getMessage());
+          }
+        }
+      }
+      catch (ThreadDeath ???) {
+        ExceptionUtils.dumpThrowable("", ???);
+      }
+      finally {
+        synchronized (syncOnStartStop)
+        {
+          System.err.println(infoPrefix() + " III - Stopping: alive " + alive + ", shallQuit " + shallQuit + ", hasSocket " + (null != serverSocket));
+          
+          if (null != serverSocket) {
+            try {
+              serverSocket.close();
+            } catch (IOException localIOException4) {
+              System.err.println(infoPrefix() + " EEE - Exception during close: " + localIOException4.getMessage());
+            }
+          }
+          serverSocket = null;
+          alive = false;
+          syncOnStartStop.notifyAll();
+        }
+      }
+    }
+  }
+}

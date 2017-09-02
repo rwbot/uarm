@@ -1,0 +1,125 @@
+package jogamp.newt.driver.bcm.vc.iv;
+
+import com.jogamp.nativewindow.DefaultGraphicsScreen;
+import com.jogamp.nativewindow.util.Rectangle;
+import com.jogamp.newt.Display;
+import com.jogamp.newt.MonitorDevice;
+import com.jogamp.newt.MonitorMode;
+import java.util.List;
+import jogamp.newt.MonitorModeProps;
+import jogamp.newt.MonitorModeProps.Cache;
+import jogamp.newt.ScreenImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ScreenDriver
+  extends ScreenImpl
+{
+  public ScreenDriver() {}
+  
+  protected void createNativeImpl()
+  {
+    aScreen = new DefaultGraphicsScreen(getDisplay().getGraphicsDevice(), screen_idx);
+    initNative();
+  }
+  
+
+  protected void closeNativeImpl() {}
+  
+  protected int validateScreenIndex(int paramInt)
+  {
+    return 0;
+  }
+  
+  protected final void collectNativeMonitorModesAndDevicesImpl(MonitorModeProps.Cache paramCache)
+  {
+    int[] arrayOfInt = new int[8];
+    int i = 0;
+    arrayOfInt[(i++)] = 8;
+    arrayOfInt[(i++)] = cachedWidth;
+    arrayOfInt[(i++)] = cachedHeight;
+    arrayOfInt[(i++)] = 32;
+    arrayOfInt[(i++)] = 6000;
+    arrayOfInt[(i++)] = 0;
+    arrayOfInt[(i++)] = 0;
+    arrayOfInt[(i++)] = 0;
+    MonitorMode localMonitorMode = MonitorModeProps.streamInMonitorMode(null, paramCache, arrayOfInt, 0);
+    
+    arrayOfInt = new int[14];
+    i = 0;
+    arrayOfInt[(i++)] = arrayOfInt.length;
+    arrayOfInt[(i++)] = 0;
+    arrayOfInt[(i++)] = 0;
+    arrayOfInt[(i++)] = 1;
+    arrayOfInt[(i++)] = 519;
+    arrayOfInt[(i++)] = 324;
+    arrayOfInt[(i++)] = 0;
+    arrayOfInt[(i++)] = 0;
+    arrayOfInt[(i++)] = cachedWidth;
+    arrayOfInt[(i++)] = cachedHeight;
+    arrayOfInt[(i++)] = 0;
+    arrayOfInt[(i++)] = 0;
+    arrayOfInt[(i++)] = cachedWidth;
+    arrayOfInt[(i++)] = cachedHeight;
+    MonitorModeProps.streamInMonitorDevice(paramCache, this, localMonitorMode, null, monitorModes, arrayOfInt, 0, null);
+  }
+  
+  protected MonitorMode queryCurrentMonitorModeImpl(MonitorDevice paramMonitorDevice)
+  {
+    return (MonitorMode)paramMonitorDevice.getSupportedModes().get(0);
+  }
+  
+  protected boolean setCurrentMonitorModeImpl(MonitorDevice paramMonitorDevice, MonitorMode paramMonitorMode)
+  {
+    return false;
+  }
+  
+  protected void calcVirtualScreenOriginAndSize(Rectangle paramRectangle1, Rectangle paramRectangle2)
+  {
+    paramRectangle1.set(0, 0, cachedWidth, cachedHeight);
+    paramRectangle2.set(paramRectangle1);
+  }
+  
+  protected void setScreenSize(int paramInt1, int paramInt2)
+  {
+    cachedWidth = paramInt1;
+    cachedHeight = paramInt2;
+  }
+  
+  private static int cachedWidth = 0;
+  private static int cachedHeight = 0;
+  
+  protected static native boolean initIDs();
+  
+  protected native void initNative();
+  
+  static {}
+}

@@ -1,0 +1,2402 @@
+package com.jogamp.opengl;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.GlueGenVersion;
+import com.jogamp.common.jvm.JNILibLoaderBase;
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.os.Platform.OSType;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.common.util.ReflectionUtil;
+import com.jogamp.common.util.VersionUtil;
+import com.jogamp.common.util.cache.TempJarCache;
+import com.jogamp.common.util.locks.LockFactory;
+import com.jogamp.common.util.locks.RecursiveThreadGroupLock;
+import com.jogamp.gluegen.runtime.FunctionAddressResolver;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.NativeWindowVersion;
+import java.io.PrintStream;
+import java.lang.reflect.Constructor;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import jogamp.opengl.DesktopGLDynamicLookupHelper;
+import jogamp.opengl.GLContextImpl;
+import jogamp.opengl.GLDrawableFactoryImpl;
+import jogamp.opengl.GLDynamicLookupHelper;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLProfile
+{
+  public static final boolean DEBUG;
+  public static final boolean disableOpenGLCore;
+  public static final boolean disableOpenGLARBContext;
+  
+  static
+  {
+    Platform.initSingleton();
+    int i = Platform.OSType.MACOS == Platform.getOSType() ? 1 : 0;
+    
+    DEBUG = jogamp.opengl.Debug.debug("GLProfile");
+    disableOpenGLCore = (PropertyAccess.isPropertyDefined("jogl.disable.openglcore", true)) && (i == 0);
+    disableOpenGLARBContext = (PropertyAccess.isPropertyDefined("jogl.disable.openglarbcontext", true)) && (i == 0); }
+  public static final boolean disableOpenGLES = (disableOpenGLARBContext) || (PropertyAccess.isPropertyDefined("jogl.disable.opengles", true));
+  public static final boolean disableOpenGLDesktop = PropertyAccess.isPropertyDefined("jogl.disable.opengldesktop", true);
+  public static final boolean disableSurfacelessContext = PropertyAccess.isPropertyDefined("jogl.disable.surfacelesscontext", true);
+  public static final boolean enableANGLE = PropertyAccess.isPropertyDefined("jogl.enable.ANGLE", true);
+  public static final String GL4bc = "GL4bc";
+  public static final String GL4 = "GL4";
+  public static final String GL3bc = "GL3bc";
+  public static final String GL3 = "GL3";
+  public static final String GL2 = "GL2";
+  public static final String GLES1 = "GLES1";
+  public static final String GLES2 = "GLES2";
+  
+  public static boolean isInitialized() {
+    initLock.lock();
+    try {
+      return initialized;
+    } finally {
+      initLock.unlock();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static void initSingleton()
+  {
+    initLock.lock();
+    int i;
+    try { if (!initialized) {
+        initialized = true;
+        i = 1;
+        if (DEBUG) {
+          System.err.println("GLProfile.initSingleton() - thread " + Thread.currentThread().getName());
+          ExceptionUtils.dumpStack(System.err);
+        }
+        
+        if (ReflectionUtil.DEBUG_STATS_FORNAME) {
+          ReflectionUtil.resetForNameCount();
+        }
+        
+
+
+        AccessController.doPrivileged(new PrivilegedAction()
+        {
+          public Object run()
+          {
+            
+            if (TempJarCache.isInitialized()) {
+              ClassLoader localClassLoader = GLProfile.class.getClassLoader();
+              
+              Class[] arrayOfClass = { jogamp.nativewindow.Debug.class, jogamp.opengl.Debug.class, null };
+              if (ReflectionUtil.isClassAvailable("jogamp.newt.Debug", localClassLoader)) {
+                arrayOfClass[2] = ReflectionUtil.getClass("jogamp.newt.Debug", false, localClassLoader);
+              }
+              JNILibLoaderBase.addNativeJarLibsJoglCfg(arrayOfClass);
+            }
+            GLProfile.access$000();
+            return null;
+          }
+        });
+        if ((ReflectionUtil.DEBUG_STATS_FORNAME) && 
+          (i != 0)) {
+          System.err.println(ReflectionUtil.getForNameStats(null).toString());
+        }
+      }
+      else {
+        i = 0;
+      }
+      
+      initLock.unlock(); } finally { initLock.unlock();
+    }
+    
+    if ((i != 0) && ((hasGL234Impl) || (hasGL234OnEGLImpl) || (hasGLES1Impl) || (hasGLES3Impl))) {
+      System.err.println(JoglVersion.getDefaultOpenGLInfo(defaultDevice, null, true));
+    }
+  }
+  
+
+
+
+
+
+  public static void initProfiles(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+    throws GLException
+  {
+    getProfileMap(paramAbstractGraphicsDevice, true);
+  }
+  
+
+
+
+
+
+
+
+
+  public static void shutdown()
+  {
+    initLock.lock();
+    try {
+      if (initialized) {
+        initialized = false;
+        if (DEBUG) {
+          System.err.println("GLProfile.shutdown() - thread " + Thread.currentThread().getName());
+          ExceptionUtils.dumpStack(System.err);
+        }
+        GLDrawableFactory.shutdown();
+      }
+      
+      initLock.unlock(); } finally { initLock.unlock();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static boolean isAvailable(AbstractGraphicsDevice paramAbstractGraphicsDevice, String paramString)
+  {
+    initSingleton();
+    return isAvailableImpl(getProfileMap(paramAbstractGraphicsDevice, false), paramString);
+  }
+  
+  private static boolean isAvailableImpl(HashMap<String, GLProfile> paramHashMap, String paramString) { return (null != paramHashMap) && (null != paramHashMap.get(paramString)); }
+  
+
+
+
+
+
+
+
+  public static boolean isAvailable(String paramString)
+  {
+    return isAvailable(null, paramString);
+  }
+  
+
+
+
+
+  public static boolean isAnyAvailable()
+  {
+    return isAvailable(null, null);
+  }
+  
+  public static String glAvailabilityToString(AbstractGraphicsDevice paramAbstractGraphicsDevice) {
+    return glAvailabilityToString(paramAbstractGraphicsDevice, null).toString();
+  }
+  
+
+  public static StringBuilder glAvailabilityToString(AbstractGraphicsDevice paramAbstractGraphicsDevice, StringBuilder paramStringBuilder) { return glAvailabilityToString(paramAbstractGraphicsDevice, paramStringBuilder, null, 0); }
+  
+  private static StringBuilder doIndent(StringBuilder paramStringBuilder, String paramString, int paramInt) {
+    while (paramInt > 0) {
+      paramStringBuilder.append(paramString);
+      paramInt--;
+    }
+    return paramStringBuilder;
+  }
+  
+  public static StringBuilder glAvailabilityToString(AbstractGraphicsDevice paramAbstractGraphicsDevice, StringBuilder paramStringBuilder, String paramString, int paramInt) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    int i = null != paramString ? 1 : 0;
+    
+    initSingleton();
+    
+    int j = 0;
+    int k = 0;
+    
+    if (null == paramAbstractGraphicsDevice) {
+      paramAbstractGraphicsDevice = defaultDevice;
+    }
+    HashMap localHashMap = getProfileMap(paramAbstractGraphicsDevice, false);
+    
+    if (i != 0) {
+      doIndent(paramStringBuilder, paramString, paramInt).append("Natives");
+      paramInt++;
+      doIndent(paramStringBuilder.append(Platform.getNewline()), paramString, paramInt).append("GL4bc ").append(paramString);
+    } else {
+      paramStringBuilder.append("Natives[GL4bc ");
+    }
+    boolean bool = isAvailableImpl(localHashMap, "GL4bc");
+    paramStringBuilder.append(bool);
+    if (bool) {
+      k++;
+      glAvailabilityToString(paramAbstractGraphicsDevice, paramStringBuilder.append(" "), 4, 2);
+    }
+    j++;
+    
+    if (i != 0) {
+      doIndent(paramStringBuilder.append(Platform.getNewline()), paramString, paramInt).append("GL4 ").append(paramString);
+    } else {
+      paramStringBuilder.append(", GL4 ");
+    }
+    bool = isAvailableImpl(localHashMap, "GL4");
+    paramStringBuilder.append(bool);
+    if (bool) {
+      k++;
+      glAvailabilityToString(paramAbstractGraphicsDevice, paramStringBuilder.append(" "), 4, 4);
+    }
+    j++;
+    
+    if (i != 0) {
+      doIndent(paramStringBuilder.append(Platform.getNewline()), paramString, paramInt).append("GLES3 ").append(paramString);
+    } else {
+      paramStringBuilder.append(", GLES3 ");
+    }
+    bool = isAvailableImpl(localHashMap, "GLES3");
+    paramStringBuilder.append(bool);
+    if (bool) {
+      k++;
+      glAvailabilityToString(paramAbstractGraphicsDevice, paramStringBuilder.append(" "), 3, 8);
+    }
+    j++;
+    
+    if (i != 0) {
+      doIndent(paramStringBuilder.append(Platform.getNewline()), paramString, paramInt).append("GL3bc ").append(paramString);
+    } else {
+      paramStringBuilder.append(", GL3bc ");
+    }
+    bool = isAvailableImpl(localHashMap, "GL3bc");
+    paramStringBuilder.append(bool);
+    if (bool) {
+      k++;
+      glAvailabilityToString(paramAbstractGraphicsDevice, paramStringBuilder.append(" "), 3, 2);
+    }
+    j++;
+    
+    if (i != 0) {
+      doIndent(paramStringBuilder.append(Platform.getNewline()), paramString, paramInt).append("GL3 ").append(paramString);
+    } else {
+      paramStringBuilder.append(", GL3 ");
+    }
+    bool = isAvailableImpl(localHashMap, "GL3");
+    paramStringBuilder.append(bool);
+    if (bool) {
+      k++;
+      glAvailabilityToString(paramAbstractGraphicsDevice, paramStringBuilder.append(" "), 3, 4);
+    }
+    j++;
+    
+    if (i != 0) {
+      doIndent(paramStringBuilder.append(Platform.getNewline()), paramString, paramInt).append("GL2 ").append(paramString);
+    } else {
+      paramStringBuilder.append(", GL2 ");
+    }
+    bool = isAvailableImpl(localHashMap, "GL2");
+    paramStringBuilder.append(bool);
+    if (bool) {
+      k++;
+      glAvailabilityToString(paramAbstractGraphicsDevice, paramStringBuilder.append(" "), 2, 2);
+    }
+    j++;
+    
+    if (i != 0) {
+      doIndent(paramStringBuilder.append(Platform.getNewline()), paramString, paramInt).append("GLES2 ").append(paramString);
+    } else {
+      paramStringBuilder.append(", GLES2 ");
+    }
+    bool = isAvailableImpl(localHashMap, "GLES2");
+    paramStringBuilder.append(bool);
+    if (bool) {
+      k++;
+      glAvailabilityToString(paramAbstractGraphicsDevice, paramStringBuilder.append(" "), 2, 8);
+    }
+    j++;
+    
+    if (i != 0) {
+      doIndent(paramStringBuilder.append(Platform.getNewline()), paramString, paramInt).append("GLES1 ").append(paramString);
+    } else {
+      paramStringBuilder.append(", GLES1 ");
+    }
+    bool = isAvailableImpl(localHashMap, "GLES1");
+    paramStringBuilder.append(bool);
+    if (bool) {
+      k++;
+      glAvailabilityToString(paramAbstractGraphicsDevice, paramStringBuilder.append(" "), 1, 8);
+    }
+    j++;
+    
+    if (i != 0) {
+      doIndent(paramStringBuilder.append(Platform.getNewline()), paramString, paramInt).append("Count\t" + k + " / " + j);
+      paramInt--;
+      doIndent(paramStringBuilder.append(Platform.getNewline()), paramString, paramInt).append("Common");
+      paramInt++;
+    } else {
+      paramStringBuilder.append(", count " + k + " / " + j + "], Common[");
+    }
+    
+    if (i != 0) {
+      doIndent(paramStringBuilder.append(Platform.getNewline()), paramString, paramInt).append("GL4ES3 ").append(paramString);
+    } else {
+      paramStringBuilder.append(", GL4ES3 ");
+    }
+    paramStringBuilder.append(isAvailableImpl(localHashMap, "GL4ES3"));
+    j++;
+    
+    if (i != 0) {
+      doIndent(paramStringBuilder.append(Platform.getNewline()), paramString, paramInt).append("GL2GL3 ").append(paramString);
+    } else {
+      paramStringBuilder.append(", GL2GL3 ");
+    }
+    paramStringBuilder.append(isAvailableImpl(localHashMap, "GL2GL3"));
+    j++;
+    
+    if (i != 0) {
+      doIndent(paramStringBuilder.append(Platform.getNewline()), paramString, paramInt).append("GL2ES2 ").append(paramString);
+    } else {
+      paramStringBuilder.append(", GL2ES2 ");
+    }
+    paramStringBuilder.append(isAvailableImpl(localHashMap, "GL2ES2"));
+    j++;
+    
+    if (i != 0) {
+      doIndent(paramStringBuilder.append(Platform.getNewline()), paramString, paramInt).append("GL2ES1 ").append(paramString);
+    } else {
+      paramStringBuilder.append(", GL2ES1 ");
+    }
+    paramStringBuilder.append(isAvailableImpl(localHashMap, "GL2ES1"));
+    j++;
+    
+    if (i != 0) {
+      paramInt--;
+      doIndent(paramStringBuilder.append(Platform.getNewline()), paramString, paramInt).append("Mappings");
+      paramInt++;
+    } else {
+      paramStringBuilder.append("], Mappings[");
+    }
+    
+    int m = 0;
+    
+    if (null != localHashMap) {
+      for (Map.Entry localEntry : localHashMap.entrySet()) {
+        if ("GL_DEFAULT" != localEntry.getKey()) {
+          if (i != 0) {
+            doIndent(paramStringBuilder.append(Platform.getNewline()), paramString, paramInt);
+          }
+          paramStringBuilder.append((String)localEntry.getKey() + (i != 0 ? " \t" : " ") + localEntry.getValue());
+          if (i == 0) {
+            paramStringBuilder.append(", ");
+          }
+          m++;
+        }
+      }
+      if (i != 0) {
+        doIndent(paramStringBuilder.append(Platform.getNewline()), paramString, paramInt).append("default ");
+      } else {
+        paramStringBuilder.append(", default ");
+      }
+      try {
+        paramStringBuilder.append(getDefault(paramAbstractGraphicsDevice));
+      } catch (GLException localGLException) {
+        paramStringBuilder.append("n/a");
+      }
+    }
+    if (i != 0) {
+      doIndent(paramStringBuilder.append(Platform.getNewline()), paramString, paramInt).append("Count\t" + m + " / " + j);
+      paramStringBuilder.append(Platform.getNewline());
+    } else {
+      paramStringBuilder.append(", count " + m + " / " + j + "]");
+    }
+    
+    return paramStringBuilder;
+  }
+  
+  public static String glAvailabilityToString()
+  {
+    return glAvailabilityToString(null);
+  }
+  
+
+
+
+
+
+
+
+
+  public static final String GLES3 = "GLES3";
+  
+
+
+
+
+
+
+
+  public static final String GL2ES1 = "GL2ES1";
+  
+
+
+
+
+
+
+
+  public static final String GL2ES2 = "GL2ES2";
+  
+
+
+
+
+
+
+
+  public static final String GL2GL3 = "GL2GL3";
+  
+
+
+
+
+
+
+
+  public static final String GL4ES3 = "GL4ES3";
+  
+
+
+
+
+
+
+
+  private static final String GL_DEFAULT = "GL_DEFAULT";
+  
+
+
+
+
+
+
+  private static final String GL_GL = "GL";
+  
+
+
+
+
+
+
+  public static final String[] GL_PROFILE_LIST_ALL = { "GL4bc", "GL3bc", "GL2", "GL4", "GL3", "GLES3", "GL4ES3", "GL2GL3", "GLES2", "GL2ES2", "GLES1", "GL2ES1" };
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final String[] GL_PROFILE_LIST_MAX = { "GL4bc", "GL4", "GL3bc", "GL3", "GLES3", "GL2", "GLES2", "GLES1" };
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final String[] GL_PROFILE_LIST_MIN = { "GLES1", "GLES2", "GL2", "GLES3", "GL3", "GL3bc", "GL4", "GL4bc" };
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final String[] GL_PROFILE_LIST_MIN_DESKTOP = { "GL2", "GL3bc", "GL4bc", "GL3", "GL4" };
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static final String[] GL_PROFILE_LIST_MAX_FIXEDFUNC = { "GL4bc", "GL3bc", "GL2", "GLES1" };
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final String[] GL_PROFILE_LIST_MAX_PROGSHADER = { "GL4bc", "GL4", "GL3bc", "GL3", "GLES3", "GL2", "GLES2" };
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static final String[] GL_PROFILE_LIST_MAX_PROGSHADER_CORE = { "GL4", "GL3", "GLES3", "GLES2" };
+  private static boolean isAWTAvailable;
+  private static boolean hasDesktopGLFactory;
+  private static boolean hasGL234Impl;
+  private static boolean hasEGLFactory;
+  private static boolean hasGLES3Impl;
+  private static boolean hasGLES1Impl;
+  
+  public static GLProfile getDefault(AbstractGraphicsDevice paramAbstractGraphicsDevice) {
+    GLProfile localGLProfile = get(paramAbstractGraphicsDevice, "GL_DEFAULT");
+    return localGLProfile;
+  }
+  
+
+
+
+
+
+  public static GLProfile getDefault()
+  {
+    return getDefault(defaultDevice);
+  }
+  
+
+
+
+
+
+
+
+  public static GLProfile getMaximum(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean)
+    throws GLException
+  {
+    return get(paramAbstractGraphicsDevice, GL_PROFILE_LIST_MAX, paramBoolean);
+  }
+  
+
+
+
+
+  public static GLProfile getMaximum(boolean paramBoolean)
+    throws GLException
+  {
+    return get(GL_PROFILE_LIST_MAX, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+  public static GLProfile getMinimum(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean)
+    throws GLException
+  {
+    return get(paramAbstractGraphicsDevice, GL_PROFILE_LIST_MIN, paramBoolean);
+  }
+  
+
+
+
+
+  public static GLProfile getMinimum(boolean paramBoolean)
+    throws GLException
+  {
+    return get(GL_PROFILE_LIST_MIN, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+
+  public static GLProfile getMaxFixedFunc(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean)
+    throws GLException
+  {
+    return get(paramAbstractGraphicsDevice, GL_PROFILE_LIST_MAX_FIXEDFUNC, paramBoolean);
+  }
+  
+
+
+
+
+  public static GLProfile getMaxFixedFunc(boolean paramBoolean)
+    throws GLException
+  {
+    return get(GL_PROFILE_LIST_MAX_FIXEDFUNC, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+  public static GLProfile getMaxProgrammable(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean)
+    throws GLException
+  {
+    return get(paramAbstractGraphicsDevice, GL_PROFILE_LIST_MAX_PROGSHADER, paramBoolean);
+  }
+  
+
+
+
+
+  public static GLProfile getMaxProgrammable(boolean paramBoolean)
+    throws GLException
+  {
+    return get(GL_PROFILE_LIST_MAX_PROGSHADER, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+  public static GLProfile getMaxProgrammableCore(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean)
+    throws GLException
+  {
+    return get(paramAbstractGraphicsDevice, GL_PROFILE_LIST_MAX_PROGSHADER_CORE, paramBoolean);
+  }
+  
+
+
+
+
+  public static GLProfile getMaxProgrammableCore(boolean paramBoolean)
+    throws GLException
+  {
+    return get(GL_PROFILE_LIST_MAX_PROGSHADER_CORE, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static GLProfile getGL2ES1(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+    throws GLException
+  {
+    return get(paramAbstractGraphicsDevice, "GL2ES1").getImpl();
+  }
+  
+
+
+
+
+
+  public static GLProfile getGL2ES1()
+    throws GLException
+  {
+    return get(defaultDevice, "GL2ES1").getImpl();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static GLProfile getGL2ES2(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+    throws GLException
+  {
+    return get(paramAbstractGraphicsDevice, "GL2ES2").getImpl();
+  }
+  
+
+
+
+
+
+  public static GLProfile getGL2ES2()
+    throws GLException
+  {
+    return get(defaultDevice, "GL2ES2").getImpl();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static GLProfile getGL4ES3(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+    throws GLException
+  {
+    return get(paramAbstractGraphicsDevice, "GL4ES3").getImpl();
+  }
+  
+
+
+
+
+
+  public static GLProfile getGL4ES3()
+    throws GLException
+  {
+    return get(defaultDevice, "GL4ES3").getImpl();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static GLProfile getGL2GL3(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+    throws GLException
+  {
+    return get(paramAbstractGraphicsDevice, "GL2GL3").getImpl();
+  }
+  
+
+
+
+
+
+  public static GLProfile getGL2GL3()
+    throws GLException
+  {
+    return get(defaultDevice, "GL2GL3").getImpl();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static GLProfile get(AbstractGraphicsDevice paramAbstractGraphicsDevice, String paramString)
+    throws GLException
+  {
+    if ((null == paramString) || (paramString == "GL")) {
+      paramString = "GL_DEFAULT";
+    }
+    HashMap localHashMap = getProfileMap(paramAbstractGraphicsDevice, true);
+    GLProfile localGLProfile = (GLProfile)localHashMap.get(paramString);
+    if (null == localGLProfile) {
+      throw new GLException("Profile " + paramString + " is not available on " + paramAbstractGraphicsDevice + ", but: " + localHashMap.values());
+    }
+    return localGLProfile;
+  }
+  
+
+
+
+
+
+  public static GLProfile get(String paramString)
+    throws GLException
+  {
+    return get(defaultDevice, paramString);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public static GLProfile get(AbstractGraphicsDevice paramAbstractGraphicsDevice, String[] paramArrayOfString, boolean paramBoolean)
+    throws GLException
+  {
+    Object localObject = null;
+    
+    HashMap localHashMap = getProfileMap(paramAbstractGraphicsDevice, true);
+    for (int i = 0; i < paramArrayOfString.length; i++) {
+      GLProfile localGLProfile = (GLProfile)localHashMap.get(paramArrayOfString[i]);
+      if (null != localGLProfile) {
+        if (!paramBoolean) {
+          return localGLProfile;
+        }
+        if (localGLProfile.isHardwareRasterizer()) {
+          return localGLProfile;
+        }
+        if (null == localObject) {
+          localObject = localGLProfile;
+        }
+      }
+    }
+    if (null != localObject) {
+      return localObject;
+    }
+    throw new GLException("Profiles " + array2String(paramArrayOfString) + " not available on device " + paramAbstractGraphicsDevice);
+  }
+  
+
+
+
+
+
+  public static GLProfile get(String[] paramArrayOfString, boolean paramBoolean)
+    throws GLException
+  {
+    return get(defaultDevice, paramArrayOfString, paramBoolean);
+  }
+  
+
+
+  public static boolean usesNativeGLES1(String paramString)
+  {
+    return "GLES1" == paramString;
+  }
+  
+
+
+  public static boolean usesNativeGLES2(String paramString)
+  {
+    return ("GLES3" == paramString) || ("GLES2" == paramString);
+  }
+  
+
+
+  public static boolean usesNativeGLES3(String paramString)
+  {
+    return "GLES3" == paramString;
+  }
+  
+  public static boolean usesNativeGLES(String paramString)
+  {
+    return (usesNativeGLES2(paramString)) || (usesNativeGLES1(paramString));
+  }
+  
+
+
+  public static boolean isAWTAvailable() { return isAWTAvailable; }
+  
+  public static String getGLTypeName(int paramInt) {
+    switch (paramInt) {
+    case 5121: 
+      return "GL_UNSIGNED_BYTE";
+    case 5120: 
+      return "GL_BYTE";
+    case 5123: 
+      return "GL_UNSIGNED_SHORT";
+    case 5122: 
+      return "GL_SHORT";
+    case 5126: 
+      return "GL_FLOAT";
+    case 5132: 
+      return "GL_FIXED";
+    case 5124: 
+      return "GL_INT";
+    case 5125: 
+      return "GL_UNSIGNED_INT";
+    case 5130: 
+      return "GL_DOUBLE";
+    case 5127: 
+      return "GL_2_BYTES";
+    case 5128: 
+      return "GL_3_BYTES";
+    case 5129: 
+      return "GL_4_BYTES";
+    }
+    return null;
+  }
+  
+  public static String getGLArrayName(int paramInt) {
+    switch (paramInt) {
+    case 32884: 
+      return "GL_VERTEX_ARRAY";
+    case 32885: 
+      return "GL_NORMAL_ARRAY";
+    case 32886: 
+      return "GL_COLOR_ARRAY";
+    case 32888: 
+      return "GL_TEXTURE_COORD_ARRAY";
+    }
+    return null;
+  }
+  
+
+  public final String getGLImplBaseClassName() { return getGLImplBaseClassName(getImplName()); }
+  
+  private static final String getGLImplBaseClassName(String paramString) {
+    if (("GLES2" == paramString) || ("GLES3" == paramString))
+      return "jogamp.opengl.es3.GLES3";
+    if ("GLES1" == paramString)
+      return "jogamp.opengl.es1.GLES1";
+    if (("GL4bc" == paramString) || ("GL4" == paramString) || ("GL3bc" == paramString) || ("GL3" == paramString) || ("GL2" == paramString))
+    {
+
+
+
+      return "jogamp.opengl.gl4.GL4bc";
+    }
+    throw new GLException("unsupported profile \"" + paramString + "\"");
+  }
+  
+
+
+  public final Constructor<?> getGLCtor(boolean paramBoolean) { return getGLCtor(getImplName(), paramBoolean); }
+  
+  private static final Constructor<?> getGLCtor(String paramString, boolean paramBoolean) {
+    if (("GLES2" == paramString) || ("GLES3" == paramString))
+      return paramBoolean ? ctorGLES3Impl : ctorGLES3ProcAddr;
+    if ("GLES1" == paramString)
+      return paramBoolean ? ctorGLES1Impl : ctorGLES1ProcAddr;
+    if (("GL4bc" == paramString) || ("GL4" == paramString) || ("GL3bc" == paramString) || ("GL3" == paramString) || ("GL2" == paramString))
+    {
+
+
+
+      return paramBoolean ? ctorGL234Impl : ctorGL234ProcAddr;
+    }
+    throw new GLException("unsupported profile \"" + paramString + "\"");
+  }
+  
+
+
+
+
+
+
+  public final boolean equals(Object paramObject)
+  {
+    if (this == paramObject) return true;
+    if ((paramObject instanceof GLProfile)) {
+      GLProfile localGLProfile = (GLProfile)paramObject;
+      return (getName() == localGLProfile.getName()) && (getImplName() == localGLProfile.getImplName());
+    }
+    return false;
+  }
+  
+  public int hashCode()
+  {
+    int i = 5;
+    i = 97 * i + getImplName().hashCode();
+    i = 97 * i + getName().hashCode();
+    return i;
+  }
+  
+
+
+  public final void verifyEquality(GLProfile paramGLProfile)
+    throws GLException
+  {
+    if (!equals(paramGLProfile)) {
+      throw new GLException("GLProfiles are not equal: " + this + " != " + paramGLProfile);
+    }
+  }
+  
+  public final String getName()
+  {
+    return profile;
+  }
+  
+  public final GLProfile getImpl()
+  {
+    return null != profileImpl ? profileImpl : this;
+  }
+  
+  public final boolean isHardwareRasterizer()
+  {
+    return isHardwareRasterizer;
+  }
+  
+
+
+  public final String getImplName()
+  {
+    return null != profileImpl ? profileImpl.getName() : getName();
+  }
+  
+  public final boolean isGL4bc()
+  {
+    return "GL4bc" == profile;
+  }
+  
+  public final boolean isGL4()
+  {
+    return (isGL4bc()) || ("GL4" == profile);
+  }
+  
+  public final boolean isGL3bc()
+  {
+    return (isGL4bc()) || ("GL3bc" == profile);
+  }
+  
+  public final boolean isGL3()
+  {
+    return (isGL4()) || (isGL3bc()) || ("GL3" == profile);
+  }
+  
+  public final boolean isGL2()
+  {
+    return (isGL3bc()) || ("GL2" == profile);
+  }
+  
+  public final boolean isGLES1()
+  {
+    return "GLES1" == profile;
+  }
+  
+  public final boolean isGLES2()
+  {
+    return (isGLES3()) || ("GLES2" == profile);
+  }
+  
+  public final boolean isGLES3()
+  {
+    return "GLES3" == profile;
+  }
+  
+  public final boolean isGLES()
+  {
+    return ("GLES3" == profile) || ("GLES2" == profile) || ("GLES1" == profile);
+  }
+  
+  public final boolean isGL2ES1()
+  {
+    return ("GL2ES1" == profile) || (isGLES1()) || (isGL2());
+  }
+  
+  public final boolean isGL2GL3()
+  {
+    return ("GL2GL3" == profile) || (isGL3()) || (isGL2());
+  }
+  
+  public final boolean isGL2ES2()
+  {
+    return ("GL2ES2" == profile) || (isGLES2()) || (isGL2GL3());
+  }
+  
+
+
+
+
+  public final boolean isGL2ES3()
+  {
+    return (isGL3ES3()) || (isGL2GL3());
+  }
+  
+  public final boolean isGL3ES3()
+  {
+    return (isGL4ES3()) || (isGL3());
+  }
+  
+  public final boolean isGL4ES3()
+  {
+    return ("GL4ES3" == profile) || (isGLES3()) || (isGL4());
+  }
+  
+  public final boolean hasGLSL()
+  {
+    return isGL2ES2();
+  }
+  
+  public final boolean usesNativeGLES1()
+  {
+    return "GLES1" == getImplName();
+  }
+  
+  public final boolean usesNativeGLES2()
+  {
+    return "GLES2" == getImplName();
+  }
+  
+  public final boolean usesNativeGLES3()
+  {
+    return "GLES3" == getImplName();
+  }
+  
+  public final boolean usesNativeGLES()
+  {
+    return (usesNativeGLES3()) || (usesNativeGLES2()) || (usesNativeGLES1());
+  }
+  
+
+
+
+  public boolean isValidDataType(int paramInt, boolean paramBoolean)
+  {
+    switch (paramInt) {
+    case 5120: 
+    case 5121: 
+    case 5122: 
+    case 5123: 
+    case 5126: 
+    case 5132: 
+      return true;
+    case 5124: 
+    case 5125: 
+      if (isGL2ES2()) {
+        return true;
+      }
+    case 5130: 
+      if (isGL3()) {
+        return true;
+      }
+    case 5127: 
+    case 5128: 
+    case 5129: 
+      if (isGL2())
+        return true;
+      break;
+    }
+    if (paramBoolean) {
+      throw new GLException("Illegal data type on profile " + this + ": " + paramInt);
+    }
+    return false;
+  }
+  
+  public boolean isValidArrayDataType(int paramInt1, int paramInt2, int paramInt3, boolean paramBoolean1, boolean paramBoolean2)
+  {
+    String str = getGLArrayName(paramInt1);
+    if (isGLES1()) {
+      if (paramBoolean1) {
+        if (paramBoolean2) {
+          throw new GLException("Illegal array type for " + str + " on profile GLES1: VertexAttribPointer");
+        }
+        return false;
+      }
+      switch (paramInt1) {
+      case 32884: 
+      case 32888: 
+        switch (paramInt3) {
+        case 5120: 
+        case 5122: 
+        case 5126: 
+        case 5132: 
+          break;
+        default: 
+          if (paramBoolean2) {
+            throw new GLException("Illegal data type for " + str + " on profile GLES1: " + paramInt3);
+          }
+          return false;
+        }
+        switch (paramInt2) {
+        case 0: 
+        case 2: 
+        case 3: 
+        case 4: 
+          break;
+        case 1: default: 
+          if (paramBoolean2) {
+            throw new GLException("Illegal component number for " + str + " on profile GLES1: " + paramInt2);
+          }
+          return false;
+        }
+        break;
+      case 32885: 
+        switch (paramInt3) {
+        case 5120: 
+        case 5122: 
+        case 5126: 
+        case 5132: 
+          break;
+        default: 
+          if (paramBoolean2) {
+            throw new GLException("Illegal data type for " + str + " on profile GLES1: " + paramInt3);
+          }
+          return false;
+        }
+        switch (paramInt2) {
+        case 0: 
+        case 3: 
+          break;
+        default: 
+          if (paramBoolean2) {
+            throw new GLException("Illegal component number for " + str + " on profile GLES1: " + paramInt2);
+          }
+          return false;
+        }
+        break;
+      case 32886: 
+        switch (paramInt3) {
+        case 5121: 
+        case 5126: 
+        case 5132: 
+          break;
+        default: 
+          if (paramBoolean2) {
+            throw new GLException("Illegal data type for " + str + " on profile GLES1: " + paramInt3);
+          }
+          return false;
+        }
+        switch (paramInt2) {
+        case 0: 
+        case 4: 
+          break;
+        default: 
+          if (paramBoolean2) {
+            throw new GLException("Illegal component number for " + str + " on profile GLES1: " + paramInt2);
+          }
+          return false;
+        }
+        break;
+      }
+    } else if (isGLES2())
+    {
+      switch (paramInt3) {
+      case 5120: case 5121: 
+      case 5122: case 5123: 
+      case 5126: case 5132: 
+        break;
+      case 5124: case 5125: 
+      case 5127: case 5128: 
+      case 5129: case 5130: 
+      case 5131: default: 
+        if (paramBoolean2) {
+          throw new GLException("Illegal data type for " + str + " on profile GLES2: " + paramInt3);
+        }
+        return false;
+      
+
+
+
+
+
+
+
+
+
+
+
+      }
+      
+    }
+    else if (isGL2ES2()) {
+      if (paramBoolean1) {
+        switch (paramInt3) {
+        case 5120: case 5121: 
+        case 5122: 
+        case 5123: 
+        case 5124: 
+        case 5125: 
+        case 5126: 
+        case 5130: 
+          break;
+        case 5127: case 5128: 
+        case 5129: default: 
+          if (paramBoolean2) {
+            throw new GLException("Illegal data type for " + str + " on profile GL2: " + paramInt3);
+          }
+          return false;
+        }
+        switch (paramInt2) {
+        case 0: 
+        case 1: 
+        case 2: 
+        case 3: 
+        case 4: 
+          break;
+        default: 
+          if (paramBoolean2) {
+            throw new GLException("Illegal component number for " + str + " on profile GL2: " + paramInt2);
+          }
+          return false;
+        }
+      } else {
+        switch (paramInt1) {
+        case 32884: 
+          switch (paramInt3) {
+          case 5122: case 5124: 
+          case 5126: case 5130: 
+            break;
+          case 5123: case 5125: 
+          case 5127: case 5128: 
+          case 5129: default: 
+            if (paramBoolean2) {
+              throw new GLException("Illegal data type for " + str + " on profile GL2: " + paramInt3);
+            }
+            return false;
+          }
+          switch (paramInt2) {
+          case 0: 
+          case 2: 
+          case 3: 
+          case 4: 
+            break;
+          case 1: default: 
+            if (paramBoolean2) {
+              throw new GLException("Illegal component number for " + str + " on profile GL2: " + paramInt2);
+            }
+            return false;
+          }
+          break;
+        case 32885: 
+          switch (paramInt3) {
+          case 5120: case 5122: case 5124: 
+          case 5126: case 5130: 
+            break;
+          case 5121: case 5123: 
+          case 5125: case 5127: 
+          case 5128: case 5129: 
+          default: 
+            if (paramBoolean2) {
+              throw new GLException("Illegal data type for " + str + " on profile GL2: " + paramInt3);
+            }
+            return false;
+          }
+          switch (paramInt2) {
+          case 0: 
+          case 3: 
+            break;
+          default: 
+            if (paramBoolean2) {
+              throw new GLException("Illegal component number for " + str + " on profile GLES1: " + paramInt2);
+            }
+            return false;
+          }
+          break;
+        case 32886: 
+          switch (paramInt3) {
+          case 5120: case 5121: 
+          case 5122: 
+          case 5123: 
+          case 5124: 
+          case 5125: 
+          case 5126: 
+          case 5130: 
+            break;
+          case 5127: case 5128: 
+          case 5129: default: 
+            if (paramBoolean2) {
+              throw new GLException("Illegal data type for " + str + " on profile GL2: " + paramInt3);
+            }
+            return false;
+          }
+          switch (paramInt2) {
+          case 0: case 3: 
+          case 4: 
+            break;
+          case 1: case 2: 
+          default: 
+            if (paramBoolean2) {
+              throw new GLException("Illegal component number for " + str + " on profile GL2: " + paramInt2);
+            }
+            return false;
+          }
+          break;
+        case 32888: 
+          switch (paramInt3) {
+          case 5122: case 5124: 
+          case 5126: case 5130: 
+            break;
+          case 5123: case 5125: 
+          case 5127: case 5128: 
+          case 5129: default: 
+            if (paramBoolean2) {
+              throw new GLException("Illegal data type for " + str + " on profile GL2: " + paramInt3);
+            }
+            return false;
+          }
+          switch (paramInt2) {
+          case 0: 
+          case 1: 
+          case 2: 
+          case 3: 
+          case 4: 
+            break;
+          default: 
+            if (paramBoolean2) {
+              throw new GLException("Illegal component number for " + str + " on profile GL2: " + paramInt2);
+            }
+            return false;
+          }
+          break;
+        }
+      }
+    }
+    return true;
+  }
+  
+  public String toString()
+  {
+    return "GLProfile[" + getName() + "/" + getImplName() + "." + (isHardwareRasterizer ? "hw" : "sw") + (isCustom ? ".custom" : "") + "]";
+  }
+  
+
+  private static boolean hasGL234OnEGLImpl;
+  
+  private static Constructor<?> ctorGL234Impl;
+  
+  private static Constructor<?> ctorGLES3Impl;
+  
+  private static Constructor<?> ctorGLES1Impl;
+  
+  private static Constructor<?> ctorGL234ProcAddr;
+  
+  private static Constructor<?> ctorGLES3ProcAddr;
+  
+  private static Constructor<?> ctorGLES1ProcAddr;
+  
+  private static GLDrawableFactoryImpl eglFactory = null;
+  private static GLDrawableFactoryImpl desktopFactory = null;
+  private static AbstractGraphicsDevice defaultDevice = null;
+  
+  private static boolean initialized = false;
+  private static final RecursiveThreadGroupLock initLock = LockFactory.createRecursiveThreadGroupLock();
+  
+  private static final Class<?>[] ctorGLArgs = { GLProfile.class, GLContextImpl.class };
+  private static final Class<?>[] ctorProcArgs = { FunctionAddressResolver.class };
+  private static final String GL4bcImplClassName = "jogamp.opengl.gl4.GL4bcImpl";
+  private static final String GL4bcProcClassName = "jogamp.opengl.gl4.GL4bcProcAddressTable";
+  private static final String GLES1ImplClassName = "jogamp.opengl.es1.GLES1Impl";
+  private static final String GLES1ProcClassName = "jogamp.opengl.es1.GLES1ProcAddressTable";
+  private static final String GLES3ImplClassName = "jogamp.opengl.es3.GLES3Impl";
+  private static final String GLES3ProcClassName = "jogamp.opengl.es3.GLES3ProcAddressTable";
+  
+  private static final Constructor<?> getCtor(String paramString, boolean paramBoolean, ClassLoader paramClassLoader) {
+    try {
+      return ReflectionUtil.getConstructor(paramString, paramBoolean ? ctorGLArgs : ctorProcArgs, false, paramClassLoader);
+    } catch (Throwable localThrowable) {
+      if (DEBUG) {
+        System.err.println("Caught: " + localThrowable.getMessage());
+        localThrowable.printStackTrace();
+      } }
+    return null;
+  }
+  
+  private static final void initGLCtorImpl()
+  {
+    ClassLoader localClassLoader = GLProfile.class.getClassLoader();
+    
+
+
+    Constructor localConstructor = getCtor("jogamp.opengl.gl4.GL4bcImpl", true, localClassLoader);
+    Object localObject = null != localConstructor ? getCtor("jogamp.opengl.gl4.GL4bcProcAddressTable", false, localClassLoader) : null;
+    if (null != localObject) {
+      hasGL234Impl = true;
+      ctorGL234Impl = localConstructor;
+      ctorGL234ProcAddr = localObject;
+    } else {
+      hasGL234Impl = false;
+      ctorGL234Impl = null;
+      ctorGL234ProcAddr = null;
+    }
+    
+    hasGL234OnEGLImpl = hasGL234Impl;
+    
+
+
+    localConstructor = getCtor("jogamp.opengl.es1.GLES1Impl", true, localClassLoader);
+    localObject = null != localConstructor ? getCtor("jogamp.opengl.es1.GLES1ProcAddressTable", false, localClassLoader) : null;
+    if (null != localObject) {
+      hasGLES1Impl = true;
+      ctorGLES1Impl = localConstructor;
+      ctorGLES1ProcAddr = localObject;
+    } else {
+      hasGLES1Impl = false;
+      ctorGLES1Impl = null;
+      ctorGLES1ProcAddr = null;
+    }
+    
+
+    localConstructor = getCtor("jogamp.opengl.es3.GLES3Impl", true, localClassLoader);
+    localObject = null != localConstructor ? getCtor("jogamp.opengl.es3.GLES3ProcAddressTable", false, localClassLoader) : null;
+    if (null != localObject) {
+      hasGLES3Impl = true;
+      ctorGLES3Impl = localConstructor;
+      ctorGLES3ProcAddr = localObject;
+    } else {
+      hasGLES3Impl = false;
+      ctorGLES3Impl = null;
+      ctorGLES3ProcAddr = null;
+    }
+  }
+  
+
+
+  private static void initProfilesForDefaultDevices()
+  {
+    
+    
+    if (DEBUG) {
+      System.err.println("GLProfile.init - thread: " + Thread.currentThread().getName());
+      System.err.println(VersionUtil.getPlatformInfo());
+      System.err.println(GlueGenVersion.getInstance());
+      System.err.println(NativeWindowVersion.getInstance());
+      System.err.println(JoglVersion.getInstance());
+    }
+    
+    ClassLoader localClassLoader = GLProfile.class.getClassLoader();
+    
+
+    isAWTAvailable = (NativeWindowFactory.isAWTAvailable()) && (ReflectionUtil.isClassAvailable("com.jogamp.opengl.awt.GLCanvas", localClassLoader));
+    
+    initGLCtorImpl();
+    
+
+
+
+
+
+
+
+    GLDrawableFactory.initSingleton();
+    
+    Object localObject = null;
+    try
+    {
+      desktopFactory = (GLDrawableFactoryImpl)GLDrawableFactory.getFactoryImpl("GL2");
+      if (null != desktopFactory) {
+        DesktopGLDynamicLookupHelper localDesktopGLDynamicLookupHelper = (DesktopGLDynamicLookupHelper)desktopFactory.getGLDynamicLookupHelper(2, 2);
+        hasGL234Impl = (null != localDesktopGLDynamicLookupHelper) && (localDesktopGLDynamicLookupHelper.isLibComplete()) && (hasGL234Impl);
+        hasDesktopGLFactory = hasGL234Impl;
+      }
+    } catch (LinkageError localLinkageError1) {
+      localObject = localLinkageError1;
+    } catch (RuntimeException localRuntimeException1) {
+      localObject = localRuntimeException1;
+    } catch (Throwable localThrowable) {
+      localObject = localThrowable;
+    }
+    if ((DEBUG) && 
+      (null != localObject)) {
+      localObject.printStackTrace();
+    }
+    
+    AbstractGraphicsDevice localAbstractGraphicsDevice1;
+    
+    if (null == desktopFactory) {
+      hasDesktopGLFactory = false;
+      hasGL234Impl = false;
+      localAbstractGraphicsDevice1 = null;
+      if (DEBUG) {
+        System.err.println("Info: GLProfile.init - Desktop GLDrawable factory not available");
+      }
+    } else {
+      localAbstractGraphicsDevice1 = desktopFactory.getDefaultDevice();
+    }
+    
+    if (ReflectionUtil.isClassAvailable("jogamp.opengl.egl.EGLDrawableFactory", localClassLoader)) {
+      localObject = null;
+      try {
+        eglFactory = (GLDrawableFactoryImpl)GLDrawableFactory.getFactoryImpl("GLES2");
+        if (null != eglFactory)
+        {
+          GLDynamicLookupHelper localGLDynamicLookupHelper1 = eglFactory.getGLDynamicLookupHelper(2, 8);
+          GLDynamicLookupHelper localGLDynamicLookupHelper2 = eglFactory.getGLDynamicLookupHelper(1, 8);
+          GLDynamicLookupHelper localGLDynamicLookupHelper3 = eglFactory.getGLDynamicLookupHelper(3, 4);
+          hasGLES3Impl = (null != localGLDynamicLookupHelper1) && (localGLDynamicLookupHelper1.isLibComplete()) && (hasGLES3Impl);
+          hasGLES1Impl = (null != localGLDynamicLookupHelper2) && (localGLDynamicLookupHelper2.isLibComplete()) && (hasGLES1Impl);
+          hasGL234OnEGLImpl = (null != localGLDynamicLookupHelper3) && (localGLDynamicLookupHelper3.isLibComplete()) && (hasGL234OnEGLImpl);
+          hasEGLFactory = (hasGLES3Impl) || (hasGLES1Impl) || (hasGL234OnEGLImpl);
+        }
+      } catch (LinkageError localLinkageError2) {
+        localObject = localLinkageError2;
+      } catch (SecurityException localSecurityException) {
+        localObject = localSecurityException;
+      } catch (NullPointerException localNullPointerException) {
+        localObject = localNullPointerException;
+      } catch (RuntimeException localRuntimeException2) {
+        localObject = localRuntimeException2;
+      }
+      if ((DEBUG) && 
+        (null != localObject)) {
+        localObject.printStackTrace();
+      }
+    }
+    
+    AbstractGraphicsDevice localAbstractGraphicsDevice2;
+    
+    if (null == eglFactory) {
+      hasEGLFactory = false;
+      hasGL234OnEGLImpl = false;
+      hasGLES3Impl = false;
+      hasGLES1Impl = false;
+      localAbstractGraphicsDevice2 = null;
+      if (DEBUG) {
+        System.err.println("Info: GLProfile.init - EGL GLDrawable factory not available");
+      }
+    } else {
+      localAbstractGraphicsDevice2 = eglFactory.getDefaultDevice();
+    }
+    
+    if (null != localAbstractGraphicsDevice1) {
+      defaultDevice = localAbstractGraphicsDevice1;
+      if (DEBUG) {
+        System.err.println("Info: GLProfile.init - Default device is desktop derived: " + defaultDevice);
+      }
+    } else if (null != localAbstractGraphicsDevice2) {
+      defaultDevice = localAbstractGraphicsDevice2;
+      if (DEBUG) {
+        System.err.println("Info: GLProfile.init - Default device is EGL derived: " + defaultDevice);
+      }
+    } else {
+      if (DEBUG) {
+        System.err.println("Info: GLProfile.init - Default device not available");
+      }
+      defaultDevice = null;
+    }
+    
+
+    boolean bool1 = null != localAbstractGraphicsDevice2 ? initProfilesForDevice(localAbstractGraphicsDevice2) : false;
+    boolean bool2 = null != localAbstractGraphicsDevice1 ? initProfilesForDevice(localAbstractGraphicsDevice1) : false;
+    boolean bool3 = (bool1) || (bool2);
+    
+    if (DEBUG) {
+      System.err.println("GLProfile.init addedAnyProfile       " + bool3 + " (desktop: " + bool2 + ", egl " + bool1 + ")");
+      System.err.println("GLProfile.init isAWTAvailable        " + isAWTAvailable);
+      System.err.println("GLProfile.init hasDesktopGLFactory   " + hasDesktopGLFactory);
+      System.err.println("GLProfile.init hasGL234Impl          " + hasGL234Impl);
+      System.err.println("GLProfile.init hasEGLFactory         " + hasEGLFactory);
+      System.err.println("GLProfile.init hasGLES1Impl          " + hasGLES1Impl);
+      System.err.println("GLProfile.init hasGLES3Impl          " + hasGLES3Impl);
+      System.err.println("GLProfile.init hasGL234OnEGLImpl     " + hasGL234OnEGLImpl);
+      System.err.println("GLProfile.init defaultDevice         " + defaultDevice);
+      System.err.println("GLProfile.init defaultDevice Desktop " + localAbstractGraphicsDevice1);
+      System.err.println("GLProfile.init defaultDevice EGL     " + localAbstractGraphicsDevice2);
+      System.err.println("GLProfile.init profile order         " + array2String(GL_PROFILE_LIST_ALL));
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private static boolean initProfilesForDeviceCritical(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    boolean bool1 = GLContext.getAvailableGLVersionsSet(paramAbstractGraphicsDevice);
+    
+    if (DEBUG) {
+      System.err.println("Info: GLProfile.initProfilesForDevice: " + paramAbstractGraphicsDevice + " (" + paramAbstractGraphicsDevice.getClass().getName() + "), isSet " + bool1 + ", hasDesktopGLFactory " + hasDesktopGLFactory + ", hasEGLFactory " + hasEGLFactory);
+    }
+    if (bool1)
+    {
+      localObject1 = paramAbstractGraphicsDevice.getUniqueID();
+      HashMap localHashMap1 = (HashMap)deviceConn2ProfileMap.get(localObject1);
+      if (null == localHashMap1) {
+        throw new InternalError("GLContext Avail. GLVersion is set - but no profile map for device: " + paramAbstractGraphicsDevice);
+      }
+      return null != localHashMap1.get("GL_DEFAULT");
+    }
+    
+    Object localObject1 = null;
+    boolean bool2 = false;
+    HashMap localHashMap2 = null;
+    boolean bool3 = false;
+    
+    boolean bool4 = (hasDesktopGLFactory) && (desktopFactory.getIsDeviceCompatible(paramAbstractGraphicsDevice));
+    
+    if (bool4)
+    {
+      computeProfileMap(paramAbstractGraphicsDevice, true, true);
+      
+
+
+      Thread localThread = desktopFactory.getSharedResourceThread();
+      if (null != localThread) {
+        initLock.addOwner(localThread);
+      }
+      boolean bool6 = desktopFactory.createSharedResource(paramAbstractGraphicsDevice);
+      if (null != localThread) {
+        initLock.removeOwner(localThread);
+      }
+      if (bool6) {
+        if (!GLContext.getAvailableGLVersionsSet(paramAbstractGraphicsDevice)) {
+          throw new InternalError("Available GLVersions not set for " + paramAbstractGraphicsDevice);
+        }
+        localObject1 = computeProfileMap(paramAbstractGraphicsDevice, false, false);
+        bool2 = ((HashMap)localObject1).size() > 0;
+        if (DEBUG) {
+          System.err.println("GLProfile.initProfilesForDevice: " + paramAbstractGraphicsDevice + ": desktop Shared Ctx " + bool6 + ", profiles: " + (bool2 ? ((HashMap)localObject1)
+            .size() : 0));
+        }
+      }
+    }
+    
+    boolean bool5 = (hasEGLFactory) && (eglFactory.getIsDeviceCompatible(paramAbstractGraphicsDevice));
+    Object localObject2;
+    int i;
+    if (bool5)
+    {
+      computeProfileMap(paramAbstractGraphicsDevice, true, true);
+      
+
+
+      localObject2 = eglFactory.getSharedResourceThread();
+      if (null != localObject2) {
+        initLock.addOwner((Thread)localObject2);
+      }
+      i = eglFactory.createSharedResource(paramAbstractGraphicsDevice);
+      if (null != localObject2) {
+        initLock.removeOwner((Thread)localObject2);
+      }
+      if (i != 0) {
+        if (!GLContext.getAvailableGLVersionsSet(paramAbstractGraphicsDevice)) {
+          throw new InternalError("Available GLVersions not set for " + paramAbstractGraphicsDevice);
+        }
+        localHashMap2 = computeProfileMap(paramAbstractGraphicsDevice, false, false);
+        bool3 = localHashMap2.size() > 0;
+      }
+      if (DEBUG) {
+        System.err.println("GLProfile.initProfilesForDevice: " + paramAbstractGraphicsDevice + ": egl Shared Ctx " + i + ", profiles: " + (bool3 ? localHashMap2
+          .size() : 0));
+      }
+    }
+    
+    if ((!bool2) && (!bool3)) {
+      setProfileMap(paramAbstractGraphicsDevice, new HashMap());
+      if (DEBUG) {
+        System.err.println("GLProfile: device could not be initialized: " + paramAbstractGraphicsDevice);
+        System.err.println("GLProfile: compatible w/ desktop: " + bool4 + ", egl " + bool5);
+        
+        System.err.println("GLProfile: desktoplFactory      " + desktopFactory);
+        System.err.println("GLProfile: eglFactory           " + eglFactory);
+        System.err.println("GLProfile: hasGLES1Impl         " + hasGLES1Impl);
+        System.err.println("GLProfile: hasGLES3Impl         " + hasGLES3Impl);
+      }
+    } else {
+      localObject2 = new HashMap();
+      if (bool3) {
+        ((HashMap)localObject2).putAll(localHashMap2);
+      }
+      if (bool2) {
+        ((HashMap)localObject2).putAll((Map)localObject1);
+      }
+      setProfileMap(paramAbstractGraphicsDevice, (HashMap)localObject2);
+    }
+    
+    GLContext.setAvailableGLVersionsSet(paramAbstractGraphicsDevice, true);
+    
+    if (DEBUG) {
+      System.err.println("GLProfile.initProfilesForDevice: " + paramAbstractGraphicsDevice.getUniqueID() + ": added profile(s): desktop " + bool2 + ", egl " + bool3);
+      System.err.println("GLProfile.initProfilesForDevice: " + paramAbstractGraphicsDevice.getUniqueID() + ": " + glAvailabilityToString(paramAbstractGraphicsDevice));
+      if (bool2) {
+        dumpGLInfo(desktopFactory, paramAbstractGraphicsDevice);
+        localObject2 = desktopFactory.getAvailableCapabilities(paramAbstractGraphicsDevice);
+        for (i = 0; i < ((List)localObject2).size(); i++) {
+          System.err.println(((List)localObject2).get(i));
+        }
+      } else if (bool3) {
+        dumpGLInfo(eglFactory, paramAbstractGraphicsDevice);
+        localObject2 = eglFactory.getAvailableCapabilities(paramAbstractGraphicsDevice);
+        for (int j = 0; j < ((List)localObject2).size(); j++) {
+          System.err.println(((List)localObject2).get(j));
+        }
+      }
+    }
+    
+    return (bool2) || (bool3);
+  }
+  
+  private static void dumpGLInfo(GLDrawableFactoryImpl paramGLDrawableFactoryImpl, AbstractGraphicsDevice paramAbstractGraphicsDevice) {
+    GLContext localGLContext = paramGLDrawableFactoryImpl.getOrCreateSharedContext(paramAbstractGraphicsDevice);
+    if (null != localGLContext) {
+      System.err.println("GLProfile.dumpGLInfo: " + localGLContext);
+      localGLContext.makeCurrent();
+      try {
+        System.err.println(JoglVersion.getGLInfo(localGLContext.getGL(), null));
+        
+        localGLContext.release(); } finally { localGLContext.release();
+      }
+    }
+    System.err.println("GLProfile.dumpGLInfo: shared context n/a");
+    System.err.println(paramAbstractGraphicsDevice.getClass().getSimpleName() + "[type " + paramAbstractGraphicsDevice
+      .getType() + ", connection " + paramAbstractGraphicsDevice.getConnection() + "]:");
+    System.err.println(glAvailabilityToString(paramAbstractGraphicsDevice, null, "\t", 1).toString());
+  }
+  
+  public static AbstractGraphicsDevice getDefaultDevice()
+  {
+    initSingleton();
+    return defaultDevice;
+  }
+  
+  private static String array2String(String[] paramArrayOfString) {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("[");
+    for (int i = 0; i < paramArrayOfString.length; i++) {
+      if (i > 0)
+        localStringBuilder.append(", ");
+      localStringBuilder.append(paramArrayOfString[i]);
+    }
+    localStringBuilder.append("]");
+    return localStringBuilder.toString();
+  }
+  
+  private static void glAvailabilityToString(AbstractGraphicsDevice paramAbstractGraphicsDevice, StringBuilder paramStringBuilder, int paramInt1, int paramInt2) {
+    String str = GLContext.getAvailableGLVersionAsString(paramAbstractGraphicsDevice, paramInt1, paramInt2);
+    if (null == str) {
+      throw new GLException("Internal Error");
+    }
+    paramStringBuilder.append("[");
+    paramStringBuilder.append(str);
+    paramStringBuilder.append("]");
+  }
+  
+  private static HashMap<String, GLProfile> computeProfileMap(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean1, boolean paramBoolean2) {
+    if (DEBUG) {
+      System.err.println("GLProfile.init map " + paramAbstractGraphicsDevice.getUniqueID() + ", desktopCtxUndef " + paramBoolean1 + ", esCtxUndef " + paramBoolean2);
+    }
+    boolean[] arrayOfBoolean = new boolean[1];
+    Object localObject1 = null;
+    Object localObject2 = null;
+    HashMap localHashMap = new HashMap(GL_PROFILE_LIST_ALL.length + 1);
+    for (int i = 0; i < GL_PROFILE_LIST_ALL.length; i++) {
+      String str1 = GL_PROFILE_LIST_ALL[i];
+      String str2 = computeProfileImpl(paramAbstractGraphicsDevice, str1, paramBoolean1, paramBoolean2, arrayOfBoolean);
+      if (null != str2) {
+        GLProfile localGLProfile1;
+        if (str1.equals(str2)) {
+          localGLProfile1 = new GLProfile(str1, null, arrayOfBoolean[0], false);
+        } else {
+          GLProfile localGLProfile2 = (GLProfile)localHashMap.get(str2);
+          if (null == localGLProfile2) {
+            throw new InternalError("XXX0 profile[" + i + "]: " + str1 + " -> profileImpl " + str2 + " !!! not mapped ");
+          }
+          localGLProfile1 = new GLProfile(str1, localGLProfile2, arrayOfBoolean[0], false);
+        }
+        localHashMap.put(str1, localGLProfile1);
+        if (DEBUG) {
+          System.err.println("GLProfile.init map " + localGLProfile1 + " on device " + paramAbstractGraphicsDevice.getUniqueID());
+        }
+        if ((null == localObject2) && (arrayOfBoolean[0] != 0)) {
+          localObject2 = localGLProfile1;
+          if (DEBUG) {
+            System.err.println("GLProfile.init map defaultHW " + localGLProfile1 + " on device " + paramAbstractGraphicsDevice.getUniqueID());
+          }
+        } else if (null == localObject1) {
+          localObject1 = localGLProfile1;
+          if (DEBUG) {
+            System.err.println("GLProfile.init map defaultAny " + localGLProfile1 + " on device " + paramAbstractGraphicsDevice.getUniqueID());
+          }
+        }
+      }
+      else if (DEBUG) {
+        System.err.println("GLProfile.init map *** no mapping for " + str1 + " on device " + paramAbstractGraphicsDevice.getUniqueID());
+      }
+    }
+    
+    if (null != localObject2) {
+      localHashMap.put("GL_DEFAULT", localObject2);
+    } else if (null != localObject1) {
+      localHashMap.put("GL_DEFAULT", localObject1);
+    }
+    setProfileMap(paramAbstractGraphicsDevice, localHashMap);
+    return localHashMap;
+  }
+  
+
+
+  private static String computeProfileImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice, String paramString, boolean paramBoolean1, boolean paramBoolean2, boolean[] paramArrayOfBoolean)
+  {
+    int i = (hasGL234Impl) || (hasGL234OnEGLImpl) ? 1 : 0;
+    boolean[] arrayOfBoolean1 = new boolean[1];
+    boolean bool1; int j; boolean bool2; int m; boolean bool3; int n; boolean bool4; if ("GL2ES1" == paramString)
+    {
+
+      if (hasGLES1Impl) {
+        bool1 = (paramBoolean2) || (GLContext.isGLES1Available(paramAbstractGraphicsDevice, arrayOfBoolean1));
+        j = (bool1) && (arrayOfBoolean1[0] != 0) ? 1 : 0;
+      } else {
+        bool1 = false;
+        j = 0;
+      }
+      if (i != 0) {
+        bool2 = GLContext.isGL3bcAvailable(paramAbstractGraphicsDevice, arrayOfBoolean1);
+        m = (bool2) && (arrayOfBoolean1[0] != 0) ? 1 : 0;
+        bool3 = GLContext.isGL2Available(paramAbstractGraphicsDevice, arrayOfBoolean1);
+        n = (bool3) && (arrayOfBoolean1[0] != 0) ? 1 : 0;
+        bool4 = (m != 0) || (n != 0) || (j != 0);
+        
+
+        if ((GLContext.isGL4bcAvailable(paramAbstractGraphicsDevice, paramArrayOfBoolean)) && ((paramArrayOfBoolean[0] != 0) || (!bool4)))
+        {
+          return "GL4bc";
+        }
+        if ((bool2) && ((m != 0) || (!bool4))) {
+          paramArrayOfBoolean[0] = m;
+          return "GL3bc";
+        }
+        if (((paramBoolean1) || (bool3)) && ((n != 0) || (!bool4))) {
+          paramArrayOfBoolean[0] = n;
+          return "GL2";
+        }
+      }
+      if (bool1) {
+        paramArrayOfBoolean[0] = j;
+        return "GLES1"; } } else { int i1;
+      boolean bool5;
+      if ("GL2ES2" == paramString)
+      {
+
+        if (hasGLES3Impl) {
+          bool1 = (paramBoolean2) || (GLContext.isGLES2Available(paramAbstractGraphicsDevice, arrayOfBoolean1));
+          bool2 = (bool1) && (arrayOfBoolean1[0] != 0);
+          j = (paramBoolean2) || (GLContext.isGLES3Available(paramAbstractGraphicsDevice, arrayOfBoolean1)) ? 1 : 0;
+          m = (j != 0) && (arrayOfBoolean1[0] != 0) ? 1 : 0;
+        } else {
+          bool1 = false;
+          bool2 = false;
+          j = 0;
+          m = 0;
+        }
+        if (i != 0) {
+          bool3 = GLContext.isGL4bcAvailable(paramAbstractGraphicsDevice, arrayOfBoolean1);
+          n = (bool3) && (arrayOfBoolean1[0] != 0) ? 1 : 0;
+          bool4 = GLContext.isGL3Available(paramAbstractGraphicsDevice, arrayOfBoolean1);
+          i1 = (bool4) && (arrayOfBoolean1[0] != 0) ? 1 : 0;
+          bool5 = GLContext.isGL3bcAvailable(paramAbstractGraphicsDevice, arrayOfBoolean1);
+          int i2 = (bool5) && (arrayOfBoolean1[0] != 0) ? 1 : 0;
+          boolean bool6 = GLContext.isGL2Available(paramAbstractGraphicsDevice, arrayOfBoolean1);
+          int i3 = (bool6) && (arrayOfBoolean1[0] != 0) ? 1 : 0;
+          int i4 = (n != 0) || (i1 != 0) || (i2 != 0) || (i3 != 0) || (m != 0) || (bool2) ? 1 : 0;
+          
+
+          if ((GLContext.isGL4Available(paramAbstractGraphicsDevice, paramArrayOfBoolean)) && ((paramArrayOfBoolean[0] != 0) || (i4 == 0)))
+          {
+            return "GL4";
+          }
+          if ((bool3) && ((n != 0) || (i4 == 0))) {
+            paramArrayOfBoolean[0] = n;
+            return "GL4bc";
+          }
+          if ((bool4) && ((i1 != 0) || (i4 == 0))) {
+            paramArrayOfBoolean[0] = i1;
+            return "GL3";
+          }
+          if ((bool5) && ((i2 != 0) || (i4 == 0))) {
+            paramArrayOfBoolean[0] = i2;
+            return "GL3bc";
+          }
+          if (((paramBoolean1) || (bool6)) && ((i3 != 0) || (i4 == 0))) {
+            paramArrayOfBoolean[0] = i3;
+            return "GL2";
+          }
+        }
+        if ((j != 0) && ((m != 0) || (!bool2))) {
+          paramArrayOfBoolean[0] = m;
+          return "GLES3";
+        }
+        if (bool1) {
+          paramArrayOfBoolean[0] = bool2;
+          return "GLES2";
+        }
+      } else if ("GL4ES3" == paramString) {
+        bool1 = GLContext.isGLES3CompatibleAvailable(paramAbstractGraphicsDevice);
+        if ((paramBoolean1) || (paramBoolean2) || (bool1)) {
+          boolean[] arrayOfBoolean2 = new boolean[1];
+          bool2 = (hasGLES3Impl) && ((paramBoolean2) || (GLContext.isGLES3Available(paramAbstractGraphicsDevice, arrayOfBoolean2)));
+          m = (bool2) && (arrayOfBoolean2[0] != 0) ? 1 : 0;
+          if (i != 0) {
+            bool3 = GLContext.isGL4bcAvailable(paramAbstractGraphicsDevice, arrayOfBoolean1);
+            n = (bool3) && (arrayOfBoolean1[0] != 0) ? 1 : 0;
+            bool4 = (n != 0) || (m != 0);
+            
+
+            if ((GLContext.isGL4Available(paramAbstractGraphicsDevice, paramArrayOfBoolean)) && ((paramArrayOfBoolean[0] != 0) || (!bool4)))
+            {
+              return "GL4";
+            }
+            if (((paramBoolean1) || (bool3)) && ((n != 0) || (!bool4))) {
+              paramArrayOfBoolean[0] = n;
+              return "GL4bc";
+            }
+          }
+          if (bool2) {
+            paramArrayOfBoolean[0] = arrayOfBoolean2[0];
+            return "GLES3";
+          }
+        }
+      } else if ("GL2GL3" == paramString) {
+        if (i != 0) {
+          bool1 = GLContext.isGL4Available(paramAbstractGraphicsDevice, arrayOfBoolean1);
+          int k = (bool1) && (arrayOfBoolean1[0] != 0) ? 1 : 0;
+          bool2 = GLContext.isGL3Available(paramAbstractGraphicsDevice, arrayOfBoolean1);
+          m = (bool2) && (arrayOfBoolean1[0] != 0) ? 1 : 0;
+          bool3 = GLContext.isGL3bcAvailable(paramAbstractGraphicsDevice, arrayOfBoolean1);
+          n = (bool3) && (arrayOfBoolean1[0] != 0) ? 1 : 0;
+          bool4 = GLContext.isGL2Available(paramAbstractGraphicsDevice, arrayOfBoolean1);
+          i1 = (bool4) && (arrayOfBoolean1[0] != 0) ? 1 : 0;
+          bool5 = (k != 0) || (m != 0) || (n != 0) || (i1 != 0);
+          
+          if ((GLContext.isGL4bcAvailable(paramAbstractGraphicsDevice, paramArrayOfBoolean)) && ((paramArrayOfBoolean[0] != 0) || (!bool5)))
+          {
+            return "GL4bc";
+          }
+          if ((bool1) && ((k != 0) || (!bool5))) {
+            paramArrayOfBoolean[0] = k;
+            return "GL4";
+          }
+          if ((bool3) && ((n != 0) || (!bool5))) {
+            paramArrayOfBoolean[0] = n;
+            return "GL3bc";
+          }
+          if ((bool2) && ((m != 0) || (!bool5))) {
+            paramArrayOfBoolean[0] = m;
+            return "GL3";
+          }
+          if ((paramBoolean1) || (bool4)) {
+            paramArrayOfBoolean[0] = i1;
+            return "GL2";
+          }
+        }
+      } else { if (("GL4bc" == paramString) && (i != 0) && ((paramBoolean1) || (GLContext.isGL4bcAvailable(paramAbstractGraphicsDevice, paramArrayOfBoolean))))
+          return paramBoolean1 ? "GL4bc" : GLContext.getAvailableGLProfileName(paramAbstractGraphicsDevice, 4, 2);
+        if (("GL4" == paramString) && (i != 0) && ((paramBoolean1) || (GLContext.isGL4Available(paramAbstractGraphicsDevice, paramArrayOfBoolean))))
+          return paramBoolean1 ? "GL4" : GLContext.getAvailableGLProfileName(paramAbstractGraphicsDevice, 4, 4);
+        if (("GL3bc" == paramString) && (i != 0) && ((paramBoolean1) || (GLContext.isGL3bcAvailable(paramAbstractGraphicsDevice, paramArrayOfBoolean))))
+          return paramBoolean1 ? "GL3bc" : GLContext.getAvailableGLProfileName(paramAbstractGraphicsDevice, 3, 2);
+        if (("GL3" == paramString) && (i != 0) && ((paramBoolean1) || (GLContext.isGL3Available(paramAbstractGraphicsDevice, paramArrayOfBoolean))))
+          return paramBoolean1 ? "GL3" : GLContext.getAvailableGLProfileName(paramAbstractGraphicsDevice, 3, 4);
+        if (("GL2" == paramString) && (i != 0) && ((paramBoolean1) || (GLContext.isGL2Available(paramAbstractGraphicsDevice, paramArrayOfBoolean))))
+          return paramBoolean1 ? "GL2" : GLContext.getAvailableGLProfileName(paramAbstractGraphicsDevice, 2, 2);
+        if (("GLES3" == paramString) && (hasGLES3Impl) && ((paramBoolean2) || (GLContext.isGLES3Available(paramAbstractGraphicsDevice, paramArrayOfBoolean))))
+          return paramBoolean2 ? "GLES3" : GLContext.getAvailableGLProfileName(paramAbstractGraphicsDevice, 3, 8);
+        if (("GLES2" == paramString) && (hasGLES3Impl) && ((paramBoolean2) || (GLContext.isGLES2Available(paramAbstractGraphicsDevice, paramArrayOfBoolean))))
+          return paramBoolean2 ? "GLES2" : GLContext.getAvailableGLProfileName(paramAbstractGraphicsDevice, 2, 8);
+        if (("GLES1" == paramString) && (hasGLES1Impl) && ((paramBoolean2) || (GLContext.isGLES1Available(paramAbstractGraphicsDevice, paramArrayOfBoolean))))
+          return paramBoolean2 ? "GLES1" : GLContext.getAvailableGLProfileName(paramAbstractGraphicsDevice, 1, 8);
+      } }
+    return null;
+  }
+  
+  private static HashMap<String, HashMap<String, GLProfile>> deviceConn2ProfileMap = new HashMap();
+  
+
+  private final GLProfile profileImpl;
+  
+
+  private final String profile;
+  
+
+  private final boolean isHardwareRasterizer;
+  
+  private final boolean isCustom;
+  
+
+  private static HashMap<String, GLProfile> getProfileMap(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean)
+    throws GLException
+  {
+    
+    
+    if (null == defaultDevice) {
+      throw new GLException("No default device available");
+    }
+    
+    if (null == paramAbstractGraphicsDevice) {
+      paramAbstractGraphicsDevice = defaultDevice;
+    }
+    
+    String str = paramAbstractGraphicsDevice.getUniqueID();
+    HashMap localHashMap = (HashMap)deviceConn2ProfileMap.get(str);
+    if (null != localHashMap) {
+      return localHashMap;
+    }
+    if (!initProfilesForDevice(paramAbstractGraphicsDevice)) {
+      if (paramBoolean) {
+        throw new GLException("No Profile available for " + paramAbstractGraphicsDevice);
+      }
+      return null;
+    }
+    
+    localHashMap = (HashMap)deviceConn2ProfileMap.get(str);
+    if ((null == localHashMap) && (paramBoolean)) {
+      throw new InternalError("initProfilesForDevice(..) didn't setProfileMap(..) for " + paramAbstractGraphicsDevice);
+    }
+    return localHashMap;
+  }
+  
+  private static void setProfileMap(AbstractGraphicsDevice paramAbstractGraphicsDevice, HashMap<String, GLProfile> paramHashMap) {
+    synchronized (deviceConn2ProfileMap) {
+      deviceConn2ProfileMap.put(paramAbstractGraphicsDevice.getUniqueID(), paramHashMap);
+    }
+  }
+  
+  private GLProfile(String paramString, GLProfile paramGLProfile, boolean paramBoolean1, boolean paramBoolean2) {
+    profile = paramString;
+    profileImpl = paramGLProfile;
+    isHardwareRasterizer = paramBoolean1;
+    isCustom = paramBoolean2;
+  }
+  
+  public static GLProfile createCustomGLProfile(String paramString, GLProfile paramGLProfile) {
+    return new GLProfile(paramString, paramGLProfile, isHardwareRasterizer, true);
+  }
+  
+  /* Error */
+  private static boolean initProfilesForDevice(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    // Byte code:
+    //   0: aconst_null
+    //   1: aload_0
+    //   2: if_acmpne +5 -> 7
+    //   5: iconst_0
+    //   6: ireturn
+    //   7: getstatic 2	com/jogamp/opengl/GLProfile:initLock	Lcom/jogamp/common/util/locks/RecursiveThreadGroupLock;
+    //   10: invokeinterface 3 1 0
+    //   15: aload_0
+    //   16: invokestatic 267	com/jogamp/opengl/GLDrawableFactory:getFactoryImpl	(Lcom/jogamp/nativewindow/AbstractGraphicsDevice;)Lcom/jogamp/opengl/GLDrawableFactory;
+    //   19: astore_1
+    //   20: aload_1
+    //   21: invokevirtual 268	com/jogamp/opengl/GLDrawableFactory:enterThreadCriticalZone	()V
+    //   24: aload_0
+    //   25: invokestatic 269	com/jogamp/opengl/GLProfile:initProfilesForDeviceCritical	(Lcom/jogamp/nativewindow/AbstractGraphicsDevice;)Z
+    //   28: istore_2
+    //   29: aload_1
+    //   30: invokevirtual 270	com/jogamp/opengl/GLDrawableFactory:leaveThreadCriticalZone	()V
+    //   33: getstatic 2	com/jogamp/opengl/GLProfile:initLock	Lcom/jogamp/common/util/locks/RecursiveThreadGroupLock;
+    //   36: invokeinterface 5 1 0
+    //   41: iload_2
+    //   42: ireturn
+    //   43: astore_3
+    //   44: aload_1
+    //   45: invokevirtual 270	com/jogamp/opengl/GLDrawableFactory:leaveThreadCriticalZone	()V
+    //   48: aload_3
+    //   49: athrow
+    //   50: astore 4
+    //   52: getstatic 2	com/jogamp/opengl/GLProfile:initLock	Lcom/jogamp/common/util/locks/RecursiveThreadGroupLock;
+    //   55: invokeinterface 5 1 0
+    //   60: aload 4
+    //   62: athrow
+    // Line number table:
+    //   Java source line #1867	-> byte code offset #0
+    //   Java source line #1868	-> byte code offset #5
+    //   Java source line #1870	-> byte code offset #7
+    //   Java source line #1872	-> byte code offset #15
+    //   Java source line #1873	-> byte code offset #20
+    //   Java source line #1875	-> byte code offset #24
+    //   Java source line #1877	-> byte code offset #29
+    //   Java source line #1880	-> byte code offset #33
+    //   Java source line #1877	-> byte code offset #43
+    //   Java source line #1880	-> byte code offset #50
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	63	0	paramAbstractGraphicsDevice	AbstractGraphicsDevice
+    //   19	26	1	localGLDrawableFactory	GLDrawableFactory
+    //   28	14	2	bool	boolean
+    //   43	6	3	localObject1	Object
+    //   50	11	4	localObject2	Object
+    // Exception table:
+    //   from	to	target	type
+    //   24	29	43	finally
+    //   15	33	50	finally
+    //   43	52	50	finally
+  }
+}

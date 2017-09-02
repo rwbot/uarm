@@ -1,0 +1,236 @@
+package com.jogamp.opengl.util;
+
+import com.jogamp.nativewindow.util.Dimension;
+import com.jogamp.nativewindow.util.PixelFormat;
+import com.jogamp.nativewindow.util.PixelFormat.Composition;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2ES3;
+import com.jogamp.opengl.GLException;
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class RandomTileRenderer
+  extends TileRendererBase
+{
+  private boolean tileRectSet = false;
+  
+
+
+
+  public RandomTileRenderer() {}
+  
+
+
+  public final int getParam(int paramInt)
+  {
+    switch (paramInt) {
+    case 1: 
+      return imageSize.getWidth();
+    case 2: 
+      return imageSize.getHeight();
+    case 3: 
+      return currentTileXPos;
+    case 4: 
+      return currentTileYPos;
+    case 5: 
+      return currentTileWidth;
+    case 6: 
+      return currentTileHeight;
+    }
+    throw new IllegalArgumentException("Invalid pname: " + paramInt);
+  }
+  
+
+
+
+
+  public void setTileRect(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+    throws IllegalStateException, IllegalArgumentException
+  {
+    if ((0 > paramInt1) || (0 > paramInt2)) {
+      throw new IllegalArgumentException("Tile pos must be >= 0/0");
+    }
+    if ((0 >= paramInt3) || (0 >= paramInt4)) {
+      throw new IllegalArgumentException("Tile size must be > 0x0");
+    }
+    currentTileXPos = paramInt1;
+    currentTileYPos = paramInt2;
+    currentTileWidth = paramInt3;
+    currentTileHeight = paramInt4;
+    tileRectSet = true;
+  }
+  
+  public final boolean isSetup()
+  {
+    return (0 < imageSize.getWidth()) && (0 < imageSize.getHeight()) && (tileRectSet);
+  }
+  
+
+
+
+
+
+
+
+  public final boolean eot()
+  {
+    return false;
+  }
+  
+
+
+
+
+
+  public final void reset() {}
+  
+
+
+
+
+
+  public final void beginTile(GL paramGL)
+    throws IllegalStateException, GLException
+  {
+    if ((0 >= imageSize.getWidth()) || (0 >= imageSize.getHeight())) {
+      throw new IllegalStateException("Image size has not been set");
+    }
+    if (!tileRectSet) {
+      throw new IllegalStateException("tileRect has not been set");
+    }
+    validateGL(paramGL);
+    
+    paramGL.glViewport(0, 0, currentTileWidth, currentTileHeight);
+    
+    if (DEBUG) {
+      System.err.println("TileRenderer.begin.X: " + toString());
+    }
+    
+
+
+
+
+    beginCalled = true;
+  }
+  
+  public void endTile(GL paramGL) throws IllegalStateException, GLException
+  {
+    if (!beginCalled) {
+      throw new IllegalStateException("beginTile(..) has not been called");
+    }
+    validateGL(paramGL);
+    
+
+    paramGL.glFlush();
+    
+
+    psm.setPackAlignment(paramGL, 1);
+    GL2ES3 localGL2ES3;
+    int i;
+    if (paramGL.isGL2ES3()) {
+      localGL2ES3 = paramGL.getGL2ES3();
+      i = localGL2ES3.getDefaultReadBuffer();
+      localGL2ES3.glReadBuffer(i);
+    } else {
+      localGL2ES3 = null;
+      i = 0;
+    }
+    if (DEBUG) {
+      System.err.println("TileRenderer.end.0: readBuffer 0x" + Integer.toHexString(i) + ", " + toString());
+    }
+    
+    int[] arrayOfInt = new int[1];
+    GLPixelBuffer.GLPixelAttributes localGLPixelAttributes;
+    int j; int k; int m; if (tileBuffer != null) {
+      localGLPixelAttributes = tileBuffer.pixelAttributes;
+      
+
+      j = currentTileWidth;
+      k = currentTileHeight;
+      m = GLBuffers.sizeof(paramGL, arrayOfInt, pfmt.comp.bytesPerPixel(), j, k, 1, true);
+      tileBuffer.clear();
+      if (tileBuffer.requiresNewBuffer(paramGL, j, k, m)) {
+        throw new IndexOutOfBoundsException("Required " + m + " bytes of buffer, only had " + tileBuffer);
+      }
+      paramGL.glReadPixels(0, 0, j, k, format, type, tileBuffer.buffer);
+      
+      paramGL.glFlush();
+      tileBuffer.position(m);
+      tileBuffer.flip();
+    }
+    
+    if (imageBuffer != null) {
+      localGLPixelAttributes = imageBuffer.pixelAttributes;
+      
+
+      j = currentTileWidth;
+      k = currentTileHeight;
+      
+
+      m = imageSize.getWidth();
+      psm.setPackRowLength(localGL2ES3, m);
+      
+
+      int n = GLBuffers.sizeof(paramGL, arrayOfInt, pfmt.comp.bytesPerPixel(), j, k, 1, true);
+      
+      int i1 = (currentTileXPos + currentTileYPos * m) * pfmt.comp.bytesPerPixel();
+      int i2 = i1 + n;
+      imageBuffer.clear();
+      if (imageBuffer.requiresNewBuffer(paramGL, j, k, n)) {
+        throw new IndexOutOfBoundsException("Required " + i2 + " bytes of buffer, only had " + imageBuffer);
+      }
+      imageBuffer.position(i1);
+      
+      paramGL.glReadPixels(0, 0, j, k, format, type, imageBuffer.buffer);
+      
+      paramGL.glFlush();
+      imageBuffer.position(i2);
+      imageBuffer.flip();
+    }
+    
+
+    psm.restore(paramGL);
+    
+    beginCalled = false;
+  }
+  
+
+
+
+
+  public void display(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+    throws IllegalStateException
+  {
+    setTileRect(paramInt1, paramInt2, paramInt3, paramInt4);
+    display();
+  }
+}

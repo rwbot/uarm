@@ -1,0 +1,208 @@
+package g4p_controls;
+
+import processing.core.PImage;
+
+abstract class HotSpot
+  implements GConstants, Comparable<HotSpot>
+{
+  public final Integer id;
+  public float x;
+  public float y;
+  
+  public abstract boolean contains(float paramFloat1, float paramFloat2);
+  
+  protected HotSpot(int paramInt)
+  {
+    id = Integer.valueOf(Math.abs(paramInt));
+  }
+  
+  public void adjust(Object... paramVarArgs) {}
+  
+  public int compareTo(HotSpot paramHotSpot)
+  {
+    return id.compareTo(id);
+  }
+  
+  static class HSalpha
+    extends HotSpot
+  {
+    private PImage image = null;
+    private int offX;
+    private int offY;
+    
+    protected HSalpha(int paramInt1, float paramFloat1, float paramFloat2, PImage paramPImage, int paramInt2)
+    {
+      super();
+      image = paramPImage;
+      x = paramFloat1;
+      y = paramFloat2;
+      if (paramInt2 == 3)
+      {
+        offX = (-width / 2);
+        offY = (-height / 2);
+      }
+      else
+      {
+        offX = (this.offY = 0);
+      }
+    }
+    
+    public void adjust(Object... paramVarArgs)
+    {
+      switch (paramVarArgs.length)
+      {
+      case 3: 
+        image = ((PImage)paramVarArgs[2]);
+      case 2: 
+        y = Float.valueOf(paramVarArgs[1].toString()).floatValue();
+      case 1: 
+        x = Float.valueOf(paramVarArgs[0].toString()).floatValue();
+      }
+    }
+    
+    public boolean contains(float paramFloat1, float paramFloat2)
+    {
+      if (image != null)
+      {
+        int i = Math.round(paramFloat1 - x) - offX;
+        int j = Math.round(paramFloat2 - y) - offY;
+        float f = image.get(i, j) >> 24 & 0xFF;
+        if (f > 48.0F) {
+          return true;
+        }
+      }
+      return false;
+    }
+    
+    public String toString()
+    {
+      return "HS alpha [" + x + ", " + y + "]";
+    }
+  }
+  
+  static class HSmask
+    extends HotSpot
+  {
+    private PImage mask = null;
+    
+    protected HSmask(int paramInt, PImage paramPImage)
+    {
+      super();
+      mask = paramPImage;
+    }
+    
+    public boolean contains(float paramFloat1, float paramFloat2)
+    {
+      if (mask != null)
+      {
+        int i = mask.get((int)paramFloat1, (int)paramFloat2);
+        float f = i >> 24 & 0xFF;
+        if ((f > 0.0F) && ((i & 0xFFFFFF) == 0)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    
+    public String toString()
+    {
+      return "HS mask [" + x + ", " + y + "]";
+    }
+  }
+  
+  static class HScircle
+    extends HotSpot
+  {
+    public float r;
+    public float r2;
+    
+    public HScircle(int paramInt, float paramFloat1, float paramFloat2, float paramFloat3)
+    {
+      super();
+      x = paramFloat1;
+      y = paramFloat2;
+      r = paramFloat3;
+      r2 = (paramFloat3 * paramFloat3);
+    }
+    
+    public boolean contains(float paramFloat1, float paramFloat2)
+    {
+      return (paramFloat1 - x) * (paramFloat1 - x) + (paramFloat2 - y) * (paramFloat2 - y) <= r2;
+    }
+    
+    public void adjust(Object... paramVarArgs)
+    {
+      switch (paramVarArgs.length)
+      {
+      case 3: 
+        r = Float.valueOf(paramVarArgs[2].toString()).floatValue();
+        r2 = (r * r);
+      case 2: 
+        y = Float.valueOf(paramVarArgs[1].toString()).floatValue();
+      case 1: 
+        x = Float.valueOf(paramVarArgs[0].toString()).floatValue();
+      }
+    }
+    
+    public String toString()
+    {
+      return "HS circle [" + x + ", " + y + "]  radius = " + r;
+    }
+  }
+  
+  static class HSarc
+    extends HotSpot
+  {
+    public float sa;
+    public float ea;
+    public float r;
+    public float r2;
+    
+    public HSarc(int paramInt, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5)
+    {
+      super();
+      x = paramFloat1;
+      y = paramFloat2;
+      r = paramFloat3;
+      r2 = (paramFloat3 * paramFloat3);
+      sa = paramFloat4;
+      ea = paramFloat5;
+    }
+    
+    public boolean contains(float paramFloat1, float paramFloat2)
+    {
+      if ((paramFloat1 - x) * (paramFloat1 - x) + (paramFloat2 - y) * (paramFloat2 - y) > r2) {
+        return false;
+      }
+      float f = (float)Math.toDegrees(Math.atan2(paramFloat2 - y, paramFloat1 - x));
+      if (f < 0.0F) {
+        f += 360.0F;
+      }
+      if (f < sa) {
+        f += 360.0F;
+      }
+      return (f >= sa) && (f <= ea);
+    }
+  }
+  
+  static class HSrect
+    extends HotSpot
+  {
+    public float w;
+    public float h;
+    
+    public HSrect(int paramInt, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+    {
+      super();
+      x = paramFloat1;
+      y = paramFloat2;
+      w = paramFloat3;
+      h = paramFloat4;
+    }
+    
+    public boolean contains(float paramFloat1, float paramFloat2)
+    {
+      return (paramFloat1 >= x) && (paramFloat2 >= y) && (paramFloat1 <= x + w) && (paramFloat2 <= y + h);
+    }
+  }
+}

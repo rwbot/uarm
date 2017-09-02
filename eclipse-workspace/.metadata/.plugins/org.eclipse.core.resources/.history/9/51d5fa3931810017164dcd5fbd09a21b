@@ -1,0 +1,634 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.ByteArrayInputStream;
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Dictionary;
+import java.util.Enumeration;
+import java.util.Hashtable;
+
+
+
+
+
+
+
+
+
+
+
+
+public class CffTable
+  implements Table
+{
+  private final DirectoryEntry _de;
+  private final int _major;
+  private final int _minor;
+  private final int _hdrSize;
+  private final int _offSize;
+  private final NameIndex _nameIndex;
+  private final TopDictIndex _topDictIndex;
+  private final StringIndex _stringIndex;
+  private final Index _globalSubrIndex;
+  private final Index[] _charStringsIndexArray;
+  private final Charset[] _charsets;
+  private final Charstring[][] _charstringsArray;
+  private final byte[] _buf;
+  
+  public static class Dict
+  {
+    private final Dictionary<Integer, Object> _entries = new Hashtable();
+    private final int[] _data;
+    private int _index;
+    
+    protected Dict(int[] paramArrayOfInt, int paramInt1, int paramInt2) {
+      _data = paramArrayOfInt;
+      _index = paramInt1;
+      while (_index < paramInt1 + paramInt2) {
+        addKeyAndValueEntry();
+      }
+    }
+    
+    public Object getValue(int paramInt) {
+      return _entries.get(Integer.valueOf(paramInt));
+    }
+    
+    private boolean addKeyAndValueEntry() {
+      ArrayList localArrayList = new ArrayList();
+      Object localObject = null;
+      while (isOperandAtIndex()) {
+        localObject = nextOperand();
+        localArrayList.add(localObject);
+      }
+      int i = _data[(_index++)];
+      if (i == 12) {
+        i <<= 8;
+        i |= _data[(_index++)];
+      }
+      if (localArrayList.size() == 1) {
+        _entries.put(Integer.valueOf(i), localObject);
+      } else {
+        _entries.put(Integer.valueOf(i), localArrayList);
+      }
+      return true;
+    }
+    
+    private boolean isOperandAtIndex() {
+      int i = _data[_index];
+      if (((32 <= i) && (i <= 254)) || (i == 28) || (i == 29) || (i == 30))
+      {
+
+
+        return true;
+      }
+      return false;
+    }
+    
+    private boolean isOperatorAtIndex() {
+      int i = _data[_index];
+      if ((0 <= i) && (i <= 21)) {
+        return true;
+      }
+      return false;
+    }
+    
+    private Object nextOperand() {
+      int i = _data[_index];
+      if ((32 <= i) && (i <= 246))
+      {
+
+        _index += 1;
+        return Integer.valueOf(i - 139); }
+      int j; if ((247 <= i) && (i <= 250))
+      {
+
+        j = _data[(_index + 1)];
+        _index += 2;
+        return Integer.valueOf((i - 247) * 256 + j + 108); }
+      if ((251 <= i) && (i <= 254))
+      {
+
+        j = _data[(_index + 1)];
+        _index += 2;
+        return Integer.valueOf(-(i - 251) * 256 - j - 108); }
+      int k; if (i == 28)
+      {
+
+        j = _data[(_index + 1)];
+        k = _data[(_index + 2)];
+        _index += 3;
+        return Integer.valueOf(j << 8 | k); }
+      int m; if (i == 29)
+      {
+
+        j = _data[(_index + 1)];
+        k = _data[(_index + 2)];
+        m = _data[(_index + 3)];
+        int n = _data[(_index + 4)];
+        _index += 5;
+        return Integer.valueOf(j << 24 | k << 16 | m << 8 | n); }
+      if (i == 30)
+      {
+
+        StringBuilder localStringBuilder = new StringBuilder();
+        k = 0;
+        m = 0;
+        _index += 1;
+        while ((k != 15) && (m != 15)) {
+          k = _data[_index] >> 4;
+          m = _data[_index] & 0xF;
+          _index += 1;
+          localStringBuilder.append(decodeRealNibble(k));
+          localStringBuilder.append(decodeRealNibble(m));
+        }
+        return Float.valueOf(localStringBuilder.toString());
+      }
+      return null;
+    }
+    
+    private String decodeRealNibble(int paramInt)
+    {
+      if (paramInt < 10)
+        return Integer.toString(paramInt);
+      if (paramInt == 10)
+        return ".";
+      if (paramInt == 11)
+        return "E";
+      if (paramInt == 12)
+        return "E-";
+      if (paramInt == 14) {
+        return "-";
+      }
+      return "";
+    }
+    
+    public String toString()
+    {
+      StringBuilder localStringBuilder = new StringBuilder();
+      Enumeration localEnumeration = _entries.keys();
+      while (localEnumeration.hasMoreElements()) {
+        Integer localInteger = (Integer)localEnumeration.nextElement();
+        if ((localInteger.intValue() & 0xC00) == 3072) {
+          localStringBuilder.append("12 ").append(localInteger.intValue() & 0xFF).append(": ");
+        } else {
+          localStringBuilder.append(localInteger.toString()).append(": ");
+        }
+        localStringBuilder.append(_entries.get(localInteger).toString()).append("\n");
+      }
+      return localStringBuilder.toString();
+    }
+  }
+  
+  public class Index
+  {
+    private final int _count;
+    private final int _offSize;
+    private final int[] _offset;
+    private final int[] _data;
+    
+    protected Index(DataInput paramDataInput) throws IOException {
+      _count = paramDataInput.readUnsignedShort();
+      _offset = new int[_count + 1];
+      _offSize = paramDataInput.readUnsignedByte();
+      for (int i = 0; i < _count + 1; i++) {
+        int j = 0;
+        for (int k = 0; k < _offSize; k++) {
+          j |= paramDataInput.readUnsignedByte() << (_offSize - k - 1) * 8;
+        }
+        _offset[i] = j;
+      }
+      _data = new int[getDataLength()];
+      for (i = 0; i < getDataLength(); i++) {
+        _data[i] = paramDataInput.readUnsignedByte();
+      }
+    }
+    
+    public int getCount() {
+      return _count;
+    }
+    
+    public int getOffset(int paramInt) {
+      return _offset[paramInt];
+    }
+    
+    public int getDataLength() {
+      return _offset[(_offset.length - 1)] - 1;
+    }
+    
+    public int[] getData() {
+      return _data;
+    }
+    
+    public String toString()
+    {
+      StringBuilder localStringBuilder = new StringBuilder();
+      localStringBuilder.append("DICT\n");
+      localStringBuilder.append("count: ").append(_count).append("\n");
+      localStringBuilder.append("offSize: ").append(_offSize).append("\n");
+      for (int i = 0; i < _count + 1; i++) {
+        localStringBuilder.append("offset[").append(i).append("]: ").append(_offset[i]).append("\n");
+      }
+      localStringBuilder.append("data:");
+      for (i = 0; i < _data.length; i++) {
+        if (i % 8 == 0) {
+          localStringBuilder.append("\n");
+        } else {
+          localStringBuilder.append(" ");
+        }
+        localStringBuilder.append(_data[i]);
+      }
+      localStringBuilder.append("\n");
+      return localStringBuilder.toString();
+    }
+  }
+  
+  public class TopDictIndex extends CffTable.Index
+  {
+    protected TopDictIndex(DataInput paramDataInput) throws IOException {
+      super(paramDataInput);
+    }
+    
+    public CffTable.Dict getTopDict(int paramInt) {
+      int i = getOffset(paramInt) - 1;
+      int j = getOffset(paramInt + 1) - i - 1;
+      return new CffTable.Dict(getData(), i, j);
+    }
+    
+    public String toString()
+    {
+      StringBuilder localStringBuilder = new StringBuilder();
+      for (int i = 0; i < getCount(); i++) {
+        localStringBuilder.append(getTopDict(i).toString()).append("\n");
+      }
+      return localStringBuilder.toString();
+    }
+  }
+  
+  public class NameIndex extends CffTable.Index
+  {
+    protected NameIndex(DataInput paramDataInput) throws IOException {
+      super(paramDataInput);
+    }
+    
+    public String getName(int paramInt) {
+      String str = null;
+      int i = getOffset(paramInt) - 1;
+      int j = getOffset(paramInt + 1) - i - 1;
+      
+
+      if (getData()[i] != 0) {
+        StringBuilder localStringBuilder = new StringBuilder();
+        for (int k = i; k < i + j; k++) {
+          localStringBuilder.append((char)getData()[k]);
+        }
+        str = localStringBuilder.toString();
+      } else {
+        str = "DELETED NAME";
+      }
+      return str;
+    }
+    
+    public String toString()
+    {
+      StringBuilder localStringBuilder = new StringBuilder();
+      for (int i = 0; i < getCount(); i++) {
+        localStringBuilder.append(getName(i)).append("\n");
+      }
+      return localStringBuilder.toString();
+    }
+  }
+  
+  public class StringIndex extends CffTable.Index
+  {
+    protected StringIndex(DataInput paramDataInput) throws IOException {
+      super(paramDataInput);
+    }
+    
+    public String getString(int paramInt) {
+      if (paramInt < CffStandardStrings.standardStrings.length) {
+        return CffStandardStrings.standardStrings[paramInt];
+      }
+      paramInt -= CffStandardStrings.standardStrings.length;
+      if (paramInt >= getCount()) {
+        return null;
+      }
+      int i = getOffset(paramInt) - 1;
+      int j = getOffset(paramInt + 1) - i - 1;
+      
+      StringBuilder localStringBuilder = new StringBuilder();
+      for (int k = i; k < i + j; k++) {
+        localStringBuilder.append((char)getData()[k]);
+      }
+      return localStringBuilder.toString();
+    }
+    
+
+    public String toString()
+    {
+      int i = CffStandardStrings.standardStrings.length;
+      StringBuilder localStringBuilder = new StringBuilder();
+      for (int j = 0; j < getCount(); j++) {
+        localStringBuilder.append(i + j).append(": ");
+        localStringBuilder.append(getString(i + j)).append("\n");
+      }
+      return localStringBuilder.toString();
+    }
+  }
+  
+  private class CharsetRange {
+    private int _first;
+    private int _left;
+    
+    private CharsetRange() {}
+    
+    public int getFirst() { return _first; }
+    
+    protected void setFirst(int paramInt)
+    {
+      _first = paramInt;
+    }
+    
+    public int getLeft() {
+      return _left;
+    }
+    
+    protected void setLeft(int paramInt) {
+      _left = paramInt;
+    }
+  }
+  
+  private class CharsetRange1 extends CffTable.CharsetRange {
+    protected CharsetRange1(DataInput paramDataInput) throws IOException {
+      super(null);
+      setFirst(paramDataInput.readUnsignedShort());
+      setLeft(paramDataInput.readUnsignedByte());
+    }
+  }
+  
+  private class CharsetRange2 extends CffTable.CharsetRange {
+    protected CharsetRange2(DataInput paramDataInput) throws IOException {
+      super(null);
+      setFirst(paramDataInput.readUnsignedShort());
+      setLeft(paramDataInput.readUnsignedShort());
+    }
+  }
+  
+  private abstract class Charset {
+    private Charset() {}
+    
+    public abstract int getFormat();
+    
+    public abstract int getSID(int paramInt);
+  }
+  
+  private class CharsetFormat0 extends CffTable.Charset {
+    private final int[] _glyph;
+    
+    protected CharsetFormat0(DataInput paramDataInput, int paramInt) throws IOException { super(null);
+      _glyph = new int[paramInt - 1];
+      for (int i = 0; i < paramInt - 1; i++) {
+        _glyph[i] = paramDataInput.readUnsignedShort();
+      }
+    }
+    
+    public int getFormat()
+    {
+      return 0;
+    }
+    
+    public int getSID(int paramInt)
+    {
+      if (paramInt == 0) {
+        return 0;
+      }
+      return _glyph[(paramInt - 1)];
+    }
+  }
+  
+  private class CharsetFormat1 extends CffTable.Charset
+  {
+    private final ArrayList<CffTable.CharsetRange> _charsetRanges = new ArrayList();
+    
+    protected CharsetFormat1(DataInput paramDataInput, int paramInt) throws IOException { super(null);
+      int i = paramInt - 1;
+      while (i > 0) {
+        CffTable.CharsetRange1 localCharsetRange1 = new CffTable.CharsetRange1(CffTable.this, paramDataInput);
+        _charsetRanges.add(localCharsetRange1);
+        i -= localCharsetRange1.getLeft() + 1;
+      }
+    }
+    
+    public int getFormat()
+    {
+      return 1;
+    }
+    
+    public int getSID(int paramInt)
+    {
+      if (paramInt == 0) {
+        return 0;
+      }
+      
+
+      int i = 0;
+      for (CffTable.CharsetRange localCharsetRange : _charsetRanges) {
+        i += localCharsetRange.getLeft();
+        if (paramInt < i) {
+          int j = paramInt - i + localCharsetRange.getFirst();
+          return j;
+        }
+      }
+      return 0;
+    }
+  }
+  
+  private class CharsetFormat2 extends CffTable.Charset
+  {
+    private final ArrayList<CffTable.CharsetRange> _charsetRanges = new ArrayList();
+    
+    protected CharsetFormat2(DataInput paramDataInput, int paramInt) throws IOException { super(null);
+      int i = paramInt - 1;
+      while (i > 0) {
+        CffTable.CharsetRange2 localCharsetRange2 = new CffTable.CharsetRange2(CffTable.this, paramDataInput);
+        _charsetRanges.add(localCharsetRange2);
+        i -= localCharsetRange2.getLeft() + 1;
+      }
+    }
+    
+    public int getFormat()
+    {
+      return 2;
+    }
+    
+    public int getSID(int paramInt)
+    {
+      if (paramInt == 0) {
+        return 0;
+      }
+      
+
+      int i = 0;
+      for (CffTable.CharsetRange localCharsetRange : _charsetRanges) {
+        if (paramInt < localCharsetRange.getLeft() + i) {
+          int j = paramInt - i + localCharsetRange.getFirst() - 1;
+          return j;
+        }
+        i += localCharsetRange.getLeft();
+      }
+      return 0;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected CffTable(DirectoryEntry paramDirectoryEntry, DataInput paramDataInput)
+    throws IOException
+  {
+    _de = ((DirectoryEntry)paramDirectoryEntry.clone());
+    
+
+    _buf = new byte[paramDirectoryEntry.getLength()];
+    paramDataInput.readFully(_buf);
+    DataInput localDataInput = getDataInputForOffset(0);
+    
+
+    _major = localDataInput.readUnsignedByte();
+    _minor = localDataInput.readUnsignedByte();
+    _hdrSize = localDataInput.readUnsignedByte();
+    _offSize = localDataInput.readUnsignedByte();
+    
+
+    localDataInput = getDataInputForOffset(_hdrSize);
+    _nameIndex = new NameIndex(localDataInput);
+    
+
+    _topDictIndex = new TopDictIndex(localDataInput);
+    
+
+    _stringIndex = new StringIndex(localDataInput);
+    
+
+    _globalSubrIndex = new Index(localDataInput);
+    
+
+
+
+
+
+    _charStringsIndexArray = new Index[_topDictIndex.getCount()];
+    _charsets = new Charset[_topDictIndex.getCount()];
+    _charstringsArray = new Charstring[_topDictIndex.getCount()][];
+    for (int i = 0; i < _topDictIndex.getCount(); i++)
+    {
+
+
+
+      Integer localInteger1 = (Integer)_topDictIndex.getTopDict(i).getValue(17);
+      localDataInput = getDataInputForOffset(localInteger1.intValue());
+      _charStringsIndexArray[i] = new Index(localDataInput);
+      int j = _charStringsIndexArray[i].getCount();
+      
+
+      Integer localInteger2 = (Integer)_topDictIndex.getTopDict(i).getValue(15);
+      localDataInput = getDataInputForOffset(localInteger2.intValue());
+      int k = localDataInput.readUnsignedByte();
+      switch (k) {
+      case 0: 
+        _charsets[i] = new CharsetFormat0(localDataInput, j);
+        break;
+      case 1: 
+        _charsets[i] = new CharsetFormat1(localDataInput, j);
+        break;
+      case 2: 
+        _charsets[i] = new CharsetFormat2(localDataInput, j);
+      }
+      
+      
+
+      _charstringsArray[i] = new Charstring[j];
+      for (int m = 0; m < j; m++) {
+        int n = _charStringsIndexArray[i].getOffset(m) - 1;
+        int i1 = _charStringsIndexArray[i].getOffset(m + 1) - n - 1;
+        _charstringsArray[i][m] = new CharstringType2(i, _stringIndex
+        
+          .getString(_charsets[i].getSID(m)), _charStringsIndexArray[i]
+          .getData(), n, i1, null, null);
+      }
+    }
+  }
+  
+
+
+
+
+
+  private DataInput getDataInputForOffset(int paramInt)
+  {
+    return new DataInputStream(new ByteArrayInputStream(_buf, paramInt, _de.getLength() - paramInt));
+  }
+  
+  public NameIndex getNameIndex() {
+    return _nameIndex;
+  }
+  
+  public Charset getCharset(int paramInt) {
+    return _charsets[paramInt];
+  }
+  
+  public Charstring getCharstring(int paramInt1, int paramInt2) {
+    return _charstringsArray[paramInt1][paramInt2];
+  }
+  
+  public int getCharstringCount(int paramInt) {
+    return _charstringsArray[paramInt].length;
+  }
+  
+  public int getType()
+  {
+    return 1128678944;
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("'CFF' Table - Compact Font Format\n---------------------------------\n");
+    localStringBuilder.append("\nName INDEX\n");
+    localStringBuilder.append(_nameIndex.toString());
+    localStringBuilder.append("\nTop DICT INDEX\n");
+    localStringBuilder.append(_topDictIndex.toString());
+    localStringBuilder.append("\nString INDEX\n");
+    localStringBuilder.append(_stringIndex.toString());
+    localStringBuilder.append("\nGlobal Subr INDEX\n");
+    localStringBuilder.append(_globalSubrIndex.toString());
+    for (int i = 0; i < _charStringsIndexArray.length; i++) {
+      localStringBuilder.append("\nCharStrings INDEX ").append(i).append("\n");
+      localStringBuilder.append(_charStringsIndexArray[i].toString());
+    }
+    return localStringBuilder.toString();
+  }
+  
+
+
+
+
+
+
+  public DirectoryEntry getDirectoryEntry()
+  {
+    return _de;
+  }
+}

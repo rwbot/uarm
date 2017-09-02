@@ -1,0 +1,324 @@
+package jogamp.newt.driver.awt;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.util.InterruptSource.Thread;
+import com.jogamp.common.util.InterruptedRuntimeException;
+import com.jogamp.common.util.RunnableTask;
+import com.jogamp.common.util.awt.AWTEDTExecutor;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.newt.util.EDTUtil;
+import java.awt.EventQueue;
+import java.io.PrintStream;
+import jogamp.newt.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AWTEDTUtil
+  implements EDTUtil
+{
+  public static final boolean DEBUG = Debug.debug("EDT");
+  
+  private final Object edtLock = new Object();
+  private final ThreadGroup threadGroup;
+  private final String name;
+  private final Runnable dispatchMessages;
+  private NEDT nedt = null;
+  private int start_iter = 0;
+  private static long pollPeriod = 10L;
+  
+  public AWTEDTUtil(ThreadGroup paramThreadGroup, String paramString, Runnable paramRunnable) {
+    threadGroup = paramThreadGroup;
+    name = (Thread.currentThread().getName() + "-" + paramString + "-EDT-");
+    dispatchMessages = paramRunnable;
+    nedt = new NEDT(threadGroup, name);
+    nedt.setDaemon(true);
+  }
+  
+  public final long getPollPeriod()
+  {
+    return pollPeriod;
+  }
+  
+  public final void setPollPeriod(long paramLong)
+  {
+    pollPeriod = paramLong;
+  }
+  
+  public final void start() throws IllegalStateException
+  {
+    synchronized (edtLock) {
+      if (nedt.isRunning()) {
+        throw new IllegalStateException("EDT still running and not subject to stop. Curr " + Thread.currentThread().getName() + ", NEDT " + nedt.getName() + ", isRunning " + nedt.isRunning + ", shouldStop " + nedt.shouldStop + ", on AWT-EDT " + EventQueue.isDispatchThread());
+      }
+      if (DEBUG) {
+        System.err.println(Thread.currentThread() + ": AWT-EDT reset - edt: " + nedt);
+      }
+      if (nedt.getState() != Thread.State.NEW) {
+        nedt = new NEDT(threadGroup, name);
+        nedt.setDaemon(true);
+      }
+      startImpl();
+    }
+    if (!nedt.isRunning()) {
+      throw new RuntimeException("EDT could not be started: " + nedt);
+    }
+  }
+  
+  private final void startImpl() {
+    if (nedt.isAlive()) {
+      throw new RuntimeException("AWT-EDT Thread.isAlive(): true, isRunning: " + nedt.isRunning + ", shouldStop " + nedt.shouldStop + ", edt: " + nedt);
+    }
+    start_iter += 1;
+    nedt.setName(name + start_iter);
+    if (DEBUG) {
+      System.err.println(Thread.currentThread() + ": AWT-EDT START - edt: " + nedt);
+    }
+    
+    nedt.start();
+  }
+  
+  public final boolean isCurrentThreadEDT()
+  {
+    return EventQueue.isDispatchThread();
+  }
+  
+  public final boolean isCurrentThreadNEDT()
+  {
+    return nedt == Thread.currentThread();
+  }
+  
+  public final boolean isCurrentThreadEDTorNEDT()
+  {
+    return (EventQueue.isDispatchThread()) || (nedt == Thread.currentThread());
+  }
+  
+  public final boolean isRunning()
+  {
+    return nedt.isRunning();
+  }
+  
+  public final boolean invokeStop(boolean paramBoolean, Runnable paramRunnable)
+  {
+    return invokeImpl(paramBoolean, paramRunnable, true);
+  }
+  
+  public final boolean invoke(boolean paramBoolean, Runnable paramRunnable)
+  {
+    return invokeImpl(paramBoolean, paramRunnable, false);
+  }
+  
+  private final boolean invokeImpl(boolean paramBoolean1, Runnable paramRunnable, boolean paramBoolean2)
+  {
+    Object localObject1 = new Object();
+    synchronized (localObject1) { RunnableTask localRunnableTask;
+      synchronized (edtLock) {
+        if (nedt.shouldStop)
+        {
+          System.err.println(Thread.currentThread() + ": Warning: AWT-EDT about (1) to stop, won't enqueue new task: " + nedt);
+          if (DEBUG) {
+            ExceptionUtils.dumpStack(System.err);
+          }
+          return false;
+        }
+        if (isCurrentThreadEDT()) {
+          if (null != paramRunnable) {
+            paramRunnable.run();
+          }
+          paramBoolean1 = false;
+          localRunnableTask = null;
+          if (paramBoolean2) {
+            nedt.shouldStop = true;
+          }
+        } else {
+          if (!nedt.isRunning) {
+            if (null != paramRunnable) {
+              if (paramBoolean2) {
+                System.err.println(Thread.currentThread() + ": Warning: AWT-EDT is about (3) to stop and stopped already, dropping task. NEDT " + nedt);
+              } else {
+                System.err.println(Thread.currentThread() + ": Warning: AWT-EDT is not running, dropping task. NEDT " + nedt);
+              }
+              if (DEBUG) {
+                ExceptionUtils.dumpStack(System.err);
+              }
+            }
+            return false; }
+          if (paramBoolean2) {
+            if (DEBUG) {
+              System.err.println(Thread.currentThread() + ": AWT-EDT signal STOP (on edt: " + isCurrentThreadEDT() + ") - " + nedt + ", isRunning " + nedt.isRunning + ", shouldStop " + nedt.shouldStop);
+            }
+            synchronized (nedt.sync) {
+              nedt.shouldStop = true;
+              nedt.sync.notifyAll();
+            }
+          }
+          
+          if (null != paramRunnable) {
+            localRunnableTask = new RunnableTask(paramRunnable, paramBoolean1 ? localObject1 : null, true, paramBoolean1 ? null : System.err);
+            
+
+
+            AWTEDTExecutor.singleton.invoke(false, localRunnableTask);
+          } else {
+            paramBoolean1 = false;
+            localRunnableTask = null;
+          }
+        }
+      }
+      if (paramBoolean1) {
+        try {
+          while (localRunnableTask.isInQueue()) {
+            localObject1.wait();
+          }
+        } catch (InterruptedException localInterruptedException) {
+          throw new InterruptedRuntimeException(localInterruptedException);
+        }
+        Throwable localThrowable = localRunnableTask.getThrowable();
+        if (null != localThrowable) {
+          if ((localThrowable instanceof NativeWindowException)) {
+            throw ((NativeWindowException)localThrowable);
+          }
+          throw new RuntimeException(localThrowable);
+        }
+      }
+      return true;
+    }
+  }
+  
+  public final boolean waitUntilIdle()
+  {
+    NEDT localNEDT;
+    synchronized (edtLock) {
+      localNEDT = nedt;
+    }
+    if ((!isRunning) || (localNEDT == Thread.currentThread()) || (EventQueue.isDispatchThread())) {
+      return false;
+    }
+    try {
+      AWTEDTExecutor.singleton.invoke(true, new Runnable() {
+        public void run() {}
+      });
+    }
+    catch (Exception localException) {}
+    return true;
+  }
+  
+  public final boolean waitUntilStopped()
+  {
+    synchronized (edtLock) {
+      if ((nedt.isRunning) && (nedt != Thread.currentThread()) && (!EventQueue.isDispatchThread())) {
+        try {
+          while (nedt.isRunning) {
+            edtLock.wait();
+          }
+        } catch (InterruptedException localInterruptedException) {
+          throw new InterruptedRuntimeException(localInterruptedException);
+        }
+        return true;
+      }
+      return false;
+    }
+  }
+  
+  class NEDT extends InterruptSource.Thread
+  {
+    volatile boolean shouldStop = false;
+    volatile boolean isRunning = false;
+    Object sync = new Object();
+    
+    public NEDT(ThreadGroup paramThreadGroup, String paramString) {
+      super(null, paramString);
+    }
+    
+    public final boolean isRunning() {
+      return (isRunning) && (!shouldStop);
+    }
+    
+    public final void start() throws IllegalThreadStateException
+    {
+      isRunning = true;
+      super.start();
+    }
+    
+
+
+
+
+    public final void run()
+    {
+      if (AWTEDTUtil.DEBUG) {
+        System.err.println(getName() + ": AWT-EDT run() START " + getName());
+      }
+      Object localObject1 = null;
+      try
+      {
+        do {
+          if (!shouldStop)
+          {
+
+
+
+            AWTEDTExecutor.singleton.invoke(true, dispatchMessages);
+          }
+          
+          synchronized (sync) {
+            if (!shouldStop) {
+              try {
+                sync.wait(AWTEDTUtil.pollPeriod);
+              } catch (InterruptedException localInterruptedException) {
+                throw new InterruptedRuntimeException(localInterruptedException);
+              }
+            }
+          }
+        } while (!shouldStop);
+      }
+      catch (Throwable ???) {
+        shouldStop = true;
+        if ((??? instanceof RuntimeException)) {
+          localObject1 = (RuntimeException)???;
+        } else {
+          localObject1 = new RuntimeException("Within AWT-EDT", ???);
+        }
+      } finally {
+        if (AWTEDTUtil.DEBUG) {
+          System.err.println(getName() + ": AWT-EDT run() END " + getName() + ", " + localObject1);
+        }
+        synchronized (edtLock) {
+          isRunning = false;
+          edtLock.notifyAll();
+        }
+        if (AWTEDTUtil.DEBUG) {
+          System.err.println(getName() + ": AWT-EDT run() EXIT " + getName() + ", exception: " + localObject1);
+        }
+        if (null != localObject1) {
+          throw ((Throwable)localObject1);
+        }
+      }
+    }
+  }
+}

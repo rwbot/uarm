@@ -1,0 +1,52 @@
+package com.jogamp.common.util;
+
+import java.io.PrintStream;
+
+public abstract interface Ringbuffer<T>
+{
+  public abstract String toString();
+  
+  public abstract void dump(PrintStream paramPrintStream, String paramString);
+  
+  public abstract int capacity();
+  
+  public abstract void clear();
+  
+  public abstract void resetFull(T[] paramArrayOfT)
+    throws IllegalArgumentException;
+  
+  public abstract int size();
+  
+  public abstract int getFreeSlots();
+  
+  public abstract boolean isEmpty();
+  
+  public abstract boolean isFull();
+  
+  public abstract T get();
+  
+  public abstract T getBlocking()
+    throws InterruptedException;
+  
+  public abstract T peek();
+  
+  public abstract T peekBlocking()
+    throws InterruptedException;
+  
+  public abstract boolean put(T paramT);
+  
+  public abstract void putBlocking(T paramT)
+    throws InterruptedException;
+  
+  public abstract boolean putSame(boolean paramBoolean)
+    throws InterruptedException;
+  
+  public abstract void waitForFreeSlots(int paramInt)
+    throws InterruptedException;
+  
+  public abstract void growEmptyBuffer(T[] paramArrayOfT)
+    throws IllegalStateException, IllegalArgumentException;
+  
+  public abstract void growFullBuffer(int paramInt)
+    throws IllegalStateException, IllegalArgumentException;
+}

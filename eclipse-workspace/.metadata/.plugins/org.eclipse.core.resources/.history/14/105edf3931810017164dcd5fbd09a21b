@@ -1,0 +1,151 @@
+package com.jogamp.graph.curve.opengl;
+
+import com.jogamp.graph.curve.Region;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.util.texture.TextureSequence;
+import jogamp.graph.curve.opengl.VBORegion2PMSAAES2;
+import jogamp.graph.curve.opengl.VBORegion2PVBAAES2;
+import jogamp.graph.curve.opengl.VBORegionSPES2;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class GLRegion
+  extends Region
+{
+  protected final TextureSequence colorTexSeq;
+  
+  public static GLRegion create(int paramInt, TextureSequence paramTextureSequence)
+  {
+    if (null != paramTextureSequence) {
+      paramInt |= 0x400;
+    } else if (Region.hasColorTexture(paramInt)) {
+      throw new IllegalArgumentException("COLORTEXTURE_RENDERING_BIT set but null TextureSequence");
+    }
+    if (isVBAA(paramInt))
+      return new VBORegion2PVBAAES2(paramInt, paramTextureSequence, 0);
+    if (isMSAA(paramInt)) {
+      return new VBORegion2PMSAAES2(paramInt, paramTextureSequence, 0);
+    }
+    return new VBORegionSPES2(paramInt, paramTextureSequence);
+  }
+  
+
+
+  protected GLRegion(int paramInt, TextureSequence paramTextureSequence)
+  {
+    super(paramInt);
+    colorTexSeq = paramTextureSequence;
+  }
+  
+
+
+  protected abstract void updateImpl(GL2ES2 paramGL2ES2);
+  
+
+
+  protected abstract void destroyImpl(GL2ES2 paramGL2ES2);
+  
+
+
+  protected abstract void clearImpl(GL2ES2 paramGL2ES2);
+  
+
+
+  public void clear(GL2ES2 paramGL2ES2)
+  {
+    clearImpl(paramGL2ES2);
+    clearImpl();
+  }
+  
+
+
+  public final void destroy(GL2ES2 paramGL2ES2)
+  {
+    clear(paramGL2ES2);
+    destroyImpl(paramGL2ES2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void draw(GL2ES2 paramGL2ES2, RegionRenderer paramRegionRenderer, int[] paramArrayOfInt)
+  {
+    if (isShapeDirty()) {
+      updateImpl(paramGL2ES2);
+    }
+    drawImpl(paramGL2ES2, paramRegionRenderer, paramArrayOfInt);
+    clearDirtyBits(3);
+  }
+  
+  protected abstract void drawImpl(GL2ES2 paramGL2ES2, RegionRenderer paramRegionRenderer, int[] paramArrayOfInt);
+}

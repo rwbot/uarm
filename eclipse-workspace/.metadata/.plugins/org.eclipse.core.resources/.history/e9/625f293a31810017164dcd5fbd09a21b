@@ -1,0 +1,98 @@
+package jogamp.opengl.macosx.cgl;
+
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.CapabilitiesChooser;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.GraphicsConfigurationFactory;
+import com.jogamp.nativewindow.macosx.MacOSXGraphicsDevice;
+import com.jogamp.opengl.GLCapabilitiesChooser;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLDrawableFactory;
+import jogamp.opengl.GLGraphicsConfigurationFactory;
+import jogamp.opengl.GLGraphicsConfigurationUtil;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class MacOSXCGLGraphicsConfigurationFactory
+  extends GLGraphicsConfigurationFactory
+{
+  static void registerFactory()
+  {
+    GraphicsConfigurationFactory.registerFactory(MacOSXGraphicsDevice.class, GLCapabilitiesImmutable.class, new MacOSXCGLGraphicsConfigurationFactory());
+  }
+  
+
+
+  private MacOSXCGLGraphicsConfigurationFactory() {}
+  
+
+  protected AbstractGraphicsConfiguration chooseGraphicsConfigurationImpl(CapabilitiesImmutable paramCapabilitiesImmutable1, CapabilitiesImmutable paramCapabilitiesImmutable2, CapabilitiesChooser paramCapabilitiesChooser, AbstractGraphicsScreen paramAbstractGraphicsScreen, int paramInt)
+  {
+    if (paramAbstractGraphicsScreen == null) {
+      throw new IllegalArgumentException("AbstractGraphicsScreen is null");
+    }
+    
+    if (!(paramCapabilitiesImmutable1 instanceof GLCapabilitiesImmutable)) {
+      throw new IllegalArgumentException("This NativeWindowFactory accepts only GLCapabilities objects - chosen");
+    }
+    
+    if (!(paramCapabilitiesImmutable2 instanceof GLCapabilitiesImmutable)) {
+      throw new IllegalArgumentException("This NativeWindowFactory accepts only GLCapabilities objects - requested");
+    }
+    
+    if ((paramCapabilitiesChooser != null) && (!(paramCapabilitiesChooser instanceof GLCapabilitiesChooser))) {
+      throw new IllegalArgumentException("This NativeWindowFactory accepts only GLCapabilitiesChooser objects");
+    }
+    
+    return chooseGraphicsConfigurationStatic((GLCapabilitiesImmutable)paramCapabilitiesImmutable1, (GLCapabilitiesImmutable)paramCapabilitiesImmutable2, (GLCapabilitiesChooser)paramCapabilitiesChooser, paramAbstractGraphicsScreen, false);
+  }
+  
+
+
+  static MacOSXCGLGraphicsConfiguration chooseGraphicsConfigurationStatic(GLCapabilitiesImmutable paramGLCapabilitiesImmutable1, GLCapabilitiesImmutable paramGLCapabilitiesImmutable2, GLCapabilitiesChooser paramGLCapabilitiesChooser, AbstractGraphicsScreen paramAbstractGraphicsScreen, boolean paramBoolean)
+  {
+    if (paramAbstractGraphicsScreen == null) {
+      throw new IllegalArgumentException("AbstractGraphicsScreen is null");
+    }
+    AbstractGraphicsDevice localAbstractGraphicsDevice = paramAbstractGraphicsScreen.getDevice();
+    paramGLCapabilitiesImmutable1 = GLGraphicsConfigurationUtil.fixGLCapabilities(paramGLCapabilitiesImmutable1, GLDrawableFactory.getDesktopFactory(), localAbstractGraphicsDevice);
+    
+    return new MacOSXCGLGraphicsConfiguration(paramAbstractGraphicsScreen, paramGLCapabilitiesImmutable1, paramGLCapabilitiesImmutable2);
+  }
+}

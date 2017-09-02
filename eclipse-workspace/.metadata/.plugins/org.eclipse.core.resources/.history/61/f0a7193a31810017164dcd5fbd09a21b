@@ -1,0 +1,79 @@
+package jogamp.newt;
+
+import com.jogamp.common.util.PropertyAccess;
+import java.io.PrintStream;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Debug
+  extends PropertyAccess
+{
+  private static final boolean verbose;
+  private static final boolean debugAll;
+  
+  static
+  {
+    AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public Object run() {
+        Debug.addTrustedPrefix("newt.");
+        return null;
+      }
+    });
+    verbose = isPropertyDefined("newt.verbose", true);
+    debugAll = isPropertyDefined("newt.debug", true);
+    if (verbose) {
+      Package localPackage = Package.getPackage("com.jogamp.newt");
+      System.err.println("NEWT specification version " + localPackage.getSpecificationVersion());
+      System.err.println("NEWT implementation version " + localPackage.getImplementationVersion());
+      System.err.println("NEWT implementation vendor " + localPackage.getImplementationVendor());
+    }
+  }
+  
+
+
+  public static final boolean verbose()
+  {
+    return verbose;
+  }
+  
+  public static final boolean debugAll() {
+    return debugAll;
+  }
+  
+  public static final boolean debug(String paramString) {
+    return (debugAll()) || (isPropertyDefined("newt.debug." + paramString, true));
+  }
+  
+  public Debug() {}
+  
+  public static final void initSingleton() {}
+}

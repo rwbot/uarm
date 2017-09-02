@@ -1,0 +1,71 @@
+package jogamp.opengl.x11.glx;
+
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.opengl.GLDrawableFactory;
+import java.io.PrintStream;
+import jogamp.opengl.GLDrawableImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class X11GLXDrawable
+  extends GLDrawableImpl
+{
+  protected X11GLXDrawable(GLDrawableFactory paramGLDrawableFactory, NativeSurface paramNativeSurface, boolean paramBoolean)
+  {
+    super(paramGLDrawableFactory, paramNativeSurface, paramBoolean);
+  }
+  
+  protected void setRealizedImpl()
+  {
+    if (realized) {
+      X11GLXGraphicsConfiguration localX11GLXGraphicsConfiguration = (X11GLXGraphicsConfiguration)getNativeSurface().getGraphicsConfiguration();
+      localX11GLXGraphicsConfiguration.updateGraphicsConfiguration();
+      
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": X11GLXDrawable.setRealized(true): " + localX11GLXGraphicsConfiguration);
+      }
+    }
+  }
+  
+  protected final void swapBuffersImpl(boolean paramBoolean)
+  {
+    if (paramBoolean) {
+      GLX.glXSwapBuffers(getNativeSurface().getDisplayHandle(), getHandle());
+    }
+  }
+}

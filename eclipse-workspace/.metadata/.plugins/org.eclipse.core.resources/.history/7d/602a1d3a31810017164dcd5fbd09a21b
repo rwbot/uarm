@@ -1,0 +1,190 @@
+package jogamp.newt.driver.x11;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.util.PixelFormat;
+import com.jogamp.nativewindow.x11.X11GraphicsDevice;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import jogamp.nativewindow.x11.X11Util;
+import jogamp.newt.DisplayImpl;
+import jogamp.newt.NEWTJNILibLoader;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class DisplayDriver
+  extends DisplayImpl
+{
+  private long windowDeleteAtom;
+  private long javaObjectAtom;
+  private int randr_event_base;
+  private int randr_error_base;
+  private RandR rAndR;
+  
+  static
+  {
+    NEWTJNILibLoader.loadNEWT();
+    
+    if (!initIDs0(X11Util.XERROR_STACKDUMP)) {
+      throw new NativeWindowException("Failed to initialize X11Display jmethodIDs");
+    }
+    
+    if (!WindowDriver.initIDs0()) {
+      throw new NativeWindowException("Failed to initialize X11Window jmethodIDs");
+    }
+  }
+  
+
+
+
+
+
+
+  public String validateDisplayName(String paramString, long paramLong)
+  {
+    return X11Util.validateDisplayName(paramString, paramLong);
+  }
+  
+
+
+
+
+
+  protected void createNativeImpl()
+  {
+    X11Util.setX11ErrorHandler(true, !DEBUG);
+    long l = X11Util.openDisplay(name);
+    if (0L == l) {
+      throw new RuntimeException("Error creating display(Win): " + name);
+    }
+    aDevice = new X11GraphicsDevice(l, 0, true);
+    try {
+      CompleteDisplay0(aDevice.getHandle());
+    } catch (RuntimeException localRuntimeException) {
+      closeNativeImpl(aDevice);
+      throw localRuntimeException;
+    }
+  }
+  
+  protected void closeNativeImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    DisplayRelease0(paramAbstractGraphicsDevice.getHandle(), javaObjectAtom, windowDeleteAtom);
+    javaObjectAtom = 0L;
+    windowDeleteAtom = 0L;
+    
+    paramAbstractGraphicsDevice.close();
+  }
+  
+  protected void dispatchMessagesNative()
+  {
+    AbstractGraphicsDevice localAbstractGraphicsDevice = aDevice;
+    localAbstractGraphicsDevice.lock();
+    try {
+      long l = localAbstractGraphicsDevice.getHandle();
+      if (0L != l) {
+        DispatchMessages0(l, javaObjectAtom, windowDeleteAtom, randr_event_base, randr_error_base);
+      }
+    }
+    finally {
+      localAbstractGraphicsDevice.unlock();
+    }
+  }
+  
+  protected long getJavaObjectAtom() { return javaObjectAtom; }
+  protected long getWindowDeleteAtom() { return windowDeleteAtom; }
+  
+  protected int getRandREventBase() { return randr_event_base; }
+  protected int getRandRErrorBase() { return randr_error_base; }
+  
+  protected Boolean isXineramaEnabled() {
+    return isNativeValid() ? Boolean.valueOf(((X11GraphicsDevice)aDevice).isXineramaEnabled()) : null;
+  }
+  
+  protected final long createPointerIconImpl(PixelFormat paramPixelFormat, int paramInt1, int paramInt2, ByteBuffer paramByteBuffer, int paramInt3, int paramInt4) {
+    return createPointerIcon(getHandle(), paramByteBuffer, paramInt1, paramInt2, paramInt3, paramInt4);
+  }
+  
+  protected final void destroyPointerIconImpl(long paramLong1, long paramLong2)
+  {
+    destroyPointerIcon0(paramLong1, paramLong2);
+  }
+  
+
+
+
+
+
+
+
+
+  private void displayCompleted(long paramLong1, long paramLong2, int paramInt1, int paramInt2)
+  {
+    javaObjectAtom = paramLong1;
+    windowDeleteAtom = paramLong2;
+    
+    randr_event_base = paramInt1;
+    randr_error_base = paramInt2;
+  }
+  
+  private void sendRRScreenChangeNotify(long paramLong) { if (null != rAndR)
+      rAndR.sendRRScreenChangeNotify(getHandle(), paramLong);
+  }
+  
+  void registerRandR(RandR paramRandR) {
+    rAndR = paramRandR;
+  }
+  
+
+
+
+  private static long createPointerIcon(long paramLong, Buffer paramBuffer, int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    boolean bool = Buffers.isDirect(paramBuffer);
+    return createPointerIcon0(paramLong, bool ? paramBuffer : 
+      Buffers.getArray(paramBuffer), bool ? 
+      Buffers.getDirectBufferByteOffset(paramBuffer) : Buffers.getIndirectBufferByteOffset(paramBuffer), bool, paramInt1, paramInt2, paramInt3, paramInt4);
+  }
+  
+  static void initSingleton() {}
+  
+  public DisplayDriver() {}
+  
+  private static native boolean initIDs0(boolean paramBoolean);
+  
+  private native void CompleteDisplay0(long paramLong);
+  
+  private native void DisplayRelease0(long paramLong1, long paramLong2, long paramLong3);
+  
+  private native void DispatchMessages0(long paramLong1, long paramLong2, long paramLong3, int paramInt1, int paramInt2);
+  
+  private static native long createPointerIcon0(long paramLong, Object paramObject, int paramInt1, boolean paramBoolean, int paramInt2, int paramInt3, int paramInt4, int paramInt5);
+  
+  private static native void destroyPointerIcon0(long paramLong1, long paramLong2);
+}

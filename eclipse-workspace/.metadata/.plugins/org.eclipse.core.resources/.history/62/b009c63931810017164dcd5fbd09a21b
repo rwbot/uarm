@@ -1,0 +1,113 @@
+package g4p_controls;
+
+import java.io.PrintStream;
+
+class GMessenger
+  implements GConstants, GConstantsInternal
+{
+  GMessenger() {}
+  
+  static void message(Integer paramInteger, Object[] paramArrayOfObject)
+  {
+    if (G4P.showMessages) {
+      switch (paramInteger.intValue())
+      {
+      case -16777215: 
+        missingEventHandler(paramArrayOfObject);
+        break;
+      case 65794: 
+        System.out.println("USER DEFINED colour schema active");
+      }
+    }
+    switch (paramInteger.intValue())
+    {
+    case -16777214: 
+      nonexistantEventHandler(paramArrayOfObject);
+      break;
+    case -16777213: 
+      inavlidControlType(paramArrayOfObject);
+      break;
+    case -16777212: 
+      unmatchedPApplet(paramArrayOfObject);
+      break;
+    case -16777211: 
+      eventHandlerFailed(paramArrayOfObject);
+    }
+  }
+  
+  private static void eventHandlerFailed(Object[] paramArrayOfObject)
+  {
+    String str1 = paramArrayOfObject[0].getClass().getSimpleName();
+    String str2 = (String)paramArrayOfObject[1];
+    Exception localException = (Exception)paramArrayOfObject[2];
+    Throwable localThrowable = localException.getCause();
+    StackTraceElement[] arrayOfStackTraceElement1 = localThrowable.getStackTrace();
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("################  EXCEPTION IN EVENT HANDLER  ################");
+    localStringBuilder.append("\nAn error occured during execution of the eventhandler:");
+    localStringBuilder.append("\nCLASS: " + str1 + "   METHOD: " + str2);
+    localStringBuilder.append("\n\tCaused by " + localThrowable.toString());
+    for (StackTraceElement localStackTraceElement : arrayOfStackTraceElement1) {
+      localStringBuilder.append("\n\t" + localStackTraceElement.toString());
+    }
+    localStringBuilder.append("\n##############################################################\n");
+    System.out.println(localStringBuilder);
+  }
+  
+  private static void missingEventHandler(Object[] paramArrayOfObject)
+  {
+    String str1 = paramArrayOfObject[0].getClass().getSimpleName();
+    String str2 = (String)paramArrayOfObject[1];
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("You might want to add a method to handle " + str1 + " events syntax is\n");
+    localStringBuilder.append("public void " + str2 + "(");
+    Class[] arrayOfClass = (Class[])paramArrayOfObject[2];
+    String[] arrayOfString = (String[])paramArrayOfObject[3];
+    if (arrayOfClass != null) {
+      for (int i = 0; i < arrayOfClass.length; i++)
+      {
+        String str3 = arrayOfClass[i].getSimpleName();
+        localStringBuilder.append(str3 + " " + arrayOfString[i]);
+        if (i < arrayOfClass.length - 1) {
+          localStringBuilder.append(", ");
+        }
+      }
+    }
+    localStringBuilder.append(") { /* code */ }\n");
+    System.out.println(localStringBuilder.toString());
+  }
+  
+  private static void nonexistantEventHandler(Object[] paramArrayOfObject)
+  {
+    String str1 = paramArrayOfObject[0].getClass().getSimpleName();
+    String str2 = (String)paramArrayOfObject[1];
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("The " + str1 + " class cannot find this method \n");
+    localStringBuilder.append("\tpublic void " + str2 + "(");
+    Class[] arrayOfClass = (Class[])paramArrayOfObject[2];
+    for (int i = 0; i < arrayOfClass.length; i++)
+    {
+      String str3 = arrayOfClass[i].getSimpleName();
+      localStringBuilder.append(str3 + " " + str3.substring(1).toLowerCase());
+      if (i < arrayOfClass.length - 1) {
+        localStringBuilder.append(", ");
+      }
+    }
+    localStringBuilder.append(") { /* code */ }\n");
+    System.out.println(localStringBuilder.toString());
+  }
+  
+  private static void inavlidControlType(Object[] paramArrayOfObject)
+  {
+    String str1 = paramArrayOfObject[0].getClass().getSimpleName();
+    String str2 = paramArrayOfObject[1].getClass().getSimpleName();
+    System.out.println("Controls of type " + str2 + " cannot be added to a control group (" + str1 + "\n");
+  }
+  
+  private static void unmatchedPApplet(Object[] paramArrayOfObject)
+  {
+    String str1 = paramArrayOfObject[0].getClass().getSimpleName();
+    String str2 = paramArrayOfObject[1].getClass().getSimpleName();
+    System.out.println("The " + str2 + " object cannot be added to this control group (" + str1 + ") because they are for different windows.\n");
+  }
+}

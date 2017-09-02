@@ -1,0 +1,236 @@
+package jogamp.newt.driver.bcm.vc.iv;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.util.IOUtil.ClassResources;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.util.PixelFormat;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.util.PNGPixelRect;
+import java.io.PrintStream;
+import java.net.URLConnection;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import jogamp.newt.DisplayImpl;
+import jogamp.newt.NEWTJNILibLoader;
+import jogamp.newt.PointerIconImpl;
+import jogamp.newt.driver.linux.LinuxMouseTracker;
+import jogamp.opengl.egl.EGLDisplayUtil;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class DisplayDriver
+  extends DisplayImpl
+{
+  static final PNGPixelRect defaultPointerIconImage;
+  
+  static
+  {
+    NEWTJNILibLoader.loadNEWT();
+    GLProfile.initSingleton();
+    
+    if (!initIDs()) {
+      throw new NativeWindowException("Failed to initialize bcm.vc.iv Display jmethodIDs");
+    }
+    if (!ScreenDriver.initIDs()) {
+      throw new NativeWindowException("Failed to initialize bcm.vc.iv Screen jmethodIDs");
+    }
+    if (!WindowDriver.initIDs()) {
+      throw new NativeWindowException("Failed to initialize bcm.vc.iv Window jmethodIDs");
+    }
+    
+    PNGPixelRect localPNGPixelRect = null;
+    if (DisplayImpl.isPNGUtilAvailable()) {
+      IOUtil.ClassResources localClassResources = new IOUtil.ClassResources(new String[] { "newt/data/pointer-grey-alpha-16x24.png" }, DisplayDriver.class.getClassLoader(), null);
+      try {
+        URLConnection localURLConnection = localClassResources.resolve(0);
+        if (null != localURLConnection) {
+          localPNGPixelRect = PNGPixelRect.read(localURLConnection.getInputStream(), PixelFormat.BGRA8888, false, 0, false);
+        }
+      } catch (Exception localException) {
+        localException.printStackTrace();
+      }
+    }
+    defaultPointerIconImage = localPNGPixelRect;
+  }
+  
+
+
+
+
+  public DisplayDriver()
+  {
+    bcmHandle = 0L;
+    activePointerIcon = 0L;
+    activePointerIconVisible = false;
+  }
+  
+
+  protected void createNativeImpl()
+  {
+    bcmHandle = OpenBCMDisplay0();
+    aDevice = EGLDisplayUtil.eglCreateEGLGraphicsDevice(0L, "decon", 0);
+    aDevice.open();
+    
+    if (null != defaultPointerIconImage) {
+      defaultPointerIcon = ((PointerIconImpl)createPointerIcon(defaultPointerIconImage, 0, 0));
+    } else {
+      defaultPointerIcon = null;
+    }
+    if (DEBUG_POINTER_ICON) {
+      System.err.println("Display.PointerIcon.createDefault: " + defaultPointerIcon);
+    }
+    if (null != defaultPointerIcon) {
+      LinuxMouseTracker localLinuxMouseTracker = LinuxMouseTracker.getSingleton();
+      setPointerIconActive(defaultPointerIcon.getHandle(), localLinuxMouseTracker.getLastX(), localLinuxMouseTracker.getLastY());
+    } }
+  
+  private PointerIconImpl defaultPointerIcon = null;
+  private long bcmHandle;
+  
+  protected void closeNativeImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice) {
+    paramAbstractGraphicsDevice.close();
+    CloseBCMDisplay0(bcmHandle);
+    bcmHandle = 0L;
+  }
+  
+  final long getBCMHandle() { return bcmHandle; }
+  
+
+
+
+
+
+
+
+
+  protected final long createPointerIconImpl(PixelFormat paramPixelFormat, int paramInt1, int paramInt2, ByteBuffer paramByteBuffer, int paramInt3, int paramInt4)
+  {
+    return CreatePointerIcon(bcmHandle, paramByteBuffer, paramInt1, paramInt2, paramInt3, paramInt4);
+  }
+  
+  protected final void destroyPointerIconImpl(long paramLong1, long paramLong2)
+  {
+    DestroyPointerIcon0(paramLong2);
+  }
+  
+  void setPointerIconActive(long paramLong, int paramInt1, int paramInt2) {
+    synchronized (pointerIconSync) {
+      if (DEBUG_POINTER_ICON) {
+        System.err.println("Display.PointerIcon.set.0: active [" + toHexString(activePointerIcon) + ", visible " + activePointerIconVisible + "] -> " + toHexString(paramLong));
+      }
+      if ((0L != activePointerIcon) && (activePointerIconVisible)) {
+        SetPointerIcon0(bcmHandle, activePointerIcon, false, paramInt1, paramInt2);
+      }
+      if ((0L == paramLong) && (null != defaultPointerIcon)) {
+        paramLong = defaultPointerIcon.getHandle();
+      }
+      if (0L != paramLong) {
+        SetPointerIcon0(bcmHandle, paramLong, true, paramInt1, paramInt2);
+        activePointerIconVisible = true;
+      } else {
+        activePointerIconVisible = false;
+      }
+      activePointerIcon = paramLong;
+      if (DEBUG_POINTER_ICON)
+        System.err.println("Display.PointerIcon.set.X: active [" + toHexString(activePointerIcon) + ", visible " + activePointerIconVisible + "]");
+    }
+  }
+  
+  void setActivePointerIconVisible(boolean paramBoolean, int paramInt1, int paramInt2) {
+    synchronized (pointerIconSync) {
+      if (DEBUG_POINTER_ICON) {
+        System.err.println("Display.PointerIcon.visible: active [" + toHexString(activePointerIcon) + ", visible " + activePointerIconVisible + "] -> visible " + paramBoolean);
+      }
+      if (activePointerIconVisible != paramBoolean) {
+        if (0L != activePointerIcon) {
+          SetPointerIcon0(bcmHandle, activePointerIcon, paramBoolean, paramInt1, paramInt2);
+        }
+        activePointerIconVisible = paramBoolean;
+      }
+    }
+  }
+  
+  void moveActivePointerIcon(int paramInt1, int paramInt2) { synchronized (pointerIconSync) {
+      if (DEBUG_POINTER_ICON) {
+        System.err.println("Display.PointerIcon.move: active [" + toHexString(activePointerIcon) + ", visible " + activePointerIconVisible + "], " + paramInt1 + "/" + paramInt2);
+      }
+      if ((0L != activePointerIcon) && (activePointerIconVisible)) {
+        MovePointerIcon0(activePointerIcon, paramInt1, paramInt2);
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+  private static long CreatePointerIcon(long paramLong, Buffer paramBuffer, int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    boolean bool = Buffers.isDirect(paramBuffer);
+    return CreatePointerIcon0(bool ? paramBuffer : Buffers.getArray(paramBuffer), bool ? 
+      Buffers.getDirectBufferByteOffset(paramBuffer) : Buffers.getIndirectBufferByteOffset(paramBuffer), bool, paramInt1, paramInt2, paramInt3, paramInt4);
+  }
+  
+
+
+
+  private long activePointerIcon;
+  
+
+
+  private boolean activePointerIconVisible;
+  
+
+
+  private final Object pointerIconSync = new Object();
+  
+  public static void initSingleton() {}
+  
+  protected void dispatchMessagesNative() {}
+  
+  protected static native boolean initIDs();
+  
+  private static native long OpenBCMDisplay0();
+  
+  private static native void CloseBCMDisplay0(long paramLong);
+  
+  private static native long CreatePointerIcon0(Object paramObject, int paramInt1, boolean paramBoolean, int paramInt2, int paramInt3, int paramInt4, int paramInt5);
+  
+  private static native void DestroyPointerIcon0(long paramLong);
+  
+  private static native void SetPointerIcon0(long paramLong1, long paramLong2, boolean paramBoolean, int paramInt1, int paramInt2);
+  
+  private static native void MovePointerIcon0(long paramLong, int paramInt1, int paramInt2);
+  
+  private static native void DispatchMessages0();
+}

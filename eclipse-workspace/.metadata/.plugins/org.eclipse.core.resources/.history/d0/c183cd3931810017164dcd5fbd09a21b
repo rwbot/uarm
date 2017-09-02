@@ -1,0 +1,186 @@
+package com.jogamp.common.nio;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ByteBufferInputStream
+  extends InputStream
+{
+  private final ByteBuffer buf;
+  private int mark;
+  
+  public ByteBufferInputStream(ByteBuffer paramByteBuffer)
+  {
+    buf = paramByteBuffer;
+    mark = -1;
+  }
+  
+  public final int available()
+  {
+    return buf.remaining();
+  }
+  
+
+
+
+
+
+
+  public final boolean markSupported()
+  {
+    return true;
+  }
+  
+
+
+
+
+
+
+
+  public final synchronized void mark(int paramInt)
+  {
+    mark = buf.position();
+  }
+  
+
+
+
+
+
+
+  public final synchronized void reset()
+    throws IOException
+  {
+    if (mark == -1) {
+      throw new IOException();
+    }
+    buf.position(mark);
+  }
+  
+  public final long skip(long paramLong) throws IOException
+  {
+    if (0L > paramLong) {
+      return 0L;
+    }
+    int i = (int)Math.min(buf.remaining(), paramLong);
+    buf.position(buf.position() + i);
+    return i;
+  }
+  
+  public final int read()
+  {
+    if (!buf.hasRemaining()) {
+      return -1;
+    }
+    return buf.get() & 0xFF;
+  }
+  
+  public final int read(byte[] paramArrayOfByte, int paramInt1, int paramInt2)
+  {
+    if (paramArrayOfByte == null)
+      throw new NullPointerException();
+    if ((paramInt1 < 0) || (paramInt2 < 0) || (paramInt1 > paramArrayOfByte.length) || (paramInt1 + paramInt2 > paramArrayOfByte.length) || (paramInt1 + paramInt2 < 0))
+    {
+
+
+
+
+      throw new IndexOutOfBoundsException("offset " + paramInt1 + ", length " + paramInt2 + ", b.length " + paramArrayOfByte.length); }
+    if (0 == paramInt2) {
+      return 0;
+    }
+    int i = buf.remaining();
+    if (0 == i) {
+      return -1;
+    }
+    int j = Math.min(i, paramInt2);
+    if (buf.hasArray()) {
+      System.arraycopy(buf.array(), buf.arrayOffset() + buf.position(), paramArrayOfByte, paramInt1, j);
+      buf.position(buf.position() + j);
+    } else {
+      buf.get(paramArrayOfByte, paramInt1, j);
+    }
+    return j;
+  }
+  
+  public final int read(ByteBuffer paramByteBuffer, int paramInt)
+  {
+    if (paramByteBuffer == null)
+      throw new NullPointerException();
+    if ((paramInt < 0) || (paramInt > paramByteBuffer.remaining()))
+      throw new IndexOutOfBoundsException("length " + paramInt + ", b " + paramByteBuffer);
+    if (0 == paramInt) {
+      return 0;
+    }
+    int i = buf.remaining();
+    if (0 == i) {
+      return -1;
+    }
+    int j = Math.min(i, paramInt);
+    if ((buf.hasArray()) && (paramByteBuffer.hasArray())) {
+      System.arraycopy(buf.array(), buf.arrayOffset() + buf.position(), paramByteBuffer.array(), paramByteBuffer.arrayOffset() + paramByteBuffer.position(), j);
+      buf.position(buf.position() + j);
+      paramByteBuffer.position(paramByteBuffer.position() + j);
+    } else if (j == i) {
+      paramByteBuffer.put(buf);
+    } else {
+      int k = buf.limit();
+      buf.limit(j);
+      try {
+        paramByteBuffer.put(buf);
+      } finally {
+        buf.limit(k);
+      }
+    }
+    return j;
+  }
+  
+  public final ByteBuffer getBuffer() { return buf; }
+}

@@ -1,0 +1,140 @@
+package jogamp.opengl.util.pngj.chunks;
+
+import jogamp.opengl.util.pngj.ImageInfo;
+import jogamp.opengl.util.pngj.PngHelperInternal;
+import jogamp.opengl.util.pngj.PngjException;
+
+
+
+
+
+
+
+
+public class PngChunkTRNS
+  extends PngChunkSingle
+{
+  public static final String ID = "tRNS";
+  private int gray;
+  private int red;
+  private int green;
+  private int blue;
+  private int[] paletteAlpha = new int[0];
+  
+  public PngChunkTRNS(ImageInfo paramImageInfo) {
+    super("tRNS", paramImageInfo);
+  }
+  
+  public PngChunk.ChunkOrderingConstraint getOrderingConstraint()
+  {
+    return PngChunk.ChunkOrderingConstraint.AFTER_PLTE_BEFORE_IDAT;
+  }
+  
+  public ChunkRaw createRawChunk()
+  {
+    ChunkRaw localChunkRaw = null;
+    if (imgInfo.greyscale) {
+      localChunkRaw = createEmptyChunk(2, true);
+      PngHelperInternal.writeInt2tobytes(gray, data, 0);
+    } else if (imgInfo.indexed) {
+      localChunkRaw = createEmptyChunk(paletteAlpha.length, true);
+      for (int i = 0; i < len; i++) {
+        data[i] = ((byte)paletteAlpha[i]);
+      }
+    } else {
+      localChunkRaw = createEmptyChunk(6, true);
+      PngHelperInternal.writeInt2tobytes(red, data, 0);
+      PngHelperInternal.writeInt2tobytes(green, data, 0);
+      PngHelperInternal.writeInt2tobytes(blue, data, 0);
+    }
+    return localChunkRaw;
+  }
+  
+  public void parseFromRaw(ChunkRaw paramChunkRaw)
+  {
+    if (imgInfo.greyscale) {
+      gray = PngHelperInternal.readInt2fromBytes(data, 0);
+    } else if (imgInfo.indexed) {
+      int i = data.length;
+      paletteAlpha = new int[i];
+      for (int j = 0; j < i; j++) {
+        paletteAlpha[j] = (data[j] & 0xFF);
+      }
+    } else {
+      red = PngHelperInternal.readInt2fromBytes(data, 0);
+      green = PngHelperInternal.readInt2fromBytes(data, 2);
+      blue = PngHelperInternal.readInt2fromBytes(data, 4);
+    }
+  }
+  
+  public void cloneDataFromRead(PngChunk paramPngChunk)
+  {
+    PngChunkTRNS localPngChunkTRNS = (PngChunkTRNS)paramPngChunk;
+    gray = gray;
+    red = red;
+    green = green;
+    blue = blue;
+    if (paletteAlpha != null) {
+      paletteAlpha = new int[paletteAlpha.length];
+      System.arraycopy(paletteAlpha, 0, paletteAlpha, 0, paletteAlpha.length);
+    }
+  }
+  
+
+
+
+  public void setRGB(int paramInt1, int paramInt2, int paramInt3)
+  {
+    if ((imgInfo.greyscale) || (imgInfo.indexed))
+      throw new PngjException("only rgb or rgba images support this");
+    red = paramInt1;
+    green = paramInt2;
+    blue = paramInt3;
+  }
+  
+  public int[] getRGB() {
+    if ((imgInfo.greyscale) || (imgInfo.indexed))
+      throw new PngjException("only rgb or rgba images support this");
+    return new int[] { red, green, blue };
+  }
+  
+  public void setGray(int paramInt) {
+    if (!imgInfo.greyscale)
+      throw new PngjException("only grayscale images support this");
+    gray = paramInt;
+  }
+  
+  public int getGray() {
+    if (!imgInfo.greyscale)
+      throw new PngjException("only grayscale images support this");
+    return gray;
+  }
+  
+
+
+  public void setPalletteAlpha(int[] paramArrayOfInt)
+  {
+    if (!imgInfo.indexed)
+      throw new PngjException("only indexed images support this");
+    paletteAlpha = paramArrayOfInt;
+  }
+  
+
+
+  public void setIndexEntryAsTransparent(int paramInt)
+  {
+    if (!imgInfo.indexed)
+      throw new PngjException("only indexed images support this");
+    paletteAlpha = new int[] { paramInt + 1 };
+    for (int i = 0; i < paramInt; i++)
+      paletteAlpha[i] = 255;
+    paletteAlpha[paramInt] = 0;
+  }
+  
+
+
+  public int[] getPalletteAlpha()
+  {
+    return paletteAlpha;
+  }
+}

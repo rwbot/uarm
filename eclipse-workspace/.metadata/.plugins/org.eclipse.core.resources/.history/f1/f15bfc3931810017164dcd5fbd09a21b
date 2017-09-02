@@ -1,0 +1,210 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+import java.util.ArrayList;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GlyfCompositeDescript
+  extends GlyfDescript
+{
+  private final ArrayList<GlyfCompositeComp> _components = new ArrayList();
+  
+
+
+  public GlyfCompositeDescript(GlyfTable paramGlyfTable, int paramInt, DataInput paramDataInput)
+    throws IOException
+  {
+    super(paramGlyfTable, paramInt, (short)-1, paramDataInput);
+    
+
+
+    int i = 0;
+    int j = 0;
+    try {
+      GlyfCompositeComp localGlyfCompositeComp;
+      do { _components.add(localGlyfCompositeComp = new GlyfCompositeComp(i, j, paramDataInput));
+        GlyfDescript localGlyfDescript = paramGlyfTable.getDescription(localGlyfCompositeComp.getGlyphIndex());
+        if (localGlyfDescript != null) {
+          i += localGlyfDescript.getPointCount();
+          j += localGlyfDescript.getContourCount();
+        }
+      } while ((localGlyfCompositeComp.getFlags() & 0x20) != 0);
+      
+
+      if ((localGlyfCompositeComp.getFlags() & 0x100) != 0) {
+        readInstructions(paramDataInput, paramDataInput.readShort());
+      }
+    } catch (IOException localIOException) {
+      throw localIOException;
+    }
+  }
+  
+
+
+  public int getEndPtOfContours(int paramInt)
+  {
+    GlyfCompositeComp localGlyfCompositeComp = getCompositeCompEndPt(paramInt);
+    if (localGlyfCompositeComp != null) {
+      GlyfDescript localGlyfDescript = _parentTable.getDescription(localGlyfCompositeComp.getGlyphIndex());
+      return localGlyfDescript.getEndPtOfContours(paramInt - localGlyfCompositeComp.getFirstContour()) + localGlyfCompositeComp.getFirstIndex();
+    }
+    return 0;
+  }
+  
+  public byte getFlags(int paramInt)
+  {
+    GlyfCompositeComp localGlyfCompositeComp = getCompositeComp(paramInt);
+    if (localGlyfCompositeComp != null) {
+      GlyfDescript localGlyfDescript = _parentTable.getDescription(localGlyfCompositeComp.getGlyphIndex());
+      return localGlyfDescript.getFlags(paramInt - localGlyfCompositeComp.getFirstIndex());
+    }
+    return 0;
+  }
+  
+  public short getXCoordinate(int paramInt)
+  {
+    GlyfCompositeComp localGlyfCompositeComp = getCompositeComp(paramInt);
+    if (localGlyfCompositeComp != null) {
+      GlyfDescript localGlyfDescript = _parentTable.getDescription(localGlyfCompositeComp.getGlyphIndex());
+      int i = paramInt - localGlyfCompositeComp.getFirstIndex();
+      int j = localGlyfDescript.getXCoordinate(i);
+      int k = localGlyfDescript.getYCoordinate(i);
+      int m = (short)localGlyfCompositeComp.scaleX(j, k);
+      m = (short)(m + localGlyfCompositeComp.getXTranslate());
+      return m;
+    }
+    return 0;
+  }
+  
+  public short getYCoordinate(int paramInt)
+  {
+    GlyfCompositeComp localGlyfCompositeComp = getCompositeComp(paramInt);
+    if (localGlyfCompositeComp != null) {
+      GlyfDescript localGlyfDescript = _parentTable.getDescription(localGlyfCompositeComp.getGlyphIndex());
+      int i = paramInt - localGlyfCompositeComp.getFirstIndex();
+      int j = localGlyfDescript.getXCoordinate(i);
+      int k = localGlyfDescript.getYCoordinate(i);
+      int m = (short)localGlyfCompositeComp.scaleY(j, k);
+      m = (short)(m + localGlyfCompositeComp.getYTranslate());
+      return m;
+    }
+    return 0;
+  }
+  
+  public boolean isComposite()
+  {
+    return true;
+  }
+  
+  public int getPointCount()
+  {
+    GlyfCompositeComp localGlyfCompositeComp = (GlyfCompositeComp)_components.get(_components.size() - 1);
+    GlyfDescript localGlyfDescript = _parentTable.getDescription(localGlyfCompositeComp.getGlyphIndex());
+    if (localGlyfDescript != null) {
+      return localGlyfCompositeComp.getFirstIndex() + localGlyfDescript.getPointCount();
+    }
+    return 0;
+  }
+  
+
+  public int getContourCount()
+  {
+    GlyfCompositeComp localGlyfCompositeComp = (GlyfCompositeComp)_components.get(_components.size() - 1);
+    GlyfDescript localGlyfDescript = _parentTable.getDescription(localGlyfCompositeComp.getGlyphIndex());
+    return localGlyfCompositeComp.getFirstContour() + (null != localGlyfDescript ? localGlyfDescript.getContourCount() : 0);
+  }
+  
+  public int getComponentIndex(int paramInt) {
+    return ((GlyfCompositeComp)_components.get(paramInt)).getFirstIndex();
+  }
+  
+  public int getComponentCount() {
+    return _components.size();
+  }
+  
+  public GlyfCompositeComp getComponent(int paramInt) {
+    return (GlyfCompositeComp)_components.get(paramInt);
+  }
+  
+  protected GlyfCompositeComp getCompositeComp(int paramInt)
+  {
+    for (int i = 0; i < _components.size(); i++) {
+      GlyfCompositeComp localGlyfCompositeComp = (GlyfCompositeComp)_components.get(i);
+      GlyfDescript localGlyfDescript = _parentTable.getDescription(localGlyfCompositeComp.getGlyphIndex());
+      if ((localGlyfCompositeComp.getFirstIndex() <= paramInt) && (paramInt < localGlyfCompositeComp.getFirstIndex() + localGlyfDescript.getPointCount())) {
+        return localGlyfCompositeComp;
+      }
+    }
+    return null;
+  }
+  
+  protected GlyfCompositeComp getCompositeCompEndPt(int paramInt)
+  {
+    for (int i = 0; i < _components.size(); i++) {
+      GlyfCompositeComp localGlyfCompositeComp = (GlyfCompositeComp)_components.get(i);
+      GlyfDescript localGlyfDescript = _parentTable.getDescription(localGlyfCompositeComp.getGlyphIndex());
+      if ((localGlyfCompositeComp.getFirstContour() <= paramInt) && (paramInt < localGlyfCompositeComp.getFirstContour() + localGlyfDescript.getContourCount())) {
+        return localGlyfCompositeComp;
+      }
+    }
+    return null;
+  }
+}

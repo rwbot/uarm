@@ -1,0 +1,112 @@
+package com.jogamp.nativewindow.util;
+
+
+
+
+
+
+
+
+
+
+
+
+public class SurfaceSize
+  implements Comparable<SurfaceSize>
+{
+  final DimensionImmutable resolution;
+  
+
+
+
+
+
+
+
+
+
+
+  final int bitsPerPixel;
+  
+
+
+
+
+
+
+
+
+
+
+
+  public SurfaceSize(DimensionImmutable paramDimensionImmutable, int paramInt)
+  {
+    if ((null == paramDimensionImmutable) || (paramInt <= 0)) {
+      throw new IllegalArgumentException("resolution must be set and bitsPerPixel greater 0");
+    }
+    resolution = paramDimensionImmutable;
+    bitsPerPixel = paramInt;
+  }
+  
+  public final DimensionImmutable getResolution()
+  {
+    return resolution;
+  }
+  
+  public final int getBitsPerPixel() {
+    return bitsPerPixel;
+  }
+  
+  public final String toString()
+  {
+    return "[ " + resolution + " pixels x " + bitsPerPixel + " bpp ]";
+  }
+  
+
+
+
+
+
+
+  public int compareTo(SurfaceSize paramSurfaceSize)
+  {
+    int i = resolution.compareTo(paramSurfaceSize.getResolution());
+    if (0 != i) {
+      return i;
+    }
+    int j = paramSurfaceSize.getBitsPerPixel();
+    if (bitsPerPixel > j)
+      return 1;
+    if (bitsPerPixel < j) {
+      return -1;
+    }
+    return 0;
+  }
+  
+
+
+
+
+
+
+
+
+  public final boolean equals(Object paramObject)
+  {
+    if (this == paramObject) return true;
+    if ((paramObject instanceof SurfaceSize)) {
+      SurfaceSize localSurfaceSize = (SurfaceSize)paramObject;
+      
+      return (getResolution().equals(localSurfaceSize.getResolution())) && (getBitsPerPixel() == localSurfaceSize.getBitsPerPixel());
+    }
+    return false;
+  }
+  
+
+  public final int hashCode()
+  {
+    int i = getResolution().hashCode();
+    i = (i << 5) - i + getBitsPerPixel();
+    return i;
+  }
+}

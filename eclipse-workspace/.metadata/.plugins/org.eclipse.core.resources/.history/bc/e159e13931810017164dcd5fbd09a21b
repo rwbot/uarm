@@ -1,0 +1,37 @@
+package com.jogamp.nativewindow;
+
+
+
+
+public class DelegatedUpstreamSurfaceHookMutableSize
+  extends UpstreamSurfaceHookMutableSize
+{
+  final UpstreamSurfaceHook upstream;
+  
+
+
+  public DelegatedUpstreamSurfaceHookMutableSize(UpstreamSurfaceHook paramUpstreamSurfaceHook, int paramInt1, int paramInt2)
+  {
+    super(paramInt1, paramInt2);
+    upstream = paramUpstreamSurfaceHook;
+  }
+  
+  public final void create(ProxySurface paramProxySurface)
+  {
+    if (null != upstream) {
+      upstream.create(paramProxySurface);
+    }
+  }
+  
+  public final void destroy(ProxySurface paramProxySurface)
+  {
+    if (null != upstream) {
+      upstream.destroy(paramProxySurface);
+    }
+  }
+  
+  public String toString()
+  {
+    return getClass().getSimpleName() + "[ " + pixWidth + "x" + pixHeight + ", " + upstream + "]";
+  }
+}

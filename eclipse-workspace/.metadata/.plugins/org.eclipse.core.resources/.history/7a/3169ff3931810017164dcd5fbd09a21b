@@ -1,0 +1,113 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInputStream;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ScriptList
+{
+  private int _scriptCount = 0;
+  
+  private final ScriptRecord[] _scriptRecords;
+  private final Script[] _scripts;
+  
+  protected ScriptList(DataInputStream paramDataInputStream, int paramInt)
+    throws IOException
+  {
+    paramDataInputStream.reset();
+    paramDataInputStream.skipBytes(paramInt);
+    
+
+    _scriptCount = paramDataInputStream.readUnsignedShort();
+    _scriptRecords = new ScriptRecord[_scriptCount];
+    _scripts = new Script[_scriptCount];
+    for (int i = 0; i < _scriptCount; i++) {
+      _scriptRecords[i] = new ScriptRecord(paramDataInputStream);
+    }
+    for (i = 0; i < _scriptCount; i++) {
+      _scripts[i] = new Script(paramDataInputStream, paramInt + _scriptRecords[i].getOffset());
+    }
+  }
+  
+  public int getScriptCount() {
+    return _scriptCount;
+  }
+  
+  public ScriptRecord getScriptRecord(int paramInt) {
+    return _scriptRecords[paramInt];
+  }
+  
+  public Script getScript(int paramInt) {
+    return _scripts[paramInt];
+  }
+  
+  public Script findScript(String paramString) {
+    if (paramString.length() != 4) {
+      return null;
+    }
+    
+
+
+    int i = paramString.charAt(0) << '\030' | paramString.charAt(1) << '\020' | paramString.charAt(2) << '\b' | paramString.charAt(3);
+    for (int j = 0; j < _scriptCount; j++) {
+      if (_scriptRecords[j].getTag() == i) {
+        return _scripts[j];
+      }
+    }
+    return null;
+  }
+}

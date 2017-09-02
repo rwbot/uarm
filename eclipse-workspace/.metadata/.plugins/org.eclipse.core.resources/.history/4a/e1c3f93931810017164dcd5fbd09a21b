@@ -1,0 +1,293 @@
+package jogamp.graph.font.typecast.ot;
+
+import java.io.DataInputStream;
+import java.io.IOException;
+import jogamp.graph.font.typecast.ot.table.CmapTable;
+import jogamp.graph.font.typecast.ot.table.DirectoryEntry;
+import jogamp.graph.font.typecast.ot.table.GlyfDescript;
+import jogamp.graph.font.typecast.ot.table.GlyfTable;
+import jogamp.graph.font.typecast.ot.table.HdmxTable;
+import jogamp.graph.font.typecast.ot.table.HeadTable;
+import jogamp.graph.font.typecast.ot.table.HheaTable;
+import jogamp.graph.font.typecast.ot.table.HmtxTable;
+import jogamp.graph.font.typecast.ot.table.LocaTable;
+import jogamp.graph.font.typecast.ot.table.MaxpTable;
+import jogamp.graph.font.typecast.ot.table.NameRecord;
+import jogamp.graph.font.typecast.ot.table.NameTable;
+import jogamp.graph.font.typecast.ot.table.Os2Table;
+import jogamp.graph.font.typecast.ot.table.PostTable;
+import jogamp.graph.font.typecast.ot.table.Table;
+import jogamp.graph.font.typecast.ot.table.TableDirectory;
+import jogamp.graph.font.typecast.ot.table.TableFactory;
+import jogamp.graph.font.typecast.ot.table.VheaTable;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class OTFont
+{
+  private final OTFontCollection _fc;
+  private TableDirectory _tableDirectory = null;
+  
+
+  private Table[] _tables;
+  
+
+  private Os2Table _os2;
+  private CmapTable _cmap;
+  private GlyfTable _glyf;
+  private HeadTable _head;
+  private HheaTable _hhea;
+  private HdmxTable _hdmx;
+  private HmtxTable _hmtx;
+  private LocaTable _loca;
+  private MaxpTable _maxp;
+  private NameTable _name;
+  private PostTable _post;
+  private VheaTable _vhea;
+  
+  public OTFont(OTFontCollection paramOTFontCollection) { _fc = paramOTFontCollection; }
+  
+  public StringBuilder getName(int paramInt, StringBuilder paramStringBuilder) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    return _name.getRecordsRecordString(paramStringBuilder, paramInt);
+  }
+  
+  public StringBuilder getAllNames(StringBuilder paramStringBuilder, String paramString) {
+    if (null != _name) {
+      if (null == paramStringBuilder) {
+        paramStringBuilder = new StringBuilder();
+      }
+      for (int i = 0; i < _name.getNumberOfNameRecords(); i++) {
+        _name.getRecord(i).getRecordString(paramStringBuilder).append(paramString);
+      }
+    }
+    return paramStringBuilder;
+  }
+  
+  public Table getTable(int paramInt) {
+    for (int i = 0; i < _tables.length; i++) {
+      if ((_tables[i] != null) && (_tables[i].getType() == paramInt)) {
+        return _tables[i];
+      }
+    }
+    return null;
+  }
+  
+  public Os2Table getOS2Table() {
+    return _os2;
+  }
+  
+  public CmapTable getCmapTable() {
+    return _cmap;
+  }
+  
+  public HeadTable getHeadTable() {
+    return _head;
+  }
+  
+  public HheaTable getHheaTable() {
+    return _hhea;
+  }
+  
+  public HdmxTable getHdmxTable() {
+    return _hdmx;
+  }
+  
+  public HmtxTable getHmtxTable() {
+    return _hmtx;
+  }
+  
+  public LocaTable getLocaTable() {
+    return _loca;
+  }
+  
+  public MaxpTable getMaxpTable() {
+    return _maxp;
+  }
+  
+  public NameTable getNameTable() {
+    return _name;
+  }
+  
+  public PostTable getPostTable() {
+    return _post;
+  }
+  
+  public VheaTable getVheaTable() {
+    return _vhea;
+  }
+  
+  public int getAscent() {
+    return _hhea.getAscender();
+  }
+  
+  public int getDescent() {
+    return _hhea.getDescender();
+  }
+  
+  public int getNumGlyphs() {
+    return _maxp.getNumGlyphs();
+  }
+  
+  public OTGlyph getGlyph(int paramInt)
+  {
+    GlyfDescript localGlyfDescript = _glyf.getDescription(paramInt);
+    
+
+
+
+    return null != localGlyfDescript ? new OTGlyph(localGlyfDescript, _hmtx.getLeftSideBearing(paramInt), _hmtx.getAdvanceWidth(paramInt)) : null;
+  }
+  
+  public TableDirectory getTableDirectory()
+  {
+    return _tableDirectory;
+  }
+  
+
+  private Table readTable(DataInputStream paramDataInputStream, int paramInt1, int paramInt2)
+    throws IOException
+  {
+    paramDataInputStream.reset();
+    DirectoryEntry localDirectoryEntry = _tableDirectory.getEntryByTag(paramInt2);
+    if (localDirectoryEntry == null) {
+      return null;
+    }
+    paramDataInputStream.skip(paramInt1 + localDirectoryEntry.getOffset());
+    return TableFactory.create(_fc, this, localDirectoryEntry, paramDataInputStream);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected void read(DataInputStream paramDataInputStream, int paramInt1, int paramInt2)
+    throws IOException
+  {
+    paramDataInputStream.reset();
+    paramDataInputStream.skip(paramInt1);
+    _tableDirectory = new TableDirectory(paramDataInputStream);
+    _tables = new Table[_tableDirectory.getNumTables()];
+    
+
+    _head = ((HeadTable)readTable(paramDataInputStream, paramInt2, 1751474532));
+    _hhea = ((HheaTable)readTable(paramDataInputStream, paramInt2, 1751672161));
+    _maxp = ((MaxpTable)readTable(paramDataInputStream, paramInt2, 1835104368));
+    _loca = ((LocaTable)readTable(paramDataInputStream, paramInt2, 1819239265));
+    _vhea = ((VheaTable)readTable(paramDataInputStream, paramInt2, 1986553185));
+    
+    int i = 0;
+    _tables[(i++)] = _head;
+    _tables[(i++)] = _hhea;
+    _tables[(i++)] = _maxp;
+    if (_loca != null) {
+      _tables[(i++)] = _loca;
+    }
+    if (_vhea != null) {
+      _tables[(i++)] = _vhea;
+    }
+    
+
+    for (int j = 0; j < _tableDirectory.getNumTables(); j++) {
+      DirectoryEntry localDirectoryEntry = _tableDirectory.getEntry(j);
+      if ((localDirectoryEntry.getTag() != 1751474532) && 
+        (localDirectoryEntry.getTag() != 1751672161) && 
+        (localDirectoryEntry.getTag() != 1835104368) && 
+        (localDirectoryEntry.getTag() != 1819239265) && 
+        (localDirectoryEntry.getTag() != 1986553185))
+      {
+
+        paramDataInputStream.reset();
+        paramDataInputStream.skip(paramInt2 + localDirectoryEntry.getOffset());
+        _tables[i] = TableFactory.create(_fc, this, localDirectoryEntry, paramDataInputStream);
+        i++;
+      }
+    }
+    
+
+    _cmap = ((CmapTable)getTable(1668112752));
+    _hdmx = ((HdmxTable)getTable(1751412088));
+    _hmtx = ((HmtxTable)getTable(1752003704));
+    _name = ((NameTable)getTable(1851878757));
+    _os2 = ((Os2Table)getTable(1330851634));
+    _post = ((PostTable)getTable(1886352244));
+    
+
+
+    _glyf = ((GlyfTable)getTable(1735162214));
+  }
+  
+  public String toString()
+  {
+    if (_tableDirectory != null) {
+      return _tableDirectory.toString();
+    }
+    return "Empty font";
+  }
+}

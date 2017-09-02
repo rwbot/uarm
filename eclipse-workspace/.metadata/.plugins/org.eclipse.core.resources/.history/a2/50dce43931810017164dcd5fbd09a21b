@@ -1,0 +1,122 @@
+package com.jogamp.nativewindow.x11;
+
+import com.jogamp.common.util.Bitfield.Util;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.MutableGraphicsConfiguration;
+import jogamp.nativewindow.x11.X11Capabilities;
+import jogamp.nativewindow.x11.X11Lib;
+import jogamp.nativewindow.x11.XRenderDirectFormat;
+import jogamp.nativewindow.x11.XRenderPictFormat;
+import jogamp.nativewindow.x11.XVisualInfo;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class X11GraphicsConfiguration
+  extends MutableGraphicsConfiguration
+  implements Cloneable
+{
+  private XVisualInfo info;
+  
+  protected static XRenderDirectFormat XVisual2XRenderMask(long paramLong1, long paramLong2)
+  {
+    XRenderPictFormat localXRenderPictFormat = XRenderPictFormat.create();
+    return XVisual2XRenderMask(paramLong1, paramLong2, localXRenderPictFormat);
+  }
+  
+  protected static XRenderDirectFormat XVisual2XRenderMask(long paramLong1, long paramLong2, XRenderPictFormat paramXRenderPictFormat) { if (!X11Lib.XRenderFindVisualFormat(paramLong1, paramLong2, paramXRenderPictFormat)) {
+      return null;
+    }
+    return paramXRenderPictFormat.getDirect();
+  }
+  
+  public static X11Capabilities XVisualInfo2X11Capabilities(X11GraphicsDevice paramX11GraphicsDevice, XVisualInfo paramXVisualInfo)
+  {
+    long l = paramX11GraphicsDevice.getHandle();
+    X11Capabilities localX11Capabilities = new X11Capabilities(paramXVisualInfo);
+    
+    Object localObject = null != paramXVisualInfo ? XVisual2XRenderMask(l, paramXVisualInfo.getVisual()) : null;
+    int i = null != localObject ? localObject.getAlphaMask() : 0;
+    if (0 < i) {
+      localX11Capabilities.setBackgroundOpaque(false);
+      localX11Capabilities.setTransparentRedValue(localObject.getRedMask());
+      localX11Capabilities.setTransparentGreenValue(localObject.getGreenMask());
+      localX11Capabilities.setTransparentBlueValue(localObject.getBlueMask());
+      localX11Capabilities.setTransparentAlphaValue(i);
+    } else {
+      localX11Capabilities.setBackgroundOpaque(true);
+    }
+    
+    localX11Capabilities.setRedBits(Bitfield.Util.bitCount((int)paramXVisualInfo.getRed_mask()));
+    localX11Capabilities.setGreenBits(Bitfield.Util.bitCount((int)paramXVisualInfo.getGreen_mask()));
+    localX11Capabilities.setBlueBits(Bitfield.Util.bitCount((int)paramXVisualInfo.getBlue_mask()));
+    localX11Capabilities.setAlphaBits(Bitfield.Util.bitCount(i));
+    
+    return localX11Capabilities;
+  }
+  
+
+  public X11GraphicsConfiguration(X11GraphicsScreen paramX11GraphicsScreen, CapabilitiesImmutable paramCapabilitiesImmutable1, CapabilitiesImmutable paramCapabilitiesImmutable2, XVisualInfo paramXVisualInfo)
+  {
+    super(paramX11GraphicsScreen, paramCapabilitiesImmutable1, paramCapabilitiesImmutable2);
+    info = paramXVisualInfo;
+  }
+  
+  public Object clone()
+  {
+    return super.clone();
+  }
+  
+  public final XVisualInfo getXVisualInfo() {
+    return info;
+  }
+  
+  protected final void setXVisualInfo(XVisualInfo paramXVisualInfo) {
+    info = paramXVisualInfo;
+  }
+  
+  public final int getXVisualID() {
+    return null != info ? (int)info.getVisualid() : 0;
+  }
+  
+  public String toString()
+  {
+    return getClass().getSimpleName() + "[" + getScreen() + ", visualID 0x" + Long.toHexString(getXVisualID()) + ",\n\tchosen    " + capabilitiesChosen + ",\n\trequested " + capabilitiesRequested + "]";
+  }
+}

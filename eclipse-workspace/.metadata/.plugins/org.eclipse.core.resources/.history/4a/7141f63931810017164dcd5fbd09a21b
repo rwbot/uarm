@@ -1,0 +1,530 @@
+package com.jogamp.opengl.util.texture;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.util.GLPixelBuffer.GLPixelAttributes;
+import java.nio.Buffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class TextureData
+{
+  protected int width;
+  protected int height;
+  private int border;
+  protected GLPixelBuffer.GLPixelAttributes pixelAttributes;
+  protected int internalFormat;
+  protected boolean mipmap;
+  private boolean dataIsCompressed;
+  protected boolean mustFlipVertically;
+  protected Buffer buffer;
+  private Buffer[] mipmapData;
+  private Flusher flusher;
+  protected int rowLength;
+  protected int alignment;
+  protected int estimatedMemorySize;
+  protected boolean haveEXTABGR;
+  protected boolean haveGL12;
+  protected GLProfile glProfile;
+  
+  public static abstract interface Flusher
+  {
+    public abstract void flush();
+  }
+  
+  public static enum ColorSpace
+  {
+    RGB,  YCbCr,  YCCK,  CMYK;
+    
+
+
+
+
+
+
+
+
+
+
+    private ColorSpace() {}
+  }
+  
+
+
+
+
+
+
+
+
+
+  protected ColorSpace pixelCS = ColorSpace.RGB;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ImageType srcImageType;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public TextureData(GLProfile paramGLProfile, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, boolean paramBoolean1, boolean paramBoolean2, boolean paramBoolean3, Buffer paramBuffer, Flusher paramFlusher)
+    throws IllegalArgumentException
+  {
+    this(paramGLProfile, paramInt1, paramInt2, paramInt3, paramInt4, new GLPixelBuffer.GLPixelAttributes(paramInt5, paramInt6), paramBoolean1, paramBoolean2, paramBoolean3, paramBuffer, paramFlusher);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public TextureData(GLProfile paramGLProfile, int paramInt1, int paramInt2, int paramInt3, int paramInt4, GLPixelBuffer.GLPixelAttributes paramGLPixelAttributes, boolean paramBoolean1, boolean paramBoolean2, boolean paramBoolean3, Buffer paramBuffer, Flusher paramFlusher)
+    throws IllegalArgumentException
+  {
+    if ((paramBoolean1) && (paramBoolean2)) {
+      throw new IllegalArgumentException("Can not generate mipmaps for compressed textures");
+    }
+    
+    glProfile = paramGLProfile;
+    width = paramInt2;
+    height = paramInt3;
+    border = paramInt4;
+    pixelAttributes = paramGLPixelAttributes;
+    internalFormat = paramInt1;
+    mipmap = paramBoolean1;
+    dataIsCompressed = paramBoolean2;
+    mustFlipVertically = paramBoolean3;
+    buffer = paramBuffer;
+    flusher = paramFlusher;
+    alignment = 1;
+    estimatedMemorySize = estimatedMemorySize(paramBuffer);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public TextureData(GLProfile paramGLProfile, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, boolean paramBoolean1, boolean paramBoolean2, Buffer[] paramArrayOfBuffer, Flusher paramFlusher)
+    throws IllegalArgumentException
+  {
+    this(paramGLProfile, paramInt1, paramInt2, paramInt3, paramInt4, new GLPixelBuffer.GLPixelAttributes(paramInt5, paramInt6), paramBoolean1, paramBoolean2, paramArrayOfBuffer, paramFlusher);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public TextureData(GLProfile paramGLProfile, int paramInt1, int paramInt2, int paramInt3, int paramInt4, GLPixelBuffer.GLPixelAttributes paramGLPixelAttributes, boolean paramBoolean1, boolean paramBoolean2, Buffer[] paramArrayOfBuffer, Flusher paramFlusher)
+    throws IllegalArgumentException
+  {
+    glProfile = paramGLProfile;
+    width = paramInt2;
+    height = paramInt3;
+    border = paramInt4;
+    pixelAttributes = paramGLPixelAttributes;
+    internalFormat = paramInt1;
+    dataIsCompressed = paramBoolean1;
+    mustFlipVertically = paramBoolean2;
+    mipmapData = ((Buffer[])paramArrayOfBuffer.clone());
+    flusher = paramFlusher;
+    alignment = 1;
+    for (int i = 0; i < paramArrayOfBuffer.length; i++) {
+      estimatedMemorySize += estimatedMemorySize(paramArrayOfBuffer[i]);
+    }
+  }
+  
+
+
+  public ColorSpace getColorSpace()
+  {
+    return pixelCS;
+  }
+  
+
+
+
+  public void setColorSpace(ColorSpace paramColorSpace) { pixelCS = paramColorSpace; }
+  
+  protected TextureData(GLProfile paramGLProfile) {
+    glProfile = paramGLProfile;pixelAttributes = GLPixelBuffer.GLPixelAttributes.UNDEF;
+  }
+  
+
+
+  public final ImageType getSourceImageType()
+  {
+    return srcImageType;
+  }
+  
+
+  public int getWidth() { return width; }
+  
+  public int getHeight() { return height; }
+  
+  public int getBorder() {
+    return border;
+  }
+  
+  public GLPixelBuffer.GLPixelAttributes getPixelAttributes() {
+    return pixelAttributes;
+  }
+  
+  public int getPixelFormat() {
+    return pixelAttributes.format;
+  }
+  
+  public int getPixelType() {
+    return pixelAttributes.type;
+  }
+  
+  public int getInternalFormat() {
+    return internalFormat;
+  }
+  
+  public boolean getMipmap() {
+    return mipmap;
+  }
+  
+  public boolean isDataCompressed() {
+    return dataIsCompressed;
+  }
+  
+  public boolean getMustFlipVertically()
+  {
+    return mustFlipVertically;
+  }
+  
+  public Buffer getBuffer() {
+    return buffer;
+  }
+  
+  public Buffer[] getMipmapData()
+  {
+    return mipmapData;
+  }
+  
+  public int getAlignment() {
+    return alignment;
+  }
+  
+
+  public int getRowLength()
+  {
+    return rowLength;
+  }
+  
+
+  public void setWidth(int paramInt) { width = paramInt; }
+  
+  public void setHeight(int paramInt) { height = paramInt; }
+  
+  public void setBorder(int paramInt) { border = paramInt; }
+  
+  public void setPixelAttributes(GLPixelBuffer.GLPixelAttributes paramGLPixelAttributes) { pixelAttributes = paramGLPixelAttributes; }
+  
+
+
+
+
+  public void setPixelFormat(int paramInt)
+  {
+    if (pixelAttributes.format != paramInt) {
+      pixelAttributes = new GLPixelBuffer.GLPixelAttributes(paramInt, pixelAttributes.type);
+    }
+  }
+  
+
+
+
+
+  public void setPixelType(int paramInt)
+  {
+    if (pixelAttributes.type != paramInt) {
+      pixelAttributes = new GLPixelBuffer.GLPixelAttributes(pixelAttributes.format, paramInt);
+    }
+  }
+  
+  public void setInternalFormat(int paramInt) { internalFormat = paramInt; }
+  
+  public void setMipmap(boolean paramBoolean) { mipmap = paramBoolean; }
+  
+  public void setIsDataCompressed(boolean paramBoolean) { dataIsCompressed = paramBoolean; }
+  
+
+  public void setMustFlipVertically(boolean paramBoolean) { mustFlipVertically = paramBoolean; }
+  
+  public void setBuffer(Buffer paramBuffer) {
+    buffer = paramBuffer;
+    estimatedMemorySize = estimatedMemorySize(paramBuffer);
+  }
+  
+  public void setAlignment(int paramInt) { alignment = paramInt; }
+  
+  public void setRowLength(int paramInt)
+  {
+    rowLength = paramInt;
+  }
+  
+  public void setHaveEXTABGR(boolean paramBoolean)
+  {
+    haveEXTABGR = paramBoolean;
+  }
+  
+
+
+  public void setHaveGL12(boolean paramBoolean)
+  {
+    haveGL12 = paramBoolean;
+  }
+  
+  public GLProfile getGLProfile() {
+    return glProfile;
+  }
+  
+
+
+
+  public int getEstimatedMemorySize()
+  {
+    return estimatedMemorySize;
+  }
+  
+
+  public void flush()
+  {
+    if (flusher != null) {
+      flusher.flush();
+      flusher = null;
+    }
+  }
+  
+
+
+  public void destroy()
+  {
+    flush();
+  }
+  
+
+
+
+
+
+
+
+
+
+  public String toString()
+  {
+    String str = null != srcImageType ? ", " + srcImageType : "";
+    return "TextureData[" + width + "x" + height + ", y-flip " + mustFlipVertically + ", internFormat 0x" + Integer.toHexString(internalFormat) + ", " + pixelAttributes + ", border " + border + ", estSize " + estimatedMemorySize + ", alignment " + alignment + ", rowlen " + rowLength + str;
+  }
+  
+
+
+
+
+  protected static int estimatedMemorySize(Buffer paramBuffer)
+  {
+    if (paramBuffer == null) {
+      return 0;
+    }
+    return paramBuffer.capacity() * Buffers.sizeOfBufferElem(paramBuffer);
+  }
+}

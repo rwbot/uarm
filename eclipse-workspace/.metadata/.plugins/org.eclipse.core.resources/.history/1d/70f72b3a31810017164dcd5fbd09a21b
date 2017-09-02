@@ -1,0 +1,1305 @@
+package jogamp.opengl.util.glsl.fixedfunc;
+
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2;
+import com.jogamp.opengl.GL2ES1;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.GL2ES3;
+import com.jogamp.opengl.GL2GL3;
+import com.jogamp.opengl.GL3;
+import com.jogamp.opengl.GL3ES3;
+import com.jogamp.opengl.GL3bc;
+import com.jogamp.opengl.GL4;
+import com.jogamp.opengl.GL4ES3;
+import com.jogamp.opengl.GL4bc;
+import com.jogamp.opengl.GLArrayData;
+import com.jogamp.opengl.GLBufferStorage;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLES1;
+import com.jogamp.opengl.GLES2;
+import com.jogamp.opengl.GLES3;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.fixedfunc.GLLightingFunc;
+import com.jogamp.opengl.fixedfunc.GLMatrixFunc;
+import com.jogamp.opengl.fixedfunc.GLPointerFunc;
+import java.io.PrintStream;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import jogamp.opengl.Debug;
+
+
+public class FixedFuncImpl
+  implements GL, GLMatrixFunc, GLPointerFunc, GLLightingFunc, GL2ES1
+{
+  public static final boolean DEBUG = Debug.debug("FixedFuncImpl");
+  private FixedFuncHook prologFixedFuncHook;
+  
+  public FixedFuncImpl(GL2ES2 paramGL2ES2, FixedFuncHook paramFixedFuncHook) { if (paramGL2ES2 == null) {
+      throw new IllegalArgumentException("null downstreamGL2ES2");
+    }
+    downstreamGL2ES2 = paramGL2ES2;
+    prologFixedFuncHook = paramFixedFuncHook;
+  }
+  
+  private GL2ES2 downstreamGL2ES2;
+  public final GL getDownstreamGL() throws GLException {
+    return downstreamGL2ES2;
+  }
+  
+  public int getBoundBuffer(int paramInt)
+  {
+    return downstreamGL2ES2.getBoundBuffer(paramInt);
+  }
+  
+  public int getBoundFramebuffer(int paramInt)
+  {
+    return downstreamGL2ES2.getBoundFramebuffer(paramInt);
+  }
+  
+  public GLBufferStorage getBufferStorage(int paramInt)
+  {
+    return downstreamGL2ES2.getBufferStorage(paramInt);
+  }
+  
+  public GLContext getContext()
+  {
+    return downstreamGL2ES2.getContext();
+  }
+  
+  public int getDefaultDrawFramebuffer()
+  {
+    return downstreamGL2ES2.getDefaultDrawFramebuffer();
+  }
+  
+  public int getDefaultReadBuffer()
+  {
+    return downstreamGL2ES2.getDefaultReadBuffer();
+  }
+  
+  public int getDefaultReadFramebuffer()
+  {
+    return downstreamGL2ES2.getDefaultReadFramebuffer();
+  }
+  
+  public Object getExtension(String paramString)
+  {
+    return downstreamGL2ES2.getExtension(paramString);
+  }
+  
+  public GL getGL()
+  {
+    return this;
+  }
+  
+  public GL2 getGL2()
+  {
+    throw new GLException("Not a GL2 implementation");
+  }
+  
+  public GL2ES1 getGL2ES1()
+  {
+    if (isGL2ES1()) return this;
+    throw new GLException("Not a GL2ES1 implementation");
+  }
+  
+  public GL2ES2 getGL2ES2()
+  {
+    throw new GLException("Not a GL2ES2 implementation");
+  }
+  
+  public GL2ES3 getGL2ES3()
+  {
+    throw new GLException("Not a GL2ES3 implementation");
+  }
+  
+  public GL2GL3 getGL2GL3()
+  {
+    throw new GLException("Not a GL2GL3 implementation");
+  }
+  
+  public GL3 getGL3()
+  {
+    throw new GLException("Not a GL3 implementation");
+  }
+  
+  public GL3ES3 getGL3ES3()
+  {
+    throw new GLException("Not a GL3ES3 implementation");
+  }
+  
+  public GL3bc getGL3bc()
+  {
+    throw new GLException("Not a GL3bc implementation");
+  }
+  
+  public GL4 getGL4()
+  {
+    throw new GLException("Not a GL4 implementation");
+  }
+  
+  public GL4ES3 getGL4ES3()
+  {
+    throw new GLException("Not a GL4ES3 implementation");
+  }
+  
+  public GL4bc getGL4bc()
+  {
+    throw new GLException("Not a GL4bc implementation");
+  }
+  
+  public GLES1 getGLES1()
+  {
+    throw new GLException("Not a GLES1 implementation");
+  }
+  
+  public GLES2 getGLES2()
+  {
+    throw new GLException("Not a GLES2 implementation");
+  }
+  
+  public GLES3 getGLES3()
+  {
+    throw new GLException("Not a GLES3 implementation");
+  }
+  
+  public GLProfile getGLProfile()
+  {
+    return prologFixedFuncHook.getGLProfile();
+  }
+  
+  public int getMaxRenderbufferSamples()
+  {
+    return downstreamGL2ES2.getMaxRenderbufferSamples();
+  }
+  
+  public Object getPlatformGLExtensions()
+  {
+    return downstreamGL2ES2.getPlatformGLExtensions();
+  }
+  
+  public GL getRootGL()
+  {
+    return downstreamGL2ES2.getRootGL();
+  }
+  
+  public int getSwapInterval()
+  {
+    return downstreamGL2ES2.getSwapInterval();
+  }
+  
+  public void glActiveTexture(int paramInt)
+  {
+    prologFixedFuncHook.glActiveTexture(paramInt);
+  }
+  
+  public void glAlphaFunc(int paramInt, float paramFloat)
+  {
+    prologFixedFuncHook.glAlphaFunc(paramInt, paramFloat);
+  }
+  
+  public void glBindBuffer(int paramInt1, int paramInt2)
+  {
+    downstreamGL2ES2.glBindBuffer(paramInt1, paramInt2);
+  }
+  
+  public void glBindFramebuffer(int paramInt1, int paramInt2)
+  {
+    downstreamGL2ES2.glBindFramebuffer(paramInt1, paramInt2);
+  }
+  
+  public void glBindRenderbuffer(int paramInt1, int paramInt2)
+  {
+    downstreamGL2ES2.glBindRenderbuffer(paramInt1, paramInt2);
+  }
+  
+  public void glBindTexture(int paramInt1, int paramInt2)
+  {
+    prologFixedFuncHook.glBindTexture(paramInt1, paramInt2);
+  }
+  
+  public void glBlendEquation(int paramInt)
+  {
+    downstreamGL2ES2.glBlendEquation(paramInt);
+  }
+  
+  public void glBlendEquationSeparate(int paramInt1, int paramInt2)
+  {
+    downstreamGL2ES2.glBlendEquationSeparate(paramInt1, paramInt2);
+  }
+  
+  public void glBlendFunc(int paramInt1, int paramInt2)
+  {
+    downstreamGL2ES2.glBlendFunc(paramInt1, paramInt2);
+  }
+  
+  public void glBlendFuncSeparate(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    downstreamGL2ES2.glBlendFuncSeparate(paramInt1, paramInt2, paramInt3, paramInt4);
+  }
+  
+  public void glBufferData(int paramInt1, long paramLong, Buffer paramBuffer, int paramInt2)
+  {
+    downstreamGL2ES2.glBufferData(paramInt1, paramLong, paramBuffer, paramInt2);
+  }
+  
+  public void glBufferSubData(int paramInt, long paramLong1, long paramLong2, Buffer paramBuffer)
+  {
+    downstreamGL2ES2.glBufferSubData(paramInt, paramLong1, paramLong2, paramBuffer);
+  }
+  
+  public int glCheckFramebufferStatus(int paramInt)
+  {
+    return downstreamGL2ES2.glCheckFramebufferStatus(paramInt);
+  }
+  
+  public void glClear(int paramInt)
+  {
+    downstreamGL2ES2.glClear(paramInt);
+  }
+  
+  public void glClearColor(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    downstreamGL2ES2.glClearColor(paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+  }
+  
+  public void glClearDepth(double paramDouble)
+  {
+    downstreamGL2ES2.glClearDepth(paramDouble);
+  }
+  
+  public void glClearDepthf(float paramFloat)
+  {
+    downstreamGL2ES2.glClearDepthf(paramFloat);
+  }
+  
+  public void glClearStencil(int paramInt)
+  {
+    downstreamGL2ES2.glClearStencil(paramInt);
+  }
+  
+  public void glClientActiveTexture(int paramInt)
+  {
+    prologFixedFuncHook.glClientActiveTexture(paramInt);
+  }
+  
+  public void glColor4f(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    prologFixedFuncHook.glColor4f(paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+  }
+  
+  public void glColor4ub(byte paramByte1, byte paramByte2, byte paramByte3, byte paramByte4)
+  {
+    prologFixedFuncHook.glColor4ub(paramByte1, paramByte2, paramByte3, paramByte4);
+  }
+  
+  public void glColorMask(boolean paramBoolean1, boolean paramBoolean2, boolean paramBoolean3, boolean paramBoolean4)
+  {
+    downstreamGL2ES2.glColorMask(paramBoolean1, paramBoolean2, paramBoolean3, paramBoolean4);
+  }
+  
+  public void glColorPointer(int paramInt1, int paramInt2, int paramInt3, Buffer paramBuffer)
+  {
+    prologFixedFuncHook.glColorPointer(paramInt1, paramInt2, paramInt3, paramBuffer);
+  }
+  
+  public void glColorPointer(int paramInt1, int paramInt2, int paramInt3, long paramLong)
+  {
+    prologFixedFuncHook.glColorPointer(paramInt1, paramInt2, paramInt3, paramLong);
+  }
+  
+  public void glColorPointer(GLArrayData paramGLArrayData)
+  {
+    prologFixedFuncHook.glColorPointer(paramGLArrayData);
+  }
+  
+  public void glCompressedTexImage2D(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, Buffer paramBuffer)
+  {
+    downstreamGL2ES2.glCompressedTexImage2D(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramBuffer);
+  }
+  
+  public void glCompressedTexImage2D(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, long paramLong)
+  {
+    downstreamGL2ES2.glCompressedTexImage2D(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramLong);
+  }
+  
+  public void glCompressedTexSubImage2D(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, Buffer paramBuffer)
+  {
+    downstreamGL2ES2.glCompressedTexSubImage2D(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8, paramBuffer);
+  }
+  
+  public void glCompressedTexSubImage2D(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, long paramLong)
+  {
+    downstreamGL2ES2.glCompressedTexSubImage2D(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8, paramLong);
+  }
+  
+  public void glCopyTexImage2D(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8)
+  {
+    downstreamGL2ES2.glCopyTexImage2D(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8);
+  }
+  
+  public void glCopyTexSubImage2D(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8)
+  {
+    downstreamGL2ES2.glCopyTexSubImage2D(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8);
+  }
+  
+  public void glCullFace(int paramInt)
+  {
+    downstreamGL2ES2.glCullFace(paramInt);
+  }
+  
+  public void glDeleteBuffers(int paramInt, IntBuffer paramIntBuffer)
+  {
+    downstreamGL2ES2.glDeleteBuffers(paramInt, paramIntBuffer);
+  }
+  
+  public void glDeleteBuffers(int paramInt1, int[] paramArrayOfInt, int paramInt2)
+  {
+    downstreamGL2ES2.glDeleteBuffers(paramInt1, paramArrayOfInt, paramInt2);
+  }
+  
+  public void glDeleteFramebuffers(int paramInt, IntBuffer paramIntBuffer)
+  {
+    downstreamGL2ES2.glDeleteFramebuffers(paramInt, paramIntBuffer);
+  }
+  
+  public void glDeleteFramebuffers(int paramInt1, int[] paramArrayOfInt, int paramInt2)
+  {
+    downstreamGL2ES2.glDeleteFramebuffers(paramInt1, paramArrayOfInt, paramInt2);
+  }
+  
+  public void glDeleteRenderbuffers(int paramInt1, int[] paramArrayOfInt, int paramInt2)
+  {
+    downstreamGL2ES2.glDeleteRenderbuffers(paramInt1, paramArrayOfInt, paramInt2);
+  }
+  
+  public void glDeleteRenderbuffers(int paramInt, IntBuffer paramIntBuffer)
+  {
+    downstreamGL2ES2.glDeleteRenderbuffers(paramInt, paramIntBuffer);
+  }
+  
+  public void glDeleteTextures(int paramInt1, int[] paramArrayOfInt, int paramInt2)
+  {
+    downstreamGL2ES2.glDeleteTextures(paramInt1, paramArrayOfInt, paramInt2);
+  }
+  
+  public void glDeleteTextures(int paramInt, IntBuffer paramIntBuffer)
+  {
+    downstreamGL2ES2.glDeleteTextures(paramInt, paramIntBuffer);
+  }
+  
+  public void glDepthFunc(int paramInt)
+  {
+    downstreamGL2ES2.glDepthFunc(paramInt);
+  }
+  
+  public void glDepthMask(boolean paramBoolean)
+  {
+    downstreamGL2ES2.glDepthMask(paramBoolean);
+  }
+  
+  public void glDepthRange(double paramDouble1, double paramDouble2)
+  {
+    downstreamGL2ES2.glDepthRange(paramDouble1, paramDouble2);
+  }
+  
+  public void glDepthRangef(float paramFloat1, float paramFloat2)
+  {
+    downstreamGL2ES2.glDepthRangef(paramFloat1, paramFloat2);
+  }
+  
+  public void glDisable(int paramInt)
+  {
+    prologFixedFuncHook.glDisable(paramInt);
+  }
+  
+  public void glDisableClientState(int paramInt)
+  {
+    prologFixedFuncHook.glDisableClientState(paramInt);
+  }
+  
+  public void glDrawArrays(int paramInt1, int paramInt2, int paramInt3)
+  {
+    prologFixedFuncHook.glDrawArrays(paramInt1, paramInt2, paramInt3);
+  }
+  
+  public void glDrawElements(int paramInt1, int paramInt2, int paramInt3, Buffer paramBuffer)
+  {
+    prologFixedFuncHook.glDrawElements(paramInt1, paramInt2, paramInt3, paramBuffer);
+  }
+  
+  public void glDrawElements(int paramInt1, int paramInt2, int paramInt3, long paramLong)
+  {
+    prologFixedFuncHook.glDrawElements(paramInt1, paramInt2, paramInt3, paramLong);
+  }
+  
+  public void glEnable(int paramInt)
+  {
+    prologFixedFuncHook.glEnable(paramInt);
+  }
+  
+  public void glEnableClientState(int paramInt)
+  {
+    prologFixedFuncHook.glEnableClientState(paramInt);
+  }
+  
+  public void glFinish()
+  {
+    downstreamGL2ES2.glFinish();
+  }
+  
+  public void glFlush()
+  {
+    downstreamGL2ES2.glFlush();
+  }
+  
+  public void glFlushMappedBufferRange(int paramInt, long paramLong1, long paramLong2)
+  {
+    downstreamGL2ES2.glFlushMappedBufferRange(paramInt, paramLong1, paramLong2);
+  }
+  
+  public void glFogf(int paramInt, float paramFloat)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glFogf(<int> 0x" + Integer.toHexString(paramInt).toUpperCase() + ", " + "<float> " + paramFloat + ")");
+  }
+  
+  public void glFogfv(int paramInt, FloatBuffer paramFloatBuffer)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glFogfv(<int> 0x" + Integer.toHexString(paramInt).toUpperCase() + ", " + "<java.nio.FloatBuffer> " + paramFloatBuffer + ")");
+  }
+  
+  public void glFogfv(int paramInt1, float[] paramArrayOfFloat, int paramInt2)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glFogfv(<int> 0x" + Integer.toHexString(paramInt1).toUpperCase() + ", " + "<[F>" + ", " + "<int> 0x" + Integer.toHexString(paramInt2).toUpperCase() + ")");
+  }
+  
+  public void glFramebufferRenderbuffer(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    downstreamGL2ES2.glFramebufferRenderbuffer(paramInt1, paramInt2, paramInt3, paramInt4);
+  }
+  
+  public void glFramebufferTexture2D(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5)
+  {
+    downstreamGL2ES2.glFramebufferTexture2D(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5);
+  }
+  
+  public void glFrontFace(int paramInt)
+  {
+    downstreamGL2ES2.glFrontFace(paramInt);
+  }
+  
+  public void glFrustum(double paramDouble1, double paramDouble2, double paramDouble3, double paramDouble4, double paramDouble5, double paramDouble6)
+  {
+    prologFixedFuncHook.glFrustum(paramDouble1, paramDouble2, paramDouble3, paramDouble4, paramDouble5, paramDouble6);
+  }
+  
+  public void glFrustumf(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6)
+  {
+    prologFixedFuncHook.glFrustumf(paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramFloat5, paramFloat6);
+  }
+  
+  public void glGenBuffers(int paramInt, IntBuffer paramIntBuffer)
+  {
+    downstreamGL2ES2.glGenBuffers(paramInt, paramIntBuffer);
+  }
+  
+  public void glGenBuffers(int paramInt1, int[] paramArrayOfInt, int paramInt2)
+  {
+    downstreamGL2ES2.glGenBuffers(paramInt1, paramArrayOfInt, paramInt2);
+  }
+  
+  public void glGenFramebuffers(int paramInt, IntBuffer paramIntBuffer)
+  {
+    downstreamGL2ES2.glGenFramebuffers(paramInt, paramIntBuffer);
+  }
+  
+  public void glGenFramebuffers(int paramInt1, int[] paramArrayOfInt, int paramInt2)
+  {
+    downstreamGL2ES2.glGenFramebuffers(paramInt1, paramArrayOfInt, paramInt2);
+  }
+  
+  public void glGenRenderbuffers(int paramInt, IntBuffer paramIntBuffer)
+  {
+    downstreamGL2ES2.glGenRenderbuffers(paramInt, paramIntBuffer);
+  }
+  
+  public void glGenRenderbuffers(int paramInt1, int[] paramArrayOfInt, int paramInt2)
+  {
+    downstreamGL2ES2.glGenRenderbuffers(paramInt1, paramArrayOfInt, paramInt2);
+  }
+  
+  public void glGenTextures(int paramInt1, int[] paramArrayOfInt, int paramInt2)
+  {
+    downstreamGL2ES2.glGenTextures(paramInt1, paramArrayOfInt, paramInt2);
+  }
+  
+  public void glGenTextures(int paramInt, IntBuffer paramIntBuffer)
+  {
+    downstreamGL2ES2.glGenTextures(paramInt, paramIntBuffer);
+  }
+  
+  public void glGenerateMipmap(int paramInt)
+  {
+    downstreamGL2ES2.glGenerateMipmap(paramInt);
+  }
+  
+  public void glGetBooleanv(int paramInt1, byte[] paramArrayOfByte, int paramInt2)
+  {
+    downstreamGL2ES2.glGetBooleanv(paramInt1, paramArrayOfByte, paramInt2);
+  }
+  
+  public void glGetBooleanv(int paramInt, ByteBuffer paramByteBuffer)
+  {
+    downstreamGL2ES2.glGetBooleanv(paramInt, paramByteBuffer);
+  }
+  
+  public void glGetBufferParameteriv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer)
+  {
+    downstreamGL2ES2.glGetBufferParameteriv(paramInt1, paramInt2, paramIntBuffer);
+  }
+  
+  public void glGetBufferParameteriv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3)
+  {
+    downstreamGL2ES2.glGetBufferParameteriv(paramInt1, paramInt2, paramArrayOfInt, paramInt3);
+  }
+  
+  public int glGetError()
+  {
+    return downstreamGL2ES2.glGetError();
+  }
+  
+  public void glGetFloatv(int paramInt, FloatBuffer paramFloatBuffer)
+  {
+    prologFixedFuncHook.glGetFloatv(paramInt, paramFloatBuffer);
+  }
+  
+  public void glGetFloatv(int paramInt1, float[] paramArrayOfFloat, int paramInt2)
+  {
+    prologFixedFuncHook.glGetFloatv(paramInt1, paramArrayOfFloat, paramInt2);
+  }
+  
+  public void glGetFramebufferAttachmentParameteriv(int paramInt1, int paramInt2, int paramInt3, IntBuffer paramIntBuffer)
+  {
+    downstreamGL2ES2.glGetFramebufferAttachmentParameteriv(paramInt1, paramInt2, paramInt3, paramIntBuffer);
+  }
+  
+  public void glGetFramebufferAttachmentParameteriv(int paramInt1, int paramInt2, int paramInt3, int[] paramArrayOfInt, int paramInt4)
+  {
+    downstreamGL2ES2.glGetFramebufferAttachmentParameteriv(paramInt1, paramInt2, paramInt3, paramArrayOfInt, paramInt4);
+  }
+  
+  public int glGetGraphicsResetStatus()
+  {
+    return downstreamGL2ES2.glGetGraphicsResetStatus();
+  }
+  
+  public void glGetIntegerv(int paramInt, IntBuffer paramIntBuffer)
+  {
+    prologFixedFuncHook.glGetIntegerv(paramInt, paramIntBuffer);
+  }
+  
+  public void glGetIntegerv(int paramInt1, int[] paramArrayOfInt, int paramInt2)
+  {
+    prologFixedFuncHook.glGetIntegerv(paramInt1, paramArrayOfInt, paramInt2);
+  }
+  
+  public void glGetLightfv(int paramInt1, int paramInt2, FloatBuffer paramFloatBuffer)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glGetLightfv(<int> 0x" + Integer.toHexString(paramInt1).toUpperCase() + ", " + "<int> 0x" + Integer.toHexString(paramInt2).toUpperCase() + ", " + "<java.nio.FloatBuffer> " + paramFloatBuffer + ")");
+  }
+  
+  public void glGetLightfv(int paramInt1, int paramInt2, float[] paramArrayOfFloat, int paramInt3)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glGetLightfv(<int> 0x" + Integer.toHexString(paramInt1).toUpperCase() + ", " + "<int> 0x" + Integer.toHexString(paramInt2).toUpperCase() + ", " + "<[F>" + ", " + "<int> 0x" + Integer.toHexString(paramInt3).toUpperCase() + ")");
+  }
+  
+  public void glGetMaterialfv(int paramInt1, int paramInt2, float[] paramArrayOfFloat, int paramInt3)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glGetMaterialfv(<int> 0x" + Integer.toHexString(paramInt1).toUpperCase() + ", " + "<int> 0x" + Integer.toHexString(paramInt2).toUpperCase() + ", " + "<[F>" + ", " + "<int> 0x" + Integer.toHexString(paramInt3).toUpperCase() + ")");
+  }
+  
+  public void glGetMaterialfv(int paramInt1, int paramInt2, FloatBuffer paramFloatBuffer)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glGetMaterialfv(<int> 0x" + Integer.toHexString(paramInt1).toUpperCase() + ", " + "<int> 0x" + Integer.toHexString(paramInt2).toUpperCase() + ", " + "<java.nio.FloatBuffer> " + paramFloatBuffer + ")");
+  }
+  
+  public void glGetRenderbufferParameteriv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer)
+  {
+    downstreamGL2ES2.glGetRenderbufferParameteriv(paramInt1, paramInt2, paramIntBuffer);
+  }
+  
+  public void glGetRenderbufferParameteriv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3)
+  {
+    downstreamGL2ES2.glGetRenderbufferParameteriv(paramInt1, paramInt2, paramArrayOfInt, paramInt3);
+  }
+  
+  public String glGetString(int paramInt)
+  {
+    return downstreamGL2ES2.glGetString(paramInt);
+  }
+  
+  public void glGetTexEnvfv(int paramInt1, int paramInt2, FloatBuffer paramFloatBuffer)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glGetTexEnvfv(<int> 0x" + Integer.toHexString(paramInt1).toUpperCase() + ", " + "<int> 0x" + Integer.toHexString(paramInt2).toUpperCase() + ", " + "<java.nio.FloatBuffer> " + paramFloatBuffer + ")");
+  }
+  
+  public void glGetTexEnvfv(int paramInt1, int paramInt2, float[] paramArrayOfFloat, int paramInt3)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glGetTexEnvfv(<int> 0x" + Integer.toHexString(paramInt1).toUpperCase() + ", " + "<int> 0x" + Integer.toHexString(paramInt2).toUpperCase() + ", " + "<[F>" + ", " + "<int> 0x" + Integer.toHexString(paramInt3).toUpperCase() + ")");
+  }
+  
+  public void glGetTexEnviv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3)
+  {
+    prologFixedFuncHook.glGetTexEnviv(paramInt1, paramInt2, paramArrayOfInt, paramInt3);
+  }
+  
+  public void glGetTexEnviv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer)
+  {
+    prologFixedFuncHook.glGetTexEnviv(paramInt1, paramInt2, paramIntBuffer);
+  }
+  
+  public void glGetTexParameterfv(int paramInt1, int paramInt2, float[] paramArrayOfFloat, int paramInt3)
+  {
+    downstreamGL2ES2.glGetTexParameterfv(paramInt1, paramInt2, paramArrayOfFloat, paramInt3);
+  }
+  
+  public void glGetTexParameterfv(int paramInt1, int paramInt2, FloatBuffer paramFloatBuffer)
+  {
+    downstreamGL2ES2.glGetTexParameterfv(paramInt1, paramInt2, paramFloatBuffer);
+  }
+  
+  public void glGetTexParameteriv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3)
+  {
+    downstreamGL2ES2.glGetTexParameteriv(paramInt1, paramInt2, paramArrayOfInt, paramInt3);
+  }
+  
+  public void glGetTexParameteriv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer)
+  {
+    downstreamGL2ES2.glGetTexParameteriv(paramInt1, paramInt2, paramIntBuffer);
+  }
+  
+  public void glGetnUniformfv(int paramInt1, int paramInt2, int paramInt3, FloatBuffer paramFloatBuffer)
+  {
+    downstreamGL2ES2.glGetnUniformfv(paramInt1, paramInt2, paramInt3, paramFloatBuffer);
+  }
+  
+  public void glGetnUniformfv(int paramInt1, int paramInt2, int paramInt3, float[] paramArrayOfFloat, int paramInt4)
+  {
+    downstreamGL2ES2.glGetnUniformfv(paramInt1, paramInt2, paramInt3, paramArrayOfFloat, paramInt4);
+  }
+  
+  public void glGetnUniformiv(int paramInt1, int paramInt2, int paramInt3, int[] paramArrayOfInt, int paramInt4)
+  {
+    downstreamGL2ES2.glGetnUniformiv(paramInt1, paramInt2, paramInt3, paramArrayOfInt, paramInt4);
+  }
+  
+  public void glGetnUniformiv(int paramInt1, int paramInt2, int paramInt3, IntBuffer paramIntBuffer)
+  {
+    downstreamGL2ES2.glGetnUniformiv(paramInt1, paramInt2, paramInt3, paramIntBuffer);
+  }
+  
+  public void glHint(int paramInt1, int paramInt2)
+  {
+    downstreamGL2ES2.glHint(paramInt1, paramInt2);
+  }
+  
+  public boolean glIsBuffer(int paramInt)
+  {
+    return downstreamGL2ES2.glIsBuffer(paramInt);
+  }
+  
+  public boolean glIsEnabled(int paramInt)
+  {
+    return downstreamGL2ES2.glIsEnabled(paramInt);
+  }
+  
+  public boolean glIsFramebuffer(int paramInt)
+  {
+    return downstreamGL2ES2.glIsFramebuffer(paramInt);
+  }
+  
+  public boolean glIsRenderbuffer(int paramInt)
+  {
+    return downstreamGL2ES2.glIsRenderbuffer(paramInt);
+  }
+  
+  public boolean glIsTexture(int paramInt)
+  {
+    return downstreamGL2ES2.glIsTexture(paramInt);
+  }
+  
+  public void glLightModelf(int paramInt, float paramFloat)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glLightModelf(<int> 0x" + Integer.toHexString(paramInt).toUpperCase() + ", " + "<float> " + paramFloat + ")");
+  }
+  
+  public void glLightModelfv(int paramInt, FloatBuffer paramFloatBuffer)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glLightModelfv(<int> 0x" + Integer.toHexString(paramInt).toUpperCase() + ", " + "<java.nio.FloatBuffer> " + paramFloatBuffer + ")");
+  }
+  
+  public void glLightModelfv(int paramInt1, float[] paramArrayOfFloat, int paramInt2)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glLightModelfv(<int> 0x" + Integer.toHexString(paramInt1).toUpperCase() + ", " + "<[F>" + ", " + "<int> 0x" + Integer.toHexString(paramInt2).toUpperCase() + ")");
+  }
+  
+  public void glLightf(int paramInt1, int paramInt2, float paramFloat)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glLightf(<int> 0x" + Integer.toHexString(paramInt1).toUpperCase() + ", " + "<int> 0x" + Integer.toHexString(paramInt2).toUpperCase() + ", " + "<float> " + paramFloat + ")");
+  }
+  
+  public void glLightfv(int paramInt1, int paramInt2, float[] paramArrayOfFloat, int paramInt3)
+  {
+    prologFixedFuncHook.glLightfv(paramInt1, paramInt2, paramArrayOfFloat, paramInt3);
+  }
+  
+  public void glLightfv(int paramInt1, int paramInt2, FloatBuffer paramFloatBuffer)
+  {
+    prologFixedFuncHook.glLightfv(paramInt1, paramInt2, paramFloatBuffer);
+  }
+  
+  public void glLineWidth(float paramFloat)
+  {
+    downstreamGL2ES2.glLineWidth(paramFloat);
+  }
+  
+  public void glLoadIdentity()
+  {
+    prologFixedFuncHook.glLoadIdentity();
+  }
+  
+  public void glLoadMatrixf(float[] paramArrayOfFloat, int paramInt)
+  {
+    prologFixedFuncHook.glLoadMatrixf(paramArrayOfFloat, paramInt);
+  }
+  
+  public void glLoadMatrixf(FloatBuffer paramFloatBuffer)
+  {
+    prologFixedFuncHook.glLoadMatrixf(paramFloatBuffer);
+  }
+  
+  public void glLogicOp(int paramInt)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glLogicOp(<int> 0x" + Integer.toHexString(paramInt).toUpperCase() + ")");
+  }
+  
+  public ByteBuffer glMapBuffer(int paramInt1, int paramInt2)
+  {
+    return downstreamGL2ES2.glMapBuffer(paramInt1, paramInt2);
+  }
+  
+  public ByteBuffer glMapBufferRange(int paramInt1, long paramLong1, long paramLong2, int paramInt2)
+  {
+    return downstreamGL2ES2.glMapBufferRange(paramInt1, paramLong1, paramLong2, paramInt2);
+  }
+  
+  public void glMaterialf(int paramInt1, int paramInt2, float paramFloat)
+  {
+    prologFixedFuncHook.glMaterialf(paramInt1, paramInt2, paramFloat);
+  }
+  
+  public void glMaterialfv(int paramInt1, int paramInt2, float[] paramArrayOfFloat, int paramInt3)
+  {
+    prologFixedFuncHook.glMaterialfv(paramInt1, paramInt2, paramArrayOfFloat, paramInt3);
+  }
+  
+  public void glMaterialfv(int paramInt1, int paramInt2, FloatBuffer paramFloatBuffer)
+  {
+    prologFixedFuncHook.glMaterialfv(paramInt1, paramInt2, paramFloatBuffer);
+  }
+  
+  public void glMatrixMode(int paramInt)
+  {
+    prologFixedFuncHook.glMatrixMode(paramInt);
+  }
+  
+  public void glMultMatrixf(FloatBuffer paramFloatBuffer)
+  {
+    prologFixedFuncHook.glMultMatrixf(paramFloatBuffer);
+  }
+  
+  public void glMultMatrixf(float[] paramArrayOfFloat, int paramInt)
+  {
+    prologFixedFuncHook.glMultMatrixf(paramArrayOfFloat, paramInt);
+  }
+  
+  public void glMultiTexCoord4f(int paramInt, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glMultiTexCoord4f(<int> 0x" + Integer.toHexString(paramInt).toUpperCase() + ", " + "<float> " + paramFloat1 + ", " + "<float> " + paramFloat2 + ", " + "<float> " + paramFloat3 + ", " + "<float> " + paramFloat4 + ")");
+  }
+  
+  public void glNormal3f(float paramFloat1, float paramFloat2, float paramFloat3)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glNormal3f(<float> " + paramFloat1 + ", " + "<float> " + paramFloat2 + ", " + "<float> " + paramFloat3 + ")");
+  }
+  
+  public void glNormalPointer(GLArrayData paramGLArrayData)
+  {
+    prologFixedFuncHook.glNormalPointer(paramGLArrayData);
+  }
+  
+  public void glNormalPointer(int paramInt1, int paramInt2, Buffer paramBuffer)
+  {
+    prologFixedFuncHook.glNormalPointer(paramInt1, paramInt2, paramBuffer);
+  }
+  
+  public void glNormalPointer(int paramInt1, int paramInt2, long paramLong)
+  {
+    prologFixedFuncHook.glNormalPointer(paramInt1, paramInt2, paramLong);
+  }
+  
+  public void glOrtho(double paramDouble1, double paramDouble2, double paramDouble3, double paramDouble4, double paramDouble5, double paramDouble6)
+  {
+    prologFixedFuncHook.glOrtho(paramDouble1, paramDouble2, paramDouble3, paramDouble4, paramDouble5, paramDouble6);
+  }
+  
+  public void glOrthof(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6)
+  {
+    prologFixedFuncHook.glOrthof(paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramFloat5, paramFloat6);
+  }
+  
+  public void glPixelStorei(int paramInt1, int paramInt2)
+  {
+    downstreamGL2ES2.glPixelStorei(paramInt1, paramInt2);
+  }
+  
+  public void glPointParameterf(int paramInt, float paramFloat)
+  {
+    prologFixedFuncHook.glPointParameterf(paramInt, paramFloat);
+  }
+  
+  public void glPointParameterfv(int paramInt, FloatBuffer paramFloatBuffer)
+  {
+    prologFixedFuncHook.glPointParameterfv(paramInt, paramFloatBuffer);
+  }
+  
+  public void glPointParameterfv(int paramInt1, float[] paramArrayOfFloat, int paramInt2)
+  {
+    prologFixedFuncHook.glPointParameterfv(paramInt1, paramArrayOfFloat, paramInt2);
+  }
+  
+  public void glPointSize(float paramFloat)
+  {
+    prologFixedFuncHook.glPointSize(paramFloat);
+  }
+  
+  public void glPolygonOffset(float paramFloat1, float paramFloat2)
+  {
+    downstreamGL2ES2.glPolygonOffset(paramFloat1, paramFloat2);
+  }
+  
+  public void glPopMatrix()
+  {
+    prologFixedFuncHook.glPopMatrix();
+  }
+  
+  public void glPushMatrix()
+  {
+    prologFixedFuncHook.glPushMatrix();
+  }
+  
+  public void glReadPixels(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, Buffer paramBuffer)
+  {
+    downstreamGL2ES2.glReadPixels(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramBuffer);
+  }
+  
+  public void glReadPixels(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, long paramLong)
+  {
+    downstreamGL2ES2.glReadPixels(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramLong);
+  }
+  
+  public void glReadnPixels(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, Buffer paramBuffer)
+  {
+    downstreamGL2ES2.glReadnPixels(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramBuffer);
+  }
+  
+  public void glRenderbufferStorage(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    downstreamGL2ES2.glRenderbufferStorage(paramInt1, paramInt2, paramInt3, paramInt4);
+  }
+  
+  public void glRenderbufferStorageMultisample(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5)
+  {
+    downstreamGL2ES2.glRenderbufferStorageMultisample(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5);
+  }
+  
+  public void glRotatef(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    prologFixedFuncHook.glRotatef(paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+  }
+  
+  public void glSampleCoverage(float paramFloat, boolean paramBoolean)
+  {
+    downstreamGL2ES2.glSampleCoverage(paramFloat, paramBoolean);
+  }
+  
+  public void glScalef(float paramFloat1, float paramFloat2, float paramFloat3)
+  {
+    prologFixedFuncHook.glScalef(paramFloat1, paramFloat2, paramFloat3);
+  }
+  
+  public void glScissor(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    downstreamGL2ES2.glScissor(paramInt1, paramInt2, paramInt3, paramInt4);
+  }
+  
+  public void glShadeModel(int paramInt)
+  {
+    prologFixedFuncHook.glShadeModel(paramInt);
+  }
+  
+  public void glStencilFunc(int paramInt1, int paramInt2, int paramInt3)
+  {
+    downstreamGL2ES2.glStencilFunc(paramInt1, paramInt2, paramInt3);
+  }
+  
+  public void glStencilMask(int paramInt)
+  {
+    downstreamGL2ES2.glStencilMask(paramInt);
+  }
+  
+  public void glStencilOp(int paramInt1, int paramInt2, int paramInt3)
+  {
+    downstreamGL2ES2.glStencilOp(paramInt1, paramInt2, paramInt3);
+  }
+  
+  public void glTexCoordPointer(GLArrayData paramGLArrayData)
+  {
+    prologFixedFuncHook.glTexCoordPointer(paramGLArrayData);
+  }
+  
+  public void glTexCoordPointer(int paramInt1, int paramInt2, int paramInt3, long paramLong)
+  {
+    prologFixedFuncHook.glTexCoordPointer(paramInt1, paramInt2, paramInt3, paramLong);
+  }
+  
+  public void glTexCoordPointer(int paramInt1, int paramInt2, int paramInt3, Buffer paramBuffer)
+  {
+    prologFixedFuncHook.glTexCoordPointer(paramInt1, paramInt2, paramInt3, paramBuffer);
+  }
+  
+  public void glTexEnvf(int paramInt1, int paramInt2, float paramFloat)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glTexEnvf(<int> 0x" + Integer.toHexString(paramInt1).toUpperCase() + ", " + "<int> 0x" + Integer.toHexString(paramInt2).toUpperCase() + ", " + "<float> " + paramFloat + ")");
+  }
+  
+  public void glTexEnvfv(int paramInt1, int paramInt2, FloatBuffer paramFloatBuffer)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glTexEnvfv(<int> 0x" + Integer.toHexString(paramInt1).toUpperCase() + ", " + "<int> 0x" + Integer.toHexString(paramInt2).toUpperCase() + ", " + "<java.nio.FloatBuffer> " + paramFloatBuffer + ")");
+  }
+  
+  public void glTexEnvfv(int paramInt1, int paramInt2, float[] paramArrayOfFloat, int paramInt3)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glTexEnvfv(<int> 0x" + Integer.toHexString(paramInt1).toUpperCase() + ", " + "<int> 0x" + Integer.toHexString(paramInt2).toUpperCase() + ", " + "<[F>" + ", " + "<int> 0x" + Integer.toHexString(paramInt3).toUpperCase() + ")");
+  }
+  
+  public void glTexEnvi(int paramInt1, int paramInt2, int paramInt3)
+  {
+    prologFixedFuncHook.glTexEnvi(paramInt1, paramInt2, paramInt3);
+  }
+  
+  public void glTexEnviv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glTexEnviv(<int> 0x" + Integer.toHexString(paramInt1).toUpperCase() + ", " + "<int> 0x" + Integer.toHexString(paramInt2).toUpperCase() + ", " + "<java.nio.IntBuffer> " + paramIntBuffer + ")");
+  }
+  
+  public void glTexEnviv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3)
+  {
+    if (DEBUG) System.out.println("WARNING: No prolog, no downstream, empty: glTexEnviv(<int> 0x" + Integer.toHexString(paramInt1).toUpperCase() + ", " + "<int> 0x" + Integer.toHexString(paramInt2).toUpperCase() + ", " + "<[I>" + ", " + "<int> 0x" + Integer.toHexString(paramInt3).toUpperCase() + ")");
+  }
+  
+  public void glTexImage2D(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, long paramLong)
+  {
+    prologFixedFuncHook.glTexImage2D(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8, paramLong);
+  }
+  
+  public void glTexImage2D(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, Buffer paramBuffer)
+  {
+    prologFixedFuncHook.glTexImage2D(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8, paramBuffer);
+  }
+  
+  public void glTexParameterf(int paramInt1, int paramInt2, float paramFloat)
+  {
+    downstreamGL2ES2.glTexParameterf(paramInt1, paramInt2, paramFloat);
+  }
+  
+  public void glTexParameterfv(int paramInt1, int paramInt2, float[] paramArrayOfFloat, int paramInt3)
+  {
+    downstreamGL2ES2.glTexParameterfv(paramInt1, paramInt2, paramArrayOfFloat, paramInt3);
+  }
+  
+  public void glTexParameterfv(int paramInt1, int paramInt2, FloatBuffer paramFloatBuffer)
+  {
+    downstreamGL2ES2.glTexParameterfv(paramInt1, paramInt2, paramFloatBuffer);
+  }
+  
+  public void glTexParameteri(int paramInt1, int paramInt2, int paramInt3)
+  {
+    downstreamGL2ES2.glTexParameteri(paramInt1, paramInt2, paramInt3);
+  }
+  
+  public void glTexParameteriv(int paramInt1, int paramInt2, IntBuffer paramIntBuffer)
+  {
+    downstreamGL2ES2.glTexParameteriv(paramInt1, paramInt2, paramIntBuffer);
+  }
+  
+  public void glTexParameteriv(int paramInt1, int paramInt2, int[] paramArrayOfInt, int paramInt3)
+  {
+    downstreamGL2ES2.glTexParameteriv(paramInt1, paramInt2, paramArrayOfInt, paramInt3);
+  }
+  
+  public void glTexStorage1D(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    downstreamGL2ES2.glTexStorage1D(paramInt1, paramInt2, paramInt3, paramInt4);
+  }
+  
+  public void glTexStorage2D(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5)
+  {
+    downstreamGL2ES2.glTexStorage2D(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5);
+  }
+  
+  public void glTexStorage3D(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6)
+  {
+    downstreamGL2ES2.glTexStorage3D(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6);
+  }
+  
+  public void glTexSubImage2D(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, Buffer paramBuffer)
+  {
+    downstreamGL2ES2.glTexSubImage2D(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8, paramBuffer);
+  }
+  
+  public void glTexSubImage2D(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, long paramLong)
+  {
+    downstreamGL2ES2.glTexSubImage2D(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8, paramLong);
+  }
+  
+  public void glTextureStorage1DEXT(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5)
+  {
+    downstreamGL2ES2.glTextureStorage1DEXT(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5);
+  }
+  
+  public void glTextureStorage2DEXT(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6)
+  {
+    downstreamGL2ES2.glTextureStorage2DEXT(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6);
+  }
+  
+  public void glTextureStorage3DEXT(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7)
+  {
+    downstreamGL2ES2.glTextureStorage3DEXT(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7);
+  }
+  
+  public void glTranslatef(float paramFloat1, float paramFloat2, float paramFloat3)
+  {
+    prologFixedFuncHook.glTranslatef(paramFloat1, paramFloat2, paramFloat3);
+  }
+  
+  public boolean glUnmapBuffer(int paramInt)
+  {
+    return downstreamGL2ES2.glUnmapBuffer(paramInt);
+  }
+  
+  public void glVertexPointer(GLArrayData paramGLArrayData)
+  {
+    prologFixedFuncHook.glVertexPointer(paramGLArrayData);
+  }
+  
+  public void glVertexPointer(int paramInt1, int paramInt2, int paramInt3, Buffer paramBuffer)
+  {
+    prologFixedFuncHook.glVertexPointer(paramInt1, paramInt2, paramInt3, paramBuffer);
+  }
+  
+  public void glVertexPointer(int paramInt1, int paramInt2, int paramInt3, long paramLong)
+  {
+    prologFixedFuncHook.glVertexPointer(paramInt1, paramInt2, paramInt3, paramLong);
+  }
+  
+  public void glViewport(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    downstreamGL2ES2.glViewport(paramInt1, paramInt2, paramInt3, paramInt4);
+  }
+  
+  public boolean hasBasicFBOSupport()
+  {
+    return downstreamGL2ES2.hasBasicFBOSupport();
+  }
+  
+  public boolean hasFullFBOSupport()
+  {
+    return downstreamGL2ES2.hasFullFBOSupport();
+  }
+  
+  public boolean hasGLSL()
+  {
+    return downstreamGL2ES2.hasGLSL();
+  }
+  
+  public boolean isExtensionAvailable(String paramString)
+  {
+    return downstreamGL2ES2.isExtensionAvailable(paramString);
+  }
+  
+  public boolean isFunctionAvailable(String paramString)
+  {
+    return downstreamGL2ES2.isFunctionAvailable(paramString);
+  }
+  
+  public boolean isGL()
+  {
+    return true;
+  }
+  
+  public boolean isGL2()
+  {
+    return false;
+  }
+  
+  public boolean isGL2ES1()
+  {
+    return true;
+  }
+  
+  public boolean isGL2ES2()
+  {
+    return false;
+  }
+  
+  public boolean isGL2ES3()
+  {
+    return false;
+  }
+  
+  public boolean isGL2GL3()
+  {
+    return false;
+  }
+  
+  public boolean isGL3()
+  {
+    return false;
+  }
+  
+  public boolean isGL3ES3()
+  {
+    return false;
+  }
+  
+  public boolean isGL3bc()
+  {
+    return false;
+  }
+  
+  public boolean isGL3core()
+  {
+    return prologFixedFuncHook.isGL3core();
+  }
+  
+  public boolean isGL4()
+  {
+    return false;
+  }
+  
+  public boolean isGL4ES3()
+  {
+    return false;
+  }
+  
+  public boolean isGL4bc()
+  {
+    return false;
+  }
+  
+  public boolean isGL4core()
+  {
+    return prologFixedFuncHook.isGL4core();
+  }
+  
+  public boolean isGLES()
+  {
+    return downstreamGL2ES2.isGLES();
+  }
+  
+  public boolean isGLES1()
+  {
+    return false;
+  }
+  
+  public boolean isGLES2()
+  {
+    return false;
+  }
+  
+  public boolean isGLES2Compatible()
+  {
+    return prologFixedFuncHook.isGLES2Compatible();
+  }
+  
+  public boolean isGLES3()
+  {
+    return false;
+  }
+  
+  public boolean isGLES31Compatible()
+  {
+    return downstreamGL2ES2.isGLES31Compatible();
+  }
+  
+  public boolean isGLES32Compatible()
+  {
+    return downstreamGL2ES2.isGLES32Compatible();
+  }
+  
+  public boolean isGLES3Compatible()
+  {
+    return prologFixedFuncHook.isGLES3Compatible();
+  }
+  
+  public boolean isGLcore()
+  {
+    return prologFixedFuncHook.isGLcore();
+  }
+  
+  public boolean isNPOTTextureAvailable()
+  {
+    return downstreamGL2ES2.isNPOTTextureAvailable();
+  }
+  
+  public boolean isTextureFormatBGRA8888Available()
+  {
+    return downstreamGL2ES2.isTextureFormatBGRA8888Available();
+  }
+  
+  public boolean isVBOArrayBound()
+  {
+    return downstreamGL2ES2.isVBOArrayBound();
+  }
+  
+  public boolean isVBOElementArrayBound()
+  {
+    return downstreamGL2ES2.isVBOElementArrayBound();
+  }
+  
+  public GLBufferStorage mapBuffer(int paramInt1, int paramInt2)
+  {
+    return downstreamGL2ES2.mapBuffer(paramInt1, paramInt2);
+  }
+  
+  public GLBufferStorage mapBufferRange(int paramInt1, long paramLong1, long paramLong2, int paramInt2)
+  {
+    return downstreamGL2ES2.mapBufferRange(paramInt1, paramLong1, paramLong2, paramInt2);
+  }
+  
+  public void setSwapInterval(int paramInt)
+  {
+    downstreamGL2ES2.setSwapInterval(paramInt);
+  }
+  
+  public String toString() {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("FixedFuncImpl [this 0x" + Integer.toHexString(hashCode()) + " implementing com.jogamp.opengl.GL2ES1,\n\t");
+    localStringBuilder.append(" prolog: " + prologFixedFuncHook.toString() + ",\n\t");
+    localStringBuilder.append(" downstream: " + downstreamGL2ES2.toString() + "\n\t]");
+    return localStringBuilder.toString();
+  }
+}

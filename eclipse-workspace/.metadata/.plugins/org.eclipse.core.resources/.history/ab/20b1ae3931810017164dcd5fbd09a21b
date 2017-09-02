@@ -1,0 +1,88 @@
+package de.voidplus.leapmotion;
+
+import com.leapmotion.leap.HandList;
+import java.util.ArrayList;
+import java.util.Iterator;
+import processing.core.PApplet;
+
+public abstract class Gesture
+{
+  protected PApplet parent;
+  protected LeapMotion leap;
+  private com.leapmotion.leap.Gesture _gesture;
+  
+  public Gesture(PApplet paramPApplet, LeapMotion paramLeapMotion, com.leapmotion.leap.Gesture paramGesture)
+  {
+    parent = paramPApplet;
+    leap = paramLeapMotion;
+    _gesture = paramGesture;
+  }
+  
+  public boolean isValid()
+  {
+    return _gesture.isValid();
+  }
+  
+  public int getId()
+  {
+    return _gesture.id();
+  }
+  
+  public int getType()
+  {
+    if (isValid())
+    {
+      switch (1.$SwitchMap$com$leapmotion$leap$Gesture$Type[_gesture.type().ordinal()])
+      {
+      case 1: 
+        return 0;
+      case 2: 
+        return 1;
+      case 3: 
+        return 2;
+      case 4: 
+        return 3;
+      }
+      return -1;
+    }
+    return -1;
+  }
+  
+  public long getDuration()
+  {
+    return _gesture.duration();
+  }
+  
+  public float getDurationInSeconds()
+  {
+    return _gesture.durationSeconds();
+  }
+  
+  public boolean hasHands()
+  {
+    return !_gesture.hands().isEmpty();
+  }
+  
+  public int countHands()
+  {
+    if (hasHands()) {
+      return _gesture.hands().count();
+    }
+    return 0;
+  }
+  
+  public ArrayList<Hand> getHands()
+  {
+    ArrayList localArrayList = new ArrayList();
+    if (hasHands())
+    {
+      Iterator localIterator = _gesture.hands().iterator();
+      while (localIterator.hasNext())
+      {
+        com.leapmotion.leap.Hand localHand = (com.leapmotion.leap.Hand)localIterator.next();
+        localArrayList.add(new Hand(parent, leap, localHand));
+      }
+    }
+    return localArrayList;
+  }
+}

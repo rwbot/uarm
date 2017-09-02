@@ -1,0 +1,1137 @@
+package de.voidplus.leapmotion;
+
+import com.leapmotion.leap.Config;
+import com.leapmotion.leap.Controller;
+import com.leapmotion.leap.Controller.PolicyFlag;
+import com.leapmotion.leap.DeviceList;
+import com.leapmotion.leap.FingerList;
+import com.leapmotion.leap.Frame;
+import com.leapmotion.leap.Gesture;
+import com.leapmotion.leap.Gesture.State;
+import com.leapmotion.leap.Gesture.Type;
+import com.leapmotion.leap.GestureList;
+import com.leapmotion.leap.HandList;
+import com.leapmotion.leap.ImageList;
+import com.leapmotion.leap.Listener;
+import com.leapmotion.leap.ToolList;
+import com.leapmotion.leap.Vector;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import processing.core.PApplet;
+import processing.core.PGraphics;
+import processing.core.PVector;
+
+public class LeapMotion
+{
+  private static final String NAME = "Leap Motion";
+  private static final String REPO = "https://github.com/nok/leap-motion-processing";
+  private static final String VERSION = "2.3.1.5";
+  private static final String SDK_VERSION = "2.3.1+31549";
+  private final PApplet parent;
+  protected boolean is2D;
+  private boolean verbose;
+  private boolean recognition;
+  private PVector world;
+  private PVector origin;
+  private ArrayList<Hand> hands;
+  private ArrayList<Finger> fingers;
+  private ArrayList<Finger> outstretchedFingers;
+  private ArrayList<Finger> outstretchedFingersByAngel;
+  private ArrayList<Tool> tools;
+  private ArrayList<Device> devices;
+  private ArrayList<Image> images;
+  private Frame frame;
+  private Frame lastFrame;
+  private final Controller controller;
+  private final Listener listener;
+  
+  public LeapMotion(PApplet paramPApplet, boolean paramBoolean)
+  {
+    parent = paramPApplet;
+    is2D = g.is2D();
+    setVerbose(paramBoolean);
+    recognition = false;
+    println(String.format("# %s Library v%s - Leap Motion SDK v%s - %s", new Object[] { "Leap Motion", getVersion(), getVersionSDK(), "https://github.com/nok/leap-motion-processing" }), false);
+    setWorld(200, 500, 200);
+    hands = new ArrayList();
+    fingers = new ArrayList();
+    outstretchedFingers = new ArrayList();
+    outstretchedFingersByAngel = new ArrayList();
+    tools = new ArrayList();
+    devices = new ArrayList();
+    images = new ArrayList();
+    frame = Frame.invalid();
+    lastFrame = Frame.invalid();
+    controller = new Controller();
+    listener = new Listener()
+    {
+      public void onInit(Controller paramAnonymousController)
+      {
+        LeapMotion.this.dispatch("leapOnInit");
+      }
+      
+      public void onConnect(Controller paramAnonymousController)
+      {
+        LeapMotion.this.dispatch("leapOnConnect");
+      }
+      
+      public void onDisconnect(Controller paramAnonymousController)
+      {
+        LeapMotion.this.dispatch("leapOnDisconnect");
+      }
+      
+      public void onExit(Controller paramAnonymousController)
+      {
+        LeapMotion.this.dispatch("leapOnExit");
+      }
+      
+      public void onFrame(Controller paramAnonymousController)
+      {
+        frame = paramAnonymousController.frame();
+        LeapMotion.this.dispatch("leapOnFrame");
+      }
+    };
+    controller.addListener(listener);
+    allowBackgroundApps();
+    parent.registerMethod("dispose", this);
+  }
+  
+  public LeapMotion(PApplet paramPApplet)
+  {
+    this(paramPApplet, false);
+  }
+  
+  public int getFrameRate()
+  {
+    if (isConnected()) {
+      return (int)frame.currentFramesPerSecond();
+    }
+    return 0;
+  }
+  
+  public long getTimestamp()
+  {
+    if (isConnected()) {
+      return frame.timestamp();
+    }
+    return 0L;
+  }
+  
+  public long getId()
+  {
+    if (isConnected()) {
+      return frame.id();
+    }
+    return Frame.invalid().id();
+  }
+  
+  public void printPolicyFlags()
+  {
+    for (Controller.PolicyFlag localPolicyFlag : ) {
+      if (controller.isPolicySet(localPolicyFlag)) {
+        log(String.format("'%s' is set.", new Object[] { localPolicyFlag.toString() }));
+      }
+    }
+  }
+  
+  public LeapMotion allowBackgroundApps()
+  {
+    if (!controller.isPolicySet(Controller.PolicyFlag.POLICY_BACKGROUND_FRAMES)) {
+      controller.setPolicy(Controller.PolicyFlag.POLICY_BACKGROUND_FRAMES);
+    }
+    return this;
+  }
+  
+  /**
+   * @deprecated
+   */
+  public LeapMotion withBackgroundFrames()
+  {
+    log("'withBackgroundFrames()' is deprecated. Please use 'allowBackgroundApps()'.");
+    return allowBackgroundApps();
+  }
+  
+  /**
+   * @deprecated
+   */
+  public LeapMotion runInBackground(boolean paramBoolean)
+  {
+    log("'runInBackground()' is deprecated. Please use 'allowBackgroundApps()'.");
+    return allowBackgroundApps();
+  }
+  
+  /**
+   * @deprecated
+   */
+  public LeapMotion allowRunInBackground()
+  {
+    log("'allowRunInBackground()' is deprecated. Please use 'allowBackgroundApps()'.");
+    return allowBackgroundApps();
+  }
+  
+  /**
+   * @deprecated
+   */
+  public LeapMotion withoutBackgroundFrames()
+  {
+    log("'withoutBackgroundFrames()' is deprecated. Please use 'disallowBackgroundApps()'.");
+    return disallowBackgroundApps();
+  }
+  
+  public LeapMotion disallowBackgroundApps()
+  {
+    if (controller.isPolicySet(Controller.PolicyFlag.POLICY_BACKGROUND_FRAMES)) {
+      controller.clearPolicy(Controller.PolicyFlag.POLICY_BACKGROUND_FRAMES);
+    }
+    return this;
+  }
+  
+  public LeapMotion setWorld(int paramInt1, int paramInt2, int paramInt3)
+  {
+    return setWorld(new PVector(paramInt1, paramInt2, paramInt3));
+  }
+  
+  public LeapMotion setWorld(PVector paramPVector)
+  {
+    world = paramPVector;
+    return this;
+  }
+  
+  public LeapMotion moveWorld(int paramInt1, int paramInt2, int paramInt3)
+  {
+    return moveWorld(new PVector(paramInt1, paramInt2, paramInt3));
+  }
+  
+  public LeapMotion moveWorld(PVector paramPVector)
+  {
+    origin = paramPVector;
+    return this;
+  }
+  
+  public boolean isConnected()
+  {
+    return controller.isConnected();
+  }
+  
+  public Controller getController()
+  {
+    return controller;
+  }
+  
+  public ArrayList<Device> getDevices()
+  {
+    devices.clear();
+    if ((isConnected()) && (!getController().devices().isEmpty()))
+    {
+      Iterator localIterator = getController().devices().iterator();
+      while (localIterator.hasNext())
+      {
+        com.leapmotion.leap.Device localDevice = (com.leapmotion.leap.Device)localIterator.next();
+        devices.add(new Device(parent, this, localDevice));
+      }
+    }
+    return devices;
+  }
+  
+  private static boolean isValid(com.leapmotion.leap.Hand paramHand)
+  {
+    return (paramHand != null) && (paramHand.isValid());
+  }
+  
+  public boolean hasHands()
+  {
+    return (isConnected()) && (!frame.hands().isEmpty());
+  }
+  
+  public int countHands()
+  {
+    return isConnected() ? frame.hands().count() : 0;
+  }
+  
+  public Hand getHand(Integer paramInteger)
+  {
+    if (!hasHands())
+    {
+      com.leapmotion.leap.Hand localHand = frame.hand(paramInteger.intValue());
+      if (isValid(localHand)) {
+        return new Hand(parent, this, localHand);
+      }
+    }
+    return null;
+  }
+  
+  public ArrayList<Hand> getHands()
+  {
+    hands.clear();
+    if (hasHands())
+    {
+      Iterator localIterator = frame.hands().iterator();
+      while (localIterator.hasNext())
+      {
+        com.leapmotion.leap.Hand localHand = (com.leapmotion.leap.Hand)localIterator.next();
+        if (isValid(localHand)) {
+          hands.add(new Hand(parent, this, localHand));
+        }
+      }
+    }
+    return hands;
+  }
+  
+  public Hand getFrontHand()
+  {
+    if (!hasHands())
+    {
+      com.leapmotion.leap.Hand localHand = frame.hands().frontmost();
+      if (isValid(localHand)) {
+        return new Hand(parent, this, localHand);
+      }
+    }
+    return null;
+  }
+  
+  public Hand getLeftHand()
+  {
+    if (!hasHands())
+    {
+      com.leapmotion.leap.Hand localHand = frame.hands().leftmost();
+      if (!isValid(localHand)) {
+        return new Hand(parent, this, localHand);
+      }
+    }
+    return null;
+  }
+  
+  public Hand getRightHand()
+  {
+    if (!hasHands())
+    {
+      com.leapmotion.leap.Hand localHand = frame.hands().rightmost();
+      if (!isValid(localHand)) {
+        return new Hand(parent, this, localHand);
+      }
+    }
+    return null;
+  }
+  
+  private static boolean isValid(com.leapmotion.leap.Finger paramFinger)
+  {
+    return (paramFinger != null) && (paramFinger.isValid());
+  }
+  
+  public boolean hasFingers()
+  {
+    return (isConnected()) && (!frame.fingers().isEmpty());
+  }
+  
+  public Finger getFinger(Integer paramInteger)
+  {
+    if (hasFingers())
+    {
+      com.leapmotion.leap.Finger localFinger = frame.finger(paramInteger.intValue());
+      if (!isValid(localFinger)) {
+        return new Finger(parent, this, localFinger);
+      }
+    }
+    return null;
+  }
+  
+  public ArrayList<Finger> getFingers()
+  {
+    fingers.clear();
+    if (hasFingers())
+    {
+      Iterator localIterator = frame.fingers().iterator();
+      while (localIterator.hasNext())
+      {
+        com.leapmotion.leap.Finger localFinger = (com.leapmotion.leap.Finger)localIterator.next();
+        if (localFinger.isValid()) {
+          fingers.add(new Finger(parent, this, localFinger));
+        }
+      }
+    }
+    return fingers;
+  }
+  
+  public ArrayList<Finger> getOutstretchedFingers()
+  {
+    outstretchedFingers.clear();
+    if (!frame.fingers().extended().isEmpty())
+    {
+      Iterator localIterator = frame.fingers().extended().iterator();
+      while (localIterator.hasNext())
+      {
+        com.leapmotion.leap.Finger localFinger = (com.leapmotion.leap.Finger)localIterator.next();
+        outstretchedFingers.add(new Finger(parent, this, localFinger));
+      }
+    }
+    return outstretchedFingers;
+  }
+  
+  public ArrayList<Finger> getOutstretchedFingersByAngel(int paramInt)
+  {
+    outstretchedFingersByAngel.clear();
+    if (hasFingers())
+    {
+      Iterator localIterator = frame.fingers().iterator();
+      while (localIterator.hasNext())
+      {
+        com.leapmotion.leap.Finger localFinger = (com.leapmotion.leap.Finger)localIterator.next();
+        if (localFinger.isValid())
+        {
+          Finger localFinger1 = new Finger(parent, this, localFinger);
+          float f1 = 0.0F;
+          for (int i = 0; i < 4; i++) {
+            f1 += PVector.dist(localFinger1.getBone(i).getNextJoint(), localFinger1.getBone(i).getPrevJoint());
+          }
+          float f2 = PVector.dist(localFinger1.getBone(0).getNextJoint(), localFinger1.getBone(localFinger1.getType() != 0 ? 3 : 2).getPrevJoint());
+          if (f2 / f1 * 100.0F >= paramInt) {
+            outstretchedFingersByAngel.add(localFinger1);
+          }
+        }
+      }
+    }
+    return outstretchedFingersByAngel;
+  }
+  
+  public ArrayList<Finger> getOutstrechtedFingersByAngel()
+  {
+    return getOutstretchedFingersByAngel(75);
+  }
+  
+  public int countFingers()
+  {
+    if (isConnected()) {
+      return frame.fingers().count();
+    }
+    return 0;
+  }
+  
+  public Finger getFrontFinger()
+  {
+    if (hasFingers()) {
+      return new Finger(parent, this, frame.fingers().frontmost());
+    }
+    return null;
+  }
+  
+  public Finger getLeftFinger()
+  {
+    if (hasFingers()) {
+      return new Finger(parent, this, frame.fingers().leftmost());
+    }
+    return null;
+  }
+  
+  public Finger getRightFinger()
+  {
+    if (hasFingers()) {
+      return new Finger(parent, this, frame.fingers().rightmost());
+    }
+    return null;
+  }
+  
+  private static boolean isValid(com.leapmotion.leap.Tool paramTool)
+  {
+    return (paramTool != null) && (paramTool.isValid());
+  }
+  
+  public boolean hasTools()
+  {
+    return (isConnected()) && (!frame.tools().isEmpty());
+  }
+  
+  public Tool getTool(Integer paramInteger)
+  {
+    if (hasTools())
+    {
+      com.leapmotion.leap.Tool localTool = frame.tool(paramInteger.intValue());
+      if (!isValid(localTool)) {
+        return new Tool(parent, this, localTool);
+      }
+    }
+    return null;
+  }
+  
+  public ArrayList<Tool> getTools()
+  {
+    tools.clear();
+    if (hasTools())
+    {
+      Iterator localIterator = frame.tools().iterator();
+      while (localIterator.hasNext())
+      {
+        com.leapmotion.leap.Tool localTool = (com.leapmotion.leap.Tool)localIterator.next();
+        if (isValid(localTool)) {
+          tools.add(new Tool(parent, this, localTool));
+        }
+      }
+    }
+    return tools;
+  }
+  
+  public int countTools()
+  {
+    if (isConnected()) {
+      return frame.tools().count();
+    }
+    return 0;
+  }
+  
+  public Tool getFrontTool()
+  {
+    if (hasTools()) {
+      return new Tool(parent, this, frame.tools().frontmost());
+    }
+    return null;
+  }
+  
+  public Tool getLeftTool()
+  {
+    if (hasTools()) {
+      return new Tool(parent, this, frame.tools().leftmost());
+    }
+    return null;
+  }
+  
+  public Tool getRightTool()
+  {
+    if (hasTools()) {
+      return new Tool(parent, this, frame.tools().rightmost());
+    }
+    return null;
+  }
+  
+  public LeapMotion allowImages()
+  {
+    if (!controller.isPolicySet(Controller.PolicyFlag.POLICY_IMAGES)) {
+      controller.setPolicy(Controller.PolicyFlag.POLICY_IMAGES);
+    }
+    return this;
+  }
+  
+  /**
+   * @deprecated
+   */
+  public LeapMotion withCameraImages()
+  {
+    log("'withCameraImages()' is deprecated. Please use 'allowImages()'.");
+    return allowImages();
+  }
+  
+  public LeapMotion disallowImages()
+  {
+    if (controller.isPolicySet(Controller.PolicyFlag.POLICY_IMAGES)) {
+      controller.clearPolicy(Controller.PolicyFlag.POLICY_IMAGES);
+    }
+    return this;
+  }
+  
+  /**
+   * @deprecated
+   */
+  public LeapMotion withoutCameraImages()
+  {
+    log("'withoutCameraImages()' is deprecated. Please use 'disallowImages()'.");
+    return disallowImages();
+  }
+  
+  public boolean hasImages()
+  {
+    if (controller.isPolicySet(Controller.PolicyFlag.POLICY_IMAGES))
+    {
+      if (!controller.frame().images().isEmpty()) {
+        return true;
+      }
+    }
+    else {
+      allowImages();
+    }
+    return false;
+  }
+  
+  public ArrayList<Image> getImages()
+  {
+    images.clear();
+    if (hasImages())
+    {
+      Iterator localIterator = controller.frame().images().iterator();
+      while (localIterator.hasNext())
+      {
+        com.leapmotion.leap.Image localImage = (com.leapmotion.leap.Image)localIterator.next();
+        if (localImage.isValid()) {
+          images.add(new Image(parent, this, localImage));
+        }
+      }
+    }
+    return images;
+  }
+  
+  public LeapMotion allowHdm()
+  {
+    if (!controller.isPolicySet(Controller.PolicyFlag.POLICY_OPTIMIZE_HMD)) {
+      controller.setPolicy(Controller.PolicyFlag.POLICY_OPTIMIZE_HMD);
+    }
+    return this;
+  }
+  
+  /**
+   * @deprecated
+   */
+  public LeapMotion withOptimizedHdm()
+  {
+    log("'withOptimizedHdm()' is deprecated. Please use 'allowHdm()'.");
+    return allowHdm();
+  }
+  
+  public LeapMotion disallowHdm()
+  {
+    if (controller.isPolicySet(Controller.PolicyFlag.POLICY_OPTIMIZE_HMD)) {
+      controller.clearPolicy(Controller.PolicyFlag.POLICY_OPTIMIZE_HMD);
+    }
+    return this;
+  }
+  
+  /**
+   * @deprecated
+   */
+  public LeapMotion withoutOptimizedHdm()
+  {
+    log("'withoutOptimizedHdm()' is deprecated. Please use 'disallowHdm()'.");
+    return disallowHdm();
+  }
+  
+  public LeapMotion withGestures(String paramString)
+  {
+    paramString = paramString.trim().toUpperCase();
+    List localList = Arrays.asList(paramString.split("\\s*,\\s*"));
+    recognition = false;
+    Iterator localIterator = localList.iterator();
+    while (localIterator.hasNext())
+    {
+      String str = (String)localIterator.next();
+      str = "TYPE_" + str;
+      recognition = true;
+      switch (2.$SwitchMap$com$leapmotion$leap$Gesture$Type[Gesture.Type.valueOf(str).ordinal()])
+      {
+      case 1: 
+        controller.enableGesture(Gesture.Type.TYPE_SWIPE);
+        break;
+      case 2: 
+        controller.enableGesture(Gesture.Type.TYPE_CIRCLE);
+        break;
+      case 3: 
+        controller.enableGesture(Gesture.Type.TYPE_SCREEN_TAP);
+        break;
+      case 4: 
+        controller.enableGesture(Gesture.Type.TYPE_KEY_TAP);
+        break;
+      default: 
+        recognition = false;
+      }
+    }
+    if (recognition) {
+      parent.registerMethod("pre", this);
+    } else {
+      parent.unregisterMethod("pre", this);
+    }
+    return this;
+  }
+  
+  public LeapMotion allowGestures(String paramString)
+  {
+    return withGestures(paramString);
+  }
+  
+  public LeapMotion withGestures()
+  {
+    return withGestures("swipe, circle, screen_tap, key_tap");
+  }
+  
+  public LeapMotion allowGestures()
+  {
+    return withGestures("swipe, circle, screen_tap, key_tap");
+  }
+  
+  public LeapMotion withoutGestures()
+  {
+    parent.unregisterMethod("pre", this);
+    recognition = false;
+    return this;
+  }
+  
+  public void pre()
+  {
+    check();
+  }
+  
+  public void dispose()
+  {
+    controller.removeListener(listener);
+  }
+  
+  private void check()
+  {
+    if ((isConnected()) && (recognition))
+    {
+      Iterator localIterator = frame.gestures(lastFrame).iterator();
+      while (localIterator.hasNext())
+      {
+        Gesture localGesture = (Gesture)localIterator.next();
+        if (localGesture.isValid())
+        {
+          int i = 2;
+          switch (2.$SwitchMap$com$leapmotion$leap$Gesture$Type[localGesture.type().ordinal()])
+          {
+          case 2: 
+            if (localGesture.state() == Gesture.State.STATE_START) {
+              i = 1;
+            } else if (localGesture.state() == Gesture.State.STATE_STOP) {
+              i = 3;
+            }
+            dispatch("leapOnCircleGesture", CircleGesture.class, Integer.TYPE, new CircleGesture(parent, this, localGesture), Integer.valueOf(i));
+            break;
+          case 1: 
+            if (localGesture.state() == Gesture.State.STATE_START) {
+              i = 1;
+            } else if (localGesture.state() == Gesture.State.STATE_STOP) {
+              i = 3;
+            }
+            dispatch("leapOnSwipeGesture", SwipeGesture.class, Integer.TYPE, new SwipeGesture(parent, this, localGesture), Integer.valueOf(i));
+            break;
+          case 3: 
+            if (localGesture.state() == Gesture.State.STATE_STOP) {
+              dispatch("leapOnScreenTapGesture", ScreenTapGesture.class, new ScreenTapGesture(parent, this, localGesture));
+            }
+            break;
+          case 4: 
+            if (localGesture.state() == Gesture.State.STATE_STOP) {
+              dispatch("leapOnKeyTapGesture", KeyTapGesture.class, new KeyTapGesture(parent, this, localGesture));
+            }
+            break;
+          default: 
+            log("Unknown gesture type.");
+          }
+        }
+      }
+      lastFrame = frame;
+    }
+  }
+  
+  public LeapMotion setGestureCircleMinRadius(float paramFloat)
+  {
+    return setConfig("Gesture.Circle.MinRadius", paramFloat);
+  }
+  
+  public LeapMotion setGestureCircleMinArc(float paramFloat)
+  {
+    return setConfig("Gesture.Circle.MinArc", PApplet.radians(paramFloat));
+  }
+  
+  public LeapMotion setGestureSwipeMinLength(float paramFloat)
+  {
+    return setConfig("Gesture.Swipe.MinLength", paramFloat);
+  }
+  
+  public LeapMotion setGestureSwipeMinVelocity(float paramFloat)
+  {
+    return setConfig("Gesture.Swipe.MinVelocity", paramFloat);
+  }
+  
+  public LeapMotion setGestureKeyTapMinDownVelocity(float paramFloat)
+  {
+    return setConfig("Gesture.KeyTap.MinDownVelocity", paramFloat);
+  }
+  
+  public LeapMotion setGestureKeyTapHistorySeconds(float paramFloat)
+  {
+    return setConfig("Gesture.KeyTap.HistorySeconds", paramFloat);
+  }
+  
+  public LeapMotion setGestureKeyTapMinDistance(float paramFloat)
+  {
+    return setConfig("Gesture.KeyTap.MinDistance", paramFloat);
+  }
+  
+  public LeapMotion setGestureScreenTapMinForwardVelocity(float paramFloat)
+  {
+    return setConfig("Gesture.ScreenTap.MinForwardVelocity", paramFloat);
+  }
+  
+  public LeapMotion setGestureScreenTapHistorySeconds(float paramFloat)
+  {
+    return setConfig("Gesture.ScreenTap.HistorySeconds", paramFloat);
+  }
+  
+  public LeapMotion setGestureScreenTapMinDistance(float paramFloat)
+  {
+    return setConfig("Gesture.ScreenTap.MinDistance", paramFloat);
+  }
+  
+  public LeapMotion setConfig(String paramString, int paramInt)
+  {
+    if ((controller.isConnected()) && (controller.config().setInt32(paramString, paramInt))) {
+      controller.config().save();
+    }
+    controller.config().save();
+    return this;
+  }
+  
+  public LeapMotion setConfig(String paramString, float paramFloat)
+  {
+    if ((controller.isConnected()) && (controller.config().setFloat(paramString, paramFloat))) {
+      controller.config().save();
+    }
+    return this;
+  }
+  
+  public LeapMotion setConfig(String paramString, boolean paramBoolean)
+  {
+    if ((controller.isConnected()) && (controller.config().setBool(paramString, paramBoolean))) {
+      controller.config().save();
+    }
+    return this;
+  }
+  
+  public LeapMotion setConfig(String paramString1, String paramString2)
+  {
+    if ((controller.isConnected()) && (controller.config().setString(paramString1, paramString2))) {
+      controller.config().save();
+    }
+    return this;
+  }
+  
+  protected PVector map(Vector paramVector)
+  {
+    PVector localPVector = new PVector();
+    if (paramVector.getX() > 0.0F) {
+      x = PApplet.lerp(parent.width * 0.5F, parent.width, paramVector.getX() / world.x);
+    } else {
+      x = PApplet.lerp(parent.width * 0.5F, 0.0F, -paramVector.getX() / world.x);
+    }
+    y = PApplet.lerp(parent.height, 0.0F, paramVector.getY() / world.y);
+    z = PApplet.lerp(50.0F, 0.0F, paramVector.getZ() / world.z);
+    return move(localPVector);
+  }
+  
+  protected PVector convert(Vector paramVector)
+  {
+    return move(new PVector(paramVector.getX(), paramVector.getY(), paramVector.getZ()));
+  }
+  
+  private PVector move(PVector paramPVector)
+  {
+    if (origin != null)
+    {
+      x += origin.x;
+      y += origin.y;
+      z += origin.z;
+    }
+    return paramPVector;
+  }
+  
+  /* Error */
+  private void dispatch(String paramString)
+  {
+    // Byte code:
+    //   0: iconst_0
+    //   1: istore_2
+    //   2: aload_0
+    //   3: getfield 4	de/voidplus/leapmotion/LeapMotion:parent	Lprocessing/core/PApplet;
+    //   6: invokevirtual 228	java/lang/Object:getClass	()Ljava/lang/Class;
+    //   9: aload_1
+    //   10: iconst_0
+    //   11: anewarray 229	java/lang/Class
+    //   14: invokevirtual 230	java/lang/Class:getMethod	(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+    //   17: aload_0
+    //   18: getfield 4	de/voidplus/leapmotion/LeapMotion:parent	Lprocessing/core/PApplet;
+    //   21: iconst_0
+    //   22: anewarray 11	java/lang/Object
+    //   25: invokevirtual 231	java/lang/reflect/Method:invoke	(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+    //   28: pop
+    //   29: iconst_1
+    //   30: istore_2
+    //   31: iload_2
+    //   32: ifeq +74 -> 106
+    //   35: aload_0
+    //   36: ldc -24
+    //   38: iconst_1
+    //   39: anewarray 11	java/lang/Object
+    //   42: dup
+    //   43: iconst_0
+    //   44: aload_1
+    //   45: aastore
+    //   46: invokestatic 16	java/lang/String:format	(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+    //   49: invokespecial 49	de/voidplus/leapmotion/LeapMotion:log	(Ljava/lang/String;)V
+    //   52: goto +54 -> 106
+    //   55: astore_3
+    //   56: iload_2
+    //   57: ifeq +49 -> 106
+    //   60: aload_0
+    //   61: ldc -24
+    //   63: iconst_1
+    //   64: anewarray 11	java/lang/Object
+    //   67: dup
+    //   68: iconst_0
+    //   69: aload_1
+    //   70: aastore
+    //   71: invokestatic 16	java/lang/String:format	(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+    //   74: invokespecial 49	de/voidplus/leapmotion/LeapMotion:log	(Ljava/lang/String;)V
+    //   77: goto +29 -> 106
+    //   80: astore 4
+    //   82: iload_2
+    //   83: ifeq +20 -> 103
+    //   86: aload_0
+    //   87: ldc -24
+    //   89: iconst_1
+    //   90: anewarray 11	java/lang/Object
+    //   93: dup
+    //   94: iconst_0
+    //   95: aload_1
+    //   96: aastore
+    //   97: invokestatic 16	java/lang/String:format	(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+    //   100: invokespecial 49	de/voidplus/leapmotion/LeapMotion:log	(Ljava/lang/String;)V
+    //   103: aload 4
+    //   105: athrow
+    //   106: return
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	107	0	this	LeapMotion
+    //   0	107	1	paramString	String
+    //   1	82	2	i	int
+    //   55	1	3	localException	Exception
+    //   80	24	4	localObject	Object
+    // Exception table:
+    //   from	to	target	type
+    //   2	31	55	java/lang/Exception
+    //   2	31	80	finally
+    //   55	56	80	finally
+    //   80	82	80	finally
+  }
+  
+  /* Error */
+  private void dispatch(String paramString, Class paramClass, Object paramObject)
+  {
+    // Byte code:
+    //   0: iconst_0
+    //   1: istore 4
+    //   3: aload_0
+    //   4: getfield 4	de/voidplus/leapmotion/LeapMotion:parent	Lprocessing/core/PApplet;
+    //   7: invokevirtual 228	java/lang/Object:getClass	()Ljava/lang/Class;
+    //   10: aload_1
+    //   11: iconst_1
+    //   12: anewarray 229	java/lang/Class
+    //   15: dup
+    //   16: iconst_0
+    //   17: aload_2
+    //   18: aastore
+    //   19: invokevirtual 230	java/lang/Class:getMethod	(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+    //   22: aload_0
+    //   23: getfield 4	de/voidplus/leapmotion/LeapMotion:parent	Lprocessing/core/PApplet;
+    //   26: iconst_1
+    //   27: anewarray 11	java/lang/Object
+    //   30: dup
+    //   31: iconst_0
+    //   32: aload_3
+    //   33: aastore
+    //   34: invokevirtual 231	java/lang/reflect/Method:invoke	(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+    //   37: pop
+    //   38: iconst_1
+    //   39: istore 4
+    //   41: iload 4
+    //   43: ifeq +77 -> 120
+    //   46: aload_0
+    //   47: ldc -24
+    //   49: iconst_1
+    //   50: anewarray 11	java/lang/Object
+    //   53: dup
+    //   54: iconst_0
+    //   55: aload_1
+    //   56: aastore
+    //   57: invokestatic 16	java/lang/String:format	(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+    //   60: invokespecial 49	de/voidplus/leapmotion/LeapMotion:log	(Ljava/lang/String;)V
+    //   63: goto +57 -> 120
+    //   66: astore 5
+    //   68: iload 4
+    //   70: ifeq +50 -> 120
+    //   73: aload_0
+    //   74: ldc -24
+    //   76: iconst_1
+    //   77: anewarray 11	java/lang/Object
+    //   80: dup
+    //   81: iconst_0
+    //   82: aload_1
+    //   83: aastore
+    //   84: invokestatic 16	java/lang/String:format	(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+    //   87: invokespecial 49	de/voidplus/leapmotion/LeapMotion:log	(Ljava/lang/String;)V
+    //   90: goto +30 -> 120
+    //   93: astore 6
+    //   95: iload 4
+    //   97: ifeq +20 -> 117
+    //   100: aload_0
+    //   101: ldc -24
+    //   103: iconst_1
+    //   104: anewarray 11	java/lang/Object
+    //   107: dup
+    //   108: iconst_0
+    //   109: aload_1
+    //   110: aastore
+    //   111: invokestatic 16	java/lang/String:format	(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+    //   114: invokespecial 49	de/voidplus/leapmotion/LeapMotion:log	(Ljava/lang/String;)V
+    //   117: aload 6
+    //   119: athrow
+    //   120: return
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	121	0	this	LeapMotion
+    //   0	121	1	paramString	String
+    //   0	121	2	paramClass	Class
+    //   0	121	3	paramObject	Object
+    //   1	95	4	i	int
+    //   66	1	5	localException	Exception
+    //   93	25	6	localObject	Object
+    // Exception table:
+    //   from	to	target	type
+    //   3	41	66	java/lang/Exception
+    //   3	41	93	finally
+    //   66	68	93	finally
+    //   93	95	93	finally
+  }
+  
+  /* Error */
+  private void dispatch(String paramString, Class paramClass1, Class paramClass2, Object paramObject1, Object paramObject2)
+  {
+    // Byte code:
+    //   0: iconst_0
+    //   1: istore 6
+    //   3: aload_0
+    //   4: getfield 4	de/voidplus/leapmotion/LeapMotion:parent	Lprocessing/core/PApplet;
+    //   7: invokevirtual 228	java/lang/Object:getClass	()Ljava/lang/Class;
+    //   10: aload_1
+    //   11: iconst_2
+    //   12: anewarray 229	java/lang/Class
+    //   15: dup
+    //   16: iconst_0
+    //   17: aload_2
+    //   18: aastore
+    //   19: dup
+    //   20: iconst_1
+    //   21: aload_3
+    //   22: aastore
+    //   23: invokevirtual 230	java/lang/Class:getMethod	(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+    //   26: aload_0
+    //   27: getfield 4	de/voidplus/leapmotion/LeapMotion:parent	Lprocessing/core/PApplet;
+    //   30: iconst_2
+    //   31: anewarray 11	java/lang/Object
+    //   34: dup
+    //   35: iconst_0
+    //   36: aload 4
+    //   38: aastore
+    //   39: dup
+    //   40: iconst_1
+    //   41: aload 5
+    //   43: aastore
+    //   44: invokevirtual 231	java/lang/reflect/Method:invoke	(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+    //   47: pop
+    //   48: iconst_1
+    //   49: istore 6
+    //   51: iload 6
+    //   53: ifeq +77 -> 130
+    //   56: aload_0
+    //   57: ldc -24
+    //   59: iconst_1
+    //   60: anewarray 11	java/lang/Object
+    //   63: dup
+    //   64: iconst_0
+    //   65: aload_1
+    //   66: aastore
+    //   67: invokestatic 16	java/lang/String:format	(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+    //   70: invokespecial 49	de/voidplus/leapmotion/LeapMotion:log	(Ljava/lang/String;)V
+    //   73: goto +57 -> 130
+    //   76: astore 7
+    //   78: iload 6
+    //   80: ifeq +50 -> 130
+    //   83: aload_0
+    //   84: ldc -24
+    //   86: iconst_1
+    //   87: anewarray 11	java/lang/Object
+    //   90: dup
+    //   91: iconst_0
+    //   92: aload_1
+    //   93: aastore
+    //   94: invokestatic 16	java/lang/String:format	(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+    //   97: invokespecial 49	de/voidplus/leapmotion/LeapMotion:log	(Ljava/lang/String;)V
+    //   100: goto +30 -> 130
+    //   103: astore 8
+    //   105: iload 6
+    //   107: ifeq +20 -> 127
+    //   110: aload_0
+    //   111: ldc -24
+    //   113: iconst_1
+    //   114: anewarray 11	java/lang/Object
+    //   117: dup
+    //   118: iconst_0
+    //   119: aload_1
+    //   120: aastore
+    //   121: invokestatic 16	java/lang/String:format	(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+    //   124: invokespecial 49	de/voidplus/leapmotion/LeapMotion:log	(Ljava/lang/String;)V
+    //   127: aload 8
+    //   129: athrow
+    //   130: return
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	131	0	this	LeapMotion
+    //   0	131	1	paramString	String
+    //   0	131	2	paramClass1	Class
+    //   0	131	3	paramClass2	Class
+    //   0	131	4	paramObject1	Object
+    //   0	131	5	paramObject2	Object
+    //   1	105	6	i	int
+    //   76	1	7	localException	Exception
+    //   103	25	8	localObject	Object
+    // Exception table:
+    //   from	to	target	type
+    //   3	51	76	java/lang/Exception
+    //   3	51	103	finally
+    //   76	78	103	finally
+    //   103	105	103	finally
+  }
+  
+  public String getVersion()
+  {
+    return "2.3.1.5";
+  }
+  
+  public String getVersionSDK()
+  {
+    return "2.3.1+31549";
+  }
+  
+  public LeapMotion setVerbose(boolean paramBoolean)
+  {
+    verbose = paramBoolean;
+    return this;
+  }
+  
+  private void println(String paramString, boolean paramBoolean)
+  {
+    if (paramBoolean) {
+      PApplet.println(String.format("# %s: %s", new Object[] { "Leap Motion", paramString }));
+    } else {
+      PApplet.println(paramString);
+    }
+  }
+  
+  private void println(String paramString)
+  {
+    println(paramString, true);
+  }
+  
+  private void log(String paramString)
+  {
+    if (verbose) {
+      println(paramString);
+    }
+  }
+}

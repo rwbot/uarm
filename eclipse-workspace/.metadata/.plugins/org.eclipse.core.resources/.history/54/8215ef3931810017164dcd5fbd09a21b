@@ -1,0 +1,181 @@
+package com.jogamp.opengl.math;
+
+
+
+
+
+
+
+
+
+
+public final class FovHVHalves
+{
+  public final float left;
+  
+
+
+
+
+
+
+
+  public final float right;
+  
+
+
+
+
+
+
+
+  public final float top;
+  
+
+
+
+
+
+
+
+  public final float bottom;
+  
+
+
+
+
+
+
+
+  public final boolean inTangents;
+  
+
+
+
+
+
+
+
+
+  public FovHVHalves(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, boolean paramBoolean)
+  {
+    left = paramFloat1;
+    right = paramFloat2;
+    top = paramFloat3;
+    bottom = paramFloat4;
+    inTangents = paramBoolean;
+  }
+  
+
+
+
+
+
+
+
+
+  public static FovHVHalves byRadians(float paramFloat1, float paramFloat2)
+  {
+    float f1 = FloatUtil.tan(paramFloat1 / 2.0F);
+    float f2 = FloatUtil.tan(paramFloat2 / 2.0F);
+    return new FovHVHalves(f1, f1, f2, f2, true);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public static FovHVHalves byFovyRadianAndAspect(float paramFloat1, float paramFloat2)
+  {
+    float f1 = FloatUtil.tan(paramFloat1 / 2.0F);
+    float f2 = paramFloat2 * f1;
+    return new FovHVHalves(f2, f2, f1, f1, true);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static FovHVHalves byRadians(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    return new FovHVHalves(FloatUtil.tan(paramFloat1 * paramFloat2), FloatUtil.tan(paramFloat1 * (1.0F - paramFloat2)), FloatUtil.tan(paramFloat3 * paramFloat4), FloatUtil.tan(paramFloat3 * (1.0F - paramFloat4)), true);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static FovHVHalves byFovyRadianAndAspect(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    float f1 = FloatUtil.tan(paramFloat1 / 2.0F);
+    float f2 = paramFloat3 * f1;
+    float f3 = FloatUtil.atan(f2) * 2.0F;
+    return byRadians(f3, paramFloat4, paramFloat1, paramFloat2);
+  }
+  
+
+
+
+
+
+
+  public final FovHVHalves toTangents()
+  {
+    if (inTangents) {
+      return this;
+    }
+    return new FovHVHalves(FloatUtil.tan(left), FloatUtil.tan(right), FloatUtil.tan(top), FloatUtil.tan(bottom), true);
+  }
+  
+  public final float horzFov()
+  {
+    return left + right;
+  }
+  
+  public final float vertFov() { return top + bottom; }
+  
+  public final String toString() {
+    return "FovHVH[" + (inTangents ? "tangents" : "radians") + ": " + left + " l, " + right + " r, " + top + " t, " + bottom + " b]";
+  }
+  
+  public final String toStringInDegrees() {
+    String str = inTangents ? "tangents" : "radians";
+    if (inTangents) {
+      float f1 = FloatUtil.atan(left);
+      float f2 = FloatUtil.atan(right);
+      float f3 = FloatUtil.atan(top);
+      float f4 = FloatUtil.atan(bottom);
+      return "FovHVH[degrees: " + f1 * 57.295776F + " l, " + f2 * 57.295776F + " r, " + f3 * 57.295776F + " t, " + f4 * 57.295776F + " b, stored-as: " + str + "]";
+    }
+    return "FovHVH[degrees: " + left * 57.295776F + " l, " + right * 57.295776F + " r, " + top * 57.295776F + " t, " + bottom * 57.295776F + " b, stored-as: " + str + "]";
+  }
+}

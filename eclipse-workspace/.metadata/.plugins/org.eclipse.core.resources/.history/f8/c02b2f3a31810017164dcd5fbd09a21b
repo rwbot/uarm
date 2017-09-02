@@ -1,0 +1,180 @@
+package jogamp.opengl.util.pngj.chunks;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import jogamp.opengl.util.pngj.ImageInfo;
+import jogamp.opengl.util.pngj.PngjException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ChunksList
+{
+  public static final int CHUNK_GROUP_0_IDHR = 0;
+  public static final int CHUNK_GROUP_1_AFTERIDHR = 1;
+  public static final int CHUNK_GROUP_2_PLTE = 2;
+  public static final int CHUNK_GROUP_3_AFTERPLTE = 3;
+  public static final int CHUNK_GROUP_4_IDAT = 4;
+  public static final int CHUNK_GROUP_5_AFTERIDAT = 5;
+  public static final int CHUNK_GROUP_6_END = 6;
+  protected List<PngChunk> chunks = new ArrayList();
+  final ImageInfo imageInfo;
+  
+  public ChunksList(ImageInfo paramImageInfo)
+  {
+    imageInfo = paramImageInfo;
+  }
+  
+
+
+
+
+  public HashMap<String, Integer> getChunksKeys()
+  {
+    HashMap localHashMap = new HashMap();
+    for (PngChunk localPngChunk : chunks) {
+      localHashMap.put(id, Integer.valueOf(localHashMap.containsKey(id) ? ((Integer)localHashMap.get(id)).intValue() + 1 : 1));
+    }
+    return localHashMap;
+  }
+  
+
+
+
+  public ArrayList<PngChunk> getChunks()
+  {
+    return new ArrayList(chunks);
+  }
+  
+  protected static List<PngChunk> getXById(List<PngChunk> paramList, String paramString1, final String paramString2) {
+    if (paramString2 == null) {
+      ChunkHelper.filterList(paramList, new ChunkPredicate()
+      {
+        public boolean match(PngChunk paramAnonymousPngChunk) {
+          return id.equals(val$id);
+        }
+      });
+    }
+    ChunkHelper.filterList(paramList, new ChunkPredicate()
+    {
+      public boolean match(PngChunk paramAnonymousPngChunk) {
+        if (!id.equals(val$id))
+          return false;
+        if (((paramAnonymousPngChunk instanceof PngChunkTextVar)) && (!((PngChunkTextVar)paramAnonymousPngChunk).getKey().equals(paramString2)))
+          return false;
+        if (((paramAnonymousPngChunk instanceof PngChunkSPLT)) && (!((PngChunkSPLT)paramAnonymousPngChunk).getPalName().equals(paramString2)))
+          return false;
+        return true;
+      }
+    });
+  }
+  
+
+
+  public void appendReadChunk(PngChunk paramPngChunk, int paramInt)
+  {
+    paramPngChunk.setChunkGroup(paramInt);
+    chunks.add(paramPngChunk);
+  }
+  
+
+
+
+
+
+  public List<? extends PngChunk> getById(String paramString)
+  {
+    return getById(paramString, null);
+  }
+  
+
+
+
+
+
+
+
+  public List<? extends PngChunk> getById(String paramString1, String paramString2)
+  {
+    return getXById(chunks, paramString1, paramString2);
+  }
+  
+
+
+
+
+
+  public PngChunk getById1(String paramString)
+  {
+    return getById1(paramString, false);
+  }
+  
+
+
+
+
+
+
+  public PngChunk getById1(String paramString, boolean paramBoolean)
+  {
+    return getById1(paramString, null, paramBoolean);
+  }
+  
+
+
+
+
+
+
+  public PngChunk getById1(String paramString1, String paramString2, boolean paramBoolean)
+  {
+    List localList = getById(paramString1, paramString2);
+    if (localList.isEmpty())
+      return null;
+    if ((localList.size() > 1) && ((paramBoolean) || (!((PngChunk)localList.get(0)).allowsMultiple())))
+      throw new PngjException("unexpected multiple chunks id=" + paramString1);
+    return (PngChunk)localList.get(localList.size() - 1);
+  }
+  
+
+
+
+
+
+  public List<PngChunk> getEquivalent(final PngChunk paramPngChunk)
+  {
+    ChunkHelper.filterList(chunks, new ChunkPredicate()
+    {
+      public boolean match(PngChunk paramAnonymousPngChunk) {
+        return ChunkHelper.equivalent(paramAnonymousPngChunk, paramPngChunk);
+      }
+    });
+  }
+  
+  public String toString()
+  {
+    return "ChunkList: read: " + chunks.size();
+  }
+  
+
+
+  public String toStringFull()
+  {
+    StringBuilder localStringBuilder = new StringBuilder(toString());
+    localStringBuilder.append("\n Read:\n");
+    for (PngChunk localPngChunk : chunks) {
+      localStringBuilder.append(localPngChunk).append(" G=" + localPngChunk.getChunkGroup() + "\n");
+    }
+    return localStringBuilder.toString();
+  }
+}

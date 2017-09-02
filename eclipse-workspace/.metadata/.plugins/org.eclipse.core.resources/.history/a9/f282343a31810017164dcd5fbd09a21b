@@ -1,0 +1,114 @@
+package jogamp.opengl.x11.glx;
+
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.VisualIDHolder.VIDType;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import jogamp.nativewindow.x11.XVisualInfo;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class X11GLCapabilities
+  extends GLCapabilities
+{
+  private final XVisualInfo xVisualInfo;
+  private final long fbcfg;
+  private final int fbcfgid;
+  
+  public X11GLCapabilities(XVisualInfo paramXVisualInfo, long paramLong, int paramInt, GLProfile paramGLProfile)
+  {
+    super(paramGLProfile);
+    xVisualInfo = paramXVisualInfo;
+    fbcfg = paramLong;
+    fbcfgid = paramInt;
+  }
+  
+  public X11GLCapabilities(XVisualInfo paramXVisualInfo, GLProfile paramGLProfile) {
+    super(paramGLProfile);
+    xVisualInfo = paramXVisualInfo;
+    fbcfg = 0L;
+    fbcfgid = 0;
+  }
+  
+  public Object cloneMutable()
+  {
+    return clone();
+  }
+  
+  public Object clone()
+  {
+    try {
+      return super.clone();
+    } catch (RuntimeException localRuntimeException) {
+      throw new GLException(localRuntimeException);
+    }
+  }
+  
+  public final XVisualInfo getXVisualInfo() { return xVisualInfo; }
+  public final int getXVisualID() { return null != xVisualInfo ? (int)xVisualInfo.getVisualid() : 0; }
+  public final boolean hasXVisualInfo() { return null != xVisualInfo; }
+  
+  public final long getFBConfig() { return fbcfg; }
+  public final int getFBConfigID() { return fbcfgid; }
+  public final boolean hasFBConfig() { return (0L != fbcfg) && (fbcfgid != 0); }
+  
+  public final int getVisualID(VisualIDHolder.VIDType paramVIDType) throws NativeWindowException
+  {
+    switch (1.$SwitchMap$com$jogamp$nativewindow$VisualIDHolder$VIDType[paramVIDType.ordinal()]) {
+    case 1: 
+    case 2: 
+    case 3: 
+      return getXVisualID();
+    case 4: 
+      return getFBConfigID();
+    }
+    throw new NativeWindowException("Invalid type <" + paramVIDType + ">");
+  }
+  
+
+  public StringBuilder toString(StringBuilder paramStringBuilder)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    paramStringBuilder.append("glx vid ");
+    if (hasXVisualInfo()) {
+      paramStringBuilder.append("0x").append(Long.toHexString(xVisualInfo.getVisualid()));
+    } else {
+      paramStringBuilder.append("----");
+    }
+    paramStringBuilder.append(", fbc ");
+    if (hasFBConfig()) {
+      paramStringBuilder.append("0x").append(Integer.toHexString(fbcfgid));
+    } else {
+      paramStringBuilder.append("----");
+    }
+    paramStringBuilder.append(": ");
+    return super.toString(paramStringBuilder);
+  }
+}

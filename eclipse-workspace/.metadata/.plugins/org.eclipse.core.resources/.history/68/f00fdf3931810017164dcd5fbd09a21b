@@ -1,0 +1,805 @@
+package com.jogamp.graph.curve;
+
+import com.jogamp.graph.curve.tess.Triangulation;
+import com.jogamp.graph.curve.tess.Triangulator;
+import com.jogamp.graph.geom.Outline;
+import com.jogamp.graph.geom.Triangle;
+import com.jogamp.graph.geom.Vertex;
+import com.jogamp.graph.geom.Vertex.Factory;
+import com.jogamp.opengl.math.FloatUtil;
+import com.jogamp.opengl.math.VectorUtil;
+import com.jogamp.opengl.math.geom.AABBox;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import jogamp.graph.geom.plane.AffineTransform;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class OutlineShape
+  implements Comparable<OutlineShape>
+{
+  public static final float DEFAULT_SHARPNESS = 0.5F;
+  public static final int DIRTY_BOUNDS = 1;
+  public static final int DIRTY_VERTICES = 2;
+  public static final int DIRTY_TRIANGLES = 4;
+  private final Vertex.Factory<? extends Vertex> vertexFactory;
+  final ArrayList<Outline> outlines;
+  private final AABBox bbox;
+  private final ArrayList<Triangle> triangles;
+  private final ArrayList<Vertex> vertices;
+  private int addedVerticeCount;
+  private VerticesState outlineState;
+  private int dirtyBits;
+  private float sharpness;
+  
+  public static enum VerticesState
+  {
+    UNDEFINED(0),  QUADRATIC_NURBS(1);
+    
+    public final int state;
+    
+    private VerticesState(int paramInt) {
+      state = paramInt;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private final float[] tmpV1 = new float[3];
+  private final float[] tmpV2 = new float[3];
+  private final float[] tmpV3 = new float[3];
+  
+
+  public OutlineShape(Vertex.Factory<? extends Vertex> paramFactory)
+  {
+    vertexFactory = paramFactory;
+    outlines = new ArrayList(3);
+    outlines.add(new Outline());
+    outlineState = VerticesState.UNDEFINED;
+    bbox = new AABBox();
+    triangles = new ArrayList();
+    vertices = new ArrayList();
+    addedVerticeCount = 0;
+    dirtyBits = 0;
+    sharpness = 0.5F;
+  }
+  
+
+
+
+
+  public int getAddedVerticeCount()
+  {
+    return addedVerticeCount;
+  }
+  
+  public float getSharpness() {
+    return sharpness;
+  }
+  
+  public void setSharpness(float paramFloat) {
+    if (sharpness != paramFloat) {
+      clearCache();
+      sharpness = paramFloat;
+    }
+  }
+  
+  public void clear()
+  {
+    outlines.clear();
+    outlines.add(new Outline());
+    outlineState = VerticesState.UNDEFINED;
+    bbox.reset();
+    vertices.clear();
+    triangles.clear();
+    addedVerticeCount = 0;
+    dirtyBits = 0;
+  }
+  
+  public void clearCache()
+  {
+    vertices.clear();
+    triangles.clear();
+    dirtyBits |= 0x6;
+  }
+  
+
+
+  public final Vertex.Factory<? extends Vertex> vertexFactory()
+  {
+    return vertexFactory;
+  }
+  
+  public final int getOutlineNumber() { return outlines.size(); }
+  
+
+
+
+
+
+
+
+
+  public final void addEmptyOutline()
+  {
+    if (!getLastOutline().isEmpty()) {
+      outlines.add(new Outline());
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public final void addOutline(Outline paramOutline)
+    throws NullPointerException
+  {
+    addOutline(outlines.size(), paramOutline);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final void addOutline(int paramInt, Outline paramOutline)
+    throws NullPointerException, IndexOutOfBoundsException
+  {
+    if (null == paramOutline) {
+      throw new NullPointerException("outline is null");
+    }
+    if (outlines.size() == paramInt) {
+      Outline localOutline = getLastOutline();
+      if ((paramOutline.isEmpty()) && (localOutline.isEmpty())) {
+        return;
+      }
+      if (localOutline.isEmpty()) {
+        outlines.set(paramInt - 1, paramOutline);
+        if (0 == (dirtyBits & 0x1)) {
+          bbox.resize(paramOutline.getBounds());
+        }
+        
+        dirtyBits |= 0x6;
+        return;
+      }
+    }
+    outlines.add(paramInt, paramOutline);
+    if (0 == (dirtyBits & 0x1)) {
+      bbox.resize(paramOutline.getBounds());
+    }
+    dirtyBits |= 0x6;
+  }
+  
+
+
+
+
+
+
+  public final void addOutlineShape(OutlineShape paramOutlineShape)
+    throws NullPointerException
+  {
+    if (null == paramOutlineShape) {
+      throw new NullPointerException("OutlineShape is null");
+    }
+    closeLastOutline(true);
+    for (int i = 0; i < paramOutlineShape.getOutlineNumber(); i++) {
+      addOutline(paramOutlineShape.getOutline(i));
+    }
+  }
+  
+
+
+
+
+
+
+
+  public final void setOutline(int paramInt, Outline paramOutline)
+    throws NullPointerException, IndexOutOfBoundsException
+  {
+    if (null == paramOutline) {
+      throw new NullPointerException("outline is null");
+    }
+    outlines.set(paramInt, paramOutline);
+    dirtyBits |= 0x7;
+  }
+  
+
+
+
+
+
+  public final Outline removeOutline(int paramInt)
+    throws IndexOutOfBoundsException
+  {
+    dirtyBits |= 0x7;
+    return (Outline)outlines.remove(paramInt);
+  }
+  
+
+
+
+
+  public final Outline getLastOutline()
+  {
+    return (Outline)outlines.get(outlines.size() - 1);
+  }
+  
+
+
+  public final Outline getOutline(int paramInt)
+    throws IndexOutOfBoundsException
+  {
+    return (Outline)outlines.get(paramInt);
+  }
+  
+
+
+
+  public final void addVertex(Vertex paramVertex)
+  {
+    Outline localOutline = getLastOutline();
+    localOutline.addVertex(paramVertex);
+    if (0 == (dirtyBits & 0x1)) {
+      bbox.resize(paramVertex.getCoord());
+    }
+    
+    dirtyBits |= 0x6;
+  }
+  
+
+
+
+
+  public final void addVertex(int paramInt, Vertex paramVertex)
+  {
+    Outline localOutline = getLastOutline();
+    localOutline.addVertex(paramInt, paramVertex);
+    if (0 == (dirtyBits & 0x1)) {
+      bbox.resize(paramVertex.getCoord());
+    }
+    dirtyBits |= 0x6;
+  }
+  
+
+
+
+
+
+
+
+
+  public final void addVertex(float paramFloat1, float paramFloat2, boolean paramBoolean)
+  {
+    addVertex(vertexFactory.create(paramFloat1, paramFloat2, 0.0F, paramBoolean));
+  }
+  
+
+
+
+
+
+
+
+
+  public final void addVertex(float paramFloat1, float paramFloat2, float paramFloat3, boolean paramBoolean)
+  {
+    addVertex(vertexFactory.create(paramFloat1, paramFloat2, paramFloat3, paramBoolean));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public final void addVertex(float[] paramArrayOfFloat, int paramInt1, int paramInt2, boolean paramBoolean)
+  {
+    addVertex(vertexFactory.create(paramArrayOfFloat, paramInt1, paramInt2, paramBoolean));
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final void closeLastOutline(boolean paramBoolean)
+  {
+    if (getLastOutline().setClosed(true)) {
+      dirtyBits |= 0x6;
+    }
+  }
+  
+
+
+  public final VerticesState getOutlineState()
+  {
+    return outlineState;
+  }
+  
+
+
+
+  public final void setIsQuadraticNurbs()
+  {
+    outlineState = VerticesState.QUADRATIC_NURBS;
+  }
+  
+  private void subdivideTriangle(Outline paramOutline, Vertex paramVertex1, Vertex paramVertex2, Vertex paramVertex3, int paramInt)
+  {
+    VectorUtil.midVec3(tmpV1, paramVertex1.getCoord(), paramVertex2.getCoord());
+    VectorUtil.midVec3(tmpV3, paramVertex2.getCoord(), paramVertex3.getCoord());
+    VectorUtil.midVec3(tmpV2, tmpV1, tmpV3);
+    
+
+    paramVertex2.setCoord(tmpV2, 0, 3);
+    paramVertex2.setOnCurve(true);
+    
+    paramOutline.addVertex(paramInt, vertexFactory.create(tmpV1, 0, 3, false));
+    paramOutline.addVertex(paramInt + 2, vertexFactory.create(tmpV3, 0, 3, false));
+    
+    addedVerticeCount += 2;
+  }
+  
+
+
+
+
+
+
+
+
+  private void checkOverlaps()
+  {
+    ArrayList localArrayList = new ArrayList(3);
+    int i = getOutlineNumber();
+    int j = 1;
+    do {
+      for (int k = 0; k < i; k++) {
+        Outline localOutline = getOutline(k);
+        int m = localOutline.getVertexCount();
+        for (int n = 0; n < localOutline.getVertexCount(); n++) {
+          Vertex localVertex1 = localOutline.getVertex(n);
+          if (!localVertex1.isOnCurve()) {
+            Vertex localVertex2 = localOutline.getVertex((n + 1) % m);
+            Vertex localVertex3 = localOutline.getVertex((n + m - 1) % m);
+            
+
+
+            Vertex localVertex4;
+            
+
+            if (j != 0) {
+              localVertex4 = checkTriOverlaps0(localVertex3, localVertex1, localVertex2);
+            } else {
+              localVertex4 = null;
+            }
+            if ((localArrayList.contains(localVertex1)) || (localVertex4 != null)) {
+              localArrayList.remove(localVertex1);
+              
+              subdivideTriangle(localOutline, localVertex3, localVertex1, localVertex2, n);
+              n += 3;
+              m += 2;
+              addedVerticeCount += 2;
+              
+              if ((localVertex4 != null) && (!localVertex4.isOnCurve()) && 
+                (!localArrayList.contains(localVertex4))) {
+                localArrayList.add(localVertex4);
+              }
+            }
+          }
+        }
+      }
+      
+      j = 0;
+    } while (!localArrayList.isEmpty());
+  }
+  
+  private Vertex checkTriOverlaps0(Vertex paramVertex1, Vertex paramVertex2, Vertex paramVertex3) {
+    int i = getOutlineNumber();
+    for (int j = 0; j < i; j++) {
+      Outline localOutline = getOutline(j);
+      int k = localOutline.getVertexCount();
+      for (int m = 0; m < k; m++) {
+        Vertex localVertex1 = localOutline.getVertex(m);
+        if ((!localVertex1.isOnCurve()) && (localVertex1 != paramVertex1) && (localVertex1 != paramVertex2) && (localVertex1 != paramVertex3))
+        {
+
+          Vertex localVertex2 = localOutline.getVertex((m + 1) % k);
+          Vertex localVertex3 = localOutline.getVertex((m + k - 1) % k);
+          
+
+          if ((localVertex3 != paramVertex3) && (localVertex2 != paramVertex1))
+          {
+
+
+            if (VectorUtil.isVec3InTriangle3(paramVertex1.getCoord(), paramVertex2.getCoord(), paramVertex3.getCoord(), localVertex1
+              .getCoord(), localVertex2.getCoord(), localVertex3.getCoord(), tmpV1, tmpV2, tmpV3))
+            {
+              return localVertex1;
+            }
+            if ((VectorUtil.testTri2SegIntersection(paramVertex1, paramVertex2, paramVertex3, localVertex3, localVertex1)) || 
+              (VectorUtil.testTri2SegIntersection(paramVertex1, paramVertex2, paramVertex3, localVertex1, localVertex2)) || 
+              (VectorUtil.testTri2SegIntersection(paramVertex1, paramVertex2, paramVertex3, localVertex3, localVertex2)))
+              return localVertex1;
+          }
+        }
+      } }
+    return null;
+  }
+  
+  private Vertex checkTriOverlaps1(Vertex paramVertex1, Vertex paramVertex2, Vertex paramVertex3) {
+    int i = getOutlineNumber();
+    for (int j = 0; j < i; j++) {
+      Outline localOutline = getOutline(j);
+      int k = localOutline.getVertexCount();
+      for (int m = 0; m < k; m++) {
+        Vertex localVertex1 = localOutline.getVertex(m);
+        if ((!localVertex1.isOnCurve()) && (localVertex1 != paramVertex1) && (localVertex1 != paramVertex2) && (localVertex1 != paramVertex3))
+        {
+
+          Vertex localVertex2 = localOutline.getVertex((m + 1) % k);
+          Vertex localVertex3 = localOutline.getVertex((m + k - 1) % k);
+          
+
+          if ((localVertex3 != paramVertex3) && (localVertex2 != paramVertex1))
+          {
+
+
+            if (VectorUtil.isVec3InTriangle3(paramVertex1.getCoord(), paramVertex2.getCoord(), paramVertex3.getCoord(), localVertex1
+              .getCoord(), localVertex2.getCoord(), localVertex3.getCoord(), tmpV1, tmpV2, tmpV3, 1.1920929E-7F))
+            {
+              return localVertex1;
+            }
+            if ((VectorUtil.testTri2SegIntersection(paramVertex1, paramVertex2, paramVertex3, localVertex3, localVertex1, 1.1920929E-7F)) || 
+              (VectorUtil.testTri2SegIntersection(paramVertex1, paramVertex2, paramVertex3, localVertex1, localVertex2, 1.1920929E-7F)) || 
+              (VectorUtil.testTri2SegIntersection(paramVertex1, paramVertex2, paramVertex3, localVertex3, localVertex2, 1.1920929E-7F)))
+              return localVertex1;
+          }
+        }
+      } }
+    return null;
+  }
+  
+  private void cleanupOutlines() {
+    int i = VerticesState.QUADRATIC_NURBS != outlineState ? 1 : 0;
+    int j = getOutlineNumber();
+    for (int k = 0; k < j; k++) {
+      Outline localOutline = getOutline(k);
+      int m = localOutline.getVertexCount();
+      
+      if (i != 0) {
+        for (int n = 0; n < m; n++) {
+          Vertex localVertex1 = localOutline.getVertex(n);
+          int i1 = (n + 1) % m;
+          Vertex localVertex2 = localOutline.getVertex(i1);
+          if ((!localVertex1.isOnCurve()) && (!localVertex2.isOnCurve())) {
+            VectorUtil.midVec3(tmpV1, localVertex1.getCoord(), localVertex2.getCoord());
+            System.err.println("XXX: Cubic: " + n + ": " + localVertex1 + ", " + i1 + ": " + localVertex2);
+            Vertex localVertex3 = vertexFactory.create(tmpV1, 0, 3, true);
+            n++;
+            m++;
+            addedVerticeCount += 1;
+            localOutline.addVertex(n, localVertex3);
+          }
+        }
+      }
+      if (0 >= m) {
+        outlines.remove(localOutline);
+        k--;
+        j--;
+      } else if ((0 < m) && 
+        (VectorUtil.isVec3Equal(localOutline.getVertex(0).getCoord(), 0, localOutline.getLastVertex().getCoord(), 0, 1.1920929E-7F))) {
+        localOutline.removeVertex(m - 1);
+      }
+    }
+    outlineState = VerticesState.QUADRATIC_NURBS;
+    checkOverlaps();
+  }
+  
+  private int generateVertexIds() {
+    int i = 0;
+    for (int j = 0; j < outlines.size(); j++) {
+      ArrayList localArrayList = ((Outline)outlines.get(j)).getVertices();
+      for (int k = 0; k < localArrayList.size(); k++) {
+        ((Vertex)localArrayList.get(k)).setId(i++);
+      }
+    }
+    return i;
+  }
+  
+
+
+
+
+
+  public final ArrayList<Vertex> getVertices()
+  {
+    boolean bool;
+    
+
+
+
+
+    if (0 != (0x2 & dirtyBits)) {
+      vertices.clear();
+      for (int i = 0; i < outlines.size(); i++) {
+        vertices.addAll(((Outline)outlines.get(i)).getVertices());
+      }
+      dirtyBits &= 0xFFFFFFFD;
+      bool = true;
+    } else {
+      bool = false;
+    }
+    if (Region.DEBUG_INSTANCE) {
+      System.err.println("OutlineShape.getVertices(): o " + outlines.size() + ", v " + vertices.size() + ", updated " + bool);
+    }
+    return vertices;
+  }
+  
+  private void triangulateImpl() {
+    if (0 < outlines.size()) {
+      sortOutlines();
+      generateVertexIds();
+      
+      triangles.clear();
+      Triangulator localTriangulator = Triangulation.create();
+      for (int i = 0; i < outlines.size(); i++) {
+        localTriangulator.addCurve(triangles, (Outline)outlines.get(i), sharpness);
+      }
+      localTriangulator.generate(triangles);
+      addedVerticeCount += localTriangulator.getAddedVerticeCount();
+      localTriangulator.reset();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+  public ArrayList<Triangle> getTriangles(VerticesState paramVerticesState)
+  {
+    if (paramVerticesState != VerticesState.QUADRATIC_NURBS)
+      throw new IllegalStateException("destinationType " + paramVerticesState.name() + " not supported (currently " + outlineState.name() + ")");
+    boolean bool;
+    if (0 != (0x4 & dirtyBits)) {
+      cleanupOutlines();
+      triangulateImpl();
+      bool = true;
+      dirtyBits |= 0x2;
+      dirtyBits &= 0xFFFFFFFB;
+    } else {
+      bool = false;
+    }
+    if (Region.DEBUG_INSTANCE) {
+      System.err.println("OutlineShape.getTriangles().X: " + triangles.size() + ", updated " + bool);
+    }
+    return triangles;
+  }
+  
+
+
+
+
+
+  public final OutlineShape transform(AffineTransform paramAffineTransform)
+  {
+    OutlineShape localOutlineShape = new OutlineShape(vertexFactory);
+    int i = outlines.size();
+    for (int j = 0; j < i; j++) {
+      localOutlineShape.addOutline(((Outline)outlines.get(j)).transform(paramAffineTransform, vertexFactory));
+    }
+    return localOutlineShape;
+  }
+  
+
+
+
+  private void sortOutlines()
+  {
+    Collections.sort(outlines, reversSizeComparator);
+  }
+  
+  private static Comparator<Outline> reversSizeComparator = new Comparator()
+  {
+    public int compare(Outline paramAnonymousOutline1, Outline paramAnonymousOutline2) {
+      return paramAnonymousOutline2.compareTo(paramAnonymousOutline1);
+    }
+  };
+  
+
+
+
+
+  public final int compareTo(OutlineShape paramOutlineShape)
+  {
+    float f1 = getBounds().getSize();
+    float f2 = paramOutlineShape.getBounds().getSize();
+    if (FloatUtil.isEqual(f1, f2, 1.1920929E-7F))
+      return 0;
+    if (f1 < f2) {
+      return -1;
+    }
+    return 1;
+  }
+  
+  private void validateBoundingBox()
+  {
+    dirtyBits &= 0xFFFFFFFE;
+    bbox.reset();
+    for (int i = 0; i < outlines.size(); i++) {
+      bbox.resize(((Outline)outlines.get(i)).getBounds());
+    }
+  }
+  
+  public final AABBox getBounds() {
+    if (0 == (dirtyBits & 0x1)) {
+      validateBoundingBox();
+    }
+    return bbox;
+  }
+  
+
+
+
+
+
+  public boolean equals(Object paramObject)
+  {
+    if (paramObject == this) {
+      return true;
+    }
+    if ((null == paramObject) || (!(paramObject instanceof OutlineShape))) {
+      return false;
+    }
+    OutlineShape localOutlineShape = (OutlineShape)paramObject;
+    if (getOutlineState() != localOutlineShape.getOutlineState()) {
+      return false;
+    }
+    if (getOutlineNumber() != localOutlineShape.getOutlineNumber()) {
+      return false;
+    }
+    if (!getBounds().equals(localOutlineShape.getBounds())) {
+      return false;
+    }
+    for (int i = getOutlineNumber() - 1; i >= 0; i--) {
+      if (!getOutline(i).equals(localOutlineShape.getOutline(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
+  
+  public final int hashCode()
+  {
+    throw new InternalError("hashCode not designed");
+  }
+  
+
+  public String toString()
+  {
+    return getClass().getName() + "@" + Integer.toHexString(super.hashCode());
+  }
+}

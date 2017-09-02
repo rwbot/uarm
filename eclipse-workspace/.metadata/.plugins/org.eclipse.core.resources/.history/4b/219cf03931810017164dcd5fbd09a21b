@@ -1,0 +1,654 @@
+package com.jogamp.opengl.util;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.util.InterruptedRuntimeException;
+import com.jogamp.opengl.GLAnimatorControl;
+import com.jogamp.opengl.GLAnimatorControl.UncaughtExceptionHandler;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import jogamp.opengl.Debug;
+import jogamp.opengl.FPSCounterImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class AnimatorBase
+  implements GLAnimatorControl
+{
+  protected static final boolean DEBUG = Debug.debug("Animator");
+  protected static final long TO_WAIT_FOR_FINISH_LIFECYCLE_ACTION = 1000L;
+  protected static final long POLLP_WAIT_FOR_FINISH_LIFECYCLE_ACTION = 32L;
+  public static final int MODE_EXPECT_AWT_RENDERING_THREAD = 1;
+  
+  protected static abstract interface Condition
+  {
+    public abstract boolean eval();
+  }
+  
+  public static abstract interface AnimatorImpl
+  {
+    public abstract void display(ArrayList<GLAutoDrawable> paramArrayList, boolean paramBoolean1, boolean paramBoolean2) throws AnimatorBase.UncaughtAnimatorException;
+    
+    public abstract boolean blockUntilDone(Thread paramThread);
+  }
+  
+  public static class UncaughtAnimatorException extends RuntimeException
+  {
+    final GLAutoDrawable drawable;
+    
+    public UncaughtAnimatorException(GLAutoDrawable paramGLAutoDrawable, Throwable paramThrowable)
+    {
+      super();
+      drawable = paramGLAutoDrawable; }
+    
+    public final GLAutoDrawable getGLAutoDrawable() { return drawable; }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  private static int seqInstanceNumber = 0;
+  
+  protected int modeBits;
+  
+  protected AnimatorImpl impl;
+  protected String baseName;
+  protected ArrayList<GLAutoDrawable> drawables = new ArrayList();
+  protected boolean drawablesEmpty;
+  protected Thread animThread;
+  protected boolean ignoreExceptions;
+  protected boolean printExceptions;
+  protected boolean exclusiveContext;
+  protected Thread userExclusiveContextThread;
+  protected GLAnimatorControl.UncaughtExceptionHandler uncaughtExceptionHandler;
+  protected FPSCounterImpl fpsCounter = new FPSCounterImpl();
+  private static final Class<?> awtAnimatorImplClazz;
+  
+  static {
+    GLProfile.initSingleton();
+    if (GLProfile.isAWTAvailable()) {
+      Class localClass;
+      try {
+        localClass = Class.forName("com.jogamp.opengl.util.AWTAnimatorImpl");
+      } catch (Exception localException) {
+        localClass = null;
+      }
+      awtAnimatorImplClazz = localClass;
+    } else {
+      awtAnimatorImplClazz = null;
+    }
+  }
+  
+
+
+
+
+
+  public AnimatorBase()
+  {
+    modeBits = 1;
+    drawablesEmpty = true;
+  }
+  
+  private static final boolean useAWTAnimatorImpl(int paramInt) {
+    return (0 != (0x1 & paramInt)) && (null != awtAnimatorImplClazz);
+  }
+  
+
+
+
+
+
+
+
+
+
+  protected final synchronized void initImpl(boolean paramBoolean)
+  {
+    if ((paramBoolean) || (null == impl)) {
+      String str = String.format("#%02d", new Object[] { Integer.valueOf(seqInstanceNumber++) });
+      if (useAWTAnimatorImpl(modeBits))
+        try {
+          impl = ((AnimatorImpl)awtAnimatorImplClazz.newInstance());
+          baseName = (getBaseName("AWT") + str);
+        } catch (Exception localException) { localException.printStackTrace();
+        }
+      if (null == impl) {
+        impl = new DefaultAnimatorImpl();
+        baseName = (getBaseName("") + str);
+      }
+      if (DEBUG) {
+        System.err.println("Animator.initImpl: baseName " + baseName + ", implClazz " + impl.getClass().getName() + " - " + toString() + " - " + getThreadName());
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public final synchronized void setModeBits(boolean paramBoolean, int paramInt)
+    throws GLException
+  {
+    int i = modeBits;
+    if (paramBoolean) {
+      modeBits |= paramInt;
+    } else {
+      modeBits &= (paramInt ^ 0xFFFFFFFF);
+    }
+    if (useAWTAnimatorImpl(i) != useAWTAnimatorImpl(modeBits)) {
+      if (isStarted()) {
+        throw new GLException("Animator already started");
+      }
+      initImpl(true);
+    } }
+  
+  public synchronized int getModeBits() { return modeBits; }
+  
+
+  public final synchronized void add(final GLAutoDrawable paramGLAutoDrawable)
+  {
+    if (DEBUG) {
+      System.err.println("Animator add: 0x" + Integer.toHexString(paramGLAutoDrawable.hashCode()) + " - " + toString() + " - " + getThreadName());
+    }
+    if (drawables.contains(paramGLAutoDrawable)) {
+      throw new IllegalArgumentException("Drawable already added to animator: " + this + ", " + paramGLAutoDrawable);
+    }
+    initImpl(false);
+    pause();
+    if (isStarted()) {
+      paramGLAutoDrawable.setExclusiveContextThread(exclusiveContext ? getExclusiveContextThread() : null);
+    }
+    drawables.add(paramGLAutoDrawable);
+    drawablesEmpty = (drawables.size() == 0);
+    paramGLAutoDrawable.setAnimator(this);
+    if (isPaused()) {
+      resume();
+    }
+    Condition local1 = new Condition()
+    {
+      public boolean eval() {
+        Thread localThread = paramGLAutoDrawable.getExclusiveContextThread();
+        return (isStarted()) && (!isPaused()) && (!isAnimating()) && (((exclusiveContext) && (null == localThread)) || ((!exclusiveContext) && (null != localThread)));
+      } };
+    boolean bool = finishLifecycleAction(local1, 0L);
+    if (DEBUG) {
+      System.err.println("Animator add: Wait for Animating/ECT OK: " + bool + ", " + toString() + ", dect " + paramGLAutoDrawable.getExclusiveContextThread());
+    }
+    notifyAll();
+  }
+  
+  public final synchronized void remove(final GLAutoDrawable paramGLAutoDrawable)
+  {
+    if (DEBUG) {
+      System.err.println("Animator remove: 0x" + Integer.toHexString(paramGLAutoDrawable.hashCode()) + " - " + toString() + " - " + getThreadName());
+    }
+    if (!drawables.contains(paramGLAutoDrawable)) {
+      throw new IllegalArgumentException("Drawable not added to animator: " + this + ", " + paramGLAutoDrawable);
+    }
+    
+    if ((exclusiveContext) && (isAnimating())) {
+      paramGLAutoDrawable.setExclusiveContextThread(null);
+      Condition local2 = new Condition()
+      {
+
+        public boolean eval() { return null != paramGLAutoDrawable.getExclusiveContextThread(); }
+      };
+      bool2 = finishLifecycleAction(local2, 32L);
+      if (DEBUG) {
+        System.err.println("Animator remove: Wait for Null-ECT OK: " + bool2 + ", " + toString() + ", dect " + paramGLAutoDrawable.getExclusiveContextThread());
+      }
+    }
+    
+    boolean bool1 = pause();
+    drawables.remove(paramGLAutoDrawable);
+    drawablesEmpty = (drawables.size() == 0);
+    paramGLAutoDrawable.setAnimator(null);
+    if (bool1) {
+      resume();
+    }
+    boolean bool2 = finishLifecycleAction(waitForNotAnimatingIfEmptyCondition, 0L);
+    if (DEBUG) {
+      System.err.println("Animator remove: Wait for !Animating-if-empty OK: " + bool2 + ", " + toString());
+    }
+    notifyAll(); }
+  
+  private final Condition waitForNotAnimatingIfEmptyCondition = new Condition()
+  {
+    public boolean eval() {
+      return (isStarted()) && (drawablesEmpty) && (isAnimating());
+    }
+  };
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final synchronized Thread setExclusiveContext(Thread paramThread)
+  {
+    boolean bool = null != paramThread;
+    Thread localThread = userExclusiveContextThread;
+    if ((bool) && (paramThread != animThread)) {
+      userExclusiveContextThread = paramThread;
+    }
+    setExclusiveContext(bool);
+    return localThread;
+  }
+  
+
+
+
+
+
+
+  public final boolean setExclusiveContext(boolean paramBoolean)
+  {
+    boolean bool1;
+    
+
+
+
+
+    Thread localThread;
+    
+
+
+
+
+    boolean bool2;
+    
+
+
+
+
+    synchronized (this) {
+      bool1 = (isStarted()) && (!drawablesEmpty);
+      localThread = userExclusiveContextThread;
+      bool2 = exclusiveContext;
+      exclusiveContext = paramBoolean;
+      if (DEBUG) {
+        System.err.println("AnimatorBase.setExclusiveContextThread: " + bool2 + " -> " + exclusiveContext + ", propagateState " + bool1 + ", " + this);
+      }
+    }
+    ??? = paramBoolean ? animThread : null != localThread ? localThread : null;
+    Object localObject2 = null;
+    if (bool1) {
+      setDrawablesExclCtxState(paramBoolean);
+      if (!paramBoolean) {
+        if ((Thread.currentThread() == getThread()) || (Thread.currentThread() == localThread)) {
+          try {
+            display();
+          } catch (UncaughtAnimatorException localUncaughtAnimatorException) {
+            localObject2 = localUncaughtAnimatorException;
+          }
+        } else {
+          boolean bool3 = isAnimating() ? false : resume();
+          int i = 10;
+          while ((0 < i) && (isAnimating()) && (!validateDrawablesExclCtxState(???))) {
+            try {
+              Thread.sleep(20L);
+            } catch (InterruptedException localInterruptedException) {}
+            i--;
+          }
+          if (bool3) {
+            pause();
+          }
+        }
+        synchronized (this) {
+          userExclusiveContextThread = null;
+        }
+      }
+    }
+    if (DEBUG) {
+      System.err.println("AnimatorBase.setExclusiveContextThread: all-GLAD Ok: " + validateDrawablesExclCtxState(???) + ", " + this);
+      if (null != localObject2) {
+        System.err.println("AnimatorBase.setExclusiveContextThread: caught: " + localObject2.getMessage());
+        localObject2.printStackTrace();
+      }
+    }
+    if (null != localObject2) {
+      throw localObject2;
+    }
+    return bool2;
+  }
+  
+
+
+
+
+
+
+  public final synchronized boolean isExclusiveContextEnabled()
+  {
+    return exclusiveContext;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final synchronized Thread getExclusiveContextThread()
+  {
+    return (isStarted()) && (exclusiveContext) ? animThread : null != userExclusiveContextThread ? userExclusiveContextThread : null;
+  }
+  
+
+
+
+
+
+
+
+  protected final synchronized void setDrawablesExclCtxState(boolean paramBoolean)
+  {
+    if (DEBUG) {
+      System.err.println("AnimatorBase.setExclusiveContextImpl exlusive " + exclusiveContext + ": Enable " + paramBoolean + " for " + this + " - " + Thread.currentThread());
+    }
+    
+    Thread localThread = getExclusiveContextThread();
+    for (int i = 0; i < drawables.size(); i++)
+      try {
+        ((GLAutoDrawable)drawables.get(i)).setExclusiveContextThread(paramBoolean ? localThread : null);
+      } catch (RuntimeException localRuntimeException) {
+        localRuntimeException.printStackTrace();
+      }
+  }
+  
+  protected final boolean validateDrawablesExclCtxState(Thread paramThread) {
+    for (int i = 0; i < drawables.size(); i++) {
+      if (paramThread != ((GLAutoDrawable)drawables.get(i)).getExclusiveContextThread()) {
+        return false;
+      }
+    }
+    return true;
+  }
+  
+  public final synchronized Thread getThread()
+  {
+    return animThread;
+  }
+  
+
+
+
+  protected final void display()
+    throws AnimatorBase.UncaughtAnimatorException
+  {
+    impl.display(drawables, ignoreExceptions, printExceptions);
+    fpsCounter.tickFPS();
+  }
+  
+  public final void setUpdateFPSFrames(int paramInt, PrintStream paramPrintStream)
+  {
+    fpsCounter.setUpdateFPSFrames(paramInt, paramPrintStream);
+  }
+  
+  public final void resetFPSCounter()
+  {
+    fpsCounter.resetFPSCounter();
+  }
+  
+  public final int getUpdateFPSFrames()
+  {
+    return fpsCounter.getUpdateFPSFrames();
+  }
+  
+  public final long getFPSStartTime()
+  {
+    return fpsCounter.getFPSStartTime();
+  }
+  
+  public final long getLastFPSUpdateTime()
+  {
+    return fpsCounter.getLastFPSUpdateTime();
+  }
+  
+  public final long getLastFPSPeriod()
+  {
+    return fpsCounter.getLastFPSPeriod();
+  }
+  
+  public final float getLastFPS()
+  {
+    return fpsCounter.getLastFPS();
+  }
+  
+  public final int getTotalFPSFrames()
+  {
+    return fpsCounter.getTotalFPSFrames();
+  }
+  
+  public final long getTotalFPSDuration()
+  {
+    return fpsCounter.getTotalFPSDuration();
+  }
+  
+  public final float getTotalFPS()
+  {
+    return fpsCounter.getTotalFPS();
+  }
+  
+
+
+  public final void setIgnoreExceptions(boolean paramBoolean)
+  {
+    ignoreExceptions = paramBoolean;
+  }
+  
+
+
+
+  public final void setPrintExceptions(boolean paramBoolean)
+  {
+    printExceptions = paramBoolean;
+  }
+  
+  public final GLAnimatorControl.UncaughtExceptionHandler getUncaughtExceptionHandler()
+  {
+    return uncaughtExceptionHandler;
+  }
+  
+  public final void setUncaughtExceptionHandler(GLAnimatorControl.UncaughtExceptionHandler paramUncaughtExceptionHandler)
+  {
+    uncaughtExceptionHandler = paramUncaughtExceptionHandler;
+  }
+  
+
+
+
+
+
+  protected final synchronized boolean handleUncaughtException(UncaughtAnimatorException paramUncaughtAnimatorException)
+  {
+    if (null != uncaughtExceptionHandler) {
+      try {
+        uncaughtExceptionHandler.uncaughtException(this, paramUncaughtAnimatorException.getGLAutoDrawable(), paramUncaughtAnimatorException.getCause());
+      } catch (Throwable localThrowable) {}
+      return true;
+    }
+    return false;
+  }
+  
+
+
+
+
+
+
+
+  protected final void flushGLRunnables()
+  {
+    for (int i = 0; i < drawables.size(); i++) {
+      ((GLAutoDrawable)drawables.get(i)).flushGLRunnables();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected final synchronized boolean finishLifecycleAction(Condition paramCondition, long paramLong)
+  {
+    initImpl(false);
+    
+
+
+
+    if (impl.blockUntilDone(animThread)) {
+      bool1 = true;
+      l1 = 1000L;
+      if (0L >= paramLong) {
+        paramLong = l1;
+      }
+      bool2 = paramCondition.eval();
+      while ((bool2) && (l1 > 0L)) {
+        long l2 = System.currentTimeMillis();
+        if (paramLong > l1) paramLong = l1;
+        notifyAll();
+        try {
+          wait(paramLong);
+        } catch (InterruptedException localInterruptedException) {
+          throw new InterruptedRuntimeException(localInterruptedException);
+        }
+        l1 -= System.currentTimeMillis() - l2;
+        bool2 = paramCondition.eval();
+      }
+    }
+    
+
+
+
+
+
+
+    boolean bool1 = false;
+    long l1 = 0L;
+    boolean bool2 = paramCondition.eval();
+    if (bool2) {
+      notifyAll();
+      bool2 = paramCondition.eval();
+    }
+    
+    boolean bool3 = (!bool2) || (!bool1);
+    if ((DEBUG) || ((bool1) && (bool2))) {
+      if ((bool1) && (l1 <= 0L) && (bool2)) {
+        System.err.println("finishLifecycleAction(" + paramCondition.getClass().getName() + "): ++++++ timeout reached ++++++ " + getThreadName());
+      }
+      System.err.println("finishLifecycleAction(" + paramCondition.getClass().getName() + "): OK " + (!bool2) + "- pollPeriod " + paramLong + ", blocking " + bool1 + " -> res " + bool3 + ", waited " + (bool1 ? 1000L - l1 : 0L) + "/" + 1000L + " - " + 
+      
+
+        getThreadName());
+      System.err.println(" - " + toString());
+      if (bool2) {
+        ExceptionUtils.dumpStack(System.err);
+      }
+    }
+    return bool3;
+  }
+  
+  public synchronized boolean isStarted()
+  {
+    return animThread != null;
+  }
+  
+  protected static String getThreadName() { return Thread.currentThread().getName(); }
+  
+
+
+  public String toString()
+  {
+    return getClass().getName() + "[started " + isStarted() + ", animating " + isAnimating() + ", paused " + isPaused() + ", drawable " + drawables.size() + ", totals[dt " + getTotalFPSDuration() + ", frames " + getTotalFPSFrames() + ", fps " + getTotalFPS() + "], modeBits " + modeBits + ", init'ed " + (null != impl) + ", animThread " + getThread() + ", exclCtxThread " + exclusiveContext + "(" + getExclusiveContextThread() + ")]";
+  }
+  
+  protected abstract String getBaseName(String paramString);
+}

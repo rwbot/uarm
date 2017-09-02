@@ -1,0 +1,997 @@
+package jogamp.opengl.gl2;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.opengl.GL2;
+import java.nio.DoubleBuffer;
+import java.nio.IntBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ProjectDouble
+{
+  private static final double[] IDENTITY_MATRIX = { 1.0D, 0.0D, 0.0D, 0.0D, 0.0D, 1.0D, 0.0D, 0.0D, 0.0D, 0.0D, 1.0D, 0.0D, 0.0D, 0.0D, 0.0D, 1.0D };
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private final double[] matrix = new double[16];
+  
+  private final double[][] tempMatrix = new double[4][4];
+  private final double[] in = new double[4];
+  private final double[] out = new double[4];
+  
+  private final DoubleBuffer matrixBuf;
+  
+  private final DoubleBuffer tempMatrixBuf;
+  
+  private final DoubleBuffer inBuf;
+  
+  private final DoubleBuffer outBuf;
+  
+  private final DoubleBuffer forwardBuf;
+  
+  private final DoubleBuffer sideBuf;
+  
+  private final DoubleBuffer upBuf;
+  
+
+  public ProjectDouble()
+  {
+    DoubleBuffer localDoubleBuffer = Buffers.newDirectDoubleBuffer(128);
+    int i = 0;
+    int j = 16;
+    matrixBuf = slice(localDoubleBuffer, i, j);
+    i += j;
+    tempMatrixBuf = slice(localDoubleBuffer, i, j);
+    i += j;
+    j = 4;
+    inBuf = slice(localDoubleBuffer, i, j);
+    i += j;
+    outBuf = slice(localDoubleBuffer, i, j);
+    i += j;
+    j = 3;
+    forwardBuf = slice(localDoubleBuffer, i, j);
+    i += j;
+    sideBuf = slice(localDoubleBuffer, i, j);
+    i += j;
+    upBuf = slice(localDoubleBuffer, i, j);
+  }
+  
+  private static DoubleBuffer slice(DoubleBuffer paramDoubleBuffer, int paramInt1, int paramInt2) {
+    paramDoubleBuffer.position(paramInt1);
+    paramDoubleBuffer.limit(paramInt1 + paramInt2);
+    return paramDoubleBuffer.slice();
+  }
+  
+
+
+  private void __gluMakeIdentityd(DoubleBuffer paramDoubleBuffer)
+  {
+    int i = paramDoubleBuffer.position();
+    paramDoubleBuffer.put(IDENTITY_MATRIX);
+    paramDoubleBuffer.position(i);
+  }
+  
+
+
+  private void __gluMakeIdentityd(double[] paramArrayOfDouble)
+  {
+    for (int i = 0; i < 16; i++) {
+      paramArrayOfDouble[i] = IDENTITY_MATRIX[i];
+    }
+  }
+  
+
+
+
+
+
+
+  private void __gluMultMatrixVecd(double[] paramArrayOfDouble1, int paramInt, double[] paramArrayOfDouble2, double[] paramArrayOfDouble3)
+  {
+    for (int i = 0; i < 4; i++) {
+      paramArrayOfDouble3[i] = (paramArrayOfDouble2[0] * paramArrayOfDouble1[(0 + i + paramInt)] + paramArrayOfDouble2[1] * paramArrayOfDouble1[(4 + i + paramInt)] + paramArrayOfDouble2[2] * paramArrayOfDouble1[(8 + i + paramInt)] + paramArrayOfDouble2[3] * paramArrayOfDouble1[(12 + i + paramInt)]);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  private void __gluMultMatrixVecd(DoubleBuffer paramDoubleBuffer1, DoubleBuffer paramDoubleBuffer2, DoubleBuffer paramDoubleBuffer3)
+  {
+    int i = paramDoubleBuffer2.position();
+    int j = paramDoubleBuffer3.position();
+    int k = paramDoubleBuffer1.position();
+    for (int m = 0; m < 4; m++) {
+      paramDoubleBuffer3.put(m + j, paramDoubleBuffer2
+        .get(0 + i) * paramDoubleBuffer1.get(0 + m + k) + paramDoubleBuffer2
+        .get(1 + i) * paramDoubleBuffer1.get(4 + m + k) + paramDoubleBuffer2
+        .get(2 + i) * paramDoubleBuffer1.get(8 + m + k) + paramDoubleBuffer2
+        .get(3 + i) * paramDoubleBuffer1.get(12 + m + k));
+    }
+  }
+  
+
+
+
+
+
+
+
+  private boolean __gluInvertMatrixd(double[] paramArrayOfDouble1, double[] paramArrayOfDouble2)
+  {
+    double[][] arrayOfDouble = tempMatrix;
+    int j;
+    for (int i = 0; i < 4; i++) {
+      for (j = 0; j < 4; j++) {
+        arrayOfDouble[i][j] = paramArrayOfDouble1[(i * 4 + j)];
+      }
+    }
+    __gluMakeIdentityd(paramArrayOfDouble2);
+    
+    for (i = 0; i < 4; i++)
+    {
+
+
+      int m = i;
+      for (j = i + 1; j < 4; j++) {
+        if (Math.abs(arrayOfDouble[j][i]) > Math.abs(arrayOfDouble[i][i])) {
+          m = j;
+        }
+      }
+      
+      if (m != i)
+      {
+
+
+        for (k = 0; k < 4; k++) {
+          d = arrayOfDouble[i][k];
+          arrayOfDouble[i][k] = arrayOfDouble[m][k];
+          arrayOfDouble[m][k] = d;
+          
+          d = paramArrayOfDouble2[(i * 4 + k)];
+          paramArrayOfDouble2[(i * 4 + k)] = paramArrayOfDouble2[(m * 4 + k)];
+          paramArrayOfDouble2[(m * 4 + k)] = d;
+        }
+      }
+      
+      if (arrayOfDouble[i][i] == 0.0D)
+      {
+
+
+
+        return false;
+      }
+      
+      double d = arrayOfDouble[i][i];
+      for (int k = 0; k < 4; k++) {
+        arrayOfDouble[i][k] /= d;
+        paramArrayOfDouble2[(i * 4 + k)] /= d;
+      }
+      for (j = 0; j < 4; j++) {
+        if (j != i) {
+          d = arrayOfDouble[j][i];
+          for (k = 0; k < 4; k++) {
+            arrayOfDouble[j][k] -= arrayOfDouble[i][k] * d;
+            paramArrayOfDouble2[(j * 4 + k)] -= paramArrayOfDouble2[(i * 4 + k)] * d;
+          }
+        }
+      }
+    }
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+  private boolean __gluInvertMatrixd(DoubleBuffer paramDoubleBuffer1, DoubleBuffer paramDoubleBuffer2)
+  {
+    int n = paramDoubleBuffer1.position();
+    int i1 = paramDoubleBuffer2.position();
+    
+    DoubleBuffer localDoubleBuffer = tempMatrixBuf;
+    int j;
+    for (int i = 0; i < 4; i++) {
+      for (j = 0; j < 4; j++) {
+        localDoubleBuffer.put(i * 4 + j, paramDoubleBuffer1.get(i * 4 + j + n));
+      }
+    }
+    __gluMakeIdentityd(paramDoubleBuffer2);
+    
+    for (i = 0; i < 4; i++)
+    {
+
+
+      int m = i;
+      for (j = i + 1; j < 4; j++) {
+        if (Math.abs(localDoubleBuffer.get(j * 4 + i)) > Math.abs(localDoubleBuffer.get(i * 4 + i))) {
+          m = j;
+        }
+      }
+      
+      if (m != i)
+      {
+
+
+        for (k = 0; k < 4; k++) {
+          d = localDoubleBuffer.get(i * 4 + k);
+          localDoubleBuffer.put(i * 4 + k, localDoubleBuffer.get(m * 4 + k));
+          localDoubleBuffer.put(m * 4 + k, d);
+          
+          d = paramDoubleBuffer2.get(i * 4 + k + i1);
+          paramDoubleBuffer2.put(i * 4 + k + i1, paramDoubleBuffer2.get(m * 4 + k + i1));
+          paramDoubleBuffer2.put(m * 4 + k + i1, d);
+        }
+      }
+      
+      if (localDoubleBuffer.get(i * 4 + i) == 0.0D)
+      {
+
+
+
+        return false;
+      }
+      
+      double d = localDoubleBuffer.get(i * 4 + i);
+      for (int k = 0; k < 4; k++) {
+        localDoubleBuffer.put(i * 4 + k, localDoubleBuffer.get(i * 4 + k) / d);
+        paramDoubleBuffer2.put(i * 4 + k + i1, paramDoubleBuffer2.get(i * 4 + k + i1) / d);
+      }
+      for (j = 0; j < 4; j++) {
+        if (j != i) {
+          d = localDoubleBuffer.get(j * 4 + i);
+          for (k = 0; k < 4; k++) {
+            localDoubleBuffer.put(j * 4 + k, localDoubleBuffer.get(j * 4 + k) - localDoubleBuffer.get(i * 4 + k) * d);
+            paramDoubleBuffer2.put(j * 4 + k + i1, paramDoubleBuffer2.get(j * 4 + k + i1) - paramDoubleBuffer2.get(i * 4 + k + i1) * d);
+          }
+        }
+      }
+    }
+    return true;
+  }
+  
+
+
+
+
+
+  private void __gluMultMatricesd(double[] paramArrayOfDouble1, int paramInt1, double[] paramArrayOfDouble2, int paramInt2, double[] paramArrayOfDouble3)
+  {
+    for (int i = 0; i < 4; i++) {
+      for (int j = 0; j < 4; j++) {
+        paramArrayOfDouble3[(i * 4 + j)] = (paramArrayOfDouble1[(i * 4 + 0 + paramInt1)] * paramArrayOfDouble2[(0 + j + paramInt2)] + paramArrayOfDouble1[(i * 4 + 1 + paramInt1)] * paramArrayOfDouble2[(4 + j + paramInt2)] + paramArrayOfDouble1[(i * 4 + 2 + paramInt1)] * paramArrayOfDouble2[(8 + j + paramInt2)] + paramArrayOfDouble1[(i * 4 + 3 + paramInt1)] * paramArrayOfDouble2[(12 + j + paramInt2)]);
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+  private void __gluMultMatricesd(DoubleBuffer paramDoubleBuffer1, DoubleBuffer paramDoubleBuffer2, DoubleBuffer paramDoubleBuffer3)
+  {
+    int i = paramDoubleBuffer1.position();
+    int j = paramDoubleBuffer2.position();
+    int k = paramDoubleBuffer3.position();
+    
+    for (int m = 0; m < 4; m++) {
+      for (int n = 0; n < 4; n++) {
+        paramDoubleBuffer3.put(m * 4 + n + k, paramDoubleBuffer1
+          .get(m * 4 + 0 + i) * paramDoubleBuffer2.get(0 + n + j) + paramDoubleBuffer1
+          .get(m * 4 + 1 + i) * paramDoubleBuffer2.get(4 + n + j) + paramDoubleBuffer1
+          .get(m * 4 + 2 + i) * paramDoubleBuffer2.get(8 + n + j) + paramDoubleBuffer1
+          .get(m * 4 + 3 + i) * paramDoubleBuffer2.get(12 + n + j));
+      }
+    }
+  }
+  
+
+
+
+
+
+
+  private static void normalize(DoubleBuffer paramDoubleBuffer)
+  {
+    int i = paramDoubleBuffer.position();
+    
+    double d = Math.sqrt(paramDoubleBuffer.get(0 + i) * paramDoubleBuffer.get(0 + i) + paramDoubleBuffer
+      .get(1 + i) * paramDoubleBuffer.get(1 + i) + paramDoubleBuffer
+      .get(2 + i) * paramDoubleBuffer.get(2 + i));
+    if (d == 0.0D) {
+      return;
+    }
+    d = 1.0D / d;
+    
+    paramDoubleBuffer.put(0 + i, paramDoubleBuffer.get(0 + i) * d);
+    paramDoubleBuffer.put(1 + i, paramDoubleBuffer.get(1 + i) * d);
+    paramDoubleBuffer.put(2 + i, paramDoubleBuffer.get(2 + i) * d);
+  }
+  
+
+
+
+
+
+
+
+
+
+  private static void cross(DoubleBuffer paramDoubleBuffer1, DoubleBuffer paramDoubleBuffer2, DoubleBuffer paramDoubleBuffer3)
+  {
+    int i = paramDoubleBuffer1.position();
+    int j = paramDoubleBuffer2.position();
+    int k = paramDoubleBuffer3.position();
+    
+    paramDoubleBuffer3.put(0 + k, paramDoubleBuffer1.get(1 + i) * paramDoubleBuffer2.get(2 + j) - paramDoubleBuffer1.get(2 + i) * paramDoubleBuffer2.get(1 + j));
+    paramDoubleBuffer3.put(1 + k, paramDoubleBuffer1.get(2 + i) * paramDoubleBuffer2.get(0 + j) - paramDoubleBuffer1.get(0 + i) * paramDoubleBuffer2.get(2 + j));
+    paramDoubleBuffer3.put(2 + k, paramDoubleBuffer1.get(0 + i) * paramDoubleBuffer2.get(1 + j) - paramDoubleBuffer1.get(1 + i) * paramDoubleBuffer2.get(0 + j));
+  }
+  
+
+
+
+
+
+
+
+  public void gluOrtho2D(GL2 paramGL2, double paramDouble1, double paramDouble2, double paramDouble3, double paramDouble4)
+  {
+    paramGL2.glOrtho(paramDouble1, paramDouble2, paramDouble3, paramDouble4, -1.0D, 1.0D);
+  }
+  
+
+
+
+
+
+
+
+
+  public void gluPerspective(GL2 paramGL2, double paramDouble1, double paramDouble2, double paramDouble3, double paramDouble4)
+  {
+    double d4 = paramDouble1 / 2.0D * 3.141592653589793D / 180.0D;
+    
+    double d3 = paramDouble4 - paramDouble3;
+    double d1 = Math.sin(d4);
+    
+    if ((d3 == 0.0D) || (d1 == 0.0D) || (paramDouble2 == 0.0D)) {
+      return;
+    }
+    
+    double d2 = Math.cos(d4) / d1;
+    
+    __gluMakeIdentityd(matrixBuf);
+    
+    matrixBuf.put(0, d2 / paramDouble2);
+    matrixBuf.put(5, d2);
+    matrixBuf.put(10, -(paramDouble4 + paramDouble3) / d3);
+    matrixBuf.put(11, -1.0D);
+    matrixBuf.put(14, -2.0D * paramDouble3 * paramDouble4 / d3);
+    matrixBuf.put(15, 0.0D);
+    
+    paramGL2.glMultMatrixd(matrixBuf);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void gluLookAt(GL2 paramGL2, double paramDouble1, double paramDouble2, double paramDouble3, double paramDouble4, double paramDouble5, double paramDouble6, double paramDouble7, double paramDouble8, double paramDouble9)
+  {
+    DoubleBuffer localDoubleBuffer1 = forwardBuf;
+    DoubleBuffer localDoubleBuffer2 = sideBuf;
+    DoubleBuffer localDoubleBuffer3 = upBuf;
+    
+    localDoubleBuffer1.put(0, paramDouble4 - paramDouble1);
+    localDoubleBuffer1.put(1, paramDouble5 - paramDouble2);
+    localDoubleBuffer1.put(2, paramDouble6 - paramDouble3);
+    
+    localDoubleBuffer3.put(0, paramDouble7);
+    localDoubleBuffer3.put(1, paramDouble8);
+    localDoubleBuffer3.put(2, paramDouble9);
+    
+    normalize(localDoubleBuffer1);
+    
+
+    cross(localDoubleBuffer1, localDoubleBuffer3, localDoubleBuffer2);
+    normalize(localDoubleBuffer2);
+    
+
+    cross(localDoubleBuffer2, localDoubleBuffer1, localDoubleBuffer3);
+    
+    __gluMakeIdentityd(matrixBuf);
+    matrixBuf.put(0, localDoubleBuffer2.get(0));
+    matrixBuf.put(4, localDoubleBuffer2.get(1));
+    matrixBuf.put(8, localDoubleBuffer2.get(2));
+    
+    matrixBuf.put(1, localDoubleBuffer3.get(0));
+    matrixBuf.put(5, localDoubleBuffer3.get(1));
+    matrixBuf.put(9, localDoubleBuffer3.get(2));
+    
+    matrixBuf.put(2, -localDoubleBuffer1.get(0));
+    matrixBuf.put(6, -localDoubleBuffer1.get(1));
+    matrixBuf.put(10, -localDoubleBuffer1.get(2));
+    
+    paramGL2.glMultMatrixd(matrixBuf);
+    paramGL2.glTranslated(-paramDouble1, -paramDouble2, -paramDouble3);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean gluProject(double paramDouble1, double paramDouble2, double paramDouble3, double[] paramArrayOfDouble1, int paramInt1, double[] paramArrayOfDouble2, int paramInt2, int[] paramArrayOfInt, int paramInt3, double[] paramArrayOfDouble3, int paramInt4)
+  {
+    double[] arrayOfDouble1 = in;
+    double[] arrayOfDouble2 = out;
+    
+    arrayOfDouble1[0] = paramDouble1;
+    arrayOfDouble1[1] = paramDouble2;
+    arrayOfDouble1[2] = paramDouble3;
+    arrayOfDouble1[3] = 1.0D;
+    
+    __gluMultMatrixVecd(paramArrayOfDouble1, paramInt1, arrayOfDouble1, arrayOfDouble2);
+    __gluMultMatrixVecd(paramArrayOfDouble2, paramInt2, arrayOfDouble2, arrayOfDouble1);
+    
+    if (arrayOfDouble1[3] == 0.0D) {
+      return false;
+    }
+    arrayOfDouble1[3] = (1.0D / arrayOfDouble1[3] * 0.5D);
+    
+
+    arrayOfDouble1[0] = (arrayOfDouble1[0] * arrayOfDouble1[3] + 0.5D);
+    arrayOfDouble1[1] = (arrayOfDouble1[1] * arrayOfDouble1[3] + 0.5D);
+    arrayOfDouble1[2] = (arrayOfDouble1[2] * arrayOfDouble1[3] + 0.5D);
+    
+
+    paramArrayOfDouble3[(0 + paramInt4)] = (arrayOfDouble1[0] * paramArrayOfInt[(2 + paramInt3)] + paramArrayOfInt[(0 + paramInt3)]);
+    paramArrayOfDouble3[(1 + paramInt4)] = (arrayOfDouble1[1] * paramArrayOfInt[(3 + paramInt3)] + paramArrayOfInt[(1 + paramInt3)]);
+    paramArrayOfDouble3[(2 + paramInt4)] = arrayOfDouble1[2];
+    
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean gluProject(double paramDouble1, double paramDouble2, double paramDouble3, DoubleBuffer paramDoubleBuffer1, DoubleBuffer paramDoubleBuffer2, IntBuffer paramIntBuffer, DoubleBuffer paramDoubleBuffer3)
+  {
+    DoubleBuffer localDoubleBuffer1 = inBuf;
+    DoubleBuffer localDoubleBuffer2 = outBuf;
+    
+    localDoubleBuffer1.put(0, paramDouble1);
+    localDoubleBuffer1.put(1, paramDouble2);
+    localDoubleBuffer1.put(2, paramDouble3);
+    localDoubleBuffer1.put(3, 1.0D);
+    
+    __gluMultMatrixVecd(paramDoubleBuffer1, localDoubleBuffer1, localDoubleBuffer2);
+    __gluMultMatrixVecd(paramDoubleBuffer2, localDoubleBuffer2, localDoubleBuffer1);
+    
+    if (localDoubleBuffer1.get(3) == 0.0D) {
+      return false;
+    }
+    localDoubleBuffer1.put(3, 1.0D / localDoubleBuffer1.get(3) * 0.5D);
+    
+
+    localDoubleBuffer1.put(0, localDoubleBuffer1.get(0) * localDoubleBuffer1.get(3) + 0.5D);
+    localDoubleBuffer1.put(1, localDoubleBuffer1.get(1) * localDoubleBuffer1.get(3) + 0.5D);
+    localDoubleBuffer1.put(2, localDoubleBuffer1.get(2) * localDoubleBuffer1.get(3) + 0.5D);
+    
+
+    int i = paramIntBuffer.position();
+    int j = paramDoubleBuffer3.position();
+    paramDoubleBuffer3.put(0 + j, localDoubleBuffer1.get(0) * paramIntBuffer.get(2 + i) + paramIntBuffer.get(0 + i));
+    paramDoubleBuffer3.put(1 + j, localDoubleBuffer1.get(1) * paramIntBuffer.get(3 + i) + paramIntBuffer.get(1 + i));
+    paramDoubleBuffer3.put(2 + j, localDoubleBuffer1.get(2));
+    
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean gluUnProject(double paramDouble1, double paramDouble2, double paramDouble3, double[] paramArrayOfDouble1, int paramInt1, double[] paramArrayOfDouble2, int paramInt2, int[] paramArrayOfInt, int paramInt3, double[] paramArrayOfDouble3, int paramInt4)
+  {
+    double[] arrayOfDouble1 = in;
+    double[] arrayOfDouble2 = out;
+    
+    __gluMultMatricesd(paramArrayOfDouble1, paramInt1, paramArrayOfDouble2, paramInt2, matrix);
+    
+    if (!__gluInvertMatrixd(matrix, matrix)) {
+      return false;
+    }
+    arrayOfDouble1[0] = paramDouble1;
+    arrayOfDouble1[1] = paramDouble2;
+    arrayOfDouble1[2] = paramDouble3;
+    arrayOfDouble1[3] = 1.0D;
+    
+
+    arrayOfDouble1[0] = ((arrayOfDouble1[0] - paramArrayOfInt[(0 + paramInt3)]) / paramArrayOfInt[(2 + paramInt3)]);
+    arrayOfDouble1[1] = ((arrayOfDouble1[1] - paramArrayOfInt[(1 + paramInt3)]) / paramArrayOfInt[(3 + paramInt3)]);
+    
+
+    arrayOfDouble1[0] = (arrayOfDouble1[0] * 2.0D - 1.0D);
+    arrayOfDouble1[1] = (arrayOfDouble1[1] * 2.0D - 1.0D);
+    arrayOfDouble1[2] = (arrayOfDouble1[2] * 2.0D - 1.0D);
+    
+    __gluMultMatrixVecd(matrix, 0, arrayOfDouble1, arrayOfDouble2);
+    
+    if (arrayOfDouble2[3] == 0.0D) {
+      return false;
+    }
+    arrayOfDouble2[3] = (1.0D / arrayOfDouble2[3]);
+    
+    paramArrayOfDouble3[(0 + paramInt4)] = (arrayOfDouble2[0] * arrayOfDouble2[3]);
+    paramArrayOfDouble3[(1 + paramInt4)] = (arrayOfDouble2[1] * arrayOfDouble2[3]);
+    paramArrayOfDouble3[(2 + paramInt4)] = (arrayOfDouble2[2] * arrayOfDouble2[3]);
+    
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean gluUnProject(double paramDouble1, double paramDouble2, double paramDouble3, DoubleBuffer paramDoubleBuffer1, DoubleBuffer paramDoubleBuffer2, IntBuffer paramIntBuffer, DoubleBuffer paramDoubleBuffer3)
+  {
+    DoubleBuffer localDoubleBuffer1 = inBuf;
+    DoubleBuffer localDoubleBuffer2 = outBuf;
+    
+    __gluMultMatricesd(paramDoubleBuffer1, paramDoubleBuffer2, matrixBuf);
+    
+    if (!__gluInvertMatrixd(matrixBuf, matrixBuf)) {
+      return false;
+    }
+    localDoubleBuffer1.put(0, paramDouble1);
+    localDoubleBuffer1.put(1, paramDouble2);
+    localDoubleBuffer1.put(2, paramDouble3);
+    localDoubleBuffer1.put(3, 1.0D);
+    
+
+    int i = paramIntBuffer.position();
+    int j = paramDoubleBuffer3.position();
+    localDoubleBuffer1.put(0, (localDoubleBuffer1.get(0) - paramIntBuffer.get(0 + i)) / paramIntBuffer.get(2 + i));
+    localDoubleBuffer1.put(1, (localDoubleBuffer1.get(1) - paramIntBuffer.get(1 + i)) / paramIntBuffer.get(3 + i));
+    
+
+    localDoubleBuffer1.put(0, localDoubleBuffer1.get(0) * 2.0D - 1.0D);
+    localDoubleBuffer1.put(1, localDoubleBuffer1.get(1) * 2.0D - 1.0D);
+    localDoubleBuffer1.put(2, localDoubleBuffer1.get(2) * 2.0D - 1.0D);
+    
+    __gluMultMatrixVecd(matrixBuf, localDoubleBuffer1, localDoubleBuffer2);
+    
+    if (localDoubleBuffer2.get(3) == 0.0D) {
+      return false;
+    }
+    localDoubleBuffer2.put(3, 1.0D / localDoubleBuffer2.get(3));
+    
+    paramDoubleBuffer3.put(0 + j, localDoubleBuffer2.get(0) * localDoubleBuffer2.get(3));
+    paramDoubleBuffer3.put(1 + j, localDoubleBuffer2.get(1) * localDoubleBuffer2.get(3));
+    paramDoubleBuffer3.put(2 + j, localDoubleBuffer2.get(2) * localDoubleBuffer2.get(3));
+    
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean gluUnProject4(double paramDouble1, double paramDouble2, double paramDouble3, double paramDouble4, double[] paramArrayOfDouble1, int paramInt1, double[] paramArrayOfDouble2, int paramInt2, int[] paramArrayOfInt, int paramInt3, double paramDouble5, double paramDouble6, double[] paramArrayOfDouble3, int paramInt4)
+  {
+    double[] arrayOfDouble1 = in;
+    double[] arrayOfDouble2 = out;
+    
+    __gluMultMatricesd(paramArrayOfDouble1, paramInt1, paramArrayOfDouble2, paramInt2, matrix);
+    
+    if (!__gluInvertMatrixd(matrix, matrix)) {
+      return false;
+    }
+    arrayOfDouble1[0] = paramDouble1;
+    arrayOfDouble1[1] = paramDouble2;
+    arrayOfDouble1[2] = paramDouble3;
+    arrayOfDouble1[3] = paramDouble4;
+    
+
+    arrayOfDouble1[0] = ((arrayOfDouble1[0] - paramArrayOfInt[(0 + paramInt3)]) / paramArrayOfInt[(2 + paramInt3)]);
+    arrayOfDouble1[1] = ((arrayOfDouble1[1] - paramArrayOfInt[(1 + paramInt3)]) / paramArrayOfInt[(3 + paramInt3)]);
+    arrayOfDouble1[2] = ((arrayOfDouble1[2] - paramDouble5) / (paramDouble6 - paramDouble5));
+    
+
+    arrayOfDouble1[0] = (arrayOfDouble1[0] * 2.0D - 1.0D);
+    arrayOfDouble1[1] = (arrayOfDouble1[1] * 2.0D - 1.0D);
+    arrayOfDouble1[2] = (arrayOfDouble1[2] * 2.0D - 1.0D);
+    
+    __gluMultMatrixVecd(matrix, 0, arrayOfDouble1, arrayOfDouble2);
+    
+    if (arrayOfDouble2[3] == 0.0D) {
+      return false;
+    }
+    paramArrayOfDouble3[(0 + paramInt4)] = arrayOfDouble2[0];
+    paramArrayOfDouble3[(1 + paramInt4)] = arrayOfDouble2[1];
+    paramArrayOfDouble3[(2 + paramInt4)] = arrayOfDouble2[2];
+    paramArrayOfDouble3[(3 + paramInt4)] = arrayOfDouble2[3];
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean gluUnProject4(double paramDouble1, double paramDouble2, double paramDouble3, double paramDouble4, DoubleBuffer paramDoubleBuffer1, DoubleBuffer paramDoubleBuffer2, IntBuffer paramIntBuffer, double paramDouble5, double paramDouble6, DoubleBuffer paramDoubleBuffer3)
+  {
+    DoubleBuffer localDoubleBuffer1 = inBuf;
+    DoubleBuffer localDoubleBuffer2 = outBuf;
+    
+    __gluMultMatricesd(paramDoubleBuffer1, paramDoubleBuffer2, matrixBuf);
+    
+    if (!__gluInvertMatrixd(matrixBuf, matrixBuf)) {
+      return false;
+    }
+    localDoubleBuffer1.put(0, paramDouble1);
+    localDoubleBuffer1.put(1, paramDouble2);
+    localDoubleBuffer1.put(2, paramDouble3);
+    localDoubleBuffer1.put(3, paramDouble4);
+    
+
+    int i = paramIntBuffer.position();
+    localDoubleBuffer1.put(0, (localDoubleBuffer1.get(0) - paramIntBuffer.get(0 + i)) / paramIntBuffer.get(2 + i));
+    localDoubleBuffer1.put(1, (localDoubleBuffer1.get(1) - paramIntBuffer.get(1 + i)) / paramIntBuffer.get(3 + i));
+    localDoubleBuffer1.put(2, (localDoubleBuffer1.get(2) - paramDouble5) / (paramDouble6 - paramDouble5));
+    
+
+    localDoubleBuffer1.put(0, localDoubleBuffer1.get(0) * 2.0D - 1.0D);
+    localDoubleBuffer1.put(1, localDoubleBuffer1.get(1) * 2.0D - 1.0D);
+    localDoubleBuffer1.put(2, localDoubleBuffer1.get(2) * 2.0D - 1.0D);
+    
+    __gluMultMatrixVecd(matrixBuf, localDoubleBuffer1, localDoubleBuffer2);
+    
+    if (localDoubleBuffer2.get(3) == 0.0D) {
+      return false;
+    }
+    int j = paramDoubleBuffer3.position();
+    paramDoubleBuffer3.put(0 + j, localDoubleBuffer2.get(0));
+    paramDoubleBuffer3.put(1 + j, localDoubleBuffer2.get(1));
+    paramDoubleBuffer3.put(2 + j, localDoubleBuffer2.get(2));
+    paramDoubleBuffer3.put(3 + j, localDoubleBuffer2.get(3));
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void gluPickMatrix(GL2 paramGL2, double paramDouble1, double paramDouble2, double paramDouble3, double paramDouble4, IntBuffer paramIntBuffer)
+  {
+    if ((paramDouble3 <= 0.0D) || (paramDouble4 <= 0.0D)) {
+      return;
+    }
+    
+
+    int i = paramIntBuffer.position();
+    paramGL2.glTranslated((paramIntBuffer.get(2 + i) - 2.0D * (paramDouble1 - paramIntBuffer.get(0 + i))) / paramDouble3, 
+      (paramIntBuffer.get(3 + i) - 2.0D * (paramDouble2 - paramIntBuffer.get(1 + i))) / paramDouble4, 0.0D);
+    
+    paramGL2.glScaled(paramIntBuffer.get(2) / paramDouble3, paramIntBuffer.get(3) / paramDouble4, 1.0D);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void gluPickMatrix(GL2 paramGL2, double paramDouble1, double paramDouble2, double paramDouble3, double paramDouble4, int[] paramArrayOfInt, int paramInt)
+  {
+    if ((paramDouble3 <= 0.0D) || (paramDouble4 <= 0.0D)) {
+      return;
+    }
+    
+
+    paramGL2.glTranslated((paramArrayOfInt[(2 + paramInt)] - 2.0D * (paramDouble1 - paramArrayOfInt[(0 + paramInt)])) / paramDouble3, (paramArrayOfInt[(3 + paramInt)] - 2.0D * (paramDouble2 - paramArrayOfInt[(1 + paramInt)])) / paramDouble4, 0.0D);
+    
+
+    paramGL2.glScaled(paramArrayOfInt[(2 + paramInt)] / paramDouble3, paramArrayOfInt[(3 + paramInt)] / paramDouble4, 1.0D);
+  }
+}

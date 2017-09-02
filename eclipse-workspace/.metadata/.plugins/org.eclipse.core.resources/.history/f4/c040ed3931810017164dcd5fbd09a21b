@@ -1,0 +1,2703 @@
+package com.jogamp.opengl.awt;
+
+import com.jogamp.common.util.InterruptSource.Thread;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.common.util.awt.AWTEDTExecutor;
+import com.jogamp.common.util.locks.LockFactory;
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.ScalableSurface;
+import com.jogamp.nativewindow.SurfaceUpdatedListener;
+import com.jogamp.nativewindow.WindowClosingProtocol;
+import com.jogamp.nativewindow.WindowClosingProtocol.WindowClosingMode;
+import com.jogamp.nativewindow.awt.AWTPrintLifecycle;
+import com.jogamp.nativewindow.awt.AWTWindowClosingProtocol;
+import com.jogamp.nativewindow.util.PixelFormat;
+import com.jogamp.opengl.FBObject;
+import com.jogamp.opengl.FBObject.Colorbuffer;
+import com.jogamp.opengl.FBObject.TextureAttachment;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2;
+import com.jogamp.opengl.GL2ES3;
+import com.jogamp.opengl.GLAnimatorControl;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLCapabilitiesChooser;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawable;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLEventListener;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLFBODrawable;
+import com.jogamp.opengl.GLOffscreenAutoDrawable;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.GLRunnable;
+import com.jogamp.opengl.GLSharedContextSetter;
+import com.jogamp.opengl.Threading;
+import com.jogamp.opengl.util.GLDrawableUtil;
+import com.jogamp.opengl.util.GLPixelBuffer.GLPixelAttributes;
+import com.jogamp.opengl.util.GLPixelBuffer.SingletonGLPixelBufferProvider;
+import com.jogamp.opengl.util.GLPixelStorageModes;
+import com.jogamp.opengl.util.TileRenderer;
+import com.jogamp.opengl.util.awt.AWTGLPixelBuffer;
+import com.jogamp.opengl.util.awt.AWTGLPixelBuffer.AWTGLPixelBufferProvider;
+import com.jogamp.opengl.util.awt.AWTGLPixelBuffer.SingleAWTGLPixelBufferProvider;
+import com.jogamp.opengl.util.texture.TextureState;
+import java.awt.Color;
+import java.awt.EventQueue;
+import java.awt.FontMetrics;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
+import java.awt.Rectangle;
+import java.awt.event.HierarchyEvent;
+import java.awt.event.HierarchyListener;
+import java.awt.geom.NoninvertibleTransformException;
+import java.awt.geom.Rectangle2D;
+import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
+import java.awt.image.WritableRaster;
+import java.beans.Beans;
+import java.io.PrintStream;
+import java.nio.IntBuffer;
+import java.util.List;
+import javax.swing.JPanel;
+import jogamp.nativewindow.SurfaceScaleUtils;
+import jogamp.nativewindow.WrappedSurface;
+import jogamp.nativewindow.jawt.JAWTUtil;
+import jogamp.opengl.Debug;
+import jogamp.opengl.GLContextImpl;
+import jogamp.opengl.GLDrawableFactoryImpl;
+import jogamp.opengl.GLDrawableHelper;
+import jogamp.opengl.GLDrawableImpl;
+import jogamp.opengl.awt.AWTTilePainter;
+import jogamp.opengl.awt.Java2D;
+import jogamp.opengl.util.glsl.GLSLTextureRaster;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLJPanel
+  extends JPanel
+  implements AWTGLAutoDrawable, WindowClosingProtocol, AWTPrintLifecycle, GLSharedContextSetter, ScalableSurface
+{
+  private static final boolean DEBUG;
+  private static final boolean DEBUG_FRAMES;
+  private static final boolean DEBUG_VIEWPORT;
+  private static final boolean USE_GLSL_TEXTURE_RASTERIZER;
+  private static final boolean SKIP_VERTICAL_FLIP_DEFAULT;
+  private static final boolean java2dOGLEnabledByProp;
+  private static final boolean useJava2DGLPipeline;
+  private static boolean java2DGLPipelineOK;
+  
+  static
+  {
+    Debug.initSingleton();
+    DEBUG = Debug.debug("GLJPanel");
+    DEBUG_FRAMES = PropertyAccess.isPropertyDefined("jogl.debug.GLJPanel.Frames", true);
+    DEBUG_VIEWPORT = PropertyAccess.isPropertyDefined("jogl.debug.GLJPanel.Viewport", true);
+    USE_GLSL_TEXTURE_RASTERIZER = !PropertyAccess.isPropertyDefined("jogl.gljpanel.noglsl", true);
+    SKIP_VERTICAL_FLIP_DEFAULT = PropertyAccess.isPropertyDefined("jogl.gljpanel.noverticalflip", true);
+    boolean bool = PropertyAccess.getBooleanProperty("sun.java2d.opengl", false);
+    java2dOGLEnabledByProp = (bool) && (!PropertyAccess.isPropertyDefined("jogl.gljpanel.noogl", true));
+    
+    bool = false;
+    if (java2dOGLEnabledByProp)
+    {
+
+
+      if ((Java2D.isOGLPipelineResourceCompatible()) && (Java2D.isFBOEnabled()) && 
+        (null != Java2D.getShareContext(GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice()))) {
+        bool = true;
+      }
+    }
+    
+    useJava2DGLPipeline = bool;
+    java2DGLPipelineOK = bool;
+    if (DEBUG) {
+      System.err.println("GLJPanel: DEBUG_VIEWPORT " + DEBUG_VIEWPORT);
+      System.err.println("GLJPanel: USE_GLSL_TEXTURE_RASTERIZER " + USE_GLSL_TEXTURE_RASTERIZER);
+      System.err.println("GLJPanel: SKIP_VERTICAL_FLIP_DEFAULT " + SKIP_VERTICAL_FLIP_DEFAULT);
+      System.err.println("GLJPanel: java2dOGLEnabledByProp " + java2dOGLEnabledByProp);
+      System.err.println("GLJPanel: useJava2DGLPipeline " + useJava2DGLPipeline);
+      System.err.println("GLJPanel: java2DGLPipelineOK " + java2DGLPipelineOK);
+    }
+  }
+  
+  private static AWTGLPixelBuffer.SingleAWTGLPixelBufferProvider singleAWTGLPixelBufferProvider = null;
+  
+  private static synchronized AWTGLPixelBuffer.SingleAWTGLPixelBufferProvider getSingleAWTGLPixelBufferProvider() { if (null == singleAWTGLPixelBufferProvider) {
+      singleAWTGLPixelBufferProvider = new AWTGLPixelBuffer.SingleAWTGLPixelBufferProvider(true);
+    }
+    return singleAWTGLPixelBufferProvider;
+  }
+  
+  private final RecursiveLock lock = LockFactory.createRecursiveLock();
+  
+
+  private final GLDrawableHelper helper;
+  
+
+  private boolean autoSwapBufferMode;
+  
+  private volatile boolean isInitialized;
+  
+  private AWTGLPixelBuffer.AWTGLPixelBufferProvider customPixelBufferProvider = null;
+  
+  private volatile GLCapabilitiesImmutable reqOffscreenCaps;
+  private volatile GLDrawableFactoryImpl factory;
+  private final GLCapabilitiesChooser chooser;
+  private int additionalCtxCreationFlags = 0;
+  
+
+  private boolean handleReshape = false;
+  private boolean sendReshape = true;
+  
+  private final float[] minPixelScale = { 1.0F, 1.0F };
+  private final float[] maxPixelScale = { 1.0F, 1.0F };
+  private final float[] hasPixelScale = { 1.0F, 1.0F };
+  private final float[] reqPixelScale = { 0.0F, 0.0F };
+  
+
+  private int reshapeWidth;
+  
+
+  private int reshapeHeight;
+  
+  private int panelWidth = 0;
+  
+  private int panelHeight = 0;
+  
+
+  private int viewportX;
+  
+  private int viewportY;
+  
+  private int requestedTextureUnit = 0;
+  
+
+  private volatile Backend backend;
+  
+  private boolean skipGLOrientationVerticalFlip = SKIP_VERTICAL_FLIP_DEFAULT;
+  
+
+  private final Updater updater = new Updater();
+  private volatile boolean isShowing;
+  
+  private boolean oglPipelineUsable() { return (null == customPixelBufferProvider) && (useJava2DGLPipeline) && (java2DGLPipelineOK); }
+  
+
+
+  private final HierarchyListener hierarchyListener = new HierarchyListener()
+  {
+    public void hierarchyChanged(HierarchyEvent paramAnonymousHierarchyEvent) {
+      isShowing = isShowing();
+    }
+  };
+  
+  private final AWTWindowClosingProtocol awtWindowClosingProtocol = new AWTWindowClosingProtocol(this, new Runnable()
+  {
+    public void run()
+    {
+      destroy();
+    }
+  }, null);
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public GLJPanel()
+    throws GLException
+  {
+    this(null);
+  }
+  
+
+
+
+
+
+
+  public GLJPanel(GLCapabilitiesImmutable paramGLCapabilitiesImmutable)
+    throws GLException
+  {
+    this(paramGLCapabilitiesImmutable, null);
+  }
+  
+
+
+
+
+
+
+
+
+  public GLJPanel(GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser)
+    throws GLException
+  {
+    GLCapabilities localGLCapabilities;
+    
+
+
+
+
+
+
+
+    if (paramGLCapabilitiesImmutable != null) {
+      localGLCapabilities = (GLCapabilities)paramGLCapabilitiesImmutable.cloneMutable();
+    } else {
+      localGLCapabilities = new GLCapabilities(GLProfile.getDefault(GLProfile.getDefaultDevice()));
+    }
+    localGLCapabilities.setDoubleBuffered(false);
+    reqOffscreenCaps = localGLCapabilities;
+    
+    factory = GLDrawableFactoryImpl.getFactoryImpl(reqOffscreenCaps.getGLProfile());
+    chooser = paramGLCapabilitiesChooser;
+    
+    helper = new GLDrawableHelper();
+    autoSwapBufferMode = helper.getAutoSwapBufferMode();
+    
+    setFocusable(true);
+    addHierarchyListener(hierarchyListener);
+    isShowing = isShowing();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean initializeBackend(boolean paramBoolean)
+  {
+    if (paramBoolean)
+    {
+
+
+
+
+      new InterruptSource.Thread(null, null, getThreadName() + "-GLJPanel_Init")
+      {
+        public void run()
+        {
+          if (!isInitialized)
+            GLJPanel.this.initializeBackendImpl();
+        }
+      }.start();
+      return true;
+    }
+    if (!isInitialized) {
+      return initializeBackendImpl();
+    }
+    return true;
+  }
+  
+
+  public final void setSharedContext(GLContext paramGLContext)
+    throws IllegalStateException
+  {
+    helper.setSharedContext(getContext(), paramGLContext);
+  }
+  
+  public final void setSharedAutoDrawable(GLAutoDrawable paramGLAutoDrawable) throws IllegalStateException
+  {
+    helper.setSharedAutoDrawable(this, paramGLAutoDrawable);
+  }
+  
+  public AWTGLPixelBuffer.AWTGLPixelBufferProvider getCustomPixelBufferProvider() { return customPixelBufferProvider; }
+  
+
+
+
+  public void setPixelBufferProvider(AWTGLPixelBuffer.AWTGLPixelBufferProvider paramAWTGLPixelBufferProvider)
+    throws IllegalArgumentException, IllegalStateException
+  {
+    if (null == paramAWTGLPixelBufferProvider) {
+      throw new IllegalArgumentException("Null PixelBufferProvider");
+    }
+    if (null != backend) {
+      throw new IllegalStateException("Backend already realized.");
+    }
+    customPixelBufferProvider = paramAWTGLPixelBufferProvider;
+  }
+  
+  public final Object getUpstreamWidget()
+  {
+    return this;
+  }
+  
+  public final RecursiveLock getUpstreamLock() {
+    return lock;
+  }
+  
+  public final boolean isThreadGLCapable() { return EventQueue.isDispatchThread(); }
+  
+  public void display()
+  {
+    if ((isShowing) || ((printActive) && (isVisible()))) {
+      if (EventQueue.isDispatchThread())
+      {
+        paintImmediatelyAction.run();
+      }
+      else {
+        try
+        {
+          EventQueue.invokeAndWait(paintImmediatelyAction);
+        } catch (Exception localException) {
+          throw new GLException(localException);
+        }
+      }
+    }
+  }
+  
+  protected void dispose(Runnable paramRunnable) {
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": GLJPanel.dispose() - start");
+    }
+    
+
+    if ((backend != null) && (backend.getContext() != null))
+    {
+      GLAnimatorControl localGLAnimatorControl = getAnimator();
+      boolean bool; if (null != localGLAnimatorControl) {
+        bool = localGLAnimatorControl.pause();
+      } else {
+        bool = false;
+      }
+      
+      if (backend.getContext().isCreated()) {
+        Threading.invoke(true, disposeAction, getTreeLock());
+      }
+      if (null != backend)
+      {
+        backend.destroy();
+        isInitialized = false;
+      }
+      if (null != paramRunnable) {
+        paramRunnable.run();
+      }
+      
+      if (bool) {
+        localGLAnimatorControl.resume();
+      }
+    }
+    
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": GLJPanel.dispose() - stop");
+    }
+  }
+  
+
+
+
+  public void destroy()
+  {
+    removeNotify();
+  }
+  
+
+
+
+
+
+
+  protected void paintComponent(Graphics paramGraphics)
+  {
+    if (Beans.isDesignTime())
+    {
+      paramGraphics.setColor(Color.BLACK);
+      paramGraphics.fillRect(0, 0, getWidth(), getHeight());
+      localObject1 = paramGraphics.getFontMetrics();
+      String str = getName();
+      if (str == null) {
+        str = getClass().getName();
+        int i = str.lastIndexOf('.');
+        if (i >= 0) {
+          str = str.substring(i + 1);
+        }
+      }
+      Rectangle2D localRectangle2D = ((FontMetrics)localObject1).getStringBounds(str, paramGraphics);
+      paramGraphics.setColor(Color.WHITE);
+      paramGraphics.drawString(str, 
+        (int)((getWidth() - localRectangle2D.getWidth()) / 2.0D), 
+        (int)((getHeight() + localRectangle2D.getHeight()) / 2.0D));
+      return;
+    }
+    
+    Object localObject1 = lock;
+    ((RecursiveLock)localObject1).lock();
+    try {
+      if (!isInitialized) {
+        initializeBackendImpl();
+      }
+      
+      if ((!isInitialized) || (printActive)) {
+        return;
+      }
+      
+
+
+
+
+      if (!printActive) {
+        updatePixelScale(backend);
+        if (handleReshape) {
+          handleReshape = false;
+          sendReshape = handleReshape();
+        }
+        
+        if (isShowing) {
+          updater.setGraphics(paramGraphics);
+          backend.doPaintComponent(paramGraphics);
+        }
+      }
+    } finally {
+      ((RecursiveLock)localObject1).unlock();
+    }
+  }
+  
+  private final void updateWrappedSurfaceScale(GLDrawable paramGLDrawable) {
+    NativeSurface localNativeSurface = paramGLDrawable.getNativeSurface();
+    if ((localNativeSurface instanceof WrappedSurface)) {
+      ((WrappedSurface)localNativeSurface).setSurfaceScale(hasPixelScale);
+    }
+  }
+  
+  public final boolean setSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(paramArrayOfFloat, 0, reqPixelScale, 0, 2);
+    Backend localBackend = backend;
+    if ((isInitialized) && (null != localBackend) && (isShowing)) {
+      if ((isShowing) || ((printActive) && (isVisible()))) {
+        if (EventQueue.isDispatchThread()) {
+          setSurfaceScaleAction.run();
+        } else {
+          try {
+            EventQueue.invokeAndWait(setSurfaceScaleAction);
+          } catch (Exception localException) {
+            throw new GLException(localException);
+          }
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+  
+  private final Runnable setSurfaceScaleAction = new Runnable()
+  {
+    public void run() {
+      GLJPanel.Backend localBackend = backend;
+      if ((null != localBackend) && (GLJPanel.this.setSurfaceScaleImpl(localBackend)) && 
+        (!helper.isAnimatorAnimatingOnOtherThread())) {
+        paintImmediatelyAction.run();
+      }
+    }
+  };
+  
+  private final boolean setSurfaceScaleImpl(Backend paramBackend)
+  {
+    if (SurfaceScaleUtils.setNewPixelScale(hasPixelScale, hasPixelScale, reqPixelScale, minPixelScale, maxPixelScale, DEBUG ? getClass().getSimpleName() : null)) {
+      reshapeImpl(getWidth(), getHeight());
+      updateWrappedSurfaceScale(paramBackend.getDrawable());
+      return true;
+    }
+    return false;
+  }
+  
+  private final boolean updatePixelScale(Backend paramBackend) {
+    if (JAWTUtil.getPixelScale(getGraphicsConfiguration(), minPixelScale, maxPixelScale)) {
+      return setSurfaceScaleImpl(paramBackend);
+    }
+    return false;
+  }
+  
+
+  public final float[] getRequestedSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(reqPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+  public final float[] getCurrentSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(hasPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+  public float[] getMinimumSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(minPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+  public float[] getMaximumSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(maxPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+
+
+
+
+
+
+  public void addNotify()
+  {
+    super.addNotify();
+    awtWindowClosingProtocol.addClosingListener();
+    
+
+    JAWTUtil.getPixelScale(getGraphicsConfiguration(), minPixelScale, maxPixelScale);
+    SurfaceScaleUtils.setNewPixelScale(hasPixelScale, hasPixelScale, reqPixelScale, minPixelScale, maxPixelScale, DEBUG ? getClass().getSimpleName() : null);
+    
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": GLJPanel.addNotify()");
+    }
+  }
+  
+
+
+
+
+
+
+  public void removeNotify()
+  {
+    awtWindowClosingProtocol.removeClosingListener();
+    
+    dispose(null);
+    hasPixelScale[0] = 1.0F;
+    hasPixelScale[1] = 1.0F;
+    minPixelScale[0] = 1.0F;
+    minPixelScale[1] = 1.0F;
+    maxPixelScale[0] = 1.0F;
+    maxPixelScale[1] = 1.0F;
+    
+    super.removeNotify();
+  }
+  
+
+
+
+
+
+
+
+
+  public void reshape(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    super.reshape(paramInt1, paramInt2, paramInt3, paramInt4);
+    reshapeImpl(paramInt3, paramInt4);
+  }
+  
+  private void reshapeImpl(int paramInt1, int paramInt2) {
+    int i = SurfaceScaleUtils.scale(paramInt1, hasPixelScale[0]);
+    int j = SurfaceScaleUtils.scale(paramInt2, hasPixelScale[1]);
+    if ((!printActive) && ((handleReshape) || (i != panelWidth) || (j != panelHeight))) {
+      reshapeWidth = i;
+      reshapeHeight = j;
+      handleReshape = true;
+    }
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": GLJPanel.reshape.0 " + getName() + " resize [" + (printActive ? "printing" : "paint") + "] [ this " + 
+        getWidth() + "x" + getHeight() + ", pixelScale " + getPixelScaleStr() + ", panel " + panelWidth + "x" + panelHeight + "] -> " + (handleReshape ? "" : "[skipped] ") + paramInt1 + "x" + paramInt2 + " * " + 
+        
+        getPixelScaleStr() + " -> " + i + "x" + j + ", reshapeSize " + reshapeWidth + "x" + reshapeHeight);
+    }
+  }
+  
+
+  private volatile boolean printActive = false;
+  private GLAnimatorControl printAnimator = null;
+  private GLAutoDrawable printGLAD = null;
+  private AWTTilePainter printAWTTiles = null;
+  
+  public void setupPrint(double paramDouble1, double paramDouble2, int paramInt1, int paramInt2, int paramInt3)
+  {
+    printActive = true;
+    if (DEBUG) {
+      System.err.printf(getThreadName() + ": GLJPanel.setupPrint: scale %f / %f, samples %d, tileSz %d x %d%n", new Object[] { Double.valueOf(paramDouble1), Double.valueOf(paramDouble2), Integer.valueOf(paramInt1), Integer.valueOf(paramInt2), Integer.valueOf(paramInt3) });
+    }
+    int i = isOpaque() ? 3 : 4;
+    TileRenderer localTileRenderer = new TileRenderer();
+    printAWTTiles = new AWTTilePainter(localTileRenderer, i, paramDouble1, paramDouble2, paramInt1, paramInt2, paramInt3, DEBUG);
+    AWTEDTExecutor.singleton.invoke(getTreeLock(), true, true, setupPrintOnEDT); }
+  
+  private final Runnable setupPrintOnEDT = new Runnable()
+  {
+    public void run() {
+      RecursiveLock localRecursiveLock = lock;
+      localRecursiveLock.lock();
+      try {
+        if (!isInitialized) {
+          GLJPanel.this.initializeBackendImpl();
+        }
+        if (!isInitialized) {
+          if (GLJPanel.DEBUG) {
+            System.err.println(GLJPanel.getThreadName() + ": Info: GLJPanel setupPrint - skipped GL render, drawable not valid yet");
+          }
+          printActive = false;
+          return;
+        }
+        if (!isVisible()) {
+          if (GLJPanel.DEBUG) {
+            System.err.println(GLJPanel.getThreadName() + ": Info: GLJPanel setupPrint - skipped GL render, panel not visible");
+          }
+          printActive = false;
+          return;
+        }
+        sendReshape = false;
+        handleReshape = false;
+        printAnimator = helper.getAnimator();
+        if (null != printAnimator) {
+          printAnimator.remove(GLJPanel.this);
+        }
+        
+        printGLAD = GLJPanel.this;
+        GLCapabilitiesImmutable localGLCapabilitiesImmutable = getChosenGLCapabilities();
+        int i = printAWTTiles.getNumSamples(localGLCapabilitiesImmutable);
+        GLDrawable localGLDrawable = printGLAD.getDelegatedDrawable();
+        boolean bool1 = i != localGLCapabilitiesImmutable.getNumSamples();
+        
+        boolean bool2 = ((printAWTTiles.customTileWidth != -1) && (printAWTTiles.customTileWidth != localGLDrawable.getSurfaceWidth())) || ((printAWTTiles.customTileHeight != -1) && (printAWTTiles.customTileHeight != localGLDrawable.getSurfaceHeight()));
+        
+        GLCapabilities localGLCapabilities = (GLCapabilities)localGLCapabilitiesImmutable.cloneMutable();
+        localGLCapabilities.setDoubleBuffered(false);
+        localGLCapabilities.setOnscreen(false);
+        if (i != localGLCapabilities.getNumSamples()) {
+          localGLCapabilities.setSampleBuffers(0 < i);
+          localGLCapabilities.setNumSamples(i);
+        }
+        boolean bool3 = GLDrawableUtil.isSwapGLContextSafe(getRequestedGLCapabilities(), localGLCapabilitiesImmutable, localGLCapabilities);
+        
+        boolean bool4 = ((bool1) || (bool2)) && (bool3);
+        
+        if (GLJPanel.DEBUG) {
+          System.err.println("AWT print.setup: reqNewGLAD " + bool4 + "[ samples " + bool1 + ", size " + bool2 + ", safe " + bool3 + "], " + ", drawableSize " + localGLDrawable
+            .getSurfaceWidth() + "x" + localGLDrawable.getSurfaceHeight() + ", customTileSize " + 
+            printAWTTiles.customTileWidth + "x" + printAWTTiles.customTileHeight + ", scaleMat " + 
+            printAWTTiles.scaleMatX + " x " + printAWTTiles.scaleMatY + ", numSamples " + 
+            printAWTTiles.customNumSamples + " -> " + i + ", printAnimator " + printAnimator);
+        }
+        if (bool4) {
+          GLDrawableFactory localGLDrawableFactory = GLDrawableFactory.getFactory(localGLCapabilities.getGLProfile());
+          GLOffscreenAutoDrawable localGLOffscreenAutoDrawable = null;
+          try {
+            localGLOffscreenAutoDrawable = localGLDrawableFactory.createOffscreenAutoDrawable(null, localGLCapabilities, null, 
+              printAWTTiles.customTileWidth != -1 ? printAWTTiles.customTileWidth : 1024, 
+              printAWTTiles.customTileHeight != -1 ? printAWTTiles.customTileHeight : 1024);
+          } catch (GLException localGLException) {
+            if (GLJPanel.DEBUG) {
+              System.err.println("Caught: " + localGLException.getMessage());
+              localGLException.printStackTrace();
+            }
+          }
+          if (null != localGLOffscreenAutoDrawable) {
+            printGLAD = localGLOffscreenAutoDrawable;
+            GLDrawableUtil.swapGLContextAndAllGLEventListener(GLJPanel.this, printGLAD);
+            localGLDrawable = printGLAD.getDelegatedDrawable();
+          }
+        }
+        printAWTTiles.setGLOrientation((!skipGLOrientationVerticalFlip) && (printGLAD.isGLOriented()), printGLAD.isGLOriented());
+        printAWTTiles.renderer.setTileSize(localGLDrawable.getSurfaceWidth(), localGLDrawable.getSurfaceHeight(), 0);
+        printAWTTiles.renderer.attachAutoDrawable(printGLAD);
+        if (GLJPanel.DEBUG) {
+          System.err.println("AWT print.setup " + printAWTTiles);
+          System.err.println("AWT print.setup AA " + i + ", " + localGLCapabilities);
+          System.err.println("AWT print.setup printGLAD: " + printGLAD.getSurfaceWidth() + "x" + printGLAD.getSurfaceHeight() + ", " + printGLAD);
+          System.err.println("AWT print.setup printDraw: " + localGLDrawable.getSurfaceWidth() + "x" + localGLDrawable.getSurfaceHeight() + ", " + localGLDrawable);
+        }
+      } finally {
+        localRecursiveLock.unlock();
+      }
+    }
+  };
+  
+  public void releasePrint()
+  {
+    if (!printActive) {
+      throw new IllegalStateException("setupPrint() not called");
+    }
+    sendReshape = false;
+    handleReshape = false;
+    AWTEDTExecutor.singleton.invoke(getTreeLock(), true, true, releasePrintOnEDT);
+  }
+  
+  private final Runnable releasePrintOnEDT = new Runnable()
+  {
+    public void run() {
+      RecursiveLock localRecursiveLock = lock;
+      localRecursiveLock.lock();
+      try {
+        if (GLJPanel.DEBUG) {
+          System.err.println(GLJPanel.getThreadName() + ": GLJPanel.releasePrintOnEDT.0 " + printAWTTiles);
+        }
+        printAWTTiles.dispose();
+        printAWTTiles = null;
+        if (printGLAD != GLJPanel.this) {
+          GLDrawableUtil.swapGLContextAndAllGLEventListener(printGLAD, GLJPanel.this);
+          printGLAD.destroy();
+        }
+        printGLAD = null;
+        if (null != printAnimator) {
+          printAnimator.add(GLJPanel.this);
+          printAnimator = null;
+        }
+        
+
+        int i = getWidth();
+        int j = getHeight();
+        int k = SurfaceScaleUtils.scale(i, hasPixelScale[0]);
+        int m = SurfaceScaleUtils.scale(j, hasPixelScale[1]);
+        GLDrawable localGLDrawable = getDelegatedDrawable();
+        if ((k != panelWidth) || (m != panelHeight) || 
+          (localGLDrawable.getSurfaceWidth() != panelWidth) || (localGLDrawable.getSurfaceHeight() != panelHeight))
+        {
+          if (GLJPanel.DEBUG) {
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.releasePrintOnEDT.0: resize [printing] panel " + panelWidth + "x" + panelHeight + " @ scale " + GLJPanel.this.getPixelScaleStr() + ", draw " + localGLDrawable
+              .getSurfaceWidth() + "x" + localGLDrawable.getSurfaceHeight() + " -> " + i + "x" + j + " * " + GLJPanel.this
+              .getPixelScaleStr() + " -> " + k + "x" + m);
+          }
+          reshapeWidth = k;
+          reshapeHeight = m;
+          sendReshape = GLJPanel.this.handleReshape();
+        } else {
+          sendReshape = true;
+        }
+        printActive = false;
+        display();
+      } finally {
+        localRecursiveLock.unlock();
+      }
+    }
+  };
+  
+  public void print(Graphics paramGraphics)
+  {
+    if (!printActive) {
+      throw new IllegalStateException("setupPrint() not called");
+    }
+    if ((DEBUG) && (!EventQueue.isDispatchThread())) {
+      System.err.println(getThreadName() + ": Warning: GLCanvas print - not called from AWT-EDT");
+    }
+    
+    sendReshape = false;
+    handleReshape = false;
+    
+    Graphics2D localGraphics2D = (Graphics2D)paramGraphics;
+    try {
+      printAWTTiles.setupGraphics2DAndClipBounds(localGraphics2D, getWidth(), getHeight());
+      TileRenderer localTileRenderer = printAWTTiles.renderer;
+      if (DEBUG) {
+        System.err.println("AWT print.0: " + localTileRenderer);
+      }
+      if (!localTileRenderer.eot()) {
+        try {
+          do {
+            if (printGLAD != this) {
+              localTileRenderer.display();
+            } else {
+              backend.doPlainPaint();
+            }
+          } while (!localTileRenderer.eot());
+          if (DEBUG) {
+            System.err.println("AWT print.1: " + printAWTTiles);
+          }
+        } finally {
+          localTileRenderer.reset();
+          printAWTTiles.resetGraphics2D();
+        }
+      }
+    } catch (NoninvertibleTransformException localNoninvertibleTransformException) {
+      System.err.println("Caught: Inversion failed of: " + localGraphics2D.getTransform());
+      localNoninvertibleTransformException.printStackTrace();
+    }
+    if (DEBUG) {
+      System.err.println("AWT print.X: " + printAWTTiles);
+    }
+  }
+  
+  protected void printComponent(Graphics paramGraphics) {
+    if (DEBUG) {
+      System.err.println("AWT printComponent.X: " + printAWTTiles);
+    }
+    print(paramGraphics);
+  }
+  
+  public void setOpaque(boolean paramBoolean)
+  {
+    if (backend != null) {
+      backend.setOpaque(paramBoolean);
+    }
+    super.setOpaque(paramBoolean);
+  }
+  
+  public void addGLEventListener(GLEventListener paramGLEventListener)
+  {
+    helper.addGLEventListener(paramGLEventListener);
+  }
+  
+  public void addGLEventListener(int paramInt, GLEventListener paramGLEventListener)
+  {
+    helper.addGLEventListener(paramInt, paramGLEventListener);
+  }
+  
+  public int getGLEventListenerCount()
+  {
+    return helper.getGLEventListenerCount();
+  }
+  
+  public GLEventListener getGLEventListener(int paramInt) throws IndexOutOfBoundsException
+  {
+    return helper.getGLEventListener(paramInt);
+  }
+  
+  public boolean areAllGLEventListenerInitialized()
+  {
+    return helper.areAllGLEventListenerInitialized();
+  }
+  
+  public boolean getGLEventListenerInitState(GLEventListener paramGLEventListener)
+  {
+    return helper.getGLEventListenerInitState(paramGLEventListener);
+  }
+  
+  public void setGLEventListenerInitState(GLEventListener paramGLEventListener, boolean paramBoolean)
+  {
+    helper.setGLEventListenerInitState(paramGLEventListener, paramBoolean);
+  }
+  
+  public GLEventListener disposeGLEventListener(GLEventListener paramGLEventListener, boolean paramBoolean)
+  {
+    DisposeGLEventListenerAction localDisposeGLEventListenerAction = new DisposeGLEventListenerAction(paramGLEventListener, paramBoolean, null);
+    if (EventQueue.isDispatchThread()) {
+      localDisposeGLEventListenerAction.run();
+    }
+    else {
+      try
+      {
+        EventQueue.invokeAndWait(localDisposeGLEventListenerAction);
+      } catch (Exception localException) {
+        throw new GLException(localException);
+      }
+    }
+    return listener;
+  }
+  
+  public GLEventListener removeGLEventListener(GLEventListener paramGLEventListener)
+  {
+    return helper.removeGLEventListener(paramGLEventListener);
+  }
+  
+  public void setAnimator(GLAnimatorControl paramGLAnimatorControl)
+  {
+    helper.setAnimator(paramGLAnimatorControl);
+  }
+  
+  public GLAnimatorControl getAnimator()
+  {
+    return helper.getAnimator();
+  }
+  
+  public final Thread setExclusiveContextThread(Thread paramThread) throws GLException
+  {
+    return helper.setExclusiveContextThread(paramThread, getContext());
+  }
+  
+  public final Thread getExclusiveContextThread()
+  {
+    return helper.getExclusiveContextThread();
+  }
+  
+  public boolean invoke(boolean paramBoolean, GLRunnable paramGLRunnable) throws IllegalStateException
+  {
+    return helper.invoke(this, paramBoolean, paramGLRunnable);
+  }
+  
+  public boolean invoke(boolean paramBoolean, List<GLRunnable> paramList) throws IllegalStateException
+  {
+    return helper.invoke(this, paramBoolean, paramList);
+  }
+  
+  public void flushGLRunnables()
+  {
+    helper.flushGLRunnables();
+  }
+  
+  public GLContext createContext(GLContext paramGLContext)
+  {
+    RecursiveLock localRecursiveLock = lock;
+    localRecursiveLock.lock();
+    try {
+      Backend localBackend = backend;
+      GLContext localGLContext; if (null == localBackend) {
+        return null;
+      }
+      return localBackend.createContext(paramGLContext);
+    } finally {
+      localRecursiveLock.unlock();
+    }
+  }
+  
+
+
+
+
+  public boolean isRealized()
+  {
+    return isInitialized;
+  }
+  
+  public GLContext setContext(GLContext paramGLContext, boolean paramBoolean)
+  {
+    RecursiveLock localRecursiveLock = lock;
+    localRecursiveLock.lock();
+    try {
+      Backend localBackend = backend;
+      if (null == localBackend) {
+        return null;
+      }
+      GLContext localGLContext1 = localBackend.getContext();
+      GLDrawableHelper.switchContext(localBackend.getDrawable(), localGLContext1, paramBoolean, paramGLContext, additionalCtxCreationFlags);
+      localBackend.setContext(paramGLContext);
+      return localGLContext1;
+    } finally {
+      localRecursiveLock.unlock();
+    }
+  }
+  
+
+  public final GLDrawable getDelegatedDrawable()
+  {
+    Backend localBackend = backend;
+    if (null == localBackend) {
+      return null;
+    }
+    return localBackend.getDrawable();
+  }
+  
+  public GLContext getContext()
+  {
+    Backend localBackend = backend;
+    if (null == localBackend) {
+      return null;
+    }
+    return localBackend.getContext();
+  }
+  
+  public GL getGL()
+  {
+    if (Beans.isDesignTime()) {
+      return null;
+    }
+    GLContext localGLContext = getContext();
+    return localGLContext == null ? null : localGLContext.getGL();
+  }
+  
+  public GL setGL(GL paramGL)
+  {
+    GLContext localGLContext = getContext();
+    if (localGLContext != null) {
+      localGLContext.setGL(paramGL);
+      return paramGL;
+    }
+    return null;
+  }
+  
+  public void setAutoSwapBufferMode(boolean paramBoolean)
+  {
+    autoSwapBufferMode = paramBoolean;
+    boolean bool = false;
+    if (isInitialized) {
+      Backend localBackend = backend;
+      if (null != localBackend) {
+        bool = localBackend.handlesSwapBuffer();
+      }
+    }
+    if (!bool) {
+      helper.setAutoSwapBufferMode(paramBoolean);
+    }
+  }
+  
+  public boolean getAutoSwapBufferMode()
+  {
+    return autoSwapBufferMode;
+  }
+  
+  public void swapBuffers()
+  {
+    if (isInitialized) {
+      Backend localBackend = backend;
+      if (null != localBackend) {
+        localBackend.swapBuffers();
+      }
+    }
+  }
+  
+  public void setContextCreationFlags(int paramInt)
+  {
+    additionalCtxCreationFlags = paramInt;
+  }
+  
+  public int getContextCreationFlags()
+  {
+    return additionalCtxCreationFlags;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public boolean shouldPreserveColorBufferIfTranslucent()
+  {
+    return oglPipelineUsable();
+  }
+  
+  public int getSurfaceWidth()
+  {
+    return panelWidth;
+  }
+  
+  public int getSurfaceHeight()
+  {
+    return panelHeight;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public boolean isGLOriented()
+  {
+    Backend localBackend = backend;
+    if (null == localBackend) {
+      return true;
+    }
+    return localBackend.getDrawable().isGLOriented();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final void setSkipGLOrientationVerticalFlip(boolean paramBoolean)
+  {
+    skipGLOrientationVerticalFlip = paramBoolean;
+  }
+  
+  public final boolean getSkipGLOrientationVerticalFlip() {
+    return skipGLOrientationVerticalFlip;
+  }
+  
+  public GLCapabilitiesImmutable getChosenGLCapabilities()
+  {
+    Backend localBackend = backend;
+    if (null == localBackend) {
+      return null;
+    }
+    return localBackend.getChosenGLCapabilities();
+  }
+  
+  public final GLCapabilitiesImmutable getRequestedGLCapabilities()
+  {
+    return reqOffscreenCaps;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public final void setRequestedGLCapabilities(final GLCapabilitiesImmutable paramGLCapabilitiesImmutable)
+  {
+    if (null == paramGLCapabilitiesImmutable) {
+      throw new IllegalArgumentException("null caps");
+    }
+    Threading.invoke(true, new Runnable()
+    {
+
+      public void run() {
+        dispose(new Runnable()
+        {
+
+          public void run()
+          {
+            reqOffscreenCaps = val$caps;
+            GLJPanel.this.initializeBackendImpl();
+          }
+        }); }
+    }, getTreeLock());
+  }
+  
+  public final GLProfile getGLProfile()
+  {
+    return reqOffscreenCaps.getGLProfile();
+  }
+  
+  public NativeSurface getNativeSurface()
+  {
+    Backend localBackend = backend;
+    if (null == localBackend) {
+      return null;
+    }
+    return localBackend.getDrawable().getNativeSurface();
+  }
+  
+  public long getHandle()
+  {
+    Backend localBackend = backend;
+    if (null == localBackend) {
+      return 0L;
+    }
+    return localBackend.getDrawable().getNativeSurface().getSurfaceHandle();
+  }
+  
+  public final GLDrawableFactory getFactory()
+  {
+    return factory;
+  }
+  
+
+
+
+
+
+
+
+
+  public final int getTextureUnit()
+  {
+    Backend localBackend = backend;
+    if (null == localBackend) {
+      return -1;
+    }
+    return localBackend.getTextureUnit();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void setTextureUnit(int paramInt)
+  {
+    requestedTextureUnit = paramInt;
+  }
+  
+
+
+
+
+  private final Object initSync = new Object();
+  
+  private boolean initializeBackendImpl() { synchronized (initSync) {
+      if (!isInitialized) {
+        if (handleReshape) {
+          if (DEBUG) {
+            System.err.println(getThreadName() + ": GLJPanel.createAndInitializeBackend.1: [" + (printActive ? "printing" : "paint") + "] " + panelWidth + "x" + panelHeight + " @ scale " + 
+              getPixelScaleStr() + " -> " + reshapeWidth + "x" + reshapeHeight + " @ scale " + 
+              getPixelScaleStr());
+          }
+          panelWidth = reshapeWidth;
+          panelHeight = reshapeHeight;
+          handleReshape = false;
+        }
+        else if (DEBUG) {
+          System.err.println(getThreadName() + ": GLJPanel.createAndInitializeBackend.0: [" + (printActive ? "printing" : "paint") + "] " + panelWidth + "x" + panelHeight + " @ scale " + 
+            getPixelScaleStr());
+        }
+        
+
+        if ((0 >= panelWidth) || (0 >= panelHeight)) {
+          return false;
+        }
+        
+        if (null == backend) {
+          if (oglPipelineUsable()) {
+            backend = new J2DOGLBackend();
+          } else {
+            backend = new OffscreenBackend(customPixelBufferProvider);
+          }
+          isInitialized = false;
+        }
+        
+        if (!isInitialized) {
+          factory = GLDrawableFactoryImpl.getFactoryImpl(reqOffscreenCaps.getGLProfile());
+          backend.initialize();
+        }
+        return isInitialized;
+      }
+      return true;
+    }
+  }
+  
+  private final String getPixelScaleStr() {
+    return "[" + hasPixelScale[0] + ", " + hasPixelScale[1] + "]";
+  }
+  
+  public WindowClosingProtocol.WindowClosingMode getDefaultCloseOperation() {
+    return awtWindowClosingProtocol.getDefaultCloseOperation();
+  }
+  
+  public WindowClosingProtocol.WindowClosingMode setDefaultCloseOperation(WindowClosingProtocol.WindowClosingMode paramWindowClosingMode)
+  {
+    return awtWindowClosingProtocol.setDefaultCloseOperation(paramWindowClosingMode);
+  }
+  
+  private boolean handleReshape() {
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": GLJPanel.handleReshape: " + panelWidth + "x" + panelHeight + " @ scale " + 
+        getPixelScaleStr() + " -> " + reshapeWidth + "x" + reshapeHeight + " @ scale " + 
+        getPixelScaleStr());
+    }
+    panelWidth = reshapeWidth;
+    panelHeight = reshapeHeight;
+    
+    return backend.handleReshape();
+  }
+  
+  class Updater implements GLEventListener {
+    private Graphics g;
+    
+    Updater() {}
+    
+    public void setGraphics(Graphics paramGraphics) {
+      g = paramGraphics;
+    }
+    
+    public void init(GLAutoDrawable paramGLAutoDrawable)
+    {
+      if (!backend.preGL(g)) {
+        return;
+      }
+      helper.init(GLJPanel.this, !sendReshape);
+      backend.postGL(g, false);
+    }
+    
+    public void dispose(GLAutoDrawable paramGLAutoDrawable)
+    {
+      helper.disposeAllGLEventListener(GLJPanel.this, false);
+    }
+    
+    public void display(GLAutoDrawable paramGLAutoDrawable)
+    {
+      if (!backend.preGL(g)) {
+        return;
+      }
+      if (sendReshape) {
+        if (GLJPanel.DEBUG) {
+          System.err.println(GLJPanel.getThreadName() + ": GLJPanel.display: reshape(" + viewportX + "," + viewportY + " " + panelWidth + "x" + panelHeight + " @ scale " + GLJPanel.this.getPixelScaleStr() + ")");
+        }
+        helper.reshape(GLJPanel.this, viewportX, viewportY, panelWidth, panelHeight);
+        sendReshape = false;
+      }
+      
+      helper.display(GLJPanel.this);
+      backend.postGL(g, true);
+    }
+    
+    public void plainPaint(GLAutoDrawable paramGLAutoDrawable) {
+      helper.display(GLJPanel.this);
+    }
+    
+
+
+    public void reshape(GLAutoDrawable paramGLAutoDrawable, int paramInt1, int paramInt2, int paramInt3, int paramInt4) {}
+  }
+  
+
+  public String toString()
+  {
+    Object localObject = null != backend ? backend.getDrawable() : null;
+    
+    return "AWT-GLJPanel[ drawableType " + (null != localObject ? localObject.getClass().getName() : "null") + ", chosenCaps " + getChosenGLCapabilities() + "]";
+  }
+  
+
+  private final Runnable disposeAction = new Runnable()
+  {
+    public void run() {
+      RecursiveLock localRecursiveLock = lock;
+      localRecursiveLock.lock();
+      try {
+        if (null != backend) {
+          GLContext localGLContext = backend.getContext();
+          int i = !backend.isUsingOwnLifecycle() ? 1 : 0;
+          
+          Object localObject1 = null;
+          if ((null != localGLContext) && (localGLContext.isCreated())) {
+            try {
+              helper.disposeGL(GLJPanel.this, localGLContext, i == 0);
+            } catch (GLException localGLException) {
+              localObject1 = localGLException;
+            }
+          }
+          Object localObject2 = null;
+          if (i != 0) {
+            try {
+              backend.destroy();
+            } catch (Throwable localThrowable) {
+              localObject2 = localThrowable;
+            }
+            backend = null;
+            isInitialized = false;
+          }
+          
+
+          if (null != localObject1) {
+            throw localObject1;
+          }
+          if (null != localObject2) {
+            throw GLException.newGLException(localObject2);
+          }
+        }
+      } finally {
+        localRecursiveLock.unlock();
+      }
+    }
+  };
+  
+  private final Runnable updaterInitAction = new Runnable()
+  {
+    public void run() {
+      updater.init(GLJPanel.this);
+    }
+  };
+  
+  private final Runnable updaterDisplayAction = new Runnable()
+  {
+    public void run() {
+      updater.display(GLJPanel.this);
+    }
+  };
+  
+  private final Runnable updaterPlainDisplayAction = new Runnable()
+  {
+    public void run() {
+      updater.plainPaint(GLJPanel.this);
+    }
+  };
+  
+  private final Runnable paintImmediatelyAction = new Runnable()
+  {
+
+    public void run() { paintImmediately(0, 0, getWidth(), getHeight()); }
+  };
+  
+  private class DisposeGLEventListenerAction implements Runnable {
+    GLEventListener listener;
+    private final boolean remove;
+    
+    private DisposeGLEventListenerAction(GLEventListener paramGLEventListener, boolean paramBoolean) {
+      listener = paramGLEventListener;
+      remove = paramBoolean;
+    }
+    
+    public void run()
+    {
+      GLJPanel.Backend localBackend = backend;
+      if (null != localBackend) {
+        listener = helper.disposeGLEventListener(GLJPanel.this, localBackend.getDrawable(), localBackend.getContext(), listener, remove);
+      }
+    }
+  }
+  
+  private int getGLInteger(GL paramGL, int paramInt) {
+    int[] arrayOfInt = new int[1];
+    paramGL.glGetIntegerv(paramInt, arrayOfInt, 0);
+    return arrayOfInt[0];
+  }
+  
+  protected static String getThreadName() { return Thread.currentThread().getName(); }
+  
+
+
+  public void setRealized(boolean paramBoolean) {}
+  
+
+
+  static abstract interface Backend
+  {
+    public abstract boolean isUsingOwnLifecycle();
+    
+
+
+    public abstract void initialize();
+    
+
+
+    public abstract void destroy();
+    
+
+
+    public abstract void setOpaque(boolean paramBoolean);
+    
+
+
+    public abstract GLContext createContext(GLContext paramGLContext);
+    
+
+
+    public abstract void setContext(GLContext paramGLContext);
+    
+
+
+    public abstract GLContext getContext();
+    
+
+
+    public abstract GLDrawable getDrawable();
+    
+
+
+    public abstract int getTextureUnit();
+    
+
+
+    public abstract GLCapabilitiesImmutable getChosenGLCapabilities();
+    
+
+
+    public abstract GLProfile getGLProfile();
+    
+
+
+    public abstract boolean handleReshape();
+    
+
+
+    public abstract boolean preGL(Graphics paramGraphics);
+    
+
+
+    public abstract boolean handlesSwapBuffer();
+    
+
+
+    public abstract void swapBuffers();
+    
+
+
+    public abstract void postGL(Graphics paramGraphics, boolean paramBoolean);
+    
+
+
+    public abstract void doPaintComponent(Graphics paramGraphics);
+    
+
+
+    public abstract void doPlainPaint();
+  }
+  
+
+
+  class OffscreenBackend
+    implements GLJPanel.Backend
+  {
+    private final AWTGLPixelBuffer.AWTGLPixelBufferProvider pixelBufferProvider;
+    
+
+    private final boolean useSingletonBuffer;
+    
+    private AWTGLPixelBuffer pixelBuffer;
+    
+    private BufferedImage alignedImage;
+    
+    protected IntBuffer readBackIntsForCPUVFlip;
+    
+    private volatile GLDrawable offscreenDrawable;
+    
+    private boolean offscreenIsFBO;
+    
+    private FBObject fboFlipped;
+    
+    private GLSLTextureRaster glslTextureRaster;
+    
+    private volatile GLContextImpl offscreenContext;
+    
+    private boolean flipVertical;
+    
+    private int frameCount = 0;
+    
+
+    private final GLPixelStorageModes psm = new GLPixelStorageModes();
+    
+    OffscreenBackend(AWTGLPixelBuffer.AWTGLPixelBufferProvider paramAWTGLPixelBufferProvider) {
+      if (null == paramAWTGLPixelBufferProvider) {
+        pixelBufferProvider = GLJPanel.access$2800();
+      } else {
+        pixelBufferProvider = paramAWTGLPixelBufferProvider;
+      }
+      if ((pixelBufferProvider instanceof GLPixelBuffer.SingletonGLPixelBufferProvider)) {
+        useSingletonBuffer = true;
+      } else {
+        useSingletonBuffer = false;
+      }
+    }
+    
+    public final boolean isUsingOwnLifecycle() {
+      return false;
+    }
+    
+    public final void initialize() {
+      if (GLJPanel.DEBUG) {
+        System.err.println(GLJPanel.getThreadName() + ": OffscreenBackend: initialize() - frameCount " + frameCount);
+      }
+      Object localObject1 = null;
+      try {
+        GLContext[] arrayOfGLContext = { null };
+        if (helper.isSharedGLContextPending(arrayOfGLContext)) {
+          return;
+        }
+        offscreenDrawable = factory.createOffscreenDrawable(null, 
+        
+          reqOffscreenCaps, 
+          chooser, 
+          panelWidth, panelHeight);
+        GLJPanel.this.updateWrappedSurfaceScale(offscreenDrawable);
+        offscreenDrawable.setRealized(true);
+        if (GLJPanel.DEBUG_FRAMES) {
+          offscreenDrawable.getNativeSurface().addSurfaceUpdatedListener(new SurfaceUpdatedListener()
+          {
+            public final void surfaceUpdated(Object paramAnonymousObject, NativeSurface paramAnonymousNativeSurface, long paramAnonymousLong) {
+              System.err.println(GLJPanel.getThreadName() + ": OffscreenBackend.swapBuffers - frameCount " + frameCount);
+            }
+          });
+        }
+        
+
+
+        flipVertical = ((!skipGLOrientationVerticalFlip) && (offscreenDrawable.isGLOriented()));
+        offscreenIsFBO = offscreenDrawable.getRequestedGLCapabilities().isFBO();
+        int i = (flipVertical) && (offscreenIsFBO) && (reqOffscreenCaps.getGLProfile().isGL2ES2()) && (GLJPanel.USE_GLSL_TEXTURE_RASTERIZER) ? 1 : 0;
+        if ((offscreenIsFBO) && (i == 0))
+        {
+          ((GLFBODrawable)offscreenDrawable).setFBOMode(0);
+        }
+        
+        offscreenContext = ((GLContextImpl)offscreenDrawable.createContext(arrayOfGLContext[0]));
+        offscreenContext.setContextCreationFlags(additionalCtxCreationFlags);
+        if (0 < offscreenContext.makeCurrent()) {
+          isInitialized = true;
+          helper.setAutoSwapBufferMode(false);
+          
+          GL localGL = offscreenContext.getGL();
+          
+
+
+
+
+          GLCapabilitiesImmutable localGLCapabilitiesImmutable = offscreenDrawable.getChosenGLCapabilities();
+          int j = !offscreenContext.hasRendererQuirk(12) ? 1 : 0;
+          boolean bool = (i != 0) && (localGL.isGL2ES2()) && (j != 0);
+          if (GLJPanel.DEBUG) {
+            System.err.println(GLJPanel.getThreadName() + ": OffscreenBackend.initialize: useGLSLFlip " + bool + " [flip " + flipVertical + ", isFBO " + offscreenIsFBO + ", isGL2ES2 " + localGL
+              .isGL2ES2() + ", noglsl " + (
+              !GLJPanel.USE_GLSL_TEXTURE_RASTERIZER) + ", glslNonCompliant " + (j == 0) + ", isGL2ES2 " + localGL
+              .isGL2ES2() + "\n " + offscreenDrawable + "]");
+          }
+          if (bool) {
+            GLFBODrawable localGLFBODrawable = (GLFBODrawable)offscreenDrawable;
+            localGLFBODrawable.setTextureUnit(requestedTextureUnit);
+            try {
+              fboFlipped = new FBObject();
+              fboFlipped.init(localGL, panelWidth, panelHeight, 0);
+              fboFlipped.attachColorbuffer(localGL, 0, localGLCapabilitiesImmutable.getAlphaBits() > 0);
+              
+              localGL.glClear(16384);
+              glslTextureRaster = new GLSLTextureRaster(localGLFBODrawable.getTextureUnit(), true);
+              glslTextureRaster.init(localGL.getGL2ES2());
+              glslTextureRaster.reshape(localGL.getGL2ES2(), 0, 0, panelWidth, panelHeight);
+            } catch (Exception localException) {
+              localException.printStackTrace();
+              if (null != glslTextureRaster) {
+                glslTextureRaster.dispose(localGL.getGL2ES2());
+                glslTextureRaster = null;
+              }
+              if (null != fboFlipped) {
+                fboFlipped.destroy(localGL);
+                fboFlipped = null;
+              }
+            }
+          } else {
+            fboFlipped = null;
+            glslTextureRaster = null;
+          }
+          offscreenContext.release();
+        } else {
+          isInitialized = false;
+        }
+      } catch (GLException localGLException) {
+        localObject1 = localGLException;
+      } finally {
+        if (!isInitialized) {
+          if (null != offscreenContext) {
+            offscreenContext.destroy();
+            offscreenContext = null;
+          }
+          if (null != offscreenDrawable) {
+            offscreenDrawable.setRealized(false);
+            offscreenDrawable = null;
+          }
+        }
+        if (null != localObject1) {
+          throw new GLException("Caught GLException: " + ((GLException)localObject1).getMessage(), (Throwable)localObject1);
+        }
+      }
+    }
+    
+    public final void destroy()
+    {
+      if (GLJPanel.DEBUG) {
+        System.err.println(GLJPanel.getThreadName() + ": OffscreenBackend: destroy() - offscreenContext: " + (null != offscreenContext) + " - offscreenDrawable: " + (null != offscreenDrawable) + " - frameCount " + frameCount);
+      }
+      if ((null != offscreenContext) && (offscreenContext.isCreated()) && 
+        (0 < offscreenContext.makeCurrent())) {}
+      Object localObject1;
+      try { localObject1 = offscreenContext.getGL();
+        if (null != glslTextureRaster) {
+          glslTextureRaster.dispose(((GL)localObject1).getGL2ES2());
+        }
+        if (null != fboFlipped) {
+          fboFlipped.destroy((GL)localObject1);
+        }
+        
+        offscreenContext.destroy(); } finally { offscreenContext.destroy();
+      }
+      
+
+
+      glslTextureRaster = null;
+      fboFlipped = null;
+      offscreenContext = null;
+      
+      if (offscreenDrawable != null) {
+        localObject1 = offscreenDrawable.getNativeSurface().getGraphicsConfiguration().getScreen().getDevice();
+        offscreenDrawable.setRealized(false);
+        offscreenDrawable = null;
+        if (null != localObject1) {
+          ((AbstractGraphicsDevice)localObject1).close();
+        }
+      }
+      offscreenIsFBO = false;
+      
+      if (null != readBackIntsForCPUVFlip) {
+        readBackIntsForCPUVFlip.clear();
+        readBackIntsForCPUVFlip = null;
+      }
+      if (null != pixelBuffer) {
+        if (!useSingletonBuffer) {
+          pixelBuffer.dispose();
+        }
+        pixelBuffer = null;
+      }
+      alignedImage = null;
+    }
+    
+    public final void setOpaque(boolean paramBoolean)
+    {
+      if ((paramBoolean != isOpaque()) && (!useSingletonBuffer)) {
+        pixelBuffer.dispose();
+        pixelBuffer = null;
+        alignedImage = null;
+      }
+    }
+    
+
+    public final boolean preGL(Graphics paramGraphics)
+    {
+      return true;
+    }
+    
+    public final boolean handlesSwapBuffer()
+    {
+      return true;
+    }
+    
+    public final void swapBuffers()
+    {
+      GLDrawable localGLDrawable = offscreenDrawable;
+      if (null != localGLDrawable) {
+        localGLDrawable.swapBuffers();
+      }
+    }
+    
+    public final void postGL(Graphics paramGraphics, boolean paramBoolean)
+    {
+      if (paramBoolean) {
+        if (GLJPanel.DEBUG_FRAMES) {
+          System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0: - frameCount " + frameCount);
+        }
+        
+        GL localGL = offscreenContext.getGL();
+        
+
+        int i;
+        
+        TextureState localTextureState1;
+        
+        TextureState localTextureState2;
+        
+        if (offscreenIsFBO) {
+          i = 33984 + ((GLFBODrawable)offscreenDrawable).getTextureUnit();
+          localTextureState1 = new TextureState(localGL, 3553);
+          if (i != localTextureState1.getUnit())
+          {
+
+
+            localGL.glActiveTexture(i);
+            localTextureState2 = new TextureState(localGL, i, 3553);
+          } else {
+            localTextureState2 = localTextureState1;
+          }
+        } else {
+          i = 0;
+          localTextureState1 = null;
+          localTextureState2 = null;
+        }
+        
+
+        if (autoSwapBufferMode)
+        {
+
+          offscreenDrawable.swapBuffers();
+        }
+        
+        int j;
+        int k;
+        if (isOpaque())
+        {
+          j = 3;
+          k = 1;
+        }
+        else {
+          j = 4;
+          k = 4;
+        }
+        
+        PixelFormat localPixelFormat = pixelBufferProvider.getAWTPixelFormat(localGL.getGLProfile(), j);
+        GLPixelBuffer.GLPixelAttributes localGLPixelAttributes = pixelBufferProvider.getAttributes(localGL, j, true);
+        
+        if (useSingletonBuffer) {
+          pixelBuffer = ((AWTGLPixelBuffer)((GLPixelBuffer.SingletonGLPixelBufferProvider)pixelBufferProvider).getSingleBuffer(comp, localGLPixelAttributes, true));
+        }
+        if ((null != pixelBuffer) && (pixelBuffer.requiresNewBuffer(localGL, panelWidth, panelHeight, 0))) {
+          pixelBuffer.dispose();
+          pixelBuffer = null;
+          alignedImage = null;
+        }
+        int m;
+        if (null == pixelBuffer) {
+          if ((0 >= panelWidth) || (0 >= panelHeight)) {
+            return;
+          }
+          pixelBuffer = pixelBufferProvider.allocate(localGL, comp, localGLPixelAttributes, true, panelWidth, panelHeight, 1, 0);
+          if (GLJPanel.DEBUG) {
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0: " + getName() + " pixelBufferProvider isSingletonBufferProvider " + useSingletonBuffer + ", 0x" + Integer.toHexString(pixelBufferProvider.hashCode()) + ", " + pixelBufferProvider.getClass().getSimpleName());
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0: " + getName() + " pixelBuffer 0x" + Integer.toHexString(pixelBuffer.hashCode()) + ", " + pixelBuffer + ", alignment " + k);
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0: " + getName() + " flippedVertical " + flipVertical + ", glslTextureRaster " + (null != glslTextureRaster) + ", isGL2ES3 " + localGL.isGL2ES3());
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0: " + getName() + " panelSize " + panelWidth + "x" + panelHeight + " @ scale " + GLJPanel.this.getPixelScaleStr());
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0: " + getName() + " pixelAttribs " + localGLPixelAttributes);
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0: " + getName() + " awtPixelFormat " + localPixelFormat);
+            m = 1;
+          } else {
+            m = 0;
+          }
+        } else {
+          m = 0;
+        }
+        if ((offscreenDrawable.getSurfaceWidth() != panelWidth) || (offscreenDrawable.getSurfaceHeight() != panelHeight)) {
+          throw new InternalError("OffscreenDrawable panelSize mismatch (reshape missed): panelSize " + panelWidth + "x" + panelHeight + " != drawable " + offscreenDrawable.getSurfaceWidth() + "x" + offscreenDrawable.getSurfaceHeight() + ", on thread " + GLJPanel.getThreadName());
+        }
+        if ((null == alignedImage) || 
+          (panelWidth != alignedImage.getWidth()) || (panelHeight != alignedImage.getHeight()) || 
+          (!pixelBuffer.isDataBufferSource(alignedImage))) {
+          alignedImage = pixelBuffer.getAlignedImage(panelWidth, panelHeight);
+          if (GLJPanel.DEBUG) {
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0: " + getName() + " new alignedImage " + alignedImage.getWidth() + "x" + alignedImage.getHeight() + " @ scale " + GLJPanel.this.getPixelScaleStr() + ", " + alignedImage + ", pixelBuffer " + pixelBuffer.width + "x" + pixelBuffer.height + ", " + pixelBuffer);
+          }
+        }
+        
+        IntBuffer localIntBuffer;
+        if ((!flipVertical) || (null != glslTextureRaster)) {
+          localIntBuffer = (IntBuffer)pixelBuffer.buffer;
+        } else {
+          if ((null == readBackIntsForCPUVFlip) || (pixelBuffer.width * pixelBuffer.height > readBackIntsForCPUVFlip.remaining())) {
+            readBackIntsForCPUVFlip = IntBuffer.allocate(pixelBuffer.width * pixelBuffer.height);
+          }
+          localIntBuffer = readBackIntsForCPUVFlip;
+        }
+        
+
+        if (GLJPanel.DEBUG_FRAMES) {
+          System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.readPixels: - frameCount " + frameCount);
+        }
+        
+
+        psm.setPackAlignment(localGL, k);
+        if (localGL.isGL2ES3()) {
+          GL2ES3 localGL2ES3 = localGL.getGL2ES3();
+          psm.setPackRowLength(localGL2ES3, panelWidth);
+          localGL2ES3.glReadBuffer(localGL2ES3.getDefaultReadBuffer());
+          if (m != 0) {
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0.0: fboDrawable " + offscreenDrawable);
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0.0: isGL2ES3, readBuffer 0x" + Integer.toHexString(localGL2ES3.getDefaultReadBuffer()));
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0.0: def-readBuffer 0x" + Integer.toHexString(localGL2ES3.getDefaultReadBuffer()));
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0.0: def-readFBO    0x" + Integer.toHexString(localGL2ES3.getDefaultReadFramebuffer()));
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0.0: bound-readFBO  0x" + Integer.toHexString(localGL2ES3.getBoundFramebuffer(36008)));
+          } }
+        int[] arrayOfInt;
+        Object localObject;
+        if (null != glslTextureRaster)
+        {
+          arrayOfInt = new int[] { 0, 0, 0, 0 };
+          localGL.glGetIntegerv(2978, arrayOfInt, 0);
+          
+          boolean bool = (0 != arrayOfInt[0]) || (0 != arrayOfInt[1]) || (panelWidth != arrayOfInt[2]) || (panelHeight != arrayOfInt[3]);
+          if (GLJPanel.DEBUG_VIEWPORT) {
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL: " + getName() + " Viewport: change " + bool + ", " + arrayOfInt[0] + "/" + arrayOfInt[1] + " " + arrayOfInt[2] + "x" + arrayOfInt[3] + " -> 0/0 " + 
+            
+              panelWidth + "x" + panelHeight);
+          }
+          if (bool) {
+            localGL.glViewport(0, 0, panelWidth, panelHeight);
+          }
+          
+
+          localObject = (GLFBODrawable)offscreenDrawable;
+          FBObject.TextureAttachment localTextureAttachment = ((GLFBODrawable)localObject).getColorbuffer(1028).getTextureAttachment();
+          
+          fboFlipped.bind(localGL);
+          
+
+          localGL.glBindTexture(3553, localTextureAttachment.getName());
+          
+
+          glslTextureRaster.display(localGL.getGL2ES2());
+          if (m != 0) {
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0.1: fboDrawable " + localObject);
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0.1: read from fbo-rb " + fboFlipped.getReadFramebuffer() + ", fbo " + fboFlipped);
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0.1: isGL2ES3, readBuffer 0x" + Integer.toHexString(localGL.getDefaultReadBuffer()));
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0.1: def-readBuffer 0x" + Integer.toHexString(localGL.getDefaultReadBuffer()));
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0.1: def-readFBO    0x" + Integer.toHexString(localGL.getDefaultReadFramebuffer()));
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0.1: bound-readFBO  0x" + Integer.toHexString(localGL.getBoundFramebuffer(36008)));
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0.1: " + getName() + " pixelAttribs " + localGLPixelAttributes);
+          }
+          localGL.glReadPixels(0, 0, panelWidth, panelHeight, format, type, localIntBuffer);
+          
+          fboFlipped.unbind(localGL);
+          if (m != 0) {
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0.2: fboDrawable " + localObject);
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0.2: read from fbo-rb " + fboFlipped.getReadFramebuffer() + ", fbo " + fboFlipped);
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0.2: isGL2ES3, readBuffer 0x" + Integer.toHexString(localGL.getDefaultReadBuffer()));
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0.2: def-readBuffer 0x" + Integer.toHexString(localGL.getDefaultReadBuffer()));
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0.2: def-readFBO    0x" + Integer.toHexString(localGL.getDefaultReadFramebuffer()));
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.postGL.0.2: bound-readFBO  0x" + Integer.toHexString(localGL.getBoundFramebuffer(36008)));
+          }
+          if (bool) {
+            localGL.glViewport(arrayOfInt[0], arrayOfInt[1], arrayOfInt[2], arrayOfInt[3]);
+          }
+        } else {
+          localGL.glReadPixels(0, 0, panelWidth, panelHeight, format, type, localIntBuffer);
+          
+          if (flipVertical)
+          {
+
+
+
+            BufferedImage localBufferedImage = alignedImage;
+            arrayOfInt = localIntBuffer.array();
+            localObject = ((DataBufferInt)localBufferedImage.getRaster().getDataBuffer()).getData();
+            int n = panelWidth;
+            int i1 = 0;
+            int i2 = (panelHeight - 1) * panelWidth;
+            for (; i2 >= 0; i2 -= n) {
+              System.arraycopy(arrayOfInt, i1, localObject, i2, n);i1 += n;
+            }
+          }
+        }
+        if (0 != i) {
+          localTextureState2.restore(localGL);
+          if (i != localTextureState1.getUnit()) {
+            localTextureState1.restore(localGL);
+          }
+        }
+        
+
+        psm.restore(localGL);
+      }
+    }
+    
+
+
+
+    public final int getTextureUnit()
+    {
+      if ((null != glslTextureRaster) && (null != offscreenDrawable)) {
+        return ((GLFBODrawable)offscreenDrawable).getTextureUnit();
+      }
+      return -1;
+    }
+    
+    public final void doPaintComponent(Graphics paramGraphics)
+    {
+      helper.invokeGL(offscreenDrawable, offscreenContext, updaterDisplayAction, updaterInitAction);
+      
+      if (null != alignedImage) {
+        if (GLJPanel.DEBUG_FRAMES) {
+          System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.doPaintComponent.drawImage: - frameCount " + frameCount);
+        }
+        
+        paramGraphics.drawImage(alignedImage, 0, 0, 
+          SurfaceScaleUtils.scaleInv(alignedImage.getWidth(), hasPixelScale[0]), 
+          SurfaceScaleUtils.scaleInv(alignedImage.getHeight(), hasPixelScale[1]), null);
+      }
+      frameCount += 1;
+    }
+    
+    public final void doPlainPaint()
+    {
+      helper.invokeGL(offscreenDrawable, offscreenContext, updaterPlainDisplayAction, updaterInitAction);
+    }
+    
+    public final boolean handleReshape()
+    {
+      Object localObject1 = (GLDrawableImpl)offscreenDrawable;
+      
+      Object localObject2 = GLDrawableHelper.resizeOffscreenDrawable((GLDrawableImpl)localObject1, offscreenContext, panelWidth, panelHeight);
+      if (localObject1 != localObject2)
+      {
+        localObject1 = localObject2;
+        offscreenDrawable = ((GLDrawable)localObject2);
+        GLJPanel.this.updateWrappedSurfaceScale(offscreenDrawable);
+      }
+      
+      if (GLJPanel.DEBUG) {
+        System.err.println(GLJPanel.getThreadName() + ": GLJPanel.OffscreenBackend.handleReshape: " + panelWidth + "x" + panelHeight + " @ scale " + GLJPanel.this.getPixelScaleStr() + " -> " + ((GLDrawableImpl)localObject1).getSurfaceWidth() + "x" + ((GLDrawableImpl)localObject1).getSurfaceHeight());
+      }
+      panelWidth = ((GLDrawableImpl)localObject1).getSurfaceWidth();
+      panelHeight = ((GLDrawableImpl)localObject1).getSurfaceHeight();
+      
+      if ((null != glslTextureRaster) && 
+        (0 < offscreenContext.makeCurrent())) {
+        try {
+          localObject2 = offscreenContext.getGL();
+          fboFlipped.reset((GL)localObject2, panelWidth, panelHeight, 0);
+          glslTextureRaster.reshape(((GL)localObject2).getGL2ES2(), 0, 0, panelWidth, panelHeight);
+          
+          offscreenContext.release(); } finally { offscreenContext.release();
+        }
+      }
+      
+      return ((GLDrawableImpl)localObject1).isRealized();
+    }
+    
+    public final GLContext createContext(GLContext paramGLContext)
+    {
+      return null != offscreenDrawable ? offscreenDrawable.createContext(paramGLContext) : null;
+    }
+    
+    public final void setContext(GLContext paramGLContext)
+    {
+      offscreenContext = ((GLContextImpl)paramGLContext);
+    }
+    
+    public final GLContext getContext()
+    {
+      return offscreenContext;
+    }
+    
+    public final GLDrawable getDrawable()
+    {
+      return offscreenDrawable;
+    }
+    
+    public final GLCapabilitiesImmutable getChosenGLCapabilities()
+    {
+      if (offscreenDrawable == null) {
+        return null;
+      }
+      return offscreenDrawable.getChosenGLCapabilities();
+    }
+    
+    public final GLProfile getGLProfile()
+    {
+      if (offscreenDrawable == null) {
+        return null;
+      }
+      return offscreenDrawable.getGLProfile();
+    }
+  }
+  
+
+
+  class J2DOGLBackend
+    implements GLJPanel.Backend
+  {
+    private Object j2dSurface;
+    
+
+    private GLContext j2dContext;
+    
+
+    private GLDrawable joglDrawable;
+    
+
+    private GLContext joglContext;
+    
+    private final int[] drawBuffer = new int[1];
+    private final int[] readBuffer = new int[1];
+    
+
+    private final int[] frameBuffer = new int[1];
+    
+
+    private boolean checkedForFBObjectWorkarounds;
+    
+
+    private boolean fbObjectWorkarounds;
+    
+
+    private int[] frameBufferDepthBuffer;
+    
+
+    private int[] frameBufferTexture;
+    
+
+    private boolean createNewDepthBuffer;
+    
+
+    private boolean checkedGLVendor;
+    
+    private boolean vendorIsATI;
+    
+    private GraphicsConfiguration workaroundConfig;
+    
+
+    J2DOGLBackend() {}
+    
+
+    public final boolean isUsingOwnLifecycle()
+    {
+      return true;
+    }
+    
+    public final void initialize() {
+      if (GLJPanel.DEBUG) {
+        System.err.println(GLJPanel.getThreadName() + ": J2DOGL: initialize()");
+      }
+      
+      isInitialized = true;
+    }
+    
+    public final void destroy()
+    {
+      Java2D.invokeWithOGLContextCurrent(null, new Runnable()
+      {
+        public void run() {
+          if (GLJPanel.DEBUG) {
+            System.err.println(GLJPanel.getThreadName() + ": J2DOGL: destroy() - joglContext: " + (null != joglContext) + " - joglDrawable: " + (null != joglDrawable));
+          }
+          if (joglContext != null) {
+            joglContext.destroy();
+            joglContext = null;
+          }
+          joglDrawable = null;
+          if (j2dContext != null) {
+            j2dContext.destroy();
+            j2dContext = null;
+          }
+        }
+      });
+    }
+    
+
+
+    public final void setOpaque(boolean paramBoolean) {}
+    
+
+    public final GLContext createContext(GLContext paramGLContext)
+    {
+      if (null != paramGLContext) {
+        throw new GLException("J2DOGLBackend cannot create context w/ additional shared context, since it already needs to share the context w/ J2D.");
+      }
+      return (null != joglDrawable) && (null != j2dContext) ? joglDrawable.createContext(j2dContext) : null;
+    }
+    
+    public final void setContext(GLContext paramGLContext)
+    {
+      joglContext = paramGLContext;
+    }
+    
+    public final GLContext getContext()
+    {
+      return joglContext;
+    }
+    
+    public final GLDrawable getDrawable()
+    {
+      return joglDrawable;
+    }
+    
+    public final int getTextureUnit() {
+      return -1;
+    }
+    
+    public final GLCapabilitiesImmutable getChosenGLCapabilities()
+    {
+      return new GLCapabilities(null);
+    }
+    
+
+    public final GLProfile getGLProfile()
+    {
+      return GLProfile.getDefault(GLProfile.getDefaultDevice());
+    }
+    
+
+    public final boolean handleReshape()
+    {
+      return true;
+    }
+    
+    public final boolean preGL(Graphics paramGraphics)
+    {
+      GL2 localGL2 = joglContext.getGL().getGL2();
+      
+      localGL2.glEnable(3089);
+      Rectangle localRectangle1 = Java2D.getOGLScissorBox(paramGraphics);
+      
+      if (localRectangle1 == null) {
+        if (GLJPanel.DEBUG) {
+          System.err.println(GLJPanel.getThreadName() + ": Java2D.getOGLScissorBox() returned null");
+        }
+        return false;
+      }
+      if (GLJPanel.DEBUG) {
+        System.err.println(GLJPanel.getThreadName() + ": GLJPanel: gl.glScissor(" + x + ", " + y + ", " + width + ", " + height + ")");
+      }
+      
+      localGL2.glScissor(x, y, width, height);
+      Rectangle localRectangle2 = Java2D.getOGLViewport(paramGraphics, panelWidth, panelHeight);
+      
+
+
+      if ((viewportX != x) || 
+        (viewportY != y)) {
+        sendReshape = true;
+        if (GLJPanel.DEBUG) {
+          System.err.println(GLJPanel.getThreadName() + ": Sending reshape because viewport changed");
+          System.err.println("  viewportX (" + viewportX + ") ?= oglViewport.x (" + x + ")");
+          System.err.println("  viewportY (" + viewportY + ") ?= oglViewport.y (" + y + ")");
+        }
+      }
+      viewportX = x;
+      viewportY = y;
+      
+
+
+
+
+      if ((Java2D.isFBOEnabled()) && 
+        (Java2D.getOGLSurfaceType(paramGraphics) == Java2D.FBOBJECT))
+      {
+
+
+        int i = Java2D.getOGLTextureType(paramGraphics);
+        
+        if (!checkedForFBObjectWorkarounds) {
+          checkedForFBObjectWorkarounds = true;
+          localGL2.glBindTexture(i, 0);
+          localGL2.glBindFramebuffer(36160, frameBuffer[0]);
+          int j = localGL2.glCheckFramebufferStatus(36160);
+          if (j != 36053)
+          {
+            fbObjectWorkarounds = true;
+            createNewDepthBuffer = true;
+            if (GLJPanel.DEBUG) {
+              System.err.println(GLJPanel.getThreadName() + ": GLJPanel: ERR GL_FRAMEBUFFER_BINDING: Discovered Invalid J2D FBO(" + frameBuffer[0] + "): " + FBObject.getStatusString(j) + ", frame_buffer_object workarounds to be necessary");
+            }
+          }
+          else
+          {
+            frameBufferTexture = null;
+            if (GLJPanel.DEBUG) {
+              System.err.println(GLJPanel.getThreadName() + ": GLJPanel: OK GL_FRAMEBUFFER_BINDING: " + frameBuffer[0]);
+            }
+          }
+        }
+        
+        if ((fbObjectWorkarounds) && (createNewDepthBuffer)) {
+          if (frameBufferDepthBuffer == null) {
+            frameBufferDepthBuffer = new int[1];
+          }
+          
+
+          if (frameBufferDepthBuffer[0] != 0) {
+            localGL2.glDeleteRenderbuffers(1, frameBufferDepthBuffer, 0);
+            frameBufferDepthBuffer[0] = 0;
+          }
+          
+          localGL2.glBindTexture(i, frameBufferTexture[0]);
+          int[] arrayOfInt1 = new int[1];
+          int[] arrayOfInt2 = new int[1];
+          localGL2.glGetTexLevelParameteriv(i, 0, 4096, arrayOfInt1, 0);
+          localGL2.glGetTexLevelParameteriv(i, 0, 4097, arrayOfInt2, 0);
+          
+          localGL2.glGenRenderbuffers(1, frameBufferDepthBuffer, 0);
+          if (GLJPanel.DEBUG) {
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel: Generated frameBufferDepthBuffer " + frameBufferDepthBuffer[0] + " with width " + arrayOfInt1[0] + ", height " + arrayOfInt2[0]);
+          }
+          
+
+          localGL2.glBindRenderbuffer(36161, frameBufferDepthBuffer[0]);
+          
+          localGL2.glRenderbufferStorage(36161, 33190, arrayOfInt1[0], arrayOfInt2[0]);
+          
+          localGL2.glBindRenderbuffer(36161, 0);
+          createNewDepthBuffer = false;
+        }
+        
+        localGL2.glBindTexture(i, 0);
+        localGL2.glBindFramebuffer(36160, frameBuffer[0]);
+        
+        if (fbObjectWorkarounds)
+        {
+          localGL2.glFramebufferTexture2D(36160, 36064, i, frameBufferTexture[0], 0);
+          
+
+
+
+          if (GLJPanel.DEBUG) {
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel: frameBufferDepthBuffer: " + frameBufferDepthBuffer[0]);
+          }
+          localGL2.glFramebufferRenderbuffer(36160, 36096, 36161, frameBufferDepthBuffer[0]);
+        }
+        
+
+
+
+        if (GLJPanel.DEBUG) {
+          int k = localGL2.glCheckFramebufferStatus(36160);
+          if (k != 36053)
+          {
+            throw new GLException("Error: framebuffer was incomplete: status = 0x" + Integer.toHexString(k));
+          }
+        }
+      } else {
+        if (GLJPanel.DEBUG) {
+          System.err.println(GLJPanel.getThreadName() + ": GLJPanel: Setting up drawBuffer " + drawBuffer[0] + " and readBuffer " + readBuffer[0]);
+        }
+        
+
+        localGL2.glDrawBuffer(drawBuffer[0]);
+        localGL2.glReadBuffer(readBuffer[0]);
+      }
+      
+      return true;
+    }
+    
+    public final boolean handlesSwapBuffer()
+    {
+      return false;
+    }
+    
+    public final void swapBuffers()
+    {
+      GLDrawable localGLDrawable = joglDrawable;
+      if (null != localGLDrawable) {
+        localGLDrawable.swapBuffers();
+      }
+    }
+    
+
+
+
+    public final void postGL(Graphics paramGraphics, boolean paramBoolean)
+    {
+      GL localGL = joglContext.getGL();
+      localGL.glFinish();
+      
+      if ((Java2D.isFBOEnabled()) && 
+        (Java2D.getOGLSurfaceType(paramGraphics) == Java2D.FBOBJECT))
+      {
+
+
+        localGL.glBindFramebuffer(36160, 0);
+      }
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public final void doPaintComponent(final Graphics paramGraphics)
+    {
+      if (Java2D.isFBOEnabled()) {
+        if (workaroundConfig == null)
+        {
+
+
+          workaroundConfig = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration();
+        }
+        Java2D.invokeWithOGLSharedContextCurrent(workaroundConfig, new Runnable() {
+          public void run() {}
+        });
+      }
+      Java2D.invokeWithOGLContextCurrent(paramGraphics, new Runnable()
+      {
+        public void run() {
+          if (GLJPanel.DEBUG) {
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel.invokeWithOGLContextCurrent");
+          }
+          
+          Object localObject1;
+          if (j2dContext == null) {
+            j2dContext = factory.createExternalGLContext();
+            if (GLJPanel.DEBUG) {
+              System.err.println(GLJPanel.getThreadName() + ": GLJPanel.Created External Context: " + j2dContext);
+            }
+            if (GLJPanel.DEBUG) {}
+            
+
+
+
+
+
+
+            j2dContext.makeCurrent();
+            localObject1 = j2dContext.getGL();
+            if ((GLJPanel.this.getGLInteger((GL)localObject1, 3410) < reqOffscreenCaps.getRedBits()) || 
+              (GLJPanel.this.getGLInteger((GL)localObject1, 3411) < reqOffscreenCaps.getGreenBits()) || 
+              (GLJPanel.this.getGLInteger((GL)localObject1, 3412) < reqOffscreenCaps.getBlueBits()) || 
+              
+              (GLJPanel.this.getGLInteger((GL)localObject1, 3416) < reqOffscreenCaps.getAccumRedBits()) || 
+              (GLJPanel.this.getGLInteger((GL)localObject1, 3417) < reqOffscreenCaps.getAccumGreenBits()) || 
+              (GLJPanel.this.getGLInteger((GL)localObject1, 3418) < reqOffscreenCaps.getAccumBlueBits()) || 
+              (GLJPanel.this.getGLInteger((GL)localObject1, 3419) < reqOffscreenCaps.getAccumAlphaBits()) || 
+              
+              (GLJPanel.this.getGLInteger((GL)localObject1, 3415) < reqOffscreenCaps.getStencilBits())) {
+              if (GLJPanel.DEBUG) {
+                System.err.println(GLJPanel.getThreadName() + ": GLJPanel: Falling back to pbuffer-based support because Java2D context insufficient");
+                System.err.println("                    Available              Required");
+                System.err.println("GL_RED_BITS         " + GLJPanel.this.getGLInteger((GL)localObject1, 3410) + "              " + reqOffscreenCaps.getRedBits());
+                System.err.println("GL_GREEN_BITS       " + GLJPanel.this.getGLInteger((GL)localObject1, 3411) + "              " + reqOffscreenCaps.getGreenBits());
+                System.err.println("GL_BLUE_BITS        " + GLJPanel.this.getGLInteger((GL)localObject1, 3412) + "              " + reqOffscreenCaps.getBlueBits());
+                System.err.println("GL_ALPHA_BITS       " + GLJPanel.this.getGLInteger((GL)localObject1, 3413) + "              " + reqOffscreenCaps.getAlphaBits());
+                System.err.println("GL_ACCUM_RED_BITS   " + GLJPanel.this.getGLInteger((GL)localObject1, 3416) + "              " + reqOffscreenCaps.getAccumRedBits());
+                System.err.println("GL_ACCUM_GREEN_BITS " + GLJPanel.this.getGLInteger((GL)localObject1, 3417) + "              " + reqOffscreenCaps.getAccumGreenBits());
+                System.err.println("GL_ACCUM_BLUE_BITS  " + GLJPanel.this.getGLInteger((GL)localObject1, 3418) + "              " + reqOffscreenCaps.getAccumBlueBits());
+                System.err.println("GL_ACCUM_ALPHA_BITS " + GLJPanel.this.getGLInteger((GL)localObject1, 3419) + "              " + reqOffscreenCaps.getAccumAlphaBits());
+                System.err.println("GL_DEPTH_BITS       " + GLJPanel.this.getGLInteger((GL)localObject1, 3414) + "              " + reqOffscreenCaps.getDepthBits());
+                System.err.println("GL_STENCIL_BITS     " + GLJPanel.this.getGLInteger((GL)localObject1, 3415) + "              " + reqOffscreenCaps.getStencilBits());
+              }
+              isInitialized = false;
+              backend = null;
+              GLJPanel.access$4602(false);
+              handleReshape = true;
+              j2dContext.destroy();
+              j2dContext = null;
+              return;
+            }
+          } else {
+            j2dContext.makeCurrent();
+          }
+          try {
+            GLJPanel.J2DOGLBackend.this.captureJ2DState(j2dContext.getGL(), paramGraphics);
+            localObject1 = Java2D.getOGLSurfaceIdentifier(paramGraphics);
+            if (localObject1 != null) {
+              if (j2dSurface != localObject1) {
+                if (joglContext != null) {
+                  joglContext.destroy();
+                  joglContext = null;
+                  joglDrawable = null;
+                  sendReshape = true;
+                  if (GLJPanel.DEBUG) {
+                    System.err.println(GLJPanel.getThreadName() + ": Sending reshape because surface changed");
+                    System.err.println("New surface = " + localObject1);
+                  }
+                }
+                j2dSurface = localObject1;
+                if (GLJPanel.DEBUG) {
+                  System.err.print(GLJPanel.getThreadName() + ": Surface type: ");
+                  int i = Java2D.getOGLSurfaceType(paramGraphics);
+                  if (i == Java2D.UNDEFINED) {
+                    System.err.println("UNDEFINED");
+                  } else if (i == Java2D.WINDOW) {
+                    System.err.println("WINDOW");
+                  } else if (i == Java2D.PBUFFER) {
+                    System.err.println("PBUFFER");
+                  } else if (i == Java2D.TEXTURE) {
+                    System.err.println("TEXTURE");
+                  } else if (i == Java2D.FLIP_BACKBUFFER) {
+                    System.err.println("FLIP_BACKBUFFER");
+                  } else if (i == Java2D.FBOBJECT) {
+                    System.err.println("FBOBJECT");
+                  } else {
+                    System.err.println("(Unknown surface type " + i + ")");
+                  }
+                }
+              }
+              if (joglContext == null) {
+                AbstractGraphicsDevice localAbstractGraphicsDevice = j2dContext.getGLDrawable().getNativeSurface().getGraphicsConfiguration().getScreen().getDevice();
+                if (factory.canCreateExternalGLDrawable(localAbstractGraphicsDevice)) {
+                  joglDrawable = factory.createExternalGLDrawable();
+                  joglContext = joglDrawable.createContext(j2dContext);
+                  if (GLJPanel.DEBUG) {
+                    System.err.println("-- Created External Drawable: " + joglDrawable);
+                    System.err.println("-- Created Context: " + joglContext);
+                  }
+                }
+                if ((Java2D.isFBOEnabled()) && 
+                  (Java2D.getOGLSurfaceType(paramGraphics) == Java2D.FBOBJECT) && 
+                  (fbObjectWorkarounds)) {
+                  createNewDepthBuffer = true;
+                }
+              }
+              helper.invokeGL(joglDrawable, joglContext, updaterDisplayAction, updaterInitAction);
+            }
+            
+            j2dContext.release(); } finally { j2dContext.release();
+          }
+        }
+      });
+    }
+    
+    public final void doPlainPaint()
+    {
+      helper.invokeGL(joglDrawable, joglContext, updaterPlainDisplayAction, updaterInitAction);
+    }
+    
+    private final void captureJ2DState(GL paramGL, Graphics paramGraphics) {
+      paramGL.glGetIntegerv(3073, drawBuffer, 0);
+      paramGL.glGetIntegerv(3074, readBuffer, 0);
+      if ((Java2D.isFBOEnabled()) && 
+        (Java2D.getOGLSurfaceType(paramGraphics) == Java2D.FBOBJECT)) {
+        paramGL.glGetIntegerv(36006, frameBuffer, 0);
+        if (!paramGL.glIsFramebuffer(frameBuffer[0])) {
+          checkedForFBObjectWorkarounds = true;
+          fbObjectWorkarounds = true;
+          createNewDepthBuffer = true;
+          if (GLJPanel.DEBUG) {
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel: Fetched ERR GL_FRAMEBUFFER_BINDING: " + frameBuffer[0] + " - NOT A FBO" + ", frame_buffer_object workarounds to be necessary");
+          }
+        }
+        else if (GLJPanel.DEBUG) {
+          System.err.println(GLJPanel.getThreadName() + ": GLJPanel: Fetched OK GL_FRAMEBUFFER_BINDING: " + frameBuffer[0]);
+        }
+        
+        if ((fbObjectWorkarounds) || (!checkedForFBObjectWorkarounds))
+        {
+          if (frameBufferTexture == null) {
+            frameBufferTexture = new int[1];
+          }
+          
+
+          paramGL.glGetFramebufferAttachmentParameteriv(36160, 36064, 36049, frameBufferTexture, 0);
+          
+
+
+          if (GLJPanel.DEBUG) {
+            System.err.println(GLJPanel.getThreadName() + ": GLJPanel: FBO COLOR_ATTACHMENT0: " + frameBufferTexture[0]);
+          }
+        }
+        
+        if (!checkedGLVendor) {
+          checkedGLVendor = true;
+          String str = paramGL.glGetString(7936);
+          
+          if ((str != null) && 
+            (str.startsWith("ATI"))) {
+            vendorIsATI = true;
+          }
+        }
+        
+        if (vendorIsATI)
+        {
+
+
+
+
+          paramGL.glBindFramebuffer(36160, 0);
+        }
+      }
+    }
+  }
+}

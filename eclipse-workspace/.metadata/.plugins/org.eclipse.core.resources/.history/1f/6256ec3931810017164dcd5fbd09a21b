@@ -1,0 +1,234 @@
+package com.jogamp.opengl;
+
+import com.jogamp.common.GlueGenVersion;
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.util.JogampVersion;
+import com.jogamp.common.util.VersionUtil;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.NativeSurface;
+import java.io.PrintStream;
+import java.util.List;
+import java.util.jar.Manifest;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class JoglVersion
+  extends JogampVersion
+{
+  protected static volatile JoglVersion jogampCommonVersionInfo;
+  
+  protected JoglVersion(String paramString, Manifest paramManifest)
+  {
+    super(paramString, paramManifest);
+  }
+  
+  public static JoglVersion getInstance() {
+    if (null == jogampCommonVersionInfo) {
+      synchronized (JoglVersion.class) {
+        if (null == jogampCommonVersionInfo)
+        {
+          Manifest localManifest = VersionUtil.getManifest(JoglVersion.class.getClassLoader(), "com.jogamp.opengl");
+          jogampCommonVersionInfo = new JoglVersion("com.jogamp.opengl", localManifest);
+        }
+      }
+    }
+    return jogampCommonVersionInfo;
+  }
+  
+  public StringBuilder toString(GL paramGL, StringBuilder paramStringBuilder) {
+    paramStringBuilder = super.toString(paramStringBuilder).append(Platform.getNewline());
+    getGLInfo(paramGL, paramStringBuilder);
+    return paramStringBuilder;
+  }
+  
+  public String toString(GL paramGL) {
+    return toString(paramGL, null).toString();
+  }
+  
+  public static StringBuilder getAvailableCapabilitiesInfo(GLDrawableFactory paramGLDrawableFactory, AbstractGraphicsDevice paramAbstractGraphicsDevice, StringBuilder paramStringBuilder) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    int i = 0;
+    if (null != paramGLDrawableFactory) {
+      try {
+        List localList = paramGLDrawableFactory.getAvailableCapabilities(paramAbstractGraphicsDevice);
+        if ((null != localList) && (localList.size() > 0)) {
+          for (int j = 0; j < localList.size(); j++) {
+            paramStringBuilder.append("\t").append(localList.get(j)).append(Platform.getNewline());
+          }
+          i = 1;
+        }
+      } catch (GLException localGLException) {}
+    }
+    if (i == 0) {
+      paramStringBuilder.append("\tnone").append(Platform.getNewline());
+    }
+    paramStringBuilder.append(Platform.getNewline());
+    return paramStringBuilder;
+  }
+  
+  public static StringBuilder getAllAvailableCapabilitiesInfo(AbstractGraphicsDevice paramAbstractGraphicsDevice, StringBuilder paramStringBuilder) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    if (null == paramAbstractGraphicsDevice) {
+      paramAbstractGraphicsDevice = GLProfile.getDefaultDevice();
+    }
+    paramStringBuilder.append(Platform.getNewline()).append(Platform.getNewline());
+    paramStringBuilder.append("Desktop Capabilities: ").append(Platform.getNewline());
+    getAvailableCapabilitiesInfo(GLDrawableFactory.getDesktopFactory(), paramAbstractGraphicsDevice, paramStringBuilder);
+    paramStringBuilder.append("EGL Capabilities: ").append(Platform.getNewline());
+    getAvailableCapabilitiesInfo(GLDrawableFactory.getEGLFactory(), paramAbstractGraphicsDevice, paramStringBuilder);
+    return paramStringBuilder;
+  }
+  
+  public static StringBuilder getDefaultOpenGLInfo(AbstractGraphicsDevice paramAbstractGraphicsDevice, StringBuilder paramStringBuilder, boolean paramBoolean) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    if (null == paramAbstractGraphicsDevice) {
+      paramAbstractGraphicsDevice = GLProfile.getDefaultDevice();
+    }
+    paramStringBuilder.append("GLProfiles on device ").append(paramAbstractGraphicsDevice).append(Platform.getNewline());
+    if (null != paramAbstractGraphicsDevice) {
+      GLProfile.glAvailabilityToString(paramAbstractGraphicsDevice, paramStringBuilder, "\t", 1);
+    } else {
+      paramStringBuilder.append("none");
+    }
+    if (paramBoolean) {
+      paramStringBuilder = getAllAvailableCapabilitiesInfo(paramAbstractGraphicsDevice, paramStringBuilder);
+    }
+    return paramStringBuilder;
+  }
+  
+  public static StringBuilder getGLInfo(GL paramGL, StringBuilder paramStringBuilder) {
+    return getGLInfo(paramGL, paramStringBuilder, false);
+  }
+  
+  public static StringBuilder getGLInfo(GL paramGL, StringBuilder paramStringBuilder, boolean paramBoolean) { return getGLInfo(paramGL, paramStringBuilder, true, paramBoolean, paramBoolean); }
+  
+
+
+
+
+  public static StringBuilder getGLInfo(GL paramGL, StringBuilder paramStringBuilder, boolean paramBoolean1, boolean paramBoolean2, boolean paramBoolean3)
+  {
+    AbstractGraphicsDevice localAbstractGraphicsDevice = paramGL.getContext().getGLDrawable().getNativeSurface().getGraphicsConfiguration().getScreen().getDevice();
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    
+    paramStringBuilder.append("-----------------------------------------------------------------------------------------------------").append(Platform.getNewline());
+    paramStringBuilder.append(localAbstractGraphicsDevice.getClass().getSimpleName()).append("[type ")
+      .append(localAbstractGraphicsDevice.getType()).append(", connection ").append(localAbstractGraphicsDevice.getConnection()).append("]: ").append(Platform.getNewline());
+    if (paramBoolean1) {
+      GLProfile.glAvailabilityToString(localAbstractGraphicsDevice, paramStringBuilder, "\t", 1);
+    }
+    paramStringBuilder.append(Platform.getNewline());
+    
+    paramStringBuilder = getGLStrings(paramGL, paramStringBuilder, paramBoolean3);
+    
+    if (paramBoolean2) {
+      paramStringBuilder = getAllAvailableCapabilitiesInfo(localAbstractGraphicsDevice, paramStringBuilder);
+    }
+    return paramStringBuilder;
+  }
+  
+  public static StringBuilder getGLStrings(GL paramGL, StringBuilder paramStringBuilder) {
+    return getGLStrings(paramGL, paramStringBuilder, true);
+  }
+  
+  public static StringBuilder getGLStrings(GL paramGL, StringBuilder paramStringBuilder, boolean paramBoolean) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    GLContext localGLContext = paramGL.getContext();
+    paramStringBuilder.append("Swap Interval  ").append(paramGL.getSwapInterval());
+    paramStringBuilder.append(Platform.getNewline());
+    paramStringBuilder.append("GL Profile     ").append(paramGL.getGLProfile());
+    paramStringBuilder.append(Platform.getNewline());
+    paramStringBuilder.append("GL Version     ").append(localGLContext.getGLVersion()).append(" [GL ").append(localGLContext.getGLVersionNumber()).append(", vendor ").append(localGLContext.getGLVendorVersionNumber()).append("]");
+    paramStringBuilder.append(Platform.getNewline());
+    paramStringBuilder.append("Quirks         ").append(localGLContext.getRendererQuirks());
+    paramStringBuilder.append(Platform.getNewline());
+    paramStringBuilder.append("Impl. class    ").append(paramGL.getClass().getCanonicalName());
+    paramStringBuilder.append(Platform.getNewline());
+    paramStringBuilder.append("GL_VENDOR      ").append(paramGL.glGetString(7936));
+    paramStringBuilder.append(Platform.getNewline());
+    paramStringBuilder.append("GL_RENDERER    ").append(paramGL.glGetString(7937));
+    paramStringBuilder.append(Platform.getNewline());
+    paramStringBuilder.append("GL_VERSION     ").append(paramGL.glGetString(7938));
+    paramStringBuilder.append(Platform.getNewline());
+    paramStringBuilder.append("GLSL           ").append(paramGL.hasGLSL()).append(", has-compiler-func: ").append(paramGL.isFunctionAvailable("glCompileShader"));
+    if (paramGL.hasGLSL()) {
+      paramStringBuilder.append(", version: ").append(paramGL.glGetString(35724)).append(" / ").append(localGLContext.getGLSLVersionNumber());
+    }
+    paramStringBuilder.append(Platform.getNewline());
+    paramStringBuilder.append("GL FBO: basic ").append(paramGL.hasBasicFBOSupport()).append(", full ").append(paramGL.hasFullFBOSupport());
+    paramStringBuilder.append(Platform.getNewline());
+    paramStringBuilder.append("GL_EXTENSIONS  ").append(localGLContext.getGLExtensionCount());
+    paramStringBuilder.append(Platform.getNewline());
+    if (paramBoolean) {
+      paramStringBuilder.append("               ").append(localGLContext.getGLExtensionsString());
+      paramStringBuilder.append(Platform.getNewline());
+    }
+    paramStringBuilder.append("GLX_EXTENSIONS ").append(localGLContext.getPlatformExtensionCount());
+    paramStringBuilder.append(Platform.getNewline());
+    if (paramBoolean) {
+      paramStringBuilder.append("               ").append(localGLContext.getPlatformExtensionsString());
+      paramStringBuilder.append(Platform.getNewline());
+    }
+    paramStringBuilder.append("-----------------------------------------------------------------------------------------------------");
+    
+    return paramStringBuilder;
+  }
+  
+  public StringBuilder getBriefOSGLBuildInfo(GL paramGL, StringBuilder paramStringBuilder) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    paramStringBuilder.append("OS: ").append(Platform.getOSName()).append(", version ").append(Platform.getOSVersion()).append(", arch ").append(Platform.getArchName());
+    paramStringBuilder.append(Platform.getNewline());
+    paramStringBuilder.append("GL_VENDOR     ").append(paramGL.glGetString(7936));
+    paramStringBuilder.append(Platform.getNewline());
+    paramStringBuilder.append("GL_RENDERER   ").append(paramGL.glGetString(7937));
+    paramStringBuilder.append(Platform.getNewline());
+    paramStringBuilder.append("GL_VERSION    ").append(paramGL.glGetString(7938));
+    paramStringBuilder.append(Platform.getNewline());
+    paramStringBuilder.append("JOGL GIT sha1 ").append(getImplementationCommit());
+    paramStringBuilder.append(Platform.getNewline());
+    return paramStringBuilder;
+  }
+  
+  public static void main(String[] paramArrayOfString) {
+    System.err.println(VersionUtil.getPlatformInfo());
+    System.err.println(GlueGenVersion.getInstance());
+    
+    System.err.println(getInstance());
+  }
+}

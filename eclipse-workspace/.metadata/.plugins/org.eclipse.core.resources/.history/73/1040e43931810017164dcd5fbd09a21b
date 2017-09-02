@@ -1,0 +1,193 @@
+package com.jogamp.nativewindow.util;
+
+import java.nio.ByteBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract interface PixelRectangle
+{
+  public abstract int hashCode();
+  
+  public abstract PixelFormat getPixelformat();
+  
+  public abstract DimensionImmutable getSize();
+  
+  public abstract int getStride();
+  
+  public abstract boolean isGLOriented();
+  
+  public abstract ByteBuffer getPixels();
+  
+  public abstract String toString();
+  
+  public static class GenericPixelRect
+    implements PixelRectangle
+  {
+    protected final PixelFormat pixelformat;
+    protected final DimensionImmutable size;
+    protected final int strideInBytes;
+    protected final boolean isGLOriented;
+    protected final ByteBuffer pixels;
+    private int hashCode = 0;
+    private volatile boolean hashCodeComputed = false;
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    public GenericPixelRect(PixelFormat paramPixelFormat, DimensionImmutable paramDimensionImmutable, int paramInt, boolean paramBoolean, ByteBuffer paramByteBuffer)
+      throws IllegalArgumentException, IndexOutOfBoundsException
+    {
+      if (0 != paramInt) {
+        if (paramInt < comp.bytesPerPixel() * paramDimensionImmutable.getWidth()) {
+          throw new IllegalArgumentException("Invalid stride " + paramInt + ", must be greater than bytesPerPixel " + comp.bytesPerPixel() + " * width " + paramDimensionImmutable.getWidth());
+        }
+      } else {
+        paramInt = comp.bytesPerPixel() * paramDimensionImmutable.getWidth();
+      }
+      int i = paramInt * paramDimensionImmutable.getHeight();
+      if (paramByteBuffer.limit() < i) {
+        throw new IndexOutOfBoundsException("Dest buffer has insufficient bytes left, needs " + i + ": " + paramByteBuffer);
+      }
+      pixelformat = paramPixelFormat;
+      size = paramDimensionImmutable;
+      strideInBytes = paramInt;
+      isGLOriented = paramBoolean;
+      pixels = paramByteBuffer;
+    }
+    
+
+
+
+
+
+
+    public GenericPixelRect(PixelRectangle paramPixelRectangle)
+      throws IllegalArgumentException, IndexOutOfBoundsException
+    {
+      this(paramPixelRectangle.getPixelformat(), paramPixelRectangle.getSize(), paramPixelRectangle.getStride(), paramPixelRectangle.isGLOriented(), paramPixelRectangle.getPixels());
+    }
+    
+    public int hashCode()
+    {
+      if (!hashCodeComputed) {
+        synchronized (this) {
+          if (!hashCodeComputed)
+          {
+            int i = pixelformat.comp.hashCode();
+            i = (i << 5) - i + size.hashCode();
+            i = (i << 5) - i + strideInBytes;
+            i = (i << 5) - i + (isGLOriented ? 1 : 0);
+            hashCode = ((i << 5) - i + pixels.hashCode());
+            hashCodeComputed = true;
+          }
+        }
+      }
+      return hashCode;
+    }
+    
+    public PixelFormat getPixelformat()
+    {
+      return pixelformat;
+    }
+    
+    public DimensionImmutable getSize()
+    {
+      return size;
+    }
+    
+    public int getStride()
+    {
+      return strideInBytes;
+    }
+    
+    public boolean isGLOriented()
+    {
+      return isGLOriented;
+    }
+    
+    public ByteBuffer getPixels()
+    {
+      return pixels;
+    }
+    
+    public final String toString()
+    {
+      return "PixelRect[obj 0x" + Integer.toHexString(super.hashCode()) + ", " + pixelformat + ", " + size + ", stride " + strideInBytes + ", isGLOrient " + isGLOriented + ", pixels " + pixels + "]";
+    }
+  }
+}

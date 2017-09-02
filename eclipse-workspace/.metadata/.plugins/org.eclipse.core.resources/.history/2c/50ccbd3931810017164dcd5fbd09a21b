@@ -1,0 +1,382 @@
+package g4p_controls;
+
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics2D;
+import java.awt.font.TextLayout;
+import java.io.PrintStream;
+import java.util.Iterator;
+import java.util.LinkedList;
+import processing.awt.PGraphicsJava2D;
+import processing.core.PApplet;
+import processing.event.MouseEvent;
+
+public class GPanel
+  extends GTextBase
+{
+  protected static int COLLAPSED_BAR_SPOT = 1;
+  protected static int EXPANDED_BAR_SPOT = 2;
+  protected static int SURFACE_SPOT = 0;
+  protected boolean tabOnly = false;
+  protected int tabHeight;
+  protected int tabWidth;
+  protected float dockX;
+  protected float dockY;
+  protected float lowX;
+  protected float highX;
+  protected float lowY;
+  protected float highY;
+  protected boolean beingDragged = false;
+  protected boolean draggable = true;
+  protected boolean collapsible = true;
+  
+  public GPanel(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    this(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4, "Panel        ");
+  }
+  
+  public GPanel(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, String paramString)
+  {
+    super(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+    if ((x < 0.0F) || (y < 0.0F) || (x + width > winApp.width) || (y + height > winApp.height)) {
+      clearDragArea();
+    } else {
+      setDragArea();
+    }
+    children = new LinkedList();
+    setText(paramString);
+    calcHotSpots();
+    constrainPanelPosition();
+    opaque = true;
+    dockX = x;
+    dockY = y;
+    z = 1024;
+    createEventHandler(G4P.sketchWindow, "handlePanelEvents", new Class[] { GPanel.class, GEvent.class }, new String[] { "panel", "event" });
+    registeredMethods = 3;
+    cursorOver = 12;
+    G4P.registerControl(this);
+  }
+  
+  private void calcHotSpots()
+  {
+    hotspots = new HotSpot[] { new HotSpot.HSrect(COLLAPSED_BAR_SPOT, 0.0F, 0.0F, tabWidth, tabHeight), new HotSpot.HSrect(EXPANDED_BAR_SPOT, 0.0F, 0.0F, width, tabHeight), new HotSpot.HSrect(SURFACE_SPOT, 0.0F, tabHeight, width, height - tabHeight) };
+  }
+  
+  protected void addToParent(GAbstractControl paramGAbstractControl)
+  {
+    if ((width > width) || (height > height))
+    {
+      draggable = false;
+    }
+    else
+    {
+      lowX = (-width / 2.0F);
+      highX = (width / 2.0F);
+      lowY = (-height / 2.0F);
+      highY = (height / 2.0F);
+    }
+  }
+  
+  public void setText(String paramString)
+  {
+    super.setText(paramString);
+    buffer.beginDraw();
+    stext.getLines(buffer.g2);
+    buffer.endDraw();
+    tabHeight = ((int)(stext.getMaxLineHeight() + 4.0F));
+    tabWidth = ((int)(stext.getMaxLineLength() + 8.0F));
+    calcHotSpots();
+    bufferInvalid = true;
+  }
+  
+  public void setFont(Font paramFont)
+  {
+    if (paramFont != null) {
+      localFont = paramFont;
+    }
+    tabHeight = ((int)(1.2F * localFont.getSize() + 2.0F));
+    buffer.g2.setFont(localFont);
+    bufferInvalid = true;
+    calcHotSpots();
+    bufferInvalid = true;
+  }
+  
+  protected void loseFocus(GAbstractControl paramGAbstractControl)
+  {
+    focusIsWith = null;
+    beingDragged = false;
+  }
+  
+  public void draw()
+  {
+    if (!visible) {
+      return;
+    }
+    winApp.pushStyle();
+    updateBuffer();
+    winApp.pushMatrix();
+    winApp.translate(cx, cy);
+    winApp.rotate(rotAngle);
+    if (opaque)
+    {
+      winApp.pushMatrix();
+      winApp.translate(-halfWidth, -halfHeight);
+      winApp.imageMode(0);
+      if (alphaLevel < 255) {
+        winApp.tint(255, alphaLevel);
+      }
+      winApp.image(buffer, 0.0F, 0.0F);
+      winApp.popMatrix();
+    }
+    if ((!tabOnly) && (children != null))
+    {
+      Iterator localIterator = children.iterator();
+      while (localIterator.hasNext())
+      {
+        GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+        localGAbstractControl.draw();
+      }
+    }
+    winApp.popMatrix();
+    winApp.popStyle();
+  }
+  
+  protected void updateBuffer()
+  {
+    if (bufferInvalid)
+    {
+      bufferInvalid = false;
+      buffer.beginDraw();
+      Graphics2D localGraphics2D = buffer.g2;
+      localGraphics2D.setFont(localFont);
+      buffer.clear();
+      buffer.noStroke();
+      buffer.fill(palette[4].getRGB());
+      if (tabOnly) {
+        buffer.rect(0.0F, 0.0F, tabWidth, tabHeight);
+      } else {
+        buffer.rect(0.0F, 0.0F, width, tabHeight);
+      }
+      stext.getLines(localGraphics2D);
+      localGraphics2D.setColor(palette[2]);
+      TextLayout localTextLayout = stext.getTLIforLineNo(0).layout;
+      localTextLayout.draw(localGraphics2D, 4.0F, 2.0F + localTextLayout.getAscent());
+      if (!tabOnly)
+      {
+        buffer.noStroke();
+        buffer.fill(palette[5].getRGB());
+        buffer.rect(0.0F, tabHeight, width, height - tabHeight);
+      }
+      buffer.endDraw();
+    }
+  }
+  
+  public boolean isOver(float paramFloat1, float paramFloat2)
+  {
+    calcTransformedOrigin(winApp.mouseX, winApp.mouseY);
+    currSpot = whichHotSpot(ox, oy);
+    return tabOnly ? 0 : currSpot == COLLAPSED_BAR_SPOT ? 1 : (currSpot == EXPANDED_BAR_SPOT ? 1 : 0) | (currSpot == COLLAPSED_BAR_SPOT ? 1 : 0);
+  }
+  
+  public void mouseEvent(MouseEvent paramMouseEvent)
+  {
+    if ((!visible) || (!enabled) || (!available)) {
+      return;
+    }
+    calcTransformedOrigin(winApp.mouseX, winApp.mouseY);
+    currSpot = whichHotSpot(ox, oy);
+    int i = tabOnly ? 0 : currSpot == COLLAPSED_BAR_SPOT ? 1 : (currSpot == EXPANDED_BAR_SPOT ? 1 : 0) | (currSpot == COLLAPSED_BAR_SPOT ? 1 : 0);
+    if ((i != 0) || (focusIsWith == this)) {
+      cursorIsOver = this;
+    } else if (cursorIsOver == this) {
+      cursorIsOver = null;
+    }
+    switch (paramMouseEvent.getAction())
+    {
+    case 1: 
+      if ((focusIsWith != this) && (i != 0) && (z >= focusObjectZ()))
+      {
+        takeFocus();
+        beingDragged = false;
+      }
+      break;
+    case 3: 
+      if ((focusIsWith == this) && (collapsible))
+      {
+        tabOnly = (!tabOnly);
+        setCollapsed(tabOnly);
+        if (tabOnly)
+        {
+          x = dockX;
+          y = dockY;
+        }
+        else
+        {
+          dockX = x;
+          dockY = y;
+          if (y + height > winApp.height) {
+            y = (winApp.height - height);
+          }
+          if (x + width > winApp.width) {
+            x = (winApp.width - width);
+          }
+        }
+        cx = (x + width / 2.0F);
+        cy = (y + height / 2.0F);
+        constrainPanelPosition();
+        if (tabOnly) {
+          fireEvent(new Object[] { this, GEvent.COLLAPSED });
+        } else {
+          fireEvent(new Object[] { this, GEvent.EXPANDED });
+        }
+        bufferInvalid = true;
+        beingDragged = false;
+        loseFocus(null);
+      }
+      break;
+    case 2: 
+      if ((focusIsWith == this) && (beingDragged))
+      {
+        dockX = x;
+        dockY = y;
+        beingDragged = false;
+        loseFocus(null);
+      }
+      break;
+    case 4: 
+      if ((focusIsWith == this) && (draggable))
+      {
+        cx += winApp.mouseX - winApp.pmouseX;
+        cy += winApp.mouseY - winApp.pmouseY;
+        x = (cx - width / 2.0F);
+        y = (cy - height / 2.0F);
+        constrainPanelPosition();
+        beingDragged = true;
+        fireEvent(new Object[] { this, GEvent.DRAGGED });
+      }
+      break;
+    }
+  }
+  
+  public void setOpaque(boolean paramBoolean)
+  {
+    if (opaque == paramBoolean) {
+      return;
+    }
+    if (!paramBoolean)
+    {
+      setCollapsed(false);
+      setCollapsible(false);
+    }
+    available = paramBoolean;
+    opaque = paramBoolean;
+  }
+  
+  public boolean isDragging()
+  {
+    return beingDragged;
+  }
+  
+  public void setDraggable(boolean paramBoolean)
+  {
+    draggable = paramBoolean;
+  }
+  
+  public boolean isDraggable()
+  {
+    return draggable;
+  }
+  
+  public void setCollapsed(boolean paramBoolean)
+  {
+    if (collapsible)
+    {
+      tabOnly = paramBoolean;
+      if (tabOnly)
+      {
+        setAvailable(false);
+        available = true;
+      }
+      else
+      {
+        setAvailable(true);
+      }
+    }
+  }
+  
+  public boolean isCollapsed()
+  {
+    return tabOnly;
+  }
+  
+  public void setCollapsible(boolean paramBoolean)
+  {
+    collapsible = paramBoolean;
+    if (!paramBoolean)
+    {
+      tabOnly = false;
+      setAvailable(true);
+    }
+  }
+  
+  public boolean isCollapsible()
+  {
+    return collapsible;
+  }
+  
+  public int getTabHeight()
+  {
+    return tabHeight;
+  }
+  
+  public boolean setDragArea(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    if ((paramFloat3 - paramFloat1 < width) || (paramFloat4 - paramFloat2 < height))
+    {
+      if (G4P.showMessages) {
+        System.out.println("The constraint area is too small for this panel - request ignored");
+      }
+      return false;
+    }
+    lowX = paramFloat1;
+    lowY = paramFloat2;
+    highX = paramFloat3;
+    highY = paramFloat4;
+    constrainPanelPosition();
+    return true;
+  }
+  
+  public boolean setDragArea()
+  {
+    return setDragArea(0.0F, 0.0F, winApp.width, winApp.height);
+  }
+  
+  public void clearDragArea()
+  {
+    lowX = (this.lowY = -3.4028235E38F);
+    highX = (this.highY = Float.MAX_VALUE);
+  }
+  
+  private void constrainPanelPosition()
+  {
+    int i = (int)(tabOnly ? tabWidth : width);
+    int j = (int)(tabOnly ? tabHeight : height);
+    if (x < lowX) {
+      x = lowX;
+    } else if (x + i > highX) {
+      x = ((int)(highX - i));
+    }
+    if (y < lowY) {
+      y = lowY;
+    } else if (y + j > highY) {
+      y = (highY - j);
+    }
+    cx = (x + width / 2.0F);
+    cy = (y + height / 2.0F);
+  }
+  
+  public String toString()
+  {
+    return tag + "  [" + x + ", " + y + "]" + "  [" + cx + ", " + cy + "]" + "  [" + dockX + ", " + dockY + "]";
+  }
+}

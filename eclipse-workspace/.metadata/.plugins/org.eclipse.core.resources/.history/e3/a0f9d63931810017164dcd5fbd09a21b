@@ -1,0 +1,235 @@
+package jogamp.common.util.locks;
+
+import com.jogamp.common.util.locks.RecursiveThreadGroupLock;
+import java.io.PrintStream;
+import java.util.Arrays;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class RecursiveThreadGroupLockImpl01Unfairish
+  extends RecursiveLockImpl01Unfairish
+  implements RecursiveThreadGroupLock
+{
+  static class ThreadGroupSync
+    extends RecursiveLockImpl01Unfairish.SingleThreadSync
+  {
+    private int holdCountAdditionOwner;
+    private Thread[] threads;
+    private int threadNum;
+    private Thread waitingOrigOwner;
+    
+    ThreadGroupSync()
+    {
+      threadNum = 0;
+      threads = null;
+      holdCountAdditionOwner = 0;
+      waitingOrigOwner = null;
+    }
+    
+    public final void incrHoldCount(Thread paramThread) {
+      super.incrHoldCount(paramThread);
+      if (!isOriginalOwner(paramThread)) {
+        holdCountAdditionOwner += 1;
+      }
+    }
+    
+    public final void decrHoldCount(Thread paramThread) {
+      super.decrHoldCount(paramThread);
+      if (!isOriginalOwner(paramThread))
+        holdCountAdditionOwner -= 1;
+    }
+    
+    public final int getAdditionalOwnerHoldCount() {
+      return holdCountAdditionOwner;
+    }
+    
+    public final boolean isOriginalOwner(Thread paramThread) {
+      return super.isOwner(paramThread);
+    }
+    
+    public final void setWaitingOrigOwner(Thread paramThread) { waitingOrigOwner = paramThread; }
+    
+    public final Thread getWaitingOrigOwner() {
+      return waitingOrigOwner;
+    }
+    
+    public final boolean isOwner(Thread paramThread) {
+      if (getExclusiveOwnerThread() == paramThread) {
+        return true;
+      }
+      for (int i = threadNum - 1; 0 <= i; i--) {
+        if (threads[i] == paramThread) {
+          return true;
+        }
+      }
+      return false;
+    }
+    
+
+    public final int getAddOwnerCount() { return threadNum; }
+    
+    public final void addOwner(Thread paramThread) throws IllegalArgumentException {
+      if (null == threads) {
+        if (threadNum > 0) {
+          throw new InternalError("XXX");
+        }
+        threads = new Thread[4];
+      }
+      for (int i = threadNum - 1; 0 <= i; i--) {
+        if (threads[i] == paramThread) {
+          throw new IllegalArgumentException("Thread already added: " + paramThread);
+        }
+      }
+      if (threadNum == threads.length) {
+        threads = ((Thread[])Arrays.copyOf(threads, threadNum * 2));
+      }
+      threads[threadNum] = paramThread;
+      threadNum += 1;
+    }
+    
+    public final void removeAllOwners() {
+      for (int i = threadNum - 1; 0 <= i; i--) {
+        threads[i] = null;
+      }
+      threadNum = 0;
+    }
+    
+    public final void removeOwner(Thread paramThread) throws IllegalArgumentException {
+      for (int i = 0; i < threadNum; i++) {
+        if (threads[i] == paramThread) {
+          threadNum -= 1;
+          System.arraycopy(threads, i + 1, threads, i, threadNum - i);
+          threads[threadNum] = null;
+          return;
+        }
+      }
+      throw new IllegalArgumentException("Not an owner: " + paramThread);
+    }
+    
+    String addOwnerToString() {
+      StringBuilder localStringBuilder = new StringBuilder();
+      for (int i = 0; i < threadNum; i++) {
+        if (i > 0) {
+          localStringBuilder.append(", ");
+        }
+        localStringBuilder.append(threads[i].getName());
+      }
+      return localStringBuilder.toString();
+    }
+  }
+  
+
+
+
+
+
+  public RecursiveThreadGroupLockImpl01Unfairish()
+  {
+    super(new ThreadGroupSync());
+  }
+  
+  public final boolean isOriginalOwner()
+  {
+    return isOriginalOwner(Thread.currentThread());
+  }
+  
+  public final boolean isOriginalOwner(Thread paramThread)
+  {
+    synchronized (sync) {
+      return ((ThreadGroupSync)sync).isOriginalOwner(paramThread);
+    }
+  }
+  
+  public final void addOwner(Thread paramThread) throws RuntimeException, IllegalArgumentException
+  {
+    validateLocked();
+    Thread localThread = Thread.currentThread();
+    ThreadGroupSync localThreadGroupSync = (ThreadGroupSync)sync;
+    if (!localThreadGroupSync.isOriginalOwner(localThread)) {
+      throw new IllegalArgumentException("Current thread is not the original owner: orig-owner: " + localThreadGroupSync.getOwner() + ", current " + localThread + ": " + toString());
+    }
+    if (localThreadGroupSync.isOriginalOwner(paramThread)) {
+      throw new IllegalArgumentException("Passed thread is original owner: " + paramThread + ", " + toString());
+    }
+    localThreadGroupSync.addOwner(paramThread);
+  }
+  
+  public final void unlock(Runnable paramRunnable)
+  {
+    synchronized (sync) {
+      Thread localThread1 = Thread.currentThread();
+      ThreadGroupSync localThreadGroupSync = (ThreadGroupSync)sync;
+      
+      if (localThreadGroupSync.getAddOwnerCount() > 0) {
+        if (TRACE_LOCK) {
+          System.err.println("--- LOCK XR (tg) " + toString() + ", cur " + threadName(localThread1) + " -> owner...");
+        }
+        if (localThreadGroupSync.isOriginalOwner(localThread1))
+        {
+          if (localThreadGroupSync.getHoldCount() - localThreadGroupSync.getAdditionalOwnerHoldCount() == 1)
+          {
+            localThreadGroupSync.setWaitingOrigOwner(localThread1);
+            try {
+              while (localThreadGroupSync.getAdditionalOwnerHoldCount() > 0) {
+                try {
+                  sync.wait();
+                }
+                catch (InterruptedException localInterruptedException) {}
+              }
+            }
+            finally {
+              localThreadGroupSync.setWaitingOrigOwner(null);
+              Thread.interrupted();
+            }
+            localThreadGroupSync.removeAllOwners();
+          }
+        } else if (localThreadGroupSync.getAdditionalOwnerHoldCount() == 1)
+        {
+          Thread localThread2 = localThreadGroupSync.getWaitingOrigOwner();
+          if (null != localThread2) {
+            localThread2.interrupt();
+          }
+        }
+      }
+      if (TRACE_LOCK) {
+        System.err.println("++ unlock(X): currentThread " + localThread1.getName() + ", lock: " + toString());
+        System.err.println("--- LOCK X0 (tg) " + toString() + ", cur " + threadName(localThread1) + " -> unlock!");
+      }
+      super.unlock(paramRunnable);
+    }
+  }
+  
+  public final void removeOwner(Thread paramThread) throws RuntimeException, IllegalArgumentException
+  {
+    validateLocked();
+    ((ThreadGroupSync)sync).removeOwner(paramThread);
+  }
+  
+  public String toString()
+  {
+    ThreadGroupSync localThreadGroupSync = (ThreadGroupSync)sync;
+    int i = sync.getHoldCount();
+    int j = localThreadGroupSync.getAdditionalOwnerHoldCount();
+    
+    return syncName() + "[count " + i + " [ add. " + j + ", orig " + (i - j) + "], qsz " + sync.getQSz() + ", owner " + threadName(sync.getOwner()) + ", add.owner " + localThreadGroupSync.addOwnerToString() + "]";
+  }
+}

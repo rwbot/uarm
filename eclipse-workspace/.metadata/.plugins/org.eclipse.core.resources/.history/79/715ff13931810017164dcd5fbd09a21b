@@ -1,0 +1,402 @@
+package com.jogamp.opengl.util;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.util.IOUtil;
+import com.jogamp.nativewindow.util.Dimension;
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.PixelFormat;
+import com.jogamp.nativewindow.util.PixelFormat.Composition;
+import com.jogamp.nativewindow.util.PixelFormatUtil;
+import com.jogamp.nativewindow.util.PixelRectangle;
+import com.jogamp.nativewindow.util.PixelRectangle.GenericPixelRect;
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import jogamp.opengl.Debug;
+import jogamp.opengl.util.pngj.ImageInfo;
+import jogamp.opengl.util.pngj.ImageLine;
+import jogamp.opengl.util.pngj.ImageLineHelper;
+import jogamp.opengl.util.pngj.PngReader;
+import jogamp.opengl.util.pngj.PngWriter;
+import jogamp.opengl.util.pngj.chunks.PngChunkPLTE;
+import jogamp.opengl.util.pngj.chunks.PngChunkTRNS;
+import jogamp.opengl.util.pngj.chunks.PngMetadata;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class PNGPixelRect
+  extends PixelRectangle.GenericPixelRect
+{
+  private static final boolean DEBUG = Debug.debug("PNG");
+  
+
+
+
+
+
+
+
+
+  private final double[] dpi;
+  
+
+
+
+
+
+
+
+
+
+  public static PNGPixelRect read(InputStream paramInputStream, PixelFormat paramPixelFormat, boolean paramBoolean1, int paramInt, boolean paramBoolean2)
+    throws IOException
+  {
+    BufferedInputStream localBufferedInputStream = (paramInputStream instanceof BufferedInputStream) ? (BufferedInputStream)paramInputStream : new BufferedInputStream(paramInputStream);
+    PngReader localPngReader = new PngReader(localBufferedInputStream, null);
+    ImageInfo localImageInfo = imgInfo;
+    PngChunkPLTE localPngChunkPLTE = localPngReader.getMetadata().getPLTE();
+    PngChunkTRNS localPngChunkTRNS = localPngReader.getMetadata().getTRNS();
+    boolean bool1 = indexed;
+    boolean bool2 = bool1 ? false : localPngChunkTRNS != null ? true : alpha;
+    
+    if (DEBUG) {
+      System.err.println("PNGPixelRect: " + localImageInfo);
+    }
+    int i = bool1 ? 3 : bool2 ? 4 : channels;
+    boolean bool3 = (2 == i) && (greyscale) && (alpha);
+    if ((1 != i) && (3 != i) && (4 != i) && (!bool3)) {
+      throw new RuntimeException("PNGPixelRect can only handle Lum/RGB/RGBA [1/3/4 channels] or Lum+A (GA) images for now. Channels " + i + " Paletted: " + bool1);
+    }
+    int j = bool1 ? i : bytesPixel;
+    if ((1 != j) && (3 != j) && (4 != j) && (!bool3)) {
+      throw new RuntimeException("PNGPixelRect can only handle Lum/RGB/RGBA [1/3/4 bpp] images for now. BytesPerPixel " + j);
+    }
+    if (i != j) {
+      throw new RuntimeException("PNGPixelRect currently only handles Channels [1/3/4] == BytePerPixel [1/3/4], channels: " + i + ", bytesPerPixel " + j);
+    }
+    int k = cols;
+    int m = rows;
+    
+
+    Object localObject1 = localPngReader.getMetadata().getDpi();
+    double d1 = localObject1[0];
+    double d2 = localObject1[1];
+    
+
+    if (bool1) {
+      if (bool2) {
+        localObject1 = PixelFormat.RGBA8888;
+      } else {
+        localObject1 = PixelFormat.RGB888;
+      }
+    } else {
+      switch (i) {
+      case 1:  localObject1 = PixelFormat.LUMINANCE; break;
+      case 2:  localObject1 = bool3 ? PixelFormat.LUMINANCE : null; break;
+      case 3:  localObject1 = PixelFormat.RGB888; break;
+      case 4:  localObject1 = PixelFormat.RGBA8888; break;
+      default:  localObject1 = null;
+      }
+      if (null == localObject1) {
+        throw new InternalError("XXX: channels: " + i + ", bytesPerPixel " + j);
+      }
+    }
+    Object localObject2;
+    if (null == paramPixelFormat) {
+      if (bool3) {
+        localObject2 = PixelFormat.BGRA8888;
+      } else {
+        localObject2 = localObject1;
+      }
+    } else {
+      localObject2 = paramPixelFormat;
+    }
+    int n = Math.max(paramInt, comp.bytesPerPixel() * k);
+    
+    ByteBuffer localByteBuffer = paramBoolean1 ? Buffers.newDirectByteBuffer(n * m) : ByteBuffer.allocate(n * m);
+    
+    int i1 = n * m;
+    if (localByteBuffer.limit() < i1) {
+      throw new IndexOutOfBoundsException("Dest buffer has insufficient bytes left, needs " + i1 + ": " + localByteBuffer);
+    }
+    
+    boolean bool4 = paramBoolean2;
+    
+    int[] arrayOfInt = bool1 ? new int[k * i] : null;
+    if (DEBUG) {
+      System.err.println("PNGPixelRect: indexed " + bool1 + ", alpha " + bool2 + ", grayscale " + greyscale + ", channels " + i + "/" + channels + ", bytesPerPixel " + j + "/" + bytesPixel + ", grayAlpha " + bool3 + ", pixels " + k + "x" + m + ", dpi " + d1 + "x" + d2 + ", format " + localObject1);
+      
+
+      System.err.println("PNGPixelRect: destFormat " + localObject2 + " (" + paramPixelFormat + ", fast-path " + (localObject2 == localObject1) + "), destDirectBuffer " + paramBoolean1 + ", destIsGLOriented (flip) " + paramBoolean2);
+      System.err.println("PNGPixelRect: destStrideInBytes " + n + " (destMinStrideInBytes " + paramInt + ")");
+    }
+    
+    for (int i2 = 0; i2 < m; i2++) {
+      ImageLine localImageLine = localPngReader.readRow(i2);
+      int i3 = 0;
+      int i4 = bool4 ? (m - 1 - i2) * n : i2 * n;
+      int i5; if (bool1) {
+        for (i5 = k - 1; i5 >= 0; i5--) {
+          arrayOfInt = ImageLineHelper.palette2rgb(localImageLine, localPngChunkPLTE, localPngChunkTRNS, arrayOfInt);
+          i4 = getPixelRGBA8ToAny((PixelFormat)localObject2, localByteBuffer, i4, arrayOfInt, i3, bool2);
+          i3 += j;
+        }
+      } else if (1 == i) {
+        for (i5 = k - 1; i5 >= 0; i5--) {
+          i4 = getPixelLUMToAny((PixelFormat)localObject2, localByteBuffer, i4, (byte)scanline[(i3++)], (byte)-1);
+        }
+      } else if (bool3) {
+        for (i5 = k - 1; i5 >= 0; i5--) {
+          i4 = getPixelLUMToAny((PixelFormat)localObject2, localByteBuffer, i4, (byte)scanline[(i3++)], (byte)scanline[(i3++)]);
+        }
+      } else if (localObject1 == localObject2) {
+        for (i5 = k - 1; i5 >= 0; i5--) {
+          i4 = getPixelRGBSame(localByteBuffer, i4, scanline, i3, j);
+          i3 += j;
+        }
+      } else {
+        for (i5 = k - 1; i5 >= 0; i5--) {
+          i4 = getPixelRGBA8ToAny((PixelFormat)localObject2, localByteBuffer, i4, scanline, i3, bool2);
+          i3 += j;
+        }
+      }
+    }
+    localPngReader.end();
+    
+    return new PNGPixelRect((PixelFormat)localObject2, new Dimension(k, m), n, paramBoolean2, localByteBuffer, d1, d2);
+  }
+  
+  private static final int getPixelLUMToAny(PixelFormat paramPixelFormat, ByteBuffer paramByteBuffer, int paramInt, byte paramByte1, byte paramByte2) {
+    switch (1.$SwitchMap$com$jogamp$nativewindow$util$PixelFormat[paramPixelFormat.ordinal()]) {
+    case 1: 
+      paramByteBuffer.put(paramInt++, paramByte1);
+      break;
+    case 2: 
+    case 3: 
+      paramByteBuffer.put(paramInt++, paramByte1);
+      paramByteBuffer.put(paramInt++, paramByte1);
+      paramByteBuffer.put(paramInt++, paramByte1);
+      break;
+    case 4: 
+    case 5: 
+      paramByteBuffer.put(paramInt++, paramByte2);
+      paramByteBuffer.put(paramInt++, paramByte1);
+      paramByteBuffer.put(paramInt++, paramByte1);
+      paramByteBuffer.put(paramInt++, paramByte1);
+      break;
+    case 6: 
+    case 7: 
+      paramByteBuffer.put(paramInt++, paramByte1);
+      paramByteBuffer.put(paramInt++, paramByte1);
+      paramByteBuffer.put(paramInt++, paramByte1);
+      paramByteBuffer.put(paramInt++, paramByte2);
+      break;
+    default: 
+      throw new InternalError("Unhandled format " + paramPixelFormat);
+    }
+    return paramInt;
+  }
+  
+  private static final int getPixelRGBA8ToAny(PixelFormat paramPixelFormat, ByteBuffer paramByteBuffer, int paramInt1, int[] paramArrayOfInt, int paramInt2, boolean paramBoolean) { int i = PixelFormatUtil.convertToInt32(paramPixelFormat, (byte)paramArrayOfInt[paramInt2], (byte)paramArrayOfInt[(paramInt2 + 1)], (byte)paramArrayOfInt[(paramInt2 + 2)], (byte)(paramBoolean ? (byte)paramArrayOfInt[(paramInt2 + 3)] : -1));
+    
+
+
+    int j = comp.bytesPerPixel();
+    paramByteBuffer.put(paramInt1++, (byte)i);
+    if (1 < j) {
+      paramByteBuffer.put(paramInt1++, (byte)(i >>> 8));
+      paramByteBuffer.put(paramInt1++, (byte)(i >>> 16));
+      if (4 == j) {
+        paramByteBuffer.put(paramInt1++, (byte)(i >>> 24));
+      }
+    }
+    return paramInt1;
+  }
+  
+  private static final int getPixelRGBSame(ByteBuffer paramByteBuffer, int paramInt1, int[] paramArrayOfInt, int paramInt2, int paramInt3) { paramByteBuffer.put(paramInt1++, (byte)paramArrayOfInt[paramInt2]);
+    if (1 < paramInt3) {
+      paramByteBuffer.put(paramInt1++, (byte)paramArrayOfInt[(paramInt2 + 1)]);
+      paramByteBuffer.put(paramInt1++, (byte)paramArrayOfInt[(paramInt2 + 2)]);
+      if (4 == paramInt3) {
+        paramByteBuffer.put(paramInt1++, (byte)paramArrayOfInt[(paramInt2 + 3)]);
+      }
+    }
+    return paramInt1;
+  }
+  
+  private int setPixelRGBA8(ImageLine paramImageLine, int paramInt1, ByteBuffer paramByteBuffer, int paramInt2, int paramInt3, boolean paramBoolean) { int i = paramBoolean ? 3 : 2;
+    if (paramByteBuffer.limit() <= paramInt2 + i) {
+      throw new IndexOutOfBoundsException("Buffer has unsufficient bytes left, needs [" + paramInt2 + ".." + (paramInt2 + i) + "]: " + paramByteBuffer);
+    }
+    int j = PixelFormatUtil.convertToInt32(paramBoolean ? PixelFormat.RGBA8888 : PixelFormat.RGB888, pixelformat, paramByteBuffer, paramInt2);
+    scanline[paramInt1] = (0xFF & j);
+    scanline[(paramInt1 + 1)] = (0xFF & j >>> 8);
+    scanline[(paramInt1 + 2)] = (0xFF & j >>> 16);
+    if (paramBoolean) {
+      scanline[(paramInt1 + 3)] = (0xFF & j >>> 24);
+    }
+    return paramInt2 + pixelformat.comp.bytesPerPixel();
+  }
+  
+  private static void setPixelRGBA8(PixelFormat paramPixelFormat, ImageLine paramImageLine, int paramInt1, int paramInt2, int paramInt3, boolean paramBoolean) {
+    int i = PixelFormatUtil.convertToInt32(paramBoolean ? PixelFormat.RGBA8888 : PixelFormat.RGB888, paramPixelFormat, paramInt2);
+    scanline[paramInt1] = (0xFF & i);
+    scanline[(paramInt1 + 1)] = (0xFF & i >>> 8);
+    scanline[(paramInt1 + 2)] = (0xFF & i >>> 16);
+    if (paramBoolean) {
+      scanline[(paramInt1 + 3)] = (0xFF & i >>> 24);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public PNGPixelRect(PixelFormat paramPixelFormat, DimensionImmutable paramDimensionImmutable, int paramInt, boolean paramBoolean, ByteBuffer paramByteBuffer, double paramDouble1, double paramDouble2)
+  {
+    super(paramPixelFormat, paramDimensionImmutable, paramInt, paramBoolean, paramByteBuffer);
+    dpi = new double[] { paramDouble1, paramDouble2 };
+  }
+  
+  public PNGPixelRect(PixelRectangle paramPixelRectangle, double paramDouble1, double paramDouble2) { super(paramPixelRectangle);
+    dpi = new double[] { paramDouble1, paramDouble2 };
+  }
+  
+
+
+  public double[] getDpi() { return dpi; }
+  
+  public void write(OutputStream paramOutputStream, boolean paramBoolean) throws IOException {
+    int i = size.getWidth();
+    int j = size.getHeight();
+    int k = pixelformat.comp.bytesPerPixel();
+    ImageInfo localImageInfo = new ImageInfo(i, j, 8, 4 == k, 1 == k, false);
+    
+
+
+
+    try
+    {
+      PngWriter localPngWriter = new PngWriter(paramOutputStream, localImageInfo);
+      
+      localPngWriter.getMetadata().setDpi(dpi[0], dpi[1]);
+      localPngWriter.getMetadata().setTimeNow(0);
+      localPngWriter.getMetadata().setText("Title", "JogAmp PNGPixelRect");
+      boolean bool = 4 == k;
+      
+      ImageLine localImageLine = new ImageLine(localImageInfo);
+      for (int m = 0; m < j; m++) {
+        int n = isGLOriented ? (j - 1 - m) * strideInBytes : m * strideInBytes;
+        int i1 = 0;
+        int i2; if (1 == k) {
+          for (i2 = i - 1; i2 >= 0; i2--) {
+            scanline[(i1++)] = pixels.get(n++);
+          }
+        } else {
+          for (i2 = i - 1; i2 >= 0; i2--) {
+            n = setPixelRGBA8(localImageLine, i1, pixels, n, k, bool);
+            i1 += k;
+          }
+        }
+        localPngWriter.writeRow(localImageLine, m);
+      }
+      localPngWriter.end();
+    } finally {
+      if (paramBoolean) {
+        IOUtil.close(paramOutputStream, false);
+      }
+    }
+  }
+  
+
+  public static void write(PixelFormat paramPixelFormat, DimensionImmutable paramDimensionImmutable, int paramInt, boolean paramBoolean1, IntBuffer paramIntBuffer, double paramDouble1, double paramDouble2, OutputStream paramOutputStream, boolean paramBoolean2)
+    throws IOException
+  {
+    int i = paramDimensionImmutable.getWidth();
+    int j = paramDimensionImmutable.getHeight();
+    int k = comp.bytesPerPixel();
+    ImageInfo localImageInfo = new ImageInfo(i, j, 8, 4 == k, 1 == k, false);
+    
+
+
+    if (0 != paramInt) {
+      if (paramInt < paramDimensionImmutable.getWidth()) {
+        throw new IllegalArgumentException("Invalid stride " + k + ", must be greater than width " + paramDimensionImmutable.getWidth());
+      }
+    } else {
+      paramInt = paramDimensionImmutable.getWidth();
+    }
+    int m = paramInt * paramDimensionImmutable.getHeight();
+    if (paramIntBuffer.limit() < m) {
+      throw new IndexOutOfBoundsException("Dest buffer has insufficient pixels left, needs " + m + ": " + paramIntBuffer);
+    }
+    
+    try
+    {
+      PngWriter localPngWriter = new PngWriter(paramOutputStream, localImageInfo);
+      
+      localPngWriter.getMetadata().setDpi(paramDouble1, paramDouble2);
+      localPngWriter.getMetadata().setTimeNow(0);
+      localPngWriter.getMetadata().setText("Title", "JogAmp PNGPixelRect");
+      boolean bool = 4 == k;
+      
+      ImageLine localImageLine = new ImageLine(localImageInfo);
+      for (int n = 0; n < j; n++) {
+        int i1 = paramBoolean1 ? (j - 1 - n) * paramInt : n * paramInt;
+        int i2 = 0;
+        int i3; if (1 == k) {
+          for (i3 = i - 1; i3 >= 0; i3--) {
+            scanline[(i2++)] = paramIntBuffer.get(i1++);
+          }
+        } else {
+          for (i3 = i - 1; i3 >= 0; i3--) {
+            setPixelRGBA8(paramPixelFormat, localImageLine, i2, paramIntBuffer.get(i1++), k, bool);
+            i2 += k;
+          }
+        }
+        localPngWriter.writeRow(localImageLine, n);
+      }
+      localPngWriter.end();
+    } finally {
+      if (paramBoolean2) {
+        IOUtil.close(paramOutputStream, false);
+      }
+    }
+  }
+}

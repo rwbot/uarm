@@ -1,0 +1,449 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.ByteArrayInputStream;
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+public class BaseTable
+  implements Table
+{
+  private final DirectoryEntry _de;
+  private final int _version;
+  private final int _horizAxisOffset;
+  private final int _vertAxisOffset;
+  private Axis _horizAxis;
+  private Axis _vertAxis;
+  private byte[] _buf;
+  
+  abstract class BaseCoord
+  {
+    BaseCoord() {}
+    
+    abstract int getBaseCoordFormat();
+    
+    abstract short getCoordinate();
+  }
+  
+  class BaseCoordFormat1
+    extends BaseTable.BaseCoord
+  {
+    private final short _coordinate;
+    
+    protected BaseCoordFormat1(DataInput paramDataInput)
+      throws IOException
+    {
+      super();
+      _coordinate = paramDataInput.readShort();
+    }
+    
+    int getBaseCoordFormat()
+    {
+      return 1;
+    }
+    
+    short getCoordinate()
+    {
+      return _coordinate;
+    }
+  }
+  
+  class BaseCoordFormat2
+    extends BaseTable.BaseCoord
+  {
+    private final short _coordinate;
+    
+    protected BaseCoordFormat2(DataInput paramDataInput) throws IOException
+    {
+      super();
+      _coordinate = paramDataInput.readShort();
+      paramDataInput.readUnsignedShort();
+      paramDataInput.readUnsignedShort();
+    }
+    
+    int getBaseCoordFormat()
+    {
+      return 2;
+    }
+    
+    short getCoordinate()
+    {
+      return _coordinate;
+    }
+  }
+  
+  class BaseCoordFormat3 extends BaseTable.BaseCoord
+  {
+    private final short _coordinate;
+    
+    protected BaseCoordFormat3(DataInput paramDataInput) throws IOException
+    {
+      super();
+      _coordinate = paramDataInput.readShort();
+      paramDataInput.readUnsignedShort();
+    }
+    
+    int getBaseCoordFormat()
+    {
+      return 2;
+    }
+    
+    short getCoordinate()
+    {
+      return _coordinate;
+    }
+  }
+  
+
+
+
+  static class FeatMinMaxRecord
+  {
+    protected FeatMinMaxRecord(DataInput paramDataInput)
+      throws IOException
+    {
+      paramDataInput.readInt();
+      paramDataInput.readUnsignedShort();
+      paramDataInput.readUnsignedShort();
+    }
+  }
+  
+  class MinMax
+  {
+    private final int _featMinMaxCount;
+    private final BaseTable.FeatMinMaxRecord[] _featMinMaxRecord;
+    
+    protected MinMax(int paramInt)
+      throws IOException
+    {
+      DataInput localDataInput = BaseTable.this.getDataInputForOffset(paramInt);
+      localDataInput.readUnsignedShort();
+      localDataInput.readUnsignedShort();
+      _featMinMaxCount = localDataInput.readUnsignedShort();
+      _featMinMaxRecord = new BaseTable.FeatMinMaxRecord[_featMinMaxCount];
+      for (int i = 0; i < _featMinMaxCount; i++) {
+        _featMinMaxRecord[i] = new BaseTable.FeatMinMaxRecord(localDataInput);
+      }
+    }
+  }
+  
+  class BaseValues
+  {
+    private final int _baseCoordCount;
+    private final int[] _baseCoordOffset;
+    private final BaseTable.BaseCoord[] _baseCoords;
+    
+    protected BaseValues(int paramInt) throws IOException
+    {
+      DataInput localDataInput = BaseTable.this.getDataInputForOffset(paramInt);
+      localDataInput.readUnsignedShort();
+      _baseCoordCount = localDataInput.readUnsignedShort();
+      _baseCoordOffset = new int[_baseCoordCount];
+      for (int i = 0; i < _baseCoordCount; i++) {
+        _baseCoordOffset[i] = localDataInput.readUnsignedShort();
+      }
+      _baseCoords = new BaseTable.BaseCoord[_baseCoordCount];
+      for (i = 0; i < _baseCoordCount; i++) {
+        int j = localDataInput.readUnsignedShort();
+        switch (j) {
+        case 1: 
+          _baseCoords[i] = new BaseTable.BaseCoordFormat1(BaseTable.this, localDataInput);
+          break;
+        case 2: 
+          _baseCoords[i] = new BaseTable.BaseCoordFormat2(BaseTable.this, localDataInput);
+          break;
+        case 3: 
+          _baseCoords[i] = new BaseTable.BaseCoordFormat3(BaseTable.this, localDataInput);
+        }
+      }
+    }
+  }
+  
+  static class BaseLangSysRecord
+  {
+    private final int _minMaxOffset;
+    
+    protected BaseLangSysRecord(DataInput paramDataInput)
+      throws IOException
+    {
+      paramDataInput.readInt();
+      _minMaxOffset = paramDataInput.readUnsignedShort();
+    }
+    
+
+
+
+
+    int getMinMaxOffset()
+    {
+      return _minMaxOffset;
+    }
+  }
+  
+  class BaseScript
+  {
+    private final int _thisOffset;
+    private final int _baseValuesOffset;
+    private final int _defaultMinMaxOffset;
+    private final int _baseLangSysCount;
+    private final BaseTable.BaseLangSysRecord[] _baseLangSysRecord;
+    private BaseTable.BaseValues _baseValues;
+    private BaseTable.MinMax[] _minMax;
+    
+    protected BaseScript(int paramInt) throws IOException {
+      _thisOffset = paramInt;
+      DataInput localDataInput = BaseTable.this.getDataInputForOffset(paramInt);
+      _baseValuesOffset = localDataInput.readUnsignedShort();
+      _defaultMinMaxOffset = localDataInput.readUnsignedShort();
+      _baseLangSysCount = localDataInput.readUnsignedShort();
+      _baseLangSysRecord = new BaseTable.BaseLangSysRecord[_baseLangSysCount];
+      for (int i = 0; i < _baseLangSysCount; i++) {
+        _baseLangSysRecord[i] = new BaseTable.BaseLangSysRecord(localDataInput);
+      }
+      if (_baseValuesOffset > 0) {
+        _baseValues = new BaseTable.BaseValues(BaseTable.this, paramInt + _baseValuesOffset);
+      }
+      for (i = 0; i < _baseLangSysCount; i++) {
+        _minMax[i] = new BaseTable.MinMax(BaseTable.this, paramInt + _baseLangSysRecord[i].getMinMaxOffset());
+      }
+    }
+    
+
+
+
+
+    public String toString()
+    {
+      StringBuilder localStringBuilder = new StringBuilder().append("\nBaseScript BaseScriptT").append(Integer.toHexString(_thisOffset)).append("\nBaseValuesT").append(Integer.toHexString(_thisOffset + _baseValuesOffset)).append("\nMinMaxT").append(Integer.toHexString(_thisOffset + _defaultMinMaxOffset)).append("\n").append(Integer.toHexString(_baseLangSysCount));
+      
+
+
+
+
+
+
+
+      if (_baseValues != null) {
+        localStringBuilder.append("\n").append(_baseValues.toString());
+      }
+      return localStringBuilder.toString();
+    }
+  }
+  
+  static class BaseScriptRecord
+  {
+    private final int _baseScriptTag;
+    private final int _baseScriptOffset;
+    
+    protected BaseScriptRecord(DataInput paramDataInput) throws IOException {
+      _baseScriptTag = paramDataInput.readInt();
+      _baseScriptOffset = paramDataInput.readUnsignedShort();
+    }
+    
+    int getBaseScriptTag() {
+      return _baseScriptTag;
+    }
+    
+    int getBaseScriptOffset() {
+      return _baseScriptOffset;
+    }
+  }
+  
+  class BaseScriptList
+  {
+    private final int _thisOffset;
+    private final int _baseScriptCount;
+    private final BaseTable.BaseScriptRecord[] _baseScriptRecord;
+    private final BaseTable.BaseScript[] _baseScripts;
+    
+    protected BaseScriptList(int paramInt) throws IOException {
+      _thisOffset = paramInt;
+      DataInput localDataInput = BaseTable.this.getDataInputForOffset(paramInt);
+      _baseScriptCount = localDataInput.readUnsignedShort();
+      _baseScriptRecord = new BaseTable.BaseScriptRecord[_baseScriptCount];
+      for (int i = 0; i < _baseScriptCount; i++) {
+        _baseScriptRecord[i] = new BaseTable.BaseScriptRecord(localDataInput);
+      }
+      _baseScripts = new BaseTable.BaseScript[_baseScriptCount];
+      for (i = 0; i < _baseScriptCount; i++)
+      {
+        _baseScripts[i] = new BaseTable.BaseScript(BaseTable.this, paramInt + _baseScriptRecord[i].getBaseScriptOffset());
+      }
+    }
+    
+
+
+    public String toString()
+    {
+      StringBuilder localStringBuilder = new StringBuilder().append("\nBaseScriptList BaseScriptListT").append(Integer.toHexString(_thisOffset)).append("\n").append(Integer.toHexString(_baseScriptCount));
+      for (int i = 0; i < _baseScriptCount; i++) {
+        localStringBuilder.append("\n                          ; BaseScriptRecord[").append(i);
+        localStringBuilder.append("]\n'").append(BaseTable.tagAsString(_baseScriptRecord[i].getBaseScriptTag())).append("'");
+        localStringBuilder.append("\nBaseScriptT").append(Integer.toHexString(_thisOffset + _baseScriptRecord[i].getBaseScriptOffset()));
+      }
+      for (i = 0; i < _baseScriptCount; i++) {
+        localStringBuilder.append("\n").append(_baseScripts[i].toString());
+      }
+      return localStringBuilder.toString();
+    }
+  }
+  
+  class BaseTagList
+  {
+    private final int _thisOffset;
+    private final int _baseTagCount;
+    private final int[] _baselineTag;
+    
+    protected BaseTagList(int paramInt) throws IOException {
+      _thisOffset = paramInt;
+      DataInput localDataInput = BaseTable.this.getDataInputForOffset(paramInt);
+      _baseTagCount = localDataInput.readUnsignedShort();
+      _baselineTag = new int[_baseTagCount];
+      for (int i = 0; i < _baseTagCount; i++) {
+        _baselineTag[i] = localDataInput.readInt();
+      }
+    }
+    
+
+
+    public String toString()
+    {
+      StringBuilder localStringBuilder = new StringBuilder().append("\nBaseTagList BaseTagListT").append(Integer.toHexString(_thisOffset)).append("\n").append(Integer.toHexString(_baseTagCount));
+      for (int i = 0; i < _baseTagCount; i++) {
+        localStringBuilder.append("\n'").append(BaseTable.tagAsString(_baselineTag[i])).append("'");
+      }
+      return localStringBuilder.toString();
+    }
+  }
+  
+  class Axis
+  {
+    private final int _thisOffset;
+    private final int _baseTagListOffset;
+    private final int _baseScriptListOffset;
+    private BaseTable.BaseTagList _baseTagList;
+    private BaseTable.BaseScriptList _baseScriptList;
+    
+    protected Axis(int paramInt) throws IOException {
+      _thisOffset = paramInt;
+      DataInput localDataInput = BaseTable.this.getDataInputForOffset(paramInt);
+      _baseTagListOffset = localDataInput.readUnsignedShort();
+      _baseScriptListOffset = localDataInput.readUnsignedShort();
+      if (_baseTagListOffset != 0) {
+        _baseTagList = new BaseTable.BaseTagList(BaseTable.this, paramInt + _baseTagListOffset);
+      }
+      if (_baseScriptListOffset != 0) {
+        _baseScriptList = new BaseTable.BaseScriptList(BaseTable.this, paramInt + _baseScriptListOffset);
+      }
+    }
+    
+
+
+
+
+
+
+
+    public String toString()
+    {
+      return "\nAxis AxisT" + Integer.toHexString(_thisOffset) + "\nBaseTagListT" + Integer.toHexString(_thisOffset + _baseTagListOffset) + "\nBaseScriptListT" + Integer.toHexString(_thisOffset + _baseScriptListOffset) + "\n" + _baseTagList + "\n" + _baseScriptList;
+    }
+  }
+  
+
+
+
+
+
+
+
+  protected BaseTable(DirectoryEntry paramDirectoryEntry, DataInput paramDataInput)
+    throws IOException
+  {
+    _de = ((DirectoryEntry)paramDirectoryEntry.clone());
+    
+
+    _buf = new byte[paramDirectoryEntry.getLength()];
+    paramDataInput.readFully(_buf);
+    DataInput localDataInput = getDataInputForOffset(0);
+    
+    _version = localDataInput.readInt();
+    _horizAxisOffset = localDataInput.readUnsignedShort();
+    _vertAxisOffset = localDataInput.readUnsignedShort();
+    if (_horizAxisOffset != 0) {
+      _horizAxis = new Axis(_horizAxisOffset);
+    }
+    if (_vertAxisOffset != 0) {
+      _vertAxis = new Axis(_vertAxisOffset);
+    }
+    
+
+    _buf = null;
+  }
+  
+
+  private DataInput getDataInputForOffset(int paramInt)
+  {
+    return new DataInputStream(new ByteArrayInputStream(_buf, paramInt, _de.getLength() - paramInt));
+  }
+  
+
+
+
+
+
+
+
+  protected static String tagAsString(int paramInt)
+  {
+    char[] arrayOfChar = new char[4];
+    arrayOfChar[0] = ((char)(paramInt >> 24 & 0xFF));
+    arrayOfChar[1] = ((char)(paramInt >> 16 & 0xFF));
+    arrayOfChar[2] = ((char)(paramInt >> 8 & 0xFF));
+    arrayOfChar[3] = ((char)(paramInt & 0xFF));
+    return String.valueOf(arrayOfChar);
+  }
+  
+  public int getType()
+  {
+    return 1111577413;
+  }
+  
+
+
+
+
+
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder().append("; 'BASE' Table - Baseline\n;-------------------------------------\n\n").append("BASEHeader BASEHeaderT").append(Integer.toHexString(0)).append("\n").append(Integer.toHexString(_version)).append("\nAxisT").append(Integer.toHexString(_horizAxisOffset)).append("\nAxisT").append(Integer.toHexString(_vertAxisOffset));
+    if (_horizAxis != null) {
+      localStringBuilder.append("\n").append(_horizAxis.toString());
+    }
+    if (_vertAxis != null) {
+      localStringBuilder.append("\n").append(_vertAxis.toString());
+    }
+    return localStringBuilder.toString();
+  }
+  
+
+
+
+
+
+
+  public DirectoryEntry getDirectoryEntry()
+  {
+    return _de;
+  }
+}

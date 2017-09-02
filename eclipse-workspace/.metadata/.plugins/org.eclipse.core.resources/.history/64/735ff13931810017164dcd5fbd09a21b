@@ -1,0 +1,536 @@
+package com.jogamp.opengl.util;
+
+import com.jogamp.nativewindow.util.Dimension;
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.PixelFormat;
+import com.jogamp.nativewindow.util.PixelFormat.Composition;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2ES3;
+import com.jogamp.opengl.GLException;
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class TileRenderer
+  extends TileRendererBase
+{
+  public static final int TR_IMAGE_CLIPPING_WIDTH = 7;
+  public static final int TR_IMAGE_CLIPPING_HEIGHT = 8;
+  public static final int TR_TILE_WIDTH = 9;
+  public static final int TR_TILE_HEIGHT = 10;
+  public static final int TR_TILE_BORDER = 11;
+  public static final int TR_TILE_X_OFFSET = 12;
+  public static final int TR_TILE_Y_OFFSET = 13;
+  public static final int TR_ROWS = 14;
+  public static final int TR_COLUMNS = 15;
+  public static final int TR_CURRENT_TILE_NUM = 16;
+  public static final int TR_CURRENT_ROW = 17;
+  public static final int TR_CURRENT_COLUMN = 18;
+  public static final int TR_ROW_ORDER = 19;
+  public static final int TR_TOP_TO_BOTTOM = 20;
+  public static final int TR_BOTTOM_TO_TOP = 21;
+  private static final int DEFAULT_TILE_WIDTH = 256;
+  private static final int DEFAULT_TILE_HEIGHT = 256;
+  private static final int DEFAULT_TILE_BORDER = 0;
+  private final Dimension tileSize = new Dimension(256, 256);
+  private final Dimension tileSizeNB = new Dimension(256, 256);
+  
+  private boolean isInit = false;
+  private Dimension imageClippingDim = null;
+  private int tileBorder = 0;
+  private int rowOrder = 21;
+  private int rows;
+  private int columns;
+  private int currentTile = 0;
+  
+  private int currentRow;
+  private int currentColumn;
+  private int offsetX;
+  private int offsetY;
+  
+  protected StringBuilder tileDetails(StringBuilder paramStringBuilder)
+  {
+    paramStringBuilder.append("# " + currentTile + ": [" + currentColumn + "][" + currentRow + "] / " + columns + "x" + rows + ", ").append("rowOrder " + rowOrder + ", offset/size " + offsetX + "/" + offsetY + " " + tileSize.getWidth() + "x" + tileSize.getHeight() + " brd " + tileBorder + ", ");
+    return super.tileDetails(paramStringBuilder);
+  }
+  
+
+
+
+
+
+
+  public TileRenderer() {}
+  
+
+
+
+
+
+  public final void setImageSize(int paramInt1, int paramInt2)
+  {
+    super.setImageSize(paramInt1, paramInt2);
+    reset();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void clipImageSize(int paramInt1, int paramInt2)
+  {
+    if (null == imageClippingDim) {
+      imageClippingDim = new Dimension(paramInt1, paramInt2);
+    } else {
+      imageClippingDim.set(paramInt1, paramInt2);
+    }
+    reset();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final DimensionImmutable getClippedImageSize()
+  {
+    if (null != imageClippingDim)
+    {
+      return new Dimension(Math.min(imageClippingDim.getWidth(), imageSize.getWidth()), Math.min(imageClippingDim.getHeight(), imageSize.getHeight()));
+    }
+    return imageSize;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void setTileSize(int paramInt1, int paramInt2, int paramInt3)
+  {
+    if (0 > paramInt3) {
+      throw new IllegalArgumentException("Tile border must be >= 0");
+    }
+    if ((2 * paramInt3 >= paramInt1) || (2 * paramInt3 >= paramInt2)) {
+      throw new IllegalArgumentException("Tile size must be > 0x0 minus 2*border");
+    }
+    tileBorder = paramInt3;
+    tileSize.set(paramInt1, paramInt2);
+    tileSizeNB.set(paramInt1 - 2 * paramInt3, paramInt2 - 2 * paramInt3);
+    reset();
+  }
+  
+
+
+
+
+
+  public void setTileOffset(int paramInt1, int paramInt2)
+  {
+    offsetX = paramInt1;
+    offsetY = paramInt2;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void reset()
+  {
+    DimensionImmutable localDimensionImmutable = getClippedImageSize();
+    columns = ((localDimensionImmutable.getWidth() + tileSizeNB.getWidth() - 1) / tileSizeNB.getWidth());
+    rows = ((localDimensionImmutable.getHeight() + tileSizeNB.getHeight() - 1) / tileSizeNB.getHeight());
+    currentRow = 0;
+    currentColumn = 0;
+    currentTile = 0;
+    currentTileXPos = 0;
+    currentTileYPos = 0;
+    currentTileWidth = 0;
+    currentTileHeight = 0;
+    
+    assert (columns >= 0);
+    assert (rows >= 0);
+    
+    beginCalled = false;
+    isInit = true;
+  }
+  
+  final int getCurrentTile() { return currentTile; }
+  
+  public final int getParam(int paramInt)
+  {
+    switch (paramInt) {
+    case 1: 
+      return imageSize.getWidth();
+    case 2: 
+      return imageSize.getHeight();
+    case 3: 
+      return currentTileXPos;
+    case 4: 
+      return currentTileYPos;
+    case 5: 
+      return currentTileWidth;
+    case 6: 
+      return currentTileHeight;
+    case 7: 
+      return null != imageClippingDim ? imageClippingDim.getWidth() : 0;
+    case 8: 
+      return null != imageClippingDim ? imageClippingDim.getHeight() : 0;
+    case 9: 
+      return tileSize.getWidth();
+    case 10: 
+      return tileSize.getHeight();
+    case 11: 
+      return tileBorder;
+    case 12: 
+      return offsetX;
+    case 13: 
+      return offsetY;
+    case 14: 
+      return rows;
+    case 15: 
+      return columns;
+    case 16: 
+      return currentTile;
+    case 17: 
+      return currentRow;
+    case 18: 
+      return currentColumn;
+    case 19: 
+      return rowOrder;
+    }
+    throw new IllegalArgumentException("Invalid pname: " + paramInt);
+  }
+  
+
+
+
+
+
+  public final void setRowOrder(int paramInt)
+  {
+    if ((paramInt == 20) || (paramInt == 21)) {
+      rowOrder = paramInt;
+    } else {
+      throw new IllegalArgumentException("Must pass TR_TOP_TO_BOTTOM or TR_BOTTOM_TO_TOP");
+    }
+  }
+  
+  public final boolean isSetup()
+  {
+    return (0 < imageSize.getWidth()) && (0 < imageSize.getHeight());
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean eot()
+  {
+    if (!isInit) {
+      reset();
+    }
+    return (0 > currentTile) || (0 >= columns * rows);
+  }
+  
+
+
+
+
+
+  public final void beginTile(GL paramGL)
+    throws IllegalStateException, GLException
+  {
+    if (!isSetup()) {
+      throw new IllegalStateException("Image size has not been set: " + this);
+    }
+    if (eot()) {
+      throw new IllegalStateException("EOT reached: " + this);
+    }
+    validateGL(paramGL);
+    
+
+    if (rowOrder == 21) {
+      currentRow = (currentTile / columns);
+      currentColumn = (currentTile % columns);
+    } else {
+      currentRow = (rows - currentTile / columns - 1);
+      currentColumn = (currentTile % columns);
+    }
+    assert (currentRow < rows);
+    assert (currentColumn < columns);
+    
+    int i = tileBorder;
+    
+    DimensionImmutable localDimensionImmutable = getClippedImageSize();
+    
+    int j;
+    
+    if (currentRow < rows - 1) {
+      j = tileSize.getHeight();
+    } else {
+      j = localDimensionImmutable.getHeight() - (rows - 1) * tileSizeNB.getHeight() + 2 * i;
+    }
+    int k;
+    if (currentColumn < columns - 1) {
+      k = tileSize.getWidth();
+    } else {
+      k = localDimensionImmutable.getWidth() - (columns - 1) * tileSizeNB.getWidth() + 2 * i;
+    }
+    
+    currentTileXPos = (currentColumn * tileSizeNB.getWidth() + offsetX);
+    currentTileYPos = (currentRow * tileSizeNB.getHeight() + offsetY);
+    
+
+    currentTileWidth = k;
+    currentTileHeight = j;
+    
+    paramGL.glViewport(0, 0, k, j);
+    
+    if (DEBUG) {
+      System.err.println("TileRenderer.begin: " + toString());
+    }
+    
+
+
+
+    beginCalled = true;
+  }
+  
+  public void endTile(GL paramGL) throws IllegalStateException, GLException
+  {
+    if (!beginCalled) {
+      throw new IllegalStateException("beginTile(..) has not been called");
+    }
+    validateGL(paramGL);
+    
+
+    paramGL.glFlush();
+    
+
+    psm.setPackAlignment(paramGL, 1);
+    GL2ES3 localGL2ES3;
+    int i;
+    if (paramGL.isGL2ES3()) {
+      localGL2ES3 = paramGL.getGL2ES3();
+      i = localGL2ES3.getDefaultReadBuffer();
+      localGL2ES3.glReadBuffer(i);
+    } else {
+      localGL2ES3 = null;
+      i = 0;
+    }
+    if (DEBUG) {
+      System.err.println("TileRenderer.end.0: readBuffer 0x" + Integer.toHexString(i) + ", " + toString());
+    }
+    
+    int[] arrayOfInt = new int[1];
+    GLPixelBuffer.GLPixelAttributes localGLPixelAttributes;
+    int j; int k; int m; int n; int i1; if (tileBuffer != null) {
+      localGLPixelAttributes = tileBuffer.pixelAttributes;
+      j = tileBorder;
+      k = tileBorder;
+      m = tileSizeNB.getWidth();
+      n = tileSizeNB.getHeight();
+      i1 = GLBuffers.sizeof(paramGL, arrayOfInt, pfmt.comp.bytesPerPixel(), m, n, 1, true);
+      tileBuffer.clear();
+      if (tileBuffer.requiresNewBuffer(paramGL, m, n, i1)) {
+        throw new IndexOutOfBoundsException("Required " + i1 + " bytes of buffer, only had " + tileBuffer);
+      }
+      paramGL.glReadPixels(j, k, m, n, format, type, tileBuffer.buffer);
+      
+      paramGL.glFlush();
+      tileBuffer.position(i1);
+      tileBuffer.flip();
+    }
+    
+    if (imageBuffer != null) {
+      localGLPixelAttributes = imageBuffer.pixelAttributes;
+      j = tileBorder;
+      k = tileBorder;
+      m = currentTileWidth - 2 * tileBorder;
+      n = currentTileHeight - 2 * tileBorder;
+      
+
+      i1 = imageSize.getWidth();
+      psm.setPackRowLength(localGL2ES3, i1);
+      
+
+      int i2 = GLBuffers.sizeof(paramGL, arrayOfInt, pfmt.comp.bytesPerPixel(), m, n, 1, true);
+      
+      int i3 = currentColumn * tileSizeNB.getWidth();
+      int i4 = currentRow * tileSizeNB.getHeight();
+      int i5 = (i3 + i4 * i1) * pfmt.comp.bytesPerPixel();
+      int i6 = i5 + i2;
+      imageBuffer.clear();
+      if (imageBuffer.requiresNewBuffer(paramGL, m, n, i2)) {
+        throw new IndexOutOfBoundsException("Required " + i6 + " bytes of buffer, only had " + imageBuffer);
+      }
+      imageBuffer.position(i5);
+      
+      paramGL.glReadPixels(j, k, m, n, format, type, imageBuffer.buffer);
+      
+      paramGL.glFlush();
+      imageBuffer.position(i6);
+      imageBuffer.flip();
+    }
+    
+
+    psm.restore(paramGL);
+    
+    beginCalled = false;
+    
+
+    currentTile += 1;
+    if (currentTile >= rows * columns) {
+      currentTile = -1;
+    }
+  }
+}

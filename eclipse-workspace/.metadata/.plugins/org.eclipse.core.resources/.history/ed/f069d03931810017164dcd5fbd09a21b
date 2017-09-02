@@ -1,0 +1,162 @@
+package com.jogamp.common.util;
+
+
+
+
+
+
+
+/**
+ * @deprecated
+ */
+public class IntBitfield
+{
+  public static final int UNIT_SIZE = 32;
+  
+
+
+
+
+
+  private static final long UNIT_SHIFT_L = 5L;
+  
+
+
+
+
+
+  private static final int UNIT_SHIFT_I = 5;
+  
+
+
+
+
+
+  private final int[] storage;
+  
+
+
+
+
+
+  private final long bitsCountL;
+  
+
+
+
+
+  private final int bitsCountI;
+  
+
+
+
+
+
+  public IntBitfield(long paramLong)
+  {
+    int i = (int)Math.max(1L, paramLong + 31L >>> 5);
+    storage = new int[i];
+    bitsCountL = (i << 5);
+    bitsCountI = (bitsCountL > 2147483647L ? Integer.MAX_VALUE : (int)bitsCountL);
+  }
+  
+
+
+  public IntBitfield(int paramInt)
+  {
+    int i = Math.max(1, paramInt + 31 >>> 5);
+    storage = new int[i];
+    bitsCountI = (i << 5);
+    bitsCountL = bitsCountI;
+  }
+  
+  private final void check(long paramLong) {
+    if ((0L > paramLong) || (paramLong >= bitsCountL))
+      throw new ArrayIndexOutOfBoundsException("Bitnum should be within [0.." + (bitsCountL - 1L) + "], but is " + paramLong);
+  }
+  
+  private final void check(int paramInt) {
+    if ((0 > paramInt) || (paramInt >= bitsCountI)) {
+      throw new ArrayIndexOutOfBoundsException("Bitnum should be within [0.." + (bitsCountI - 1) + "], but is " + paramInt);
+    }
+  }
+  
+  public final long capacity() {
+    return bitsCountL;
+  }
+  
+  public final boolean get(long paramLong) {
+    check(paramLong);
+    int i = (int)(paramLong >>> 5);
+    int j = (int)(paramLong - (i << 5));
+    return 0 != (storage[i] & 1 << j);
+  }
+  
+  public final boolean get(int paramInt)
+  {
+    check(paramInt);
+    int i = paramInt >>> 5;
+    int j = paramInt - (i << 5);
+    return 0 != (storage[i] & 1 << j);
+  }
+  
+
+
+
+  public final boolean put(long paramLong, boolean paramBoolean)
+  {
+    check(paramLong);
+    int i = (int)(paramLong >>> 5);
+    int j = (int)(paramLong - (i << 5));
+    int k = 1 << j;
+    boolean bool = 0 != (storage[i] & k);
+    if (bool != paramBoolean) {
+      if (paramBoolean) {
+        storage[i] |= k;
+      } else {
+        storage[i] &= (k ^ 0xFFFFFFFF);
+      }
+    }
+    return bool;
+  }
+  
+
+
+
+  public final boolean put(int paramInt, boolean paramBoolean)
+  {
+    check(paramInt);
+    int i = paramInt >>> 5;
+    int j = paramInt - (i << 5);
+    int k = 1 << j;
+    boolean bool = 0 != (storage[i] & k);
+    if (bool != paramBoolean) {
+      if (paramBoolean) {
+        storage[i] |= k;
+      } else {
+        storage[i] &= (k ^ 0xFFFFFFFF);
+      }
+    }
+    return bool;
+  }
+  
+  /**
+   * @deprecated
+   */
+  public static final int getBitCount(int paramInt) { return Bitfield.Util.bitCount(paramInt); }
+  
+
+
+
+
+
+
+  public long getBitCount()
+  {
+    long l = 0L;
+    for (int i = storage.length - 1; i >= 0; i--) {
+      l += Bitfield.Util.bitCount(storage[i]);
+    }
+    return l;
+  }
+}

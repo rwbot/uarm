@@ -1,0 +1,688 @@
+package jogamp.opengl.util.pngj;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.Arrays;
+import java.util.List;
+import java.util.zip.Deflater;
+import java.util.zip.DeflaterOutputStream;
+import jogamp.opengl.util.pngj.chunks.ChunkHelper;
+import jogamp.opengl.util.pngj.chunks.ChunkRaw;
+import jogamp.opengl.util.pngj.chunks.ChunksList;
+import jogamp.opengl.util.pngj.chunks.ChunksListForWrite;
+import jogamp.opengl.util.pngj.chunks.PngChunk;
+import jogamp.opengl.util.pngj.chunks.PngChunkIEND;
+import jogamp.opengl.util.pngj.chunks.PngChunkIHDR;
+import jogamp.opengl.util.pngj.chunks.PngChunkSkipped;
+import jogamp.opengl.util.pngj.chunks.PngChunkTextVar;
+import jogamp.opengl.util.pngj.chunks.PngMetadata;
+
+
+
+
+
+
+
+
+
+
+
+public class PngWriter
+{
+  public final ImageInfo imgInfo;
+  private final String filename;
+  protected int rowNum = -1;
+  
+
+
+  private final ChunksListForWrite chunksList;
+  
+
+
+  private final PngMetadata metadata;
+  
+
+  protected int currentChunkGroup = -1;
+  
+
+
+
+  protected FilterWriteStrategy filterStrat;
+  
+
+
+
+  private int compLevel = 6;
+  private boolean shouldCloseStream = true;
+  
+
+  private PngIDatChunkOutputStream datStream;
+  
+
+  private DeflaterOutputStream datStreamDeflated;
+  
+
+  private int deflaterStrategy = 1;
+  
+  private final int[] histox = new int['Ā'];
+  
+  private int idatMaxSize = 0;
+  
+  private final OutputStream os;
+  
+  protected byte[] rowb = null;
+  protected byte[] rowbfilter = null;
+  
+  protected byte[] rowbprev = null;
+  
+
+  private boolean unpackedMode = false;
+  
+  public PngWriter(OutputStream paramOutputStream, ImageInfo paramImageInfo) {
+    this(paramOutputStream, paramImageInfo, "[NO FILENAME AVAILABLE]");
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public PngWriter(OutputStream paramOutputStream, ImageInfo paramImageInfo, String paramString)
+  {
+    filename = (paramString == null ? "" : paramString);
+    os = paramOutputStream;
+    imgInfo = paramImageInfo;
+    
+    rowb = new byte[bytesPerRow + 1];
+    rowbprev = new byte[rowb.length];
+    rowbfilter = new byte[rowb.length];
+    chunksList = new ChunksListForWrite(paramImageInfo);
+    metadata = new PngMetadata(chunksList);
+    filterStrat = new FilterWriteStrategy(paramImageInfo, FilterType.FILTER_DEFAULT);
+  }
+  
+  private void init() {
+    datStream = new PngIDatChunkOutputStream(os, idatMaxSize);
+    Deflater localDeflater = new Deflater(compLevel);
+    localDeflater.setStrategy(deflaterStrategy);
+    datStreamDeflated = new DeflaterOutputStream(datStream, localDeflater);
+    writeSignatureAndIHDR();
+    writeFirstChunks();
+  }
+  
+  private void reportResultsForFilter(int paramInt, FilterType paramFilterType, boolean paramBoolean) {
+    Arrays.fill(histox, 0);
+    int i = 0;
+    for (int k = 1; k <= imgInfo.bytesPerRow; k++) {
+      int j = rowbfilter[k];
+      if (j < 0) {
+        i -= j;
+      } else
+        i += j;
+      histox[(j & 0xFF)] += 1;
+    }
+    filterStrat.fillResultsForFilter(paramInt, paramFilterType, i, histox, paramBoolean);
+  }
+  
+  private void writeEndChunk() {
+    PngChunkIEND localPngChunkIEND = new PngChunkIEND(imgInfo);
+    localPngChunkIEND.createRawChunk().writeChunk(os);
+  }
+  
+  private void writeFirstChunks() {
+    int i = 0;
+    currentChunkGroup = 1;
+    i = chunksList.writeChunks(os, currentChunkGroup);
+    currentChunkGroup = 2;
+    i = chunksList.writeChunks(os, currentChunkGroup);
+    if ((i > 0) && (imgInfo.greyscale))
+      throw new PngjOutputException("cannot write palette for this format");
+    if ((i == 0) && (imgInfo.indexed))
+      throw new PngjOutputException("missing palette");
+    currentChunkGroup = 3;
+    i = chunksList.writeChunks(os, currentChunkGroup);
+    currentChunkGroup = 4;
+  }
+  
+  private void writeLastChunks() {
+    currentChunkGroup = 5;
+    chunksList.writeChunks(os, currentChunkGroup);
+    
+    List localList = chunksList.getQueuedChunks();
+    if (!localList.isEmpty())
+      throw new PngjOutputException(localList.size() + " chunks were not written! Eg: " + ((PngChunk)localList.get(0)).toString());
+    currentChunkGroup = 6;
+  }
+  
+
+
+  private void writeSignatureAndIHDR()
+  {
+    currentChunkGroup = 0;
+    
+    PngHelperInternal.writeBytes(os, PngHelperInternal.getPngIdSignature());
+    PngChunkIHDR localPngChunkIHDR = new PngChunkIHDR(imgInfo);
+    
+    localPngChunkIHDR.setCols(imgInfo.cols);
+    localPngChunkIHDR.setRows(imgInfo.rows);
+    localPngChunkIHDR.setBitspc(imgInfo.bitDepth);
+    int i = 0;
+    if (imgInfo.alpha)
+      i += 4;
+    if (imgInfo.indexed)
+      i++;
+    if (!imgInfo.greyscale)
+      i += 2;
+    localPngChunkIHDR.setColormodel(i);
+    localPngChunkIHDR.setCompmeth(0);
+    localPngChunkIHDR.setFilmeth(0);
+    localPngChunkIHDR.setInterlaced(0);
+    localPngChunkIHDR.createRawChunk().writeChunk(os);
+  }
+  
+  protected void encodeRowFromByte(byte[] paramArrayOfByte) {
+    int i;
+    if (paramArrayOfByte.length == imgInfo.samplesPerRowPacked)
+    {
+      i = 1;
+      int n; if (imgInfo.bitDepth <= 8) {
+        for (n : paramArrayOfByte) {
+          rowb[(i++)] = n;
+        }
+      } else {
+        for (n : paramArrayOfByte) {
+          rowb[i] = n;
+          i += 2;
+        }
+      }
+    }
+    else {
+      if ((paramArrayOfByte.length >= imgInfo.samplesPerRow) && (unpackedMode))
+        ImageLine.packInplaceByte(imgInfo, paramArrayOfByte, paramArrayOfByte, false);
+      int j; if (imgInfo.bitDepth <= 8) {
+        i = 0; for (j = 1; i < imgInfo.samplesPerRowPacked; i++) {
+          rowb[(j++)] = paramArrayOfByte[i];
+        }
+      } else {
+        i = 0; for (j = 1; i < imgInfo.samplesPerRowPacked; i++) {
+          rowb[(j++)] = paramArrayOfByte[i];
+          rowb[(j++)] = 0;
+        }
+      }
+    }
+  }
+  
+  protected void encodeRowFromInt(int[] paramArrayOfInt)
+  {
+    int i;
+    if (paramArrayOfInt.length == imgInfo.samplesPerRowPacked)
+    {
+      i = 1;
+      int n; if (imgInfo.bitDepth <= 8) {
+        for (n : paramArrayOfInt) {
+          rowb[(i++)] = ((byte)n);
+        }
+      } else {
+        for (n : paramArrayOfInt) {
+          rowb[(i++)] = ((byte)(n >> 8));
+          rowb[(i++)] = ((byte)n);
+        }
+      }
+    }
+    else {
+      if ((paramArrayOfInt.length >= imgInfo.samplesPerRow) && (unpackedMode))
+        ImageLine.packInplaceInt(imgInfo, paramArrayOfInt, paramArrayOfInt, false);
+      int j; if (imgInfo.bitDepth <= 8) {
+        i = 0; for (j = 1; i < imgInfo.samplesPerRowPacked; i++) {
+          rowb[(j++)] = ((byte)paramArrayOfInt[i]);
+        }
+      } else {
+        i = 0; for (j = 1; i < imgInfo.samplesPerRowPacked; i++) {
+          rowb[(j++)] = ((byte)(paramArrayOfInt[i] >> 8));
+          rowb[(j++)] = ((byte)paramArrayOfInt[i]);
+        }
+      }
+    }
+  }
+  
+
+  private void filterRow(int paramInt)
+  {
+    if (filterStrat.shouldTestAll(paramInt)) {
+      filterRowNone();
+      reportResultsForFilter(paramInt, FilterType.FILTER_NONE, true);
+      filterRowSub();
+      reportResultsForFilter(paramInt, FilterType.FILTER_SUB, true);
+      filterRowUp();
+      reportResultsForFilter(paramInt, FilterType.FILTER_UP, true);
+      filterRowAverage();
+      reportResultsForFilter(paramInt, FilterType.FILTER_AVERAGE, true);
+      filterRowPaeth();
+      reportResultsForFilter(paramInt, FilterType.FILTER_PAETH, true);
+    }
+    FilterType localFilterType = filterStrat.gimmeFilterType(paramInt, true);
+    rowbfilter[0] = ((byte)val);
+    switch (1.$SwitchMap$jogamp$opengl$util$pngj$FilterType[localFilterType.ordinal()]) {
+    case 1: 
+      filterRowNone();
+      break;
+    case 2: 
+      filterRowSub();
+      break;
+    case 3: 
+      filterRowUp();
+      break;
+    case 4: 
+      filterRowAverage();
+      break;
+    case 5: 
+      filterRowPaeth();
+      break;
+    default: 
+      throw new PngjUnsupportedException("Filter type " + localFilterType + " not implemented");
+    }
+    reportResultsForFilter(paramInt, localFilterType, false);
+  }
+  
+  private void prepareEncodeRow(int paramInt) {
+    if (datStream == null)
+      init();
+    rowNum += 1;
+    if ((paramInt >= 0) && (rowNum != paramInt)) {
+      throw new PngjOutputException("rows must be written in order: expected:" + rowNum + " passed:" + paramInt);
+    }
+    byte[] arrayOfByte = rowb;
+    rowb = rowbprev;
+    rowbprev = arrayOfByte;
+  }
+  
+  private void filterAndSend(int paramInt) {
+    filterRow(paramInt);
+    try {
+      datStreamDeflated.write(rowbfilter, 0, imgInfo.bytesPerRow + 1);
+    } catch (IOException localIOException) {
+      throw new PngjOutputException(localIOException);
+    }
+  }
+  
+  protected void filterRowAverage()
+  {
+    int k = imgInfo.bytesPerRow;
+    int j = 1 - imgInfo.bytesPixel; for (int i = 1; i <= k; j++) {
+      rowbfilter[i] = ((byte)(rowb[i] - ((rowbprev[i] & 0xFF) + (j > 0 ? rowb[j] & 0xFF : 0)) / 2));i++;
+    }
+  }
+  
+  protected void filterRowNone() {
+    for (int i = 1; i <= imgInfo.bytesPerRow; i++) {
+      rowbfilter[i] = rowb[i];
+    }
+  }
+  
+  protected void filterRowPaeth()
+  {
+    int k = imgInfo.bytesPerRow;
+    int j = 1 - imgInfo.bytesPixel; for (int i = 1; i <= k; j++)
+    {
+
+      rowbfilter[i] = ((byte)PngHelperInternal.filterRowPaeth(rowb[i], j > 0 ? rowb[j] & 0xFF : 0, rowbprev[i] & 0xFF, j > 0 ? rowbprev[j] & 0xFF : 0));i++;
+    }
+  }
+  
+
+  protected void filterRowSub()
+  {
+    for (int i = 1; i <= imgInfo.bytesPixel; i++)
+      rowbfilter[i] = rowb[i];
+    int j = 1; for (i = imgInfo.bytesPixel + 1; i <= imgInfo.bytesPerRow; j++)
+    {
+      rowbfilter[i] = ((byte)PngHelperInternal.filterRowSub(rowb[i], rowb[j]));i++;
+    }
+  }
+  
+  protected void filterRowUp() {
+    for (int i = 1; i <= imgInfo.bytesPerRow; i++)
+    {
+      rowbfilter[i] = ((byte)PngHelperInternal.filterRowUp(rowb[i], rowbprev[i]));
+    }
+  }
+  
+  protected int sumRowbfilter() {
+    int i = 0;
+    for (int j = 1; j <= imgInfo.bytesPerRow; j++)
+      if (rowbfilter[j] < 0) {
+        i -= rowbfilter[j];
+      } else
+        i += rowbfilter[j];
+    return i;
+  }
+  
+
+
+
+
+
+
+  private void copyChunks(PngReader paramPngReader, int paramInt, boolean paramBoolean)
+  {
+    int i = currentChunkGroup >= 4 ? 1 : 0;
+    if ((paramBoolean) && (paramPngReader.getCurrentChunkGroup() < 6))
+      throw new PngjExceptionInternal("tried to copy last chunks but reader has not ended");
+    for (PngChunk localPngChunk : paramPngReader.getChunksList().getChunks()) {
+      int j = localPngChunk.getChunkGroup();
+      if ((j >= 4) || (i == 0))
+      {
+        int k = 0;
+        if (crit) {
+          if (id.equals("PLTE")) {
+            if ((imgInfo.indexed) && (ChunkHelper.maskMatch(paramInt, 1)))
+              k = 1;
+            if ((!imgInfo.greyscale) && (ChunkHelper.maskMatch(paramInt, 8)))
+              k = 1;
+          }
+        } else {
+          boolean bool1 = localPngChunk instanceof PngChunkTextVar;
+          boolean bool2 = safe;
+          
+          if (ChunkHelper.maskMatch(paramInt, 8))
+            k = 1;
+          if ((bool2) && (ChunkHelper.maskMatch(paramInt, 4)))
+            k = 1;
+          if ((id.equals("tRNS")) && 
+            (ChunkHelper.maskMatch(paramInt, 64)))
+            k = 1;
+          if ((id.equals("pHYs")) && (ChunkHelper.maskMatch(paramInt, 16)))
+            k = 1;
+          if ((bool1) && (ChunkHelper.maskMatch(paramInt, 32)))
+            k = 1;
+          if ((ChunkHelper.maskMatch(paramInt, 256)) && 
+            (!ChunkHelper.isUnknown(localPngChunk)) && (!bool1) && (!id.equals("hIST")) && 
+            (!id.equals("tIME")))
+            k = 1;
+          if ((localPngChunk instanceof PngChunkSkipped))
+            k = 0;
+        }
+        if (k != 0) {
+          chunksList.queue(PngChunk.cloneChunk(localPngChunk, imgInfo));
+        }
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public void copyChunksFirst(PngReader paramPngReader, int paramInt)
+  {
+    copyChunks(paramPngReader, paramInt, false);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public void copyChunksLast(PngReader paramPngReader, int paramInt)
+  {
+    copyChunks(paramPngReader, paramInt, true);
+  }
+  
+
+
+
+
+
+
+
+  public double computeCompressionRatio()
+  {
+    if (currentChunkGroup < 6)
+      throw new PngjOutputException("must be called after end()");
+    double d1 = datStream.getCountFlushed();
+    double d2 = (imgInfo.bytesPerRow + 1) * imgInfo.rows;
+    return d1 / d2;
+  }
+  
+
+
+
+  public void end()
+  {
+    if (rowNum != imgInfo.rows - 1)
+      throw new PngjOutputException("all rows have not been written");
+    try {
+      datStreamDeflated.finish();
+      datStream.flush();
+      writeLastChunks();
+      writeEndChunk();
+      if (shouldCloseStream)
+        os.close();
+    } catch (IOException localIOException) {
+      throw new PngjOutputException(localIOException);
+    }
+  }
+  
+
+
+  public ChunksListForWrite getChunksList()
+  {
+    return chunksList;
+  }
+  
+
+
+  public String getFilename()
+  {
+    return filename;
+  }
+  
+
+
+  public PngMetadata getMetadata()
+  {
+    return metadata;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public void setCompLevel(int paramInt)
+  {
+    if ((paramInt < 0) || (paramInt > 9))
+      throw new PngjOutputException("Compression level invalid (" + paramInt + ") Must be 0..9");
+    compLevel = paramInt;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public void setFilterType(FilterType paramFilterType)
+  {
+    filterStrat = new FilterWriteStrategy(imgInfo, paramFilterType);
+  }
+  
+
+
+
+
+
+
+
+  public void setIdatMaxSize(int paramInt)
+  {
+    idatMaxSize = paramInt;
+  }
+  
+
+
+
+
+  public void setShouldCloseStream(boolean paramBoolean)
+  {
+    shouldCloseStream = paramBoolean;
+  }
+  
+
+
+
+
+
+  public void setDeflaterStrategy(int paramInt)
+  {
+    deflaterStrategy = paramInt;
+  }
+  
+
+
+  /**
+   * @deprecated
+   */
+  public void writeRow(ImageLine paramImageLine)
+  {
+    writeRow(scanline, paramImageLine.getRown());
+  }
+  
+
+
+
+
+
+
+  public void writeRow(ImageLine paramImageLine, int paramInt)
+  {
+    unpackedMode = samplesUnpacked;
+    if (sampleType == ImageLine.SampleType.INT) {
+      writeRowInt(scanline, paramInt);
+    } else {
+      writeRowByte(scanlineb, paramInt);
+    }
+  }
+  
+
+
+
+  public void writeRow(int[] paramArrayOfInt)
+  {
+    writeRow(paramArrayOfInt, -1);
+  }
+  
+
+
+
+
+  public void writeRow(int[] paramArrayOfInt, int paramInt)
+  {
+    writeRowInt(paramArrayOfInt, paramInt);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void writeRowInt(int[] paramArrayOfInt, int paramInt)
+  {
+    prepareEncodeRow(paramInt);
+    encodeRowFromInt(paramArrayOfInt);
+    filterAndSend(paramInt);
+  }
+  
+
+
+
+
+
+
+  public void writeRowByte(byte[] paramArrayOfByte, int paramInt)
+  {
+    prepareEncodeRow(paramInt);
+    encodeRowFromByte(paramArrayOfByte);
+    filterAndSend(paramInt);
+  }
+  
+
+
+  public void writeRowsInt(int[][] paramArrayOfInt)
+  {
+    for (int i = 0; i < imgInfo.rows; i++) {
+      writeRowInt(paramArrayOfInt[i], i);
+    }
+  }
+  
+
+  public void writeRowsByte(byte[][] paramArrayOfByte)
+  {
+    for (int i = 0; i < imgInfo.rows; i++)
+      writeRowByte(paramArrayOfByte[i], i);
+  }
+  
+  public boolean isUnpackedMode() {
+    return unpackedMode;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public void setUseUnPackedMode(boolean paramBoolean)
+  {
+    unpackedMode = paramBoolean;
+  }
+}

@@ -1,0 +1,368 @@
+package jogamp.nativewindow;
+
+import com.jogamp.common.util.locks.LockFactory;
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.ProxySurface;
+import com.jogamp.nativewindow.SurfaceUpdatedListener;
+import com.jogamp.nativewindow.UpstreamSurfaceHook;
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class ProxySurfaceImpl
+  implements ProxySurface
+{
+  private final SurfaceUpdatedHelper surfaceUpdatedHelper = new SurfaceUpdatedHelper();
+  private AbstractGraphicsConfiguration config;
+  private UpstreamSurfaceHook upstream;
+  private long surfaceHandle_old;
+  private final RecursiveLock surfaceLock = LockFactory.createRecursiveLock();
+  
+
+  private int implBitfield;
+  
+
+  private boolean upstreamSurfaceHookLifecycleEnabled;
+  
+
+
+  protected ProxySurfaceImpl(AbstractGraphicsConfiguration paramAbstractGraphicsConfiguration, UpstreamSurfaceHook paramUpstreamSurfaceHook, boolean paramBoolean)
+  {
+    if (null == paramAbstractGraphicsConfiguration) {
+      throw new IllegalArgumentException("null AbstractGraphicsConfiguration");
+    }
+    if (null == paramUpstreamSurfaceHook) {
+      throw new IllegalArgumentException("null UpstreamSurfaceHook");
+    }
+    config = paramAbstractGraphicsConfiguration;
+    upstream = paramUpstreamSurfaceHook;
+    surfaceHandle_old = 0L;
+    implBitfield = 0;
+    upstreamSurfaceHookLifecycleEnabled = true;
+    if (paramBoolean) {
+      addUpstreamOptionBits(128);
+    }
+  }
+  
+  public final NativeSurface getUpstreamSurface()
+  {
+    return upstream.getUpstreamSurface();
+  }
+  
+  public final UpstreamSurfaceHook getUpstreamSurfaceHook() {
+    return upstream;
+  }
+  
+  public void setUpstreamSurfaceHook(UpstreamSurfaceHook paramUpstreamSurfaceHook) {
+    if (null == paramUpstreamSurfaceHook) {
+      throw new IllegalArgumentException("null UpstreamSurfaceHook");
+    }
+    upstream = paramUpstreamSurfaceHook;
+  }
+  
+  public final void enableUpstreamSurfaceHookLifecycle(boolean paramBoolean)
+  {
+    upstreamSurfaceHookLifecycleEnabled = paramBoolean;
+  }
+  
+  public void createNotify()
+  {
+    if (upstreamSurfaceHookLifecycleEnabled) {
+      upstream.create(this);
+    }
+    surfaceHandle_old = 0L;
+  }
+  
+  public void destroyNotify()
+  {
+    if (upstreamSurfaceHookLifecycleEnabled) {
+      upstream.destroy(this);
+      if (containsUpstreamOptionBits(128)) {
+        AbstractGraphicsDevice localAbstractGraphicsDevice = getGraphicsConfiguration().getScreen().getDevice();
+        localAbstractGraphicsDevice.close();
+        clearUpstreamOptionBits(128);
+      }
+      invalidateImpl();
+    }
+    surfaceHandle_old = 0L;
+  }
+  
+
+
+
+  protected void invalidateImpl()
+  {
+    throw new InternalError("UpstreamSurfaceHook given, but required method not implemented.");
+  }
+  
+  public final AbstractGraphicsConfiguration getGraphicsConfiguration()
+  {
+    return config.getNativeGraphicsConfiguration();
+  }
+  
+  public final long getDisplayHandle()
+  {
+    return config.getNativeGraphicsConfiguration().getScreen().getDevice().getHandle();
+  }
+  
+  public final void setGraphicsConfiguration(AbstractGraphicsConfiguration paramAbstractGraphicsConfiguration)
+  {
+    config = paramAbstractGraphicsConfiguration;
+  }
+  
+  public final int getScreenIndex()
+  {
+    return getGraphicsConfiguration().getScreen().getIndex();
+  }
+  
+
+  public abstract long getSurfaceHandle();
+  
+
+  public abstract void setSurfaceHandle(long paramLong);
+  
+  public final int getSurfaceWidth()
+  {
+    return upstream.getSurfaceWidth(this);
+  }
+  
+  public final int getSurfaceHeight()
+  {
+    return upstream.getSurfaceHeight(this);
+  }
+  
+  public boolean surfaceSwap()
+  {
+    return false;
+  }
+  
+  public void addSurfaceUpdatedListener(SurfaceUpdatedListener paramSurfaceUpdatedListener)
+  {
+    surfaceUpdatedHelper.addSurfaceUpdatedListener(paramSurfaceUpdatedListener);
+  }
+  
+  public void addSurfaceUpdatedListener(int paramInt, SurfaceUpdatedListener paramSurfaceUpdatedListener) throws IndexOutOfBoundsException
+  {
+    surfaceUpdatedHelper.addSurfaceUpdatedListener(paramInt, paramSurfaceUpdatedListener);
+  }
+  
+  public void removeSurfaceUpdatedListener(SurfaceUpdatedListener paramSurfaceUpdatedListener)
+  {
+    surfaceUpdatedHelper.removeSurfaceUpdatedListener(paramSurfaceUpdatedListener);
+  }
+  
+  public void surfaceUpdated(Object paramObject, NativeSurface paramNativeSurface, long paramLong)
+  {
+    surfaceUpdatedHelper.surfaceUpdated(paramObject, paramNativeSurface, paramLong);
+  }
+  
+  public int lockSurface() throws NativeWindowException, RuntimeException
+  {
+    surfaceLock.lock();
+    int i = surfaceLock.getHoldCount() == 1 ? 1 : 3;
+    
+    if (1 == i) {
+      try {
+        AbstractGraphicsDevice localAbstractGraphicsDevice = getGraphicsConfiguration().getScreen().getDevice();
+        localAbstractGraphicsDevice.lock();
+        try {
+          i = lockSurfaceImpl();
+          if ((3 == i) && (surfaceHandle_old != getSurfaceHandle())) {
+            i = 2;
+            if (DEBUG) {
+              System.err.println("ProxySurfaceImpl: surface change 0x" + Long.toHexString(surfaceHandle_old) + " -> 0x" + Long.toHexString(getSurfaceHandle()));
+            }
+          }
+          
+
+          if (1 >= i) {
+            localAbstractGraphicsDevice.unlock();
+          }
+        }
+        finally
+        {
+          if (1 >= i) {
+            localAbstractGraphicsDevice.unlock();
+          }
+        }
+      } finally {
+        if (1 >= i) {
+          surfaceLock.unlock();
+        }
+      }
+    }
+    return i;
+  }
+  
+  public final void unlockSurface()
+  {
+    surfaceLock.validateLocked();
+    surfaceHandle_old = getSurfaceHandle();
+    AbstractGraphicsDevice localAbstractGraphicsDevice;
+    if (surfaceLock.getHoldCount() == 1)
+      localAbstractGraphicsDevice = getGraphicsConfiguration().getScreen().getDevice();
+    try {
+      unlockSurfaceImpl();
+      
+      localAbstractGraphicsDevice.unlock(); } finally { localAbstractGraphicsDevice.unlock();
+    }
+  }
+  
+
+  protected abstract int lockSurfaceImpl();
+  
+  protected abstract void unlockSurfaceImpl();
+  
+  public final void validateSurfaceLocked()
+  {
+    surfaceLock.validateLocked();
+  }
+  
+  public final boolean isSurfaceLockedByOtherThread()
+  {
+    return surfaceLock.isLockedByOtherThread();
+  }
+  
+  public final Thread getSurfaceLockOwner()
+  {
+    return surfaceLock.getOwner();
+  }
+  
+  public final StringBuilder getUpstreamOptionBits(StringBuilder paramStringBuilder)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    paramStringBuilder.append("UOB[ ");
+    if (0 == implBitfield) {
+      paramStringBuilder.append("]");
+      return paramStringBuilder;
+    }
+    int i = 0;
+    if (0 != (implBitfield & 0x40)) {
+      paramStringBuilder.append("OWNS_SURFACE");
+      i = 1;
+    }
+    if (0 != (implBitfield & 0x80)) {
+      if (i != 0) {
+        paramStringBuilder.append(" | ");
+      }
+      paramStringBuilder.append("OWNS_DEVICE");
+      i = 1;
+    }
+    if (0 != (implBitfield & 0x100)) {
+      if (i != 0) {
+        paramStringBuilder.append(" | ");
+      }
+      paramStringBuilder.append("WINDOW_INVISIBLE");
+      i = 1;
+    }
+    if (0 != (implBitfield & 0x200)) {
+      if (i != 0) {
+        paramStringBuilder.append(" | ");
+      }
+      paramStringBuilder.append("SURFACELESS");
+      i = 1;
+    }
+    paramStringBuilder.append(" ]");
+    return paramStringBuilder;
+  }
+  
+  public final int getUpstreamOptionBits() {
+    return implBitfield;
+  }
+  
+  public final boolean containsUpstreamOptionBits(int paramInt) {
+    return paramInt == (implBitfield & paramInt);
+  }
+  
+  public final void addUpstreamOptionBits(int paramInt) {
+    implBitfield |= paramInt;
+  }
+  
+  public final void clearUpstreamOptionBits(int paramInt) { implBitfield &= (paramInt ^ 0xFFFFFFFF); }
+  
+  public static void dumpHierarchy(PrintStream paramPrintStream, ProxySurface paramProxySurface) {
+    paramPrintStream.println("Surface Hierarchy of " + paramProxySurface.getClass().getName());
+    dumpHierarchy(paramPrintStream, paramProxySurface, "");
+    paramPrintStream.println();
+  }
+  
+  private static void dumpHierarchy(PrintStream paramPrintStream, NativeSurface paramNativeSurface, String paramString) { paramString = paramString + "  ";
+    paramPrintStream.println(paramString + "Surface device " + paramNativeSurface.getGraphicsConfiguration().getScreen().getDevice());
+    paramPrintStream.println(paramString + "Surface size " + paramNativeSurface.getSurfaceWidth() + "x" + paramNativeSurface.getSurfaceHeight() + ", handle 0x" + Long.toHexString(paramNativeSurface.getSurfaceHandle()));
+    if ((paramNativeSurface instanceof ProxySurfaceImpl)) {
+      ProxySurface localProxySurface = (ProxySurface)paramNativeSurface;
+      paramPrintStream.println(paramString + "Upstream options " + localProxySurface.getUpstreamOptionBits(null).toString());
+      
+      UpstreamSurfaceHook localUpstreamSurfaceHook = localProxySurface.getUpstreamSurfaceHook();
+      if (null != localUpstreamSurfaceHook) {
+        paramPrintStream.println(paramString + "Upstream Hook " + localUpstreamSurfaceHook.getClass().getName());
+        NativeSurface localNativeSurface = localUpstreamSurfaceHook.getUpstreamSurface();
+        paramString = paramString + "  ";
+        if (null != localNativeSurface) {
+          paramPrintStream.println(paramString + "Upstream Hook's Surface " + localNativeSurface.getClass().getName());
+          dumpHierarchy(paramPrintStream, localNativeSurface, paramString);
+        } else {
+          paramPrintStream.println(paramString + "Upstream Hook's Surface NULL");
+        }
+      }
+    }
+  }
+  
+  public StringBuilder toString(StringBuilder paramStringBuilder)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    
+
+    paramStringBuilder.append("displayHandle 0x" + Long.toHexString(getDisplayHandle())).append("\n, surfaceHandle 0x" + Long.toHexString(getSurfaceHandle())).append("\n, size " + getSurfaceWidth() + "x" + getSurfaceHeight()).append("\n, ");
+    getUpstreamOptionBits(paramStringBuilder);
+    paramStringBuilder.append("\n, " + config)
+      .append("\n, surfaceLock " + surfaceLock + "\n, ")
+      .append(getUpstreamSurfaceHook())
+      .append("\n, upstreamSurface " + (null != getUpstreamSurface()));
+    
+    return paramStringBuilder;
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append(getClass().getSimpleName()).append("[ ");
+    toString(localStringBuilder);
+    localStringBuilder.append(" ]");
+    return localStringBuilder.toString();
+  }
+}

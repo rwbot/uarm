@@ -1,0 +1,100 @@
+package jogamp.nativewindow.windows;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.StructAccessor;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import java.nio.ByteBuffer;
+import jogamp.common.os.MachineDataInfoRuntime;
+
+
+
+
+
+
+
+
+
+
+public class DWM_BLURBEHIND
+{
+  StructAccessor accessor;
+  private static final int mdIdx = MachineDataInfoRuntime.getStatic().ordinal();
+  
+  private final MachineDataInfo md;
+  private static final int[] DWM_BLURBEHIND_size = { 16, 16, 16, 16, 16, 16, 24, 24 };
+  private static final int[] dwFlags_offset = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  
+  private static final int[] fEnable_offset = { 4, 4, 4, 4, 4, 4, 4, 4 };
+  
+  private static final int[] hRgnBlur_offset = { 8, 8, 8, 8, 8, 8, 8, 8 };
+  
+  private static final int[] fTransitionOnMaximized_offset = { 12, 12, 12, 12, 12, 12, 16, 16 };
+  
+  public static int size()
+  {
+    return DWM_BLURBEHIND_size[mdIdx];
+  }
+  
+  public static DWM_BLURBEHIND create() {
+    return create(Buffers.newDirectByteBuffer(size()));
+  }
+  
+  public static DWM_BLURBEHIND create(ByteBuffer paramByteBuffer) {
+    return new DWM_BLURBEHIND(paramByteBuffer);
+  }
+  
+  DWM_BLURBEHIND(ByteBuffer paramByteBuffer) {
+    md = valuesmdIdxmd;
+    accessor = new StructAccessor(paramByteBuffer);
+  }
+  
+  public ByteBuffer getBuffer() {
+    return accessor.getBuffer();
+  }
+  
+  public DWM_BLURBEHIND setDwFlags(int paramInt)
+  {
+    accessor.setIntAt(dwFlags_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getDwFlags()
+  {
+    return accessor.getIntAt(dwFlags_offset[mdIdx]);
+  }
+  
+  public DWM_BLURBEHIND setFEnable(int paramInt)
+  {
+    accessor.setIntAt(fEnable_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getFEnable()
+  {
+    return accessor.getIntAt(fEnable_offset[mdIdx]);
+  }
+  
+  public DWM_BLURBEHIND setHRgnBlur(long paramLong)
+  {
+    accessor.setLongAt(hRgnBlur_offset[mdIdx], paramLong, md.pointerSizeInBytes());
+    return this;
+  }
+  
+  public long getHRgnBlur()
+  {
+    return accessor.getLongAt(hRgnBlur_offset[mdIdx], md.pointerSizeInBytes());
+  }
+  
+
+  public DWM_BLURBEHIND setFTransitionOnMaximized(int paramInt)
+  {
+    accessor.setIntAt(fTransitionOnMaximized_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getFTransitionOnMaximized()
+  {
+    return accessor.getIntAt(fTransitionOnMaximized_offset[mdIdx]);
+  }
+}

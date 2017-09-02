@@ -1,0 +1,138 @@
+package com.jogamp.common.net;
+
+import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class UriQueryProps
+{
+  private static final String QMARK = "?";
+  private static final char ASSIG = '=';
+  private static final String EMPTY = "";
+  private final String query_separator;
+  private final HashMap<String, String> properties = new HashMap();
+  
+  private UriQueryProps(char paramChar) {
+    query_separator = String.valueOf(paramChar);
+  }
+  
+  public final Map<String, String> getProperties() { return properties; }
+  public final char getQuerySeparator() { return query_separator.charAt(0); }
+  
+  public final Uri.Encoded appendQuery(Uri.Encoded paramEncoded) {
+    int i = 0;
+    StringBuilder localStringBuilder = new StringBuilder();
+    if (null != paramEncoded) {
+      if (paramEncoded.startsWith("?")) {
+        paramEncoded = paramEncoded.substring(1);
+      }
+      localStringBuilder.append(paramEncoded.get());
+      if (!paramEncoded.endsWith(query_separator)) {
+        i = 1;
+      }
+    }
+    Iterator localIterator = properties.entrySet().iterator();
+    while (localIterator.hasNext()) {
+      if (i != 0) {
+        localStringBuilder.append(query_separator);
+      }
+      Map.Entry localEntry = (Map.Entry)localIterator.next();
+      localStringBuilder.append((String)localEntry.getKey());
+      if ("" != localEntry.getValue()) {
+        localStringBuilder.append('=').append((String)localEntry.getValue());
+      }
+      i = 1;
+    }
+    return new Uri.Encoded(localStringBuilder.toString(), "_-.~,;:$&+=!*'()@/?[]\\\"");
+  }
+  
+  public final Uri appendQuery(Uri paramUri) throws URISyntaxException {
+    return paramUri.getNewQuery(appendQuery(query));
+  }
+  
+
+
+
+
+
+  public static final UriQueryProps create(Uri paramUri, char paramChar)
+    throws IllegalArgumentException
+  {
+    if ((';' != paramChar) && ('&' != paramChar)) {
+      throw new IllegalArgumentException("querySeparator is invalid: " + paramChar);
+    }
+    UriQueryProps localUriQueryProps = new UriQueryProps(paramChar);
+    String str1 = Uri.decode(query);
+    int i = null != str1 ? str1.length() : -1;
+    int j = -1;
+    while (j < i) {
+      int k = j + 1;
+      j = str1.indexOf(paramChar, k);
+      if (0 != j)
+      {
+
+
+        if (0 > j)
+        {
+          j = i;
+        }
+        
+        String str2 = str1.substring(k, j);
+        int m = str2.indexOf('=');
+        if (0 < m)
+        {
+          String str3 = str2.substring(0, m);
+          String str4 = str2.substring(m + 1);
+          properties.put(str3, str4);
+        }
+        else {
+          properties.put(str2, "");
+        }
+      } }
+    return localUriQueryProps;
+  }
+}

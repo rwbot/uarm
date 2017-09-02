@@ -1,0 +1,86 @@
+package g4p_controls;
+
+public enum GAlign
+{
+  INVALID(0, "INVALID", "Invalid alignment"),  LEFT(1, "LEFT", "Left align text"),  CENTER(2, "CENTER", "Centre text horizontally"),  RIGHT(4, "RIGHT", "Right align text"),  JUSTIFY(8, "JUSTIFY", "Justify text"),  TOP(16, "TOP", "Align text to to top"),  MIDDLE(32, "MIDDLE", "Centre text vertically"),  BOTTOM(64, "BOTTOM", "Align text to bottom"),  SOUTH(256, "SOUTH", "Place icon below text"),  NORTH(512, "NORTH", "Place icon above text"),  WEST(1024, "WEST", "Place icon left of text"),  EAST(2048, "WEST", "Place icon right of text");
+  
+  private int alignID;
+  private String alignText;
+  private String description;
+  
+  public static GAlign getFromText(String paramString)
+  {
+    paramString = paramString.toUpperCase();
+    if (paramString.equals("LEFT")) {
+      return LEFT;
+    }
+    if (paramString.equals("CENTER")) {
+      return CENTER;
+    }
+    if (paramString.equals("RIGHT")) {
+      return RIGHT;
+    }
+    if (paramString.equals("JUSTIFY")) {
+      return JUSTIFY;
+    }
+    if (paramString.equals("TOP")) {
+      return TOP;
+    }
+    if (paramString.equals("MIDDLE")) {
+      return MIDDLE;
+    }
+    if (paramString.equals("BOTTOM")) {
+      return BOTTOM;
+    }
+    if (paramString.equals("SOUTH")) {
+      return SOUTH;
+    }
+    if (paramString.equals("NORTH")) {
+      return NORTH;
+    }
+    if (paramString.equals("WEST")) {
+      return WEST;
+    }
+    if (paramString.equals("EAST")) {
+      return EAST;
+    }
+    return INVALID;
+  }
+  
+  private GAlign(int paramInt, String paramString1, String paramString2)
+  {
+    alignID = paramInt;
+    alignText = paramString1;
+    description = paramString2;
+  }
+  
+  public String getTextID()
+  {
+    return alignText;
+  }
+  
+  public String getDesc()
+  {
+    return description;
+  }
+  
+  public boolean isHorzAlign()
+  {
+    return (alignID & 0xF) != 0;
+  }
+  
+  public boolean isVertAlign()
+  {
+    return (alignID & 0xF0) != 0;
+  }
+  
+  public boolean isPosAlign()
+  {
+    return (alignID & 0xF00) != 0;
+  }
+  
+  public String toString()
+  {
+    return "ID = " + alignText + " {" + alignID + "}  " + description;
+  }
+}

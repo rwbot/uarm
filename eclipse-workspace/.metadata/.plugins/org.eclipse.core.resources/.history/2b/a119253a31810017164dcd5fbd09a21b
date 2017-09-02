@@ -1,0 +1,99 @@
+package jogamp.opengl.glu.mipmap;
+
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Extract1010102
+  implements Extract
+{
+  public Extract1010102() {}
+  
+  public void extract(boolean paramBoolean, ByteBuffer paramByteBuffer, float[] paramArrayOfFloat)
+  {
+    long l = 0L;
+    
+    if (paramBoolean) {
+      l = 0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+    } else {
+      l = 0xFFFFFFFF & paramByteBuffer.getInt();
+    }
+    
+
+
+
+
+
+    paramArrayOfFloat[0] = ((float)((l & 0xFFFFFFFFFFC00000) >> 22) / 1023.0F);
+    paramArrayOfFloat[1] = ((float)((l & 0x3FF000) >> 12) / 1023.0F);
+    paramArrayOfFloat[2] = ((float)((l & 0xFFC) >> 2) / 1023.0F);
+    paramArrayOfFloat[3] = ((float)(l & 0x3) / 3.0F);
+  }
+  
+
+
+
+
+
+  public void shove(float[] paramArrayOfFloat, int paramInt, ByteBuffer paramByteBuffer)
+  {
+    assert ((0.0F <= paramArrayOfFloat[0]) && (paramArrayOfFloat[0] <= 1.0F));
+    assert ((0.0F <= paramArrayOfFloat[1]) && (paramArrayOfFloat[1] <= 1.0F));
+    assert ((0.0F <= paramArrayOfFloat[2]) && (paramArrayOfFloat[2] <= 1.0F));
+    assert ((0.0F <= paramArrayOfFloat[3]) && (paramArrayOfFloat[3] <= 1.0F));
+    
+
+    long l = (int)(paramArrayOfFloat[0] * 1023.0F + 0.5F) << 22 & 0xFFC00000;
+    l |= (int)(paramArrayOfFloat[1] * 1023.0F + 0.5F) << 12 & 0x3FF000;
+    l |= (int)(paramArrayOfFloat[2] * 1023.0F + 0.5F) << 2 & 0xFFC;
+    l |= (int)(paramArrayOfFloat[3] * 3.0F + 0.5F) & 0x3;
+    paramByteBuffer.asIntBuffer().put(paramInt, (int)l);
+  }
+}

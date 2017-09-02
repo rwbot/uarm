@@ -1,0 +1,67 @@
+package com.jogamp.common.net;
+
+import java.net.URL;
+import java.net.URLStreamHandler;
+import java.net.URLStreamHandlerFactory;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.Map;
+
+public class GenericURLStreamHandlerFactory implements URLStreamHandlerFactory
+{
+  private static GenericURLStreamHandlerFactory factory = null;
+  private final Map<String, URLStreamHandler> protocolHandlers;
+  
+  private GenericURLStreamHandlerFactory()
+  {
+    protocolHandlers = new java.util.HashMap();
+  }
+  
+
+
+
+
+  public final synchronized URLStreamHandler setHandler(String paramString, URLStreamHandler paramURLStreamHandler)
+  {
+    return (URLStreamHandler)protocolHandlers.put(paramString, paramURLStreamHandler);
+  }
+  
+
+
+
+  public final synchronized URLStreamHandler getHandler(String paramString)
+  {
+    return (URLStreamHandler)protocolHandlers.get(paramString);
+  }
+  
+  public final synchronized URLStreamHandler createURLStreamHandler(String paramString)
+  {
+    return getHandler(paramString);
+  }
+  
+
+
+
+
+
+
+  public static synchronized GenericURLStreamHandlerFactory register()
+  {
+    if (null == factory)
+      factory = (GenericURLStreamHandlerFactory)AccessController.doPrivileged(new PrivilegedAction()
+      {
+        public GenericURLStreamHandlerFactory run() {
+          int i = 0;
+          GenericURLStreamHandlerFactory localGenericURLStreamHandlerFactory = new GenericURLStreamHandlerFactory(null);
+          try {
+            URL.setURLStreamHandlerFactory(localGenericURLStreamHandlerFactory);
+            i = 1;
+          } catch (Throwable localThrowable) {
+            System.err.println("GenericURLStreamHandlerFactory: Setting URLStreamHandlerFactory failed: " + localThrowable.getMessage());
+          }
+          return i != 0 ? localGenericURLStreamHandlerFactory : null;
+        }
+      });
+    return factory;
+  }
+}

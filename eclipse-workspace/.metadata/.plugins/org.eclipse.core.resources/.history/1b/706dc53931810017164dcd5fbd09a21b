@@ -1,0 +1,315 @@
+package g4p_controls;
+
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import processing.core.PApplet;
+
+public final class GGroup
+  extends GAbstractControl
+{
+  private static final int INVALID_ACTION = 0;
+  private static final int ALPHA_TO = 1;
+  private static final int ENABLE = 2;
+  private static final int VISIBLE = 3;
+  private static final int COLOR_SCHEME = 4;
+  private List<Action> actions = new LinkedList();
+  private int cTime;
+  private int lTime;
+  private int eTime;
+  private int currentAlpha = 255;
+  private int targetAlpha = 255;
+  private float alpha = 255.0F;
+  private float speed = 255.0F;
+  
+  public GGroup(PApplet paramPApplet)
+  {
+    this(paramPApplet, 255);
+  }
+  
+  public GGroup(PApplet paramPApplet, int paramInt)
+  {
+    super(paramPApplet);
+    paramInt &= 0xFF;
+    currentAlpha = (this.targetAlpha = paramInt);
+    children = new LinkedList();
+    registeredMethods = 4;
+    cTime = (this.lTime = this.eTime = 0);
+    G4P.registerControl(this);
+  }
+  
+  public GGroup(GWindow paramGWindow)
+  {
+    this(paramGWindow, 255);
+  }
+  
+  public void fadeOut(int paramInt1, int paramInt2)
+  {
+    actions.add(new Action(1, paramInt1, new Object[] { Integer.valueOf(0), Integer.valueOf(paramInt2) }));
+  }
+  
+  public void fadeIn(int paramInt1, int paramInt2)
+  {
+    actions.add(new Action(1, paramInt1, new Object[] { Integer.valueOf(255), Integer.valueOf(paramInt2) }));
+  }
+  
+  public void fadeTo(int paramInt1, int paramInt2, int paramInt3)
+  {
+    paramInt3 &= 0xFF;
+    actions.add(new Action(1, paramInt1, new Object[] { Integer.valueOf(paramInt3), Integer.valueOf(paramInt2) }));
+  }
+  
+  public void setEnabled(int paramInt, boolean paramBoolean)
+  {
+    actions.add(new Action(2, paramInt, new Object[] { Boolean.valueOf(paramBoolean) }));
+  }
+  
+  public boolean isFading()
+  {
+    return currentAlpha != targetAlpha;
+  }
+  
+  public int timeLeftFading()
+  {
+    if (currentAlpha == targetAlpha) {
+      return 0;
+    }
+    return Math.round((targetAlpha - currentAlpha) / speed);
+  }
+  
+  public void setEnabled(boolean paramBoolean)
+  {
+    setEnabled(0, paramBoolean);
+  }
+  
+  public void setVisible(int paramInt, boolean paramBoolean)
+  {
+    actions.add(new Action(3, paramInt, new Object[] { Boolean.valueOf(paramBoolean) }));
+  }
+  
+  public void setVisible(boolean paramBoolean)
+  {
+    setEnabled(0, paramBoolean);
+  }
+  
+  public void setLocalColorScheme(int paramInt)
+  {
+    setLocalColorScheme(0, paramInt);
+  }
+  
+  public void setLocalColorScheme(int paramInt1, int paramInt2)
+  {
+    paramInt2 &= 0xF;
+    actions.add(new Action(4, paramInt1, new Object[] { Integer.valueOf(paramInt2) }));
+  }
+  
+  public void pre()
+  {
+    if (lTime == 0)
+    {
+      cTime = (this.lTime = (int)System.currentTimeMillis());
+      return;
+    }
+    lTime = cTime;
+    cTime = ((int)System.currentTimeMillis());
+    eTime = (cTime - lTime);
+    if (currentAlpha != targetAlpha) {
+      peformFading();
+    }
+    if (!actions.isEmpty()) {
+      processActions();
+    }
+  }
+  
+  private void peformFading()
+  {
+    float f = alpha + eTime * speed;
+    f = f < 0.0F ? 0.0F : f;
+    f = f > 255.0F ? 255.0F : f;
+    if ((alpha - targetAlpha) * (f - targetAlpha) <= 0.0F) {
+      currentAlpha = targetAlpha;
+    } else {
+      currentAlpha = ((int)f);
+    }
+    alphaImpl(currentAlpha);
+    alpha = f;
+  }
+  
+  private void processActions()
+  {
+    Iterator localIterator = actions.iterator();
+    while (localIterator.hasNext())
+    {
+      Action localAction = (Action)localIterator.next();
+      delay -= eTime;
+      if (delay <= 0L)
+      {
+        localIterator.remove();
+        switch (type)
+        {
+        case 3: 
+          visibleImpl(bool);
+          break;
+        case 2: 
+          enableImpl(bool);
+          break;
+        case 4: 
+          colorImpl(target);
+          break;
+        case 1: 
+          if (duration <= 0)
+          {
+            alphaImpl(target);
+          }
+          else
+          {
+            speed = ((target - currentAlpha) / duration);
+            alpha = currentAlpha;
+            targetAlpha = target;
+          }
+          break;
+        }
+      }
+    }
+  }
+  
+  private void alphaImpl(int paramInt)
+  {
+    Iterator localIterator = children.iterator();
+    while (localIterator.hasNext())
+    {
+      GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+      localGAbstractControl.setAlpha(paramInt, true);
+    }
+  }
+  
+  private void colorImpl(int paramInt)
+  {
+    paramInt &= 0xFF;
+    Iterator localIterator = children.iterator();
+    while (localIterator.hasNext())
+    {
+      GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+      localGAbstractControl.setLocalColorScheme(paramInt, true);
+    }
+  }
+  
+  private void enableImpl(boolean paramBoolean)
+  {
+    Iterator localIterator = children.iterator();
+    while (localIterator.hasNext())
+    {
+      GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+      localGAbstractControl.setEnabled(paramBoolean);
+    }
+  }
+  
+  private void visibleImpl(boolean paramBoolean)
+  {
+    Iterator localIterator = children.iterator();
+    while (localIterator.hasNext())
+    {
+      GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+      localGAbstractControl.setVisible(paramBoolean);
+    }
+  }
+  
+  public void addControls(GAbstractControl... paramVarArgs)
+  {
+    if (paramVarArgs != null) {
+      for (GAbstractControl localGAbstractControl : paramVarArgs) {
+        addControl(localGAbstractControl);
+      }
+    }
+  }
+  
+  public void addControl(GAbstractControl paramGAbstractControl)
+  {
+    if (paramGAbstractControl != null)
+    {
+      if (!paramGAbstractControl.isSuitableForGroupControl(paramGAbstractControl))
+      {
+        GMessenger.message(Integer.valueOf(-16777213), new Object[] { this, paramGAbstractControl });
+        return;
+      }
+      if (winApp != winApp)
+      {
+        GMessenger.message(Integer.valueOf(-16777212), new Object[] { this, paramGAbstractControl });
+        return;
+      }
+      paramGAbstractControl.setAlpha(currentAlpha, true);
+      children.add(paramGAbstractControl);
+    }
+  }
+  
+  public void removeControls(GAbstractControl... paramVarArgs)
+  {
+    if (paramVarArgs != null) {
+      for (GAbstractControl localGAbstractControl : paramVarArgs) {
+        removeControl(localGAbstractControl);
+      }
+    }
+  }
+  
+  public void removeControl(GAbstractControl paramGAbstractControl)
+  {
+    if (paramGAbstractControl != null) {
+      children.remove(paramGAbstractControl);
+    }
+  }
+  
+  private class Action
+  {
+    int type;
+    long delay = 0L;
+    int duration = 0;
+    boolean bool = false;
+    int target = 0;
+    
+    public Action(int paramInt, long paramLong, Object... paramVarArgs)
+    {
+      type = paramInt;
+      delay = paramLong;
+      switch (paramInt)
+      {
+      case 2: 
+      case 3: 
+        bool = ((Boolean)paramVarArgs[0]).booleanValue();
+        break;
+      case 4: 
+        target = ((Integer)paramVarArgs[0]).intValue();
+        break;
+      case 1: 
+        target = ((Integer)paramVarArgs[0]).intValue();
+        duration = ((Integer)paramVarArgs[1]).intValue();
+        break;
+      default: 
+        type = 0;
+      }
+    }
+    
+    public String toString()
+    {
+      StringBuilder localStringBuilder = new StringBuilder();
+      switch (type)
+      {
+      case 3: 
+        localStringBuilder.append("VISIBLE       ");
+        break;
+      case 2: 
+        localStringBuilder.append("ENABLE        ");
+        break;
+      case 4: 
+        localStringBuilder.append("COLOR_SCHEME  ");
+        break;
+      case 1: 
+        localStringBuilder.append("ALPHA_TO   over  ");
+        localStringBuilder.append(duration + " millis  ");
+        break;
+      default: 
+        localStringBuilder.append("INVALID       ");
+      }
+      return localStringBuilder.toString();
+    }
+  }
+}

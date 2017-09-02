@@ -1,0 +1,46 @@
+package jogamp.opengl.util.pngj.chunks;
+
+import jogamp.opengl.util.pngj.ImageInfo;
+import jogamp.opengl.util.pngj.PngHelperInternal;
+import jogamp.opengl.util.pngj.PngjException;
+
+
+
+public class PngChunkTEXT
+  extends PngChunkTextVar
+{
+  public static final String ID = "tEXt";
+  
+  public PngChunkTEXT(ImageInfo paramImageInfo)
+  {
+    super("tEXt", paramImageInfo);
+  }
+  
+  public ChunkRaw createRawChunk()
+  {
+    if (key.isEmpty())
+      throw new PngjException("Text chunk key must be non empty");
+    byte[] arrayOfByte = (key + "\000" + val).getBytes(PngHelperInternal.charsetLatin1);
+    ChunkRaw localChunkRaw = createEmptyChunk(arrayOfByte.length, false);
+    data = arrayOfByte;
+    return localChunkRaw;
+  }
+  
+
+  public void parseFromRaw(ChunkRaw paramChunkRaw)
+  {
+    for (int i = 0; i < data.length; i++)
+      if (data[i] == 0)
+        break;
+    key = new String(data, 0, i, PngHelperInternal.charsetLatin1);
+    i++;
+    val = (i < data.length ? new String(data, i, data.length - i, PngHelperInternal.charsetLatin1) : "");
+  }
+  
+  public void cloneDataFromRead(PngChunk paramPngChunk)
+  {
+    PngChunkTEXT localPngChunkTEXT = (PngChunkTEXT)paramPngChunk;
+    key = key;
+    val = val;
+  }
+}

@@ -1,0 +1,263 @@
+package jogamp.nativewindow.windows;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.util.Point;
+import java.io.PrintStream;
+import jogamp.nativewindow.Debug;
+import jogamp.nativewindow.NWJNILibLoader;
+import jogamp.nativewindow.ToolkitProperties;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GDIUtil
+  implements ToolkitProperties
+{
+  private static final boolean DEBUG = Debug.debug("GDIUtil");
+  
+  private static final String dummyWindowClassNameBase = "_dummyWindow_clazz";
+  private static RegisteredClassFactory dummyWindowClassFactory;
+  private static volatile boolean isInit = false;
+  
+
+  public GDIUtil() {}
+  
+  public static synchronized void initSingleton()
+  {
+    if (!isInit) {
+      synchronized (GDIUtil.class) {
+        if (!isInit) {
+          if (DEBUG) {
+            System.out.println("GDI.initSingleton()");
+          }
+          if (!NWJNILibLoader.loadNativeWindow("win32")) {
+            throw new NativeWindowException("NativeWindow Windows native library load error.");
+          }
+          if (!initIDs0()) {
+            throw new NativeWindowException("GDI: Could not initialized native stub");
+          }
+          dummyWindowClassFactory = new RegisteredClassFactory("_dummyWindow_clazz", getDummyWndProc0(), true, 0L, 0L);
+          
+
+          if (DEBUG) {
+            System.out.println("GDI.initSingleton() dummyWindowClassFactory " + dummyWindowClassFactory);
+          }
+          isInit = true;
+        }
+      }
+    }
+  }
+  
+
+
+
+
+  public static void shutdown() {}
+  
+
+
+
+  public static boolean requiresToolkitLock()
+  {
+    return false;
+  }
+  
+
+
+
+  public static final boolean hasThreadingIssues() { return false; }
+  
+  private static RegisteredClass dummyWindowClass = null;
+  private static Object dummyWindowSync = new Object();
+  
+  public static long CreateDummyWindow(int paramInt1, int paramInt2, int paramInt3, int paramInt4) {
+    synchronized (dummyWindowSync) {
+      dummyWindowClass = dummyWindowClassFactory.getSharedClass();
+      if (DEBUG) {
+        System.out.println("GDI.CreateDummyWindow() dummyWindowClassFactory " + dummyWindowClassFactory);
+        System.out.println("GDI.CreateDummyWindow() dummyWindowClass " + dummyWindowClass);
+      }
+      return CreateDummyWindow0(dummyWindowClass.getHInstance(), dummyWindowClass.getName(), dummyWindowClass.getHDispThreadContext(), dummyWindowClass.getName(), paramInt1, paramInt2, paramInt3, paramInt4);
+    }
+  }
+  
+  public static boolean DestroyDummyWindow(long paramLong) {
+    boolean bool;
+    synchronized (dummyWindowSync) {
+      if (null == dummyWindowClass) {
+        throw new InternalError("GDI Error (" + dummyWindowClassFactory.getSharedRefCount() + "): SharedClass is null");
+      }
+      bool = DestroyWindow0(dummyWindowClass.getHDispThreadContext(), paramLong);
+      dummyWindowClassFactory.releaseSharedClass();
+    }
+    return bool;
+  }
+  
+  public static Point GetRelativeLocation(long paramLong1, long paramLong2, int paramInt1, int paramInt2) {
+    return (Point)GetRelativeLocation0(paramLong1, paramLong2, paramInt1, paramInt2);
+  }
+  
+
+
+
+
+  public static final VersionNumber Win8Version = new VersionNumber(6, 2, 0);
+  
+
+
+
+
+  public static final VersionNumber Win10Version = new VersionNumber(10, 0, 0);
+  
+
+
+
+
+
+
+
+
+  public static boolean DwmIsCompositionEnabled()
+  {
+    VersionNumber localVersionNumber = Platform.getOSVersionNumber();
+    if (localVersionNumber.compareTo(Win8Version) >= 0) {
+      return true;
+    }
+    return GDI.DwmIsCompositionEnabled();
+  }
+  
+  public static boolean DwmSetupTranslucency(long paramLong, boolean paramBoolean)
+  {
+    if (!GDI.DwmIsExtensionAvailable()) {
+      if (DEBUG) {
+        System.err.println("GDIUtil.DwmSetupTranslucency on wnd 0x" + Long.toHexString(paramLong) + ": enable " + paramBoolean + " -> failed, extension not available");
+      }
+      return !paramBoolean;
+    }
+    VersionNumber localVersionNumber = Platform.getOSVersionNumber();
+    boolean bool1 = localVersionNumber.compareTo(Win8Version) >= 0;
+    if ((!bool1) && (!GDI.DwmIsCompositionEnabled())) {
+      if (DEBUG) {
+        System.err.println("GDIUtil.DwmSetupTranslucency on wnd 0x" + Long.toHexString(paramLong) + ": enable " + paramBoolean + " -> failed, composition disabled");
+      }
+      return !paramBoolean;
+    }
+    boolean bool2 = GDI.IsWindowCompositionExtensionAvailable();
+    boolean bool3 = (bool1) && (bool2);
+    boolean bool4 = IsUndecorated(paramLong);
+    Object localObject;
+    boolean bool5; if ((bool3) && (!bool4)) {
+      localObject = AccentPolicy.create();
+      if (paramBoolean)
+      {
+        ((AccentPolicy)localObject).setAccentState(3);
+      } else {
+        ((AccentPolicy)localObject).setAccentState(0);
+      }
+      bool5 = GDI.SetWindowCompositionAccentPolicy(paramLong, (AccentPolicy)localObject);
+    }
+    else {
+      localObject = DWM_BLURBEHIND.create();
+      int i = paramBoolean ? 7 : 1;
+      
+      ((DWM_BLURBEHIND)localObject).setDwFlags(i);
+      ((DWM_BLURBEHIND)localObject).setFEnable(paramBoolean ? 1 : 0);
+      ((DWM_BLURBEHIND)localObject).setHRgnBlur(0L);
+      ((DWM_BLURBEHIND)localObject).setFTransitionOnMaximized(1);
+      bool5 = GDI.DwmEnableBlurBehindWindow(paramLong, (DWM_BLURBEHIND)localObject);
+      if (bool5) {
+        MARGINS localMARGINS = MARGINS.create();
+        localMARGINS.setCxLeftWidth(-1);
+        localMARGINS.setCxRightWidth(-1);
+        localMARGINS.setCyBottomHeight(-1);
+        localMARGINS.setCyTopHeight(-1);
+        bool5 = GDI.DwmExtendFrameIntoClientArea(paramLong, localMARGINS);
+      }
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    if (DEBUG) {
+      boolean bool6 = IsChild(paramLong);
+      System.err.println("GDIUtil.DwmSetupTranslucency on wnd 0x" + Long.toHexString(paramLong) + ": enable " + paramBoolean + ", isUndecorated " + bool4 + ", isChild " + bool6 + ", version " + localVersionNumber + ", isWin8 " + bool1 + ", hasWinCompEXT " + bool2 + ", useWinCompEXT " + bool3 + " -> ok: " + bool5);
+    }
+    
+    return bool5;
+  }
+  
+  public static boolean IsUndecorated(long paramLong) {
+    return IsUndecorated0(paramLong);
+  }
+  
+  public static boolean IsChild(long paramLong) {
+    return IsChild0(paramLong);
+  }
+  
+  public static void SetProcessThreadsAffinityMask(long paramLong, boolean paramBoolean) {
+    SetProcessThreadsAffinityMask0(paramLong, paramBoolean);
+  }
+  
+  private static final void dumpStack() { ExceptionUtils.dumpStack(System.err); }
+  
+  static native boolean CreateWindowClass0(long paramLong1, String paramString, long paramLong2, long paramLong3, long paramLong4);
+  
+  static native boolean DestroyWindowClass0(long paramLong1, String paramString, long paramLong2);
+  
+  static native long CreateDummyDispatchThread0();
+  
+  private static native boolean initIDs0();
+  
+  private static native long getDummyWndProc0();
+  
+  private static native Object GetRelativeLocation0(long paramLong1, long paramLong2, int paramInt1, int paramInt2);
+  
+  private static native boolean IsChild0(long paramLong);
+  
+  private static native boolean IsUndecorated0(long paramLong);
+  
+  private static native void SetProcessThreadsAffinityMask0(long paramLong, boolean paramBoolean);
+  
+  private static native long CreateDummyWindow0(long paramLong1, String paramString1, long paramLong2, String paramString2, int paramInt1, int paramInt2, int paramInt3, int paramInt4);
+  
+  private static native boolean DestroyWindow0(long paramLong1, long paramLong2);
+}

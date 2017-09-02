@@ -1,0 +1,175 @@
+package com.jogamp.nativewindow.awt;
+
+import java.awt.Component;
+import java.awt.Container;
+import jogamp.nativewindow.awt.AWTMisc;
+import jogamp.nativewindow.awt.AWTMisc.ComponentAction;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract interface AWTPrintLifecycle
+{
+  public static final int DEFAULT_PRINT_TILE_SIZE = 1024;
+  
+  public abstract void setupPrint(double paramDouble1, double paramDouble2, int paramInt1, int paramInt2, int paramInt3);
+  
+  public abstract void releasePrint();
+  
+  public static class Context
+  {
+    private final Container cont;
+    private final double scaleMatX;
+    private final double scaleMatY;
+    private final int numSamples;
+    private final int tileWidth;
+    private final int tileHeight;
+    private int count;
+    
+    public static Context setupPrint(Container paramContainer, double paramDouble1, double paramDouble2, int paramInt1, int paramInt2, int paramInt3)
+    {
+      Context localContext = new Context(paramContainer, paramDouble1, paramDouble2, paramInt1, paramInt2, paramInt3);
+      localContext.setupPrint(paramContainer);
+      return localContext;
+    }
+    
+
+
+
+
+    public void releasePrint()
+    {
+      count = AWTMisc.performAction(cont, AWTPrintLifecycle.class, releaseAction);
+    }
+    
+
+    public int getCount()
+    {
+      return count;
+    }
+    
+
+
+
+
+
+
+
+    private final AWTMisc.ComponentAction setupAction = new AWTMisc.ComponentAction()
+    {
+
+      public void run(Component paramAnonymousComponent) { ((AWTPrintLifecycle)paramAnonymousComponent).setupPrint(scaleMatX, scaleMatY, numSamples, tileWidth, tileHeight); }
+    };
+    private final AWTMisc.ComponentAction releaseAction = new AWTMisc.ComponentAction()
+    {
+
+      public void run(Component paramAnonymousComponent) { ((AWTPrintLifecycle)paramAnonymousComponent).releasePrint(); }
+    };
+    
+    private Context(Container paramContainer, double paramDouble1, double paramDouble2, int paramInt1, int paramInt2, int paramInt3) {
+      cont = paramContainer;
+      scaleMatX = paramDouble1;
+      scaleMatY = paramDouble2;
+      numSamples = paramInt1;
+      tileWidth = paramInt2;
+      tileHeight = paramInt3;
+      count = 0;
+    }
+    
+    private void setupPrint(Container paramContainer) { count = AWTMisc.performAction(paramContainer, AWTPrintLifecycle.class, setupAction); }
+  }
+}

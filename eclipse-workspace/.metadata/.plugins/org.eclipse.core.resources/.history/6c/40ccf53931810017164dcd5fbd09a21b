@@ -1,0 +1,211 @@
+package com.jogamp.opengl.util.stereo.generic;
+
+import com.jogamp.common.util.ReflectionUtil;
+import com.jogamp.nativewindow.util.Dimension;
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.opengl.math.FovHVHalves;
+import com.jogamp.opengl.util.stereo.EyeParameter;
+import com.jogamp.opengl.util.stereo.StereoDevice;
+import com.jogamp.opengl.util.stereo.StereoDeviceConfig;
+import com.jogamp.opengl.util.stereo.StereoDeviceFactory;
+import com.jogamp.opengl.util.stereo.StereoUtil;
+import java.io.PrintStream;
+import jogamp.opengl.util.stereo.DistortionMesh.Producer;
+import jogamp.opengl.util.stereo.GenericStereoDevice;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GenericStereoDeviceFactory
+  extends StereoDeviceFactory
+{
+  public GenericStereoDeviceFactory() {}
+  
+  public static GenericStereoDeviceConfig createMono(String paramString, DimensionImmutable paramDimensionImmutable, float[] paramArrayOfFloat1, float[] paramArrayOfFloat2)
+  {
+    float f = paramArrayOfFloat1[1] / 2.0F;
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    return new GenericStereoDeviceConfig(paramString, GenericStereoDeviceConfig.ShutterType.RollingTopToBottom, paramDimensionImmutable, paramArrayOfFloat1, new DimensionImmutable[] { paramDimensionImmutable }, f, 0.0F, new int[] { 0 }, new EyeParameter[] { new EyeParameter(0, paramArrayOfFloat2, FovHVHalves.byFovyRadianAndAspect(0.7853982F, 1.6F), 0.0F, 0.0F, 0.0F) }, 0, null, 0, 0, 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static GenericStereoDeviceConfig createStereoSBS(String paramString, DimensionImmutable paramDimensionImmutable, float[] paramArrayOfFloat1, float paramFloat1, float paramFloat2, float[] paramArrayOfFloat2)
+  {
+    float f1 = paramArrayOfFloat1[1] / 2.0F;
+    
+
+    Dimension localDimension = new Dimension(paramDimensionImmutable.getWidth() / 2, paramDimensionImmutable.getHeight());
+    float[] arrayOfFloat = StereoUtil.getHorizPupilCenterFromLeft(paramArrayOfFloat1[0], paramFloat1);
+    float f2 = StereoUtil.getVertPupilCenterFromTop(paramArrayOfFloat1[1], f1);
+    float f3 = localDimension.getWidth() / localDimension.getHeight();
+    FovHVHalves localFovHVHalves1 = FovHVHalves.byFovyRadianAndAspect(paramFloat2 * 0.017453292F, f2, f3, arrayOfFloat[0]);
+    FovHVHalves localFovHVHalves2 = FovHVHalves.byFovyRadianAndAspect(paramFloat2 * 0.017453292F, f2, f3, arrayOfFloat[1]);
+    
+    return new GenericStereoDeviceConfig(paramString, GenericStereoDeviceConfig.ShutterType.RollingTopToBottom, paramDimensionImmutable, paramArrayOfFloat1, new DimensionImmutable[] { localDimension, localDimension }, f1, paramFloat1, new int[] { 0, 1 }, new EyeParameter[] { new EyeParameter(0, paramArrayOfFloat2, localFovHVHalves1, paramFloat1 / 2.0F, 0.0F, 0.01F), new EyeParameter(1, paramArrayOfFloat2, localFovHVHalves2, -paramFloat1 / 2.0F, 0.0F, 0.01F) }, 0, null, 0, 0, 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static GenericStereoDeviceConfig createStereoSBSLense(String paramString, DimensionImmutable paramDimensionImmutable1, float[] paramArrayOfFloat1, float paramFloat1, float paramFloat2, DimensionImmutable paramDimensionImmutable2, float[] paramArrayOfFloat2)
+  {
+    DistortionMesh.Producer localProducer = null;
+    
+    try
+    {
+      localProducer = (DistortionMesh.Producer)ReflectionUtil.createInstance("jogamp.opengl.oculusvr.stereo.lense.DistortionMeshProducer", GenericStereoDevice.class.getClassLoader());
+    } catch (Throwable localThrowable) {
+      if (StereoDevice.DEBUG) { System.err.println("Caught: " + localThrowable.getMessage());localThrowable.printStackTrace();
+      } }
+    if (null == localProducer) {
+      return null;
+    }
+    float f1 = paramArrayOfFloat1[1] / 2.0F;
+    
+
+    float[] arrayOfFloat = StereoUtil.getHorizPupilCenterFromLeft(paramArrayOfFloat1[0], paramFloat1);
+    float f2 = StereoUtil.getVertPupilCenterFromTop(paramArrayOfFloat1[1], f1);
+    float f3 = paramDimensionImmutable2.getWidth() / paramDimensionImmutable2.getHeight();
+    FovHVHalves localFovHVHalves1 = FovHVHalves.byFovyRadianAndAspect(paramFloat2 * 0.017453292F, f2, f3, arrayOfFloat[0]);
+    FovHVHalves localFovHVHalves2 = FovHVHalves.byFovyRadianAndAspect(paramFloat2 * 0.017453292F, f2, f3, arrayOfFloat[1]);
+    
+    return new GenericStereoDeviceConfig(paramString, GenericStereoDeviceConfig.ShutterType.RollingTopToBottom, paramDimensionImmutable1, paramArrayOfFloat1, new DimensionImmutable[] { paramDimensionImmutable2, paramDimensionImmutable2 }, f1, paramFloat1, new int[] { 0, 1 }, new EyeParameter[] { new EyeParameter(0, paramArrayOfFloat2, localFovHVHalves1, paramFloat1 / 2.0F, 0.0F, 0.01F), new EyeParameter(1, paramArrayOfFloat2, localFovHVHalves2, -paramFloat1 / 2.0F, 0.0F, 0.01F) }, 0, localProducer, 7, 7, 1);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static boolean isAvailable()
+  {
+    return true;
+  }
+  
+  protected final StereoDevice createDeviceImpl(int paramInt, StereoDeviceConfig paramStereoDeviceConfig, boolean paramBoolean)
+  {
+    return new GenericStereoDevice(this, paramInt, paramStereoDeviceConfig);
+  }
+  
+  private boolean isValid = true;
+  
+  public boolean isValid()
+  {
+    return isValid;
+  }
+  
+  public final void shutdown()
+  {
+    if (isValid)
+    {
+      isValid = false;
+    }
+  }
+}

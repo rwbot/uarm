@@ -1,0 +1,272 @@
+package jogamp.opengl.glu.nurbs;
+
+
+
+
+
+
+
+
+
+
+
+public class Quilt
+{
+  private static final int MAXDIM = 2;
+  
+
+
+
+
+
+
+
+
+
+  Mapdesc mapdesc;
+  
+
+
+
+
+
+
+
+
+  public CArrayOfQuiltspecs qspec;
+  
+
+
+
+
+
+
+
+
+  public CArrayOfQuiltspecs eqspec;
+  
+
+
+
+
+
+
+
+
+  public CArrayOfFloats cpts;
+  
+
+
+
+
+
+
+
+
+  public Quilt next;
+  
+
+
+
+
+
+
+
+
+
+  public Quilt(Mapdesc paramMapdesc)
+  {
+    mapdesc = paramMapdesc;
+    Quiltspec[] arrayOfQuiltspec = new Quiltspec[2];
+    for (int i = 0; i < arrayOfQuiltspec.length; i++)
+      arrayOfQuiltspec[i] = new Quiltspec();
+    qspec = new CArrayOfQuiltspecs(arrayOfQuiltspec);
+  }
+  
+
+
+
+
+
+
+
+
+  public void toBezier(Knotvector paramKnotvector1, Knotvector paramKnotvector2, CArrayOfFloats paramCArrayOfFloats, int paramInt)
+  {
+    Splinespec localSplinespec = new Splinespec(2);
+    localSplinespec.kspecinit(paramKnotvector1, paramKnotvector2);
+    localSplinespec.select();
+    localSplinespec.layout(paramInt);
+    localSplinespec.setupquilt(this);
+    localSplinespec.copy(paramCArrayOfFloats);
+    localSplinespec.transform();
+  }
+  
+
+
+
+
+
+
+  public void toBezier(Knotvector paramKnotvector, CArrayOfFloats paramCArrayOfFloats, int paramInt)
+  {
+    Splinespec localSplinespec = new Splinespec(1);
+    localSplinespec.kspecinit(paramKnotvector);
+    localSplinespec.select();
+    localSplinespec.layout(paramInt);
+    localSplinespec.setupquilt(this);
+    localSplinespec.copy(paramCArrayOfFloats);
+    localSplinespec.transform();
+  }
+  
+
+
+
+
+
+
+  public void downloadAll(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2, Backend paramBackend)
+  {
+    for (Quilt localQuilt = this; localQuilt != null; localQuilt = next) {
+      localQuilt.select(paramArrayOfFloat1, paramArrayOfFloat2);
+      localQuilt.download(paramBackend);
+    }
+  }
+  
+
+
+  private void download(Backend paramBackend)
+  {
+    CArrayOfFloats localCArrayOfFloats;
+    
+
+    if (getDimension() == 2)
+    {
+      localCArrayOfFloats = new CArrayOfFloats(cpts);
+      localCArrayOfFloats.raisePointerBy(qspec.get(0).offset);
+      localCArrayOfFloats.raisePointerBy(qspec.get(1).offset);
+      localCArrayOfFloats.raisePointerBy(qspec.get(0).index * qspec.get(0).order * 
+        qspec.get(0).stride);
+      localCArrayOfFloats.raisePointerBy(qspec.get(1).index * qspec.get(1).order * 
+        qspec.get(1).stride);
+      
+      paramBackend.surfpts(mapdesc.getType(), localCArrayOfFloats, qspec.get(0).stride, 
+        qspec.get(1).stride, qspec.get(0).order, qspec.get(1).order, 
+        qspec.get(0).breakpoints[qspec.get(0).index], 
+        qspec.get(0).breakpoints[(qspec.get(0).index + 1)], 
+        qspec.get(1).breakpoints[qspec.get(1).index], 
+        qspec.get(1).breakpoints[(qspec.get(1).index + 1)]);
+    }
+    else
+    {
+      localCArrayOfFloats = new CArrayOfFloats(cpts.getArray(), 0);
+      localCArrayOfFloats.raisePointerBy(qspec.get(0).offset);
+      localCArrayOfFloats.raisePointerBy(qspec.get(0).index * qspec.get(0).order * 
+        qspec.get(0).stride);
+      paramBackend.curvpts(mapdesc.getType(), localCArrayOfFloats, qspec.get(0).stride, 
+        qspec.get(0).order, 
+        qspec.get(0).breakpoints[qspec.get(0).index], 
+        qspec.get(0).breakpoints[(qspec.get(0).index + 1)]);
+    }
+  }
+  
+
+
+
+
+
+  private int getDimension()
+  {
+    return eqspec.getPointer() - qspec.getPointer();
+  }
+  
+
+
+
+
+
+  private void select(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2)
+  {
+    int i = eqspec.getPointer() - qspec.getPointer();
+    
+    for (int j = 0; j < i; j++) {
+      for (int k = qspec.get(j).width - 1; k >= 0; k--)
+        if ((qspec.get(j).breakpoints[k] <= paramArrayOfFloat1[j]) && 
+          (paramArrayOfFloat2[j] <= qspec.get(j).breakpoints[(k + 1)]))
+          break;
+      assert (k != -1);
+      qspec.get(j).index = k;
+    }
+  }
+  
+
+
+
+
+
+
+  public void getRange(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2, Flist paramFlist)
+  {
+    getRange(paramArrayOfFloat1, paramArrayOfFloat2, 0, paramFlist);
+  }
+  
+
+
+
+
+
+
+
+
+  private void getRange(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2, int paramInt, Flist paramFlist)
+  {
+    Quilt localQuilt1 = this;
+    paramArrayOfFloat1[paramInt] = qspec.get(paramInt).breakpoints[0];
+    paramArrayOfFloat2[paramInt] = qspec.get(paramInt).breakpoints[qspec.get(paramInt).width];
+    int i = 0;
+    
+    for (Quilt localQuilt2 = localQuilt1; localQuilt2 != null; localQuilt2 = next) {
+      if (qspec.get(paramInt).breakpoints[0] > paramArrayOfFloat1[paramInt])
+        paramArrayOfFloat1[paramInt] = qspec.get(paramInt).breakpoints[0];
+      if (qspec.get(paramInt).breakpoints[qspec.get(paramInt).width] < paramArrayOfFloat2[paramInt])
+        paramArrayOfFloat2[paramInt] = qspec.get(paramInt).breakpoints[qspec.get(paramInt).width];
+      i += qspec.get(paramInt).width + 1;
+    }
+    paramFlist.grow(i);
+    for (localQuilt2 = localQuilt1; localQuilt2 != null; localQuilt2 = next) {
+      for (int j = 0; j <= qspec.get(paramInt).width; j++) {
+        paramFlist.add(qspec.get(paramInt).breakpoints[j]);
+      }
+    }
+    paramFlist.filter();
+    paramFlist.taper(paramArrayOfFloat1[paramInt], paramArrayOfFloat2[paramInt]);
+  }
+  
+
+
+
+  public int isCulled()
+  {
+    if (mapdesc.isCulling())
+    {
+      return 0;
+    }
+    return 1;
+  }
+  
+
+
+
+
+
+
+
+
+  public void getRange(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2, Flist paramFlist1, Flist paramFlist2)
+  {
+    getRange(paramArrayOfFloat1, paramArrayOfFloat2, 0, paramFlist1);
+    getRange(paramArrayOfFloat1, paramArrayOfFloat2, 1, paramFlist2);
+  }
+  
+  public void findRates(Flist paramFlist1, Flist paramFlist2, float[] paramArrayOfFloat) {}
+}

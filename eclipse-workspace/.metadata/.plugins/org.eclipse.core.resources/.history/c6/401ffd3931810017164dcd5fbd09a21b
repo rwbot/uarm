@@ -1,0 +1,144 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class HmtxTable
+  implements Table
+{
+  private final DirectoryEntry _de;
+  private int[] _hMetrics = null;
+  private short[] _leftSideBearing = null;
+  
+
+
+  protected HmtxTable(DirectoryEntry paramDirectoryEntry, DataInput paramDataInput, HheaTable paramHheaTable, MaxpTable paramMaxpTable)
+    throws IOException
+  {
+    _de = ((DirectoryEntry)paramDirectoryEntry.clone());
+    _hMetrics = new int[paramHheaTable.getNumberOfHMetrics()];
+    for (int i = 0; i < paramHheaTable.getNumberOfHMetrics(); i++)
+    {
+
+
+
+      _hMetrics[i] = (paramDataInput.readUnsignedByte() << 24 | paramDataInput.readUnsignedByte() << 16 | paramDataInput.readUnsignedByte() << 8 | paramDataInput.readUnsignedByte());
+    }
+    i = paramMaxpTable.getNumGlyphs() - paramHheaTable.getNumberOfHMetrics();
+    _leftSideBearing = new short[i];
+    for (int j = 0; j < i; j++) {
+      _leftSideBearing[j] = paramDataInput.readShort();
+    }
+  }
+  
+  public int getAdvanceWidth(int paramInt) {
+    if (_hMetrics == null) {
+      return 0;
+    }
+    if (paramInt < _hMetrics.length) {
+      return _hMetrics[paramInt] >> 16;
+    }
+    return _hMetrics[(_hMetrics.length - 1)] >> 16;
+  }
+  
+  public short getLeftSideBearing(int paramInt)
+  {
+    if (_hMetrics == null) {
+      return 0;
+    }
+    if (paramInt < _hMetrics.length) {
+      return (short)(_hMetrics[paramInt] & 0xFFFF);
+    }
+    return _leftSideBearing[(paramInt - _hMetrics.length)];
+  }
+  
+
+  public int getType()
+  {
+    return 1752003704;
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("'hmtx' Table - Horizontal Metrics\n---------------------------------\n");
+    localStringBuilder.append("Size = ").append(_de.getLength()).append(" bytes, ")
+      .append(_hMetrics.length).append(" entries\n");
+    for (int i = 0; i < _hMetrics.length; i++)
+    {
+
+
+      localStringBuilder.append("        ").append(i).append(". advWid: ").append(getAdvanceWidth(i)).append(", LSdBear: ").append(getLeftSideBearing(i)).append("\n");
+    }
+    for (i = 0; i < _leftSideBearing.length; i++)
+    {
+
+      localStringBuilder.append("        LSdBear ").append(i + _hMetrics.length).append(": ").append(_leftSideBearing[i]).append("\n");
+    }
+    return localStringBuilder.toString();
+  }
+  
+
+
+
+
+
+
+  public DirectoryEntry getDirectoryEntry()
+  {
+    return _de;
+  }
+}

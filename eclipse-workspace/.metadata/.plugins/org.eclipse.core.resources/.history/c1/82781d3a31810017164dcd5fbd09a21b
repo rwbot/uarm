@@ -1,0 +1,511 @@
+package jogamp.newt.driver.x11;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.GraphicsConfigurationFactory;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.VisualIDHolder.VIDType;
+import com.jogamp.nativewindow.util.InsetsImmutable;
+import com.jogamp.nativewindow.util.Point;
+import com.jogamp.nativewindow.x11.X11GraphicsDevice;
+import com.jogamp.nativewindow.x11.X11GraphicsScreen;
+import com.jogamp.newt.NewtFactory;
+import com.jogamp.newt.Screen;
+import com.jogamp.newt.event.KeyEvent;
+import java.io.PrintStream;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import jogamp.nativewindow.x11.X11Lib;
+import jogamp.nativewindow.x11.X11Util;
+import jogamp.newt.DisplayImpl.DisplayRunnable;
+import jogamp.newt.PointerIconImpl;
+import jogamp.newt.WindowImpl;
+import jogamp.newt.driver.PNGIcon;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class WindowDriver
+  extends WindowImpl
+{
+  private static final String WINDOW_CLASS_NAME = "NewtWindow";
+  private static final int X11_WHEEL_ONE_UP_BUTTON = 4;
+  private static final int X11_WHEEL_ONE_DOWN_BUTTON = 5;
+  private static final int X11_WHEEL_TWO_UP_BUTTON = 6;
+  private static final int X11_WHEEL_TWO_DOWN_BUTTON = 7;
+  private static final int defaultIconDataSize;
+  private static final Buffer defaultIconData;
+  
+  static
+  {
+    ScreenDriver.initSingleton();
+    
+    int i = 0;int j = 0;
+    ByteBuffer localByteBuffer = null;
+    if (PNGIcon.isAvailable()) {
+      try
+      {
+        int[] arrayOfInt1 = { 0 };int[] arrayOfInt2 = { 0 };
+        localByteBuffer = PNGIcon.arrayToX11BGRAImages(NewtFactory.getWindowIcons(), arrayOfInt1, arrayOfInt2);
+        i = arrayOfInt1[0];
+        j = arrayOfInt2[0];
+      } catch (Exception localException) {
+        localException.printStackTrace();
+      }
+    }
+    defaultIconDataSize = i;
+    defaultIconData = localByteBuffer;
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("Def. Icon: data_size " + defaultIconDataSize + " * elem_size " + j + " = data " + defaultIconData);
+    }
+  }
+  
+
+
+
+  protected void createNativeImpl()
+  {
+    ScreenDriver localScreenDriver = (ScreenDriver)getScreen();
+    DisplayDriver localDisplayDriver = (DisplayDriver)localScreenDriver.getDisplay();
+    AbstractGraphicsDevice localAbstractGraphicsDevice = localDisplayDriver.getGraphicsDevice();
+    
+
+    long l = X11Util.openDisplay(localAbstractGraphicsDevice.getConnection());
+    if (0L == l) {
+      throw new RuntimeException("Error creating display(GfxCfg/Render): " + localAbstractGraphicsDevice.getConnection());
+    }
+    renderDevice = new X11GraphicsDevice(l, 0, true);
+    X11GraphicsScreen localX11GraphicsScreen = new X11GraphicsScreen(renderDevice, localScreenDriver.getIndex());
+    
+    GraphicsConfigurationFactory localGraphicsConfigurationFactory = GraphicsConfigurationFactory.getFactory(localDisplayDriver.getGraphicsDevice(), capsRequested);
+    AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = localGraphicsConfigurationFactory.chooseGraphicsConfiguration(capsRequested, capsRequested, capabilitiesChooser, localX11GraphicsScreen, 0);
+    
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("X11Window.createNativeImpl() factory: " + localGraphicsConfigurationFactory + ", chosen config: " + localAbstractGraphicsConfiguration);
+    }
+    if (null == localAbstractGraphicsConfiguration) {
+      throw new NativeWindowException("Error choosing GraphicsConfiguration creating window: " + this);
+    }
+    int i = localAbstractGraphicsConfiguration.getVisualID(VisualIDHolder.VIDType.NATIVE);
+    if (0 == i) {
+      throw new NativeWindowException("Chosen Configuration w/o native visual ID: " + localAbstractGraphicsConfiguration);
+    }
+    setGraphicsConfiguration(localAbstractGraphicsConfiguration);
+    int j = getReconfigureMask(0, true) & 0x7FF;
+    localAbstractGraphicsDevice.lock();
+    try {
+      long[] arrayOfLong = CreateWindow(getParentWindowHandle(), localAbstractGraphicsDevice
+        .getHandle(), localScreenDriver.getIndex(), i, localDisplayDriver
+        .getJavaObjectAtom(), localDisplayDriver.getWindowDeleteAtom(), 
+        getX(), getY(), getWidth(), getHeight(), j, defaultIconDataSize, defaultIconData, DEBUG_IMPLEMENTATION);
+      
+      if ((null == arrayOfLong) || (2 != arrayOfLong.length) || (0L == arrayOfLong[0]) || (0L == arrayOfLong[1])) {
+        throw new NativeWindowException("Error creating window");
+      }
+      if (DEBUG_IMPLEMENTATION) {
+        System.err.println("X11Window.createNativeImpl() handles " + toHexString(arrayOfLong[0]) + ", " + toHexString(arrayOfLong[1]));
+      }
+      setWindowHandle(arrayOfLong[0]);
+      javaWindowHandle = arrayOfLong[1];
+    } finally {
+      localAbstractGraphicsDevice.unlock();
+    }
+  }
+  
+  protected void closeNativeImpl()
+  {
+    if ((0L != javaWindowHandle) && (null != getScreen())) {
+      DisplayDriver localDisplayDriver = (DisplayDriver)getScreen().getDisplay();
+      AbstractGraphicsDevice localAbstractGraphicsDevice = localDisplayDriver.getGraphicsDevice();
+      localAbstractGraphicsDevice.lock();
+      try {
+        CloseWindow0(localAbstractGraphicsDevice.getHandle(), javaWindowHandle, localDisplayDriver
+          .getRandREventBase(), localDisplayDriver.getRandRErrorBase());
+      } catch (Throwable localThrowable) {
+        if (DEBUG_IMPLEMENTATION) {
+          Exception localException = new Exception("Warning: closeNativeImpl failed - " + Thread.currentThread().getName(), localThrowable);
+          localException.printStackTrace();
+        }
+      } finally {
+        localAbstractGraphicsDevice.unlock();
+        javaWindowHandle = 0L;
+      }
+    }
+    if (null != renderDevice) {
+      renderDevice.close();
+      renderDevice = null;
+    }
+  }
+  
+  protected final int getSupportedReconfigMaskImpl()
+  {
+    return (0x809 | GetSupportedReconfigMask0(javaWindowHandle)) & 0x7FFF;
+  }
+  
+  protected boolean reconfigureWindowImpl(int paramInt1, int paramInt2, final int paramInt3, final int paramInt4, int paramInt5) {
+    InsetsImmutable localInsetsImmutable;
+    final int i;
+    final int j;
+    if (0 == (0x10 & paramInt5))
+    {
+      localInsetsImmutable = getInsets();
+      i = paramInt1 - localInsetsImmutable.getLeftWidth();
+      j = paramInt2 - localInsetsImmutable.getTopHeight();
+    } else {
+      localInsetsImmutable = null;
+      i = paramInt1;
+      j = paramInt2;
+    }
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("X11Window reconfig.0: " + paramInt1 + "/" + paramInt2 + " -> " + i + "/" + j + " " + paramInt3 + "x" + paramInt4 + ", insets " + localInsetsImmutable + ", " + 
+        getReconfigStateMaskString(paramInt5));
+    }
+    if (0 != (0x200000 & paramInt5)) {
+      if ((0 != (0x800 & paramInt5)) && (0 == (0x20 & paramInt5)) && (0 == (0x40 & paramInt5)))
+      {
+
+        tempFSAlwaysOnTop = true;
+        paramInt5 |= 0x20;
+        if (DEBUG_IMPLEMENTATION) {
+          System.err.println("X11Window reconfig.2: temporary " + getReconfigStateMaskString(paramInt5));
+        }
+      } else {
+        tempFSAlwaysOnTop = false;
+      }
+    }
+    final int k = paramInt5;
+    runWithLockedDisplayDevice(new DisplayImpl.DisplayRunnable()
+    {
+      public Object run(long paramAnonymousLong) {
+        WindowDriver.reconfigureWindow0(paramAnonymousLong, getScreenIndex(), 
+          WindowDriver.access$000(WindowDriver.this), javaWindowHandle, i, j, paramInt3, paramInt4, k);
+        return null;
+      }
+    });
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("X11Window reconfig.X: " + getX() + "/" + getY() + " " + getWidth() + "x" + getHeight() + ", insets " + getInsets() + ", " + getStateMaskString());
+    }
+    return true; }
+  
+  volatile boolean tempFSAlwaysOnTop = false;
+  
+
+
+
+
+
+
+  protected void focusChanged(boolean paramBoolean1, boolean paramBoolean2)
+  {
+    if ((isNativeValid()) && (isFullscreen()) && (!isAlwaysOnBottom()) && (tempFSAlwaysOnTop) && (hasFocus() != paramBoolean2)) {
+      final int i = getReconfigureMask(134217728, isVisible()) | (paramBoolean2 ? 32 : 0);
+      
+      if (DEBUG_IMPLEMENTATION) {
+        System.err.println("X11Window reconfig.3 (focus): temporary " + getReconfigStateMaskString(i));
+      }
+      runWithLockedDisplayDevice(new DisplayImpl.DisplayRunnable()
+      {
+        public Object run(long paramAnonymousLong) {
+          WindowDriver.reconfigureWindow0(paramAnonymousLong, getScreenIndex(), 
+            WindowDriver.access$300(WindowDriver.this), javaWindowHandle, getX(), getY(), getWidth(), getHeight(), i);
+          return null;
+        }
+      });
+    }
+    super.focusChanged(paramBoolean1, paramBoolean2);
+  }
+  
+  protected void reparentNotify(long paramLong) {
+    if (DEBUG_IMPLEMENTATION) {
+      long l = getParentWindowHandle();
+      System.err.println("Window.reparentNotify (" + getThreadName() + "): " + toHexString(l) + " -> " + toHexString(paramLong));
+    }
+  }
+  
+  protected void requestFocusImpl(final boolean paramBoolean)
+  {
+    runWithLockedDisplayDevice(new DisplayImpl.DisplayRunnable()
+    {
+      public Object run(long paramAnonymousLong) {
+        WindowDriver.requestFocus0(paramAnonymousLong, javaWindowHandle, paramBoolean);
+        return null;
+      }
+    });
+  }
+  
+  protected void setTitleImpl(final String paramString)
+  {
+    runWithLockedDisplayDevice(new DisplayImpl.DisplayRunnable()
+    {
+      public Object run(long paramAnonymousLong) {
+        WindowDriver.setTitle0(paramAnonymousLong, javaWindowHandle, paramString);
+        return null;
+      }
+    });
+  }
+  
+  protected void setPointerIconImpl(final PointerIconImpl paramPointerIconImpl)
+  {
+    runWithLockedDisplayDevice(new DisplayImpl.DisplayRunnable()
+    {
+      public Object run(long paramAnonymousLong) {
+        try {
+          WindowDriver.setPointerIcon0(paramAnonymousLong, javaWindowHandle, null != paramPointerIconImpl ? paramPointerIconImpl.validatedHandle() : 0L);
+        } catch (Exception localException) {
+          localException.printStackTrace();
+        }
+        return null;
+      }
+    });
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected boolean setPointerVisibleImpl(final boolean paramBoolean)
+  {
+    ((Boolean)runWithLockedDisplayDevice(new DisplayImpl.DisplayRunnable()
+    {
+      public Boolean run(long paramAnonymousLong)
+      {
+        PointerIconImpl localPointerIconImpl = (PointerIconImpl)getPointerIcon();
+        boolean bool;
+        if ((paramBoolean) && (null != localPointerIconImpl)) {
+          WindowDriver.setPointerIcon0(paramAnonymousLong, javaWindowHandle, localPointerIconImpl.validatedHandle());
+          bool = true;
+        } else {
+          bool = WindowDriver.setPointerVisible0(paramAnonymousLong, javaWindowHandle, paramBoolean);
+        }
+        return Boolean.valueOf(bool);
+      }
+    })).booleanValue();
+  }
+  
+
+
+
+
+
+  protected boolean confinePointerImpl(final boolean paramBoolean)
+  {
+    ((Boolean)runWithLockedDisplayDevice(new DisplayImpl.DisplayRunnable()
+    {
+      public Boolean run(long paramAnonymousLong)
+      {
+        return Boolean.valueOf(WindowDriver.confinePointer0(paramAnonymousLong, javaWindowHandle, paramBoolean));
+      }
+    })).booleanValue();
+  }
+  
+  protected void warpPointerImpl(final int paramInt1, final int paramInt2)
+  {
+    runWithLockedDisplayDevice(new DisplayImpl.DisplayRunnable()
+    {
+      public Object run(long paramAnonymousLong) {
+        WindowDriver.warpPointer0(paramAnonymousLong, javaWindowHandle, paramInt1, paramInt2);
+        return null;
+      }
+    });
+  }
+  
+  protected Point getLocationOnScreenImpl(final int paramInt1, final int paramInt2)
+  {
+    (Point)runWithLockedDisplayDevice(new DisplayImpl.DisplayRunnable()
+    {
+      public Point run(long paramAnonymousLong) {
+        return X11Lib.GetRelativeLocation(paramAnonymousLong, getScreenIndex(), getWindowHandle(), 0L, paramInt1, paramInt2);
+      }
+    });
+  }
+  
+
+  protected final void doMouseEvent(boolean paramBoolean1, boolean paramBoolean2, short paramShort1, int paramInt1, int paramInt2, int paramInt3, short paramShort2, float[] paramArrayOfFloat, float paramFloat)
+  {
+    switch (paramShort1) {
+    case 203: 
+      switch (paramShort2)
+      {
+      case 4: 
+      case 5: 
+      case 6: 
+      case 7: 
+        return;
+      }
+      break;
+    case 204: 
+      int i = 0 != (paramInt1 & 0x1) ? 1 : 0;
+      switch (paramShort2) {
+      case 4: 
+        paramShort1 = 207;
+        paramShort2 = 1;
+        paramArrayOfFloat[(i != 0 ? 0 : 1)] = 1.0F;
+        break;
+      case 5: 
+        paramShort1 = 207;
+        paramShort2 = 1;
+        paramArrayOfFloat[(i != 0 ? 0 : 1)] = -1.0F;
+        break;
+      case 6: 
+        paramShort1 = 207;
+        paramShort2 = 1;
+        paramArrayOfFloat[0] = 1.0F;
+        paramInt1 |= 0x1;
+        break;
+      case 7: 
+        paramShort1 = 207;
+        paramShort2 = 1;
+        paramArrayOfFloat[0] = -1.0F;
+        paramInt1 |= 0x1;
+      }
+      
+      break;
+    }
+    super.doMouseEvent(paramBoolean1, paramBoolean2, paramShort1, paramInt1, paramInt2, paramInt3, paramShort2, paramArrayOfFloat, paramFloat);
+  }
+  
+
+  protected final void sendKeyEvent(short paramShort1, int paramInt, short paramShort2, short paramShort3, char paramChar, String paramString)
+  {
+    boolean bool = KeyEvent.isModifierKey(paramShort2);
+    int i = 0 != (0x20000000 & paramInt) ? 1 : 0;
+    char c = null != paramString ? paramString.charAt(0) : paramChar;
+    
+
+
+    if ((i == 0) || (!bool)) {
+      switch (paramShort1) {
+      case 300: 
+        super.sendKeyEvent((short)300, paramInt, paramShort2, paramShort3, c);
+        break;
+      
+      case 301: 
+        super.sendKeyEvent((short)301, paramInt, paramShort2, paramShort3, c);
+      }
+      
+    }
+  }
+  
+  public final void sendKeyEvent(short paramShort1, int paramInt, short paramShort2, short paramShort3, char paramChar)
+  {
+    throw new InternalError("XXX: Adapt Java Code to Native Code Changes");
+  }
+  
+  public final void enqueueKeyEvent(boolean paramBoolean, short paramShort1, int paramInt, short paramShort2, short paramShort3, char paramChar) {
+    throw new InternalError("XXX: Adapt Java Code to Native Code Changes");
+  }
+  
+
+
+
+  private static final String getCurrentThreadName() { return Thread.currentThread().getName(); }
+  private static final void dumpStack() { ExceptionUtils.dumpStack(System.err); }
+  
+  private final <T> T runWithLockedDisplayDevice(DisplayImpl.DisplayRunnable<T> paramDisplayRunnable) {
+    return ((DisplayDriver)getScreen().getDisplay()).runWithLockedDisplayDevice(paramDisplayRunnable);
+  }
+  
+
+
+
+
+
+  private long[] CreateWindow(long paramLong1, long paramLong2, int paramInt1, int paramInt2, long paramLong3, long paramLong4, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, Buffer paramBuffer, boolean paramBoolean)
+  {
+    if (!Buffers.isDirect(paramBuffer)) {
+      throw new IllegalArgumentException("data buffer is not direct " + paramBuffer);
+    }
+    return CreateWindow0(paramLong1, paramLong2, paramInt1, paramInt2, paramLong3, paramLong4, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8, paramBuffer, 
+    
+
+      Buffers.getDirectBufferByteOffset(paramBuffer), true, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private volatile long javaWindowHandle = 0L;
+  private X11GraphicsDevice renderDevice;
+  
+  public WindowDriver() {}
+  
+  protected static native boolean initIDs0();
+  
+  private native long[] CreateWindow0(long paramLong1, long paramLong2, int paramInt1, int paramInt2, long paramLong3, long paramLong4, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, Object paramObject, int paramInt9, boolean paramBoolean1, boolean paramBoolean2);
+  
+  private static native int GetSupportedReconfigMask0(long paramLong);
+  
+  private native void CloseWindow0(long paramLong1, long paramLong2, int paramInt1, int paramInt2);
+  
+  private static native void reconfigureWindow0(long paramLong1, int paramInt1, long paramLong2, long paramLong3, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6);
+  
+  private static native void requestFocus0(long paramLong1, long paramLong2, boolean paramBoolean);
+  
+  private static native void setTitle0(long paramLong1, long paramLong2, String paramString);
+  
+  private static native void setPointerIcon0(long paramLong1, long paramLong2, long paramLong3);
+  
+  private static native boolean setPointerVisible0(long paramLong1, long paramLong2, boolean paramBoolean);
+  
+  private static native boolean confinePointer0(long paramLong1, long paramLong2, boolean paramBoolean);
+  
+  private static native void warpPointer0(long paramLong1, long paramLong2, int paramInt1, int paramInt2);
+}

@@ -1,0 +1,216 @@
+package jogamp.opengl.glu.nurbs;
+
+
+
+
+
+
+
+
+
+
+
+public abstract class Backend
+{
+  public static final int N_MESHFILL = 0;
+  
+
+
+
+
+
+
+
+
+
+  public static final int N_MESHLINE = 1;
+  
+
+
+
+
+
+
+
+
+
+  public static final int N_MESHPOINT = 2;
+  
+
+
+
+
+
+
+
+
+
+  protected CurveEvaluator curveEvaluator;
+  
+
+
+
+
+
+
+
+
+  protected SurfaceEvaluator surfaceEvaluator;
+  
+
+
+
+
+
+
+
+
+
+  public Backend() {}
+  
+
+
+
+
+
+
+
+
+
+  public void bgncurv()
+  {
+    curveEvaluator.bgnmap1f();
+  }
+  
+
+
+
+
+  public void endcurv()
+  {
+    curveEvaluator.endmap1f();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public void curvpts(int paramInt1, CArrayOfFloats paramCArrayOfFloats, int paramInt2, int paramInt3, float paramFloat1, float paramFloat2)
+  {
+    curveEvaluator.map1f(paramInt1, paramFloat1, paramFloat2, paramInt2, paramInt3, paramCArrayOfFloats);
+    curveEvaluator.enable(paramInt1);
+  }
+  
+
+
+
+
+
+
+  public void curvgrid(float paramFloat1, float paramFloat2, int paramInt)
+  {
+    curveEvaluator.mapgrid1f(paramInt, paramFloat1, paramFloat2);
+  }
+  
+
+
+
+
+
+
+  public void curvmesh(int paramInt1, int paramInt2)
+  {
+    curveEvaluator.mapmesh1f(0, paramInt1, paramInt1 + paramInt2);
+  }
+  
+
+
+
+
+
+  public void bgnsurf(int paramInt1, int paramInt2)
+  {
+    surfaceEvaluator.bgnmap2f();
+    
+    if (paramInt1 > 0) {
+      surfaceEvaluator.polymode(1);
+    } else {
+      surfaceEvaluator.polymode(0);
+    }
+  }
+  
+
+
+  public void endsurf()
+  {
+    surfaceEvaluator.endmap2f();
+  }
+  
+
+
+
+
+
+
+
+  public void patch(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    surfaceEvaluator.domain2f(paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public void surfgrid(float paramFloat1, float paramFloat2, int paramInt1, float paramFloat3, float paramFloat4, int paramInt2)
+  {
+    surfaceEvaluator.mapgrid2f(paramInt1, paramFloat1, paramFloat2, paramInt2, paramFloat3, paramFloat4);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public void surfmesh(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    surfaceEvaluator.mapmesh2f(0, paramInt1, paramInt1 + paramInt3, paramInt2, paramInt2 + paramInt4);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void surfpts(int paramInt1, CArrayOfFloats paramCArrayOfFloats, int paramInt2, int paramInt3, int paramInt4, int paramInt5, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    surfaceEvaluator.map2f(paramInt1, paramFloat1, paramFloat2, paramInt2, paramInt4, paramFloat3, paramFloat4, paramInt3, paramInt5, paramCArrayOfFloats);
+    
+    surfaceEvaluator.enable(paramInt1);
+  }
+}

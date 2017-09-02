@@ -1,0 +1,109 @@
+package jogamp.opengl.windows.wgl;
+
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import java.io.PrintStream;
+import jogamp.nativewindow.windows.GDI;
+import jogamp.opengl.Debug;
+import jogamp.opengl.GLDrawableImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class WindowsWGLDrawable
+  extends GLDrawableImpl
+{
+  private static final boolean PROFILING = PropertyAccess.isPropertyDefined("jogl.debug.GLDrawable.profiling", true);
+  
+  private static final int PROFILING_TICKS = 200;
+  private int profilingSwapBuffersTicks;
+  private long profilingSwapBuffersTime;
+  
+  public WindowsWGLDrawable(GLDrawableFactory paramGLDrawableFactory, NativeSurface paramNativeSurface, boolean paramBoolean)
+  {
+    super(paramGLDrawableFactory, paramNativeSurface, paramBoolean);
+  }
+  
+  protected void setRealizedImpl()
+  {
+    if (realized) {
+      NativeSurface localNativeSurface = getNativeSurface();
+      WindowsWGLGraphicsConfiguration localWindowsWGLGraphicsConfiguration = (WindowsWGLGraphicsConfiguration)localNativeSurface.getGraphicsConfiguration();
+      localWindowsWGLGraphicsConfiguration.updateGraphicsConfiguration(getFactory(), localNativeSurface, null);
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": WindowsWGLDrawable.setRealized(true): " + localWindowsWGLGraphicsConfiguration);
+      }
+    }
+  }
+  
+  protected final void swapBuffersImpl(boolean paramBoolean)
+  {
+    if (paramBoolean) {
+      long l;
+      if (PROFILING) {
+        l = System.currentTimeMillis();
+      } else {
+        l = 0L;
+      }
+      
+      if ((!WGLUtil.SwapBuffers(getHandle())) && (GDI.GetLastError() != 0)) {
+        throw new GLException("Error swapping buffers");
+      }
+      
+      if (PROFILING) {
+        profilingSwapBuffersTime += System.currentTimeMillis() - l;
+        if (++profilingSwapBuffersTicks == 200) {
+          System.err.println("SwapBuffers calls: " + profilingSwapBuffersTime + " ms / " + 200 + "  calls (" + (float)profilingSwapBuffersTime / 200.0F + " ms/call)");
+          
+          profilingSwapBuffersTime = 0L;
+          profilingSwapBuffersTicks = 0;
+        }
+      }
+    }
+  }
+  
+  static {}
+}

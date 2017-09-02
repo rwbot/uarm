@@ -1,0 +1,175 @@
+package jogamp.nativewindow;
+
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.ScalableSurface;
+import com.jogamp.nativewindow.UpstreamSurfaceHook;
+import com.jogamp.nativewindow.UpstreamSurfaceHookMutableSize;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class WrappedSurface
+  extends ProxySurfaceImpl
+  implements ScalableSurface
+{
+  private final float[] hasPixelScale = { 1.0F, 1.0F };
+  
+
+
+
+
+
+  private long surfaceHandle;
+  
+
+
+
+
+
+  public WrappedSurface(AbstractGraphicsConfiguration paramAbstractGraphicsConfiguration, long paramLong, int paramInt1, int paramInt2, boolean paramBoolean)
+  {
+    super(paramAbstractGraphicsConfiguration, new UpstreamSurfaceHookMutableSize(paramInt1, paramInt2), paramBoolean);
+    surfaceHandle = paramLong;
+  }
+  
+
+
+
+
+
+
+
+  public WrappedSurface(AbstractGraphicsConfiguration paramAbstractGraphicsConfiguration, long paramLong, UpstreamSurfaceHook paramUpstreamSurfaceHook, boolean paramBoolean)
+  {
+    super(paramAbstractGraphicsConfiguration, paramUpstreamSurfaceHook, paramBoolean);
+    surfaceHandle = paramLong;
+  }
+  
+  protected void invalidateImpl()
+  {
+    surfaceHandle = 0L;
+    hasPixelScale[0] = 1.0F;
+    hasPixelScale[1] = 1.0F;
+  }
+  
+  public final long getSurfaceHandle()
+  {
+    return surfaceHandle;
+  }
+  
+  public final void setSurfaceHandle(long paramLong)
+  {
+    surfaceHandle = paramLong;
+  }
+  
+  protected final int lockSurfaceImpl()
+  {
+    return 3;
+  }
+  
+
+
+
+
+  protected final void unlockSurfaceImpl() {}
+  
+
+
+
+
+  public final int[] convertToWindowUnits(int[] paramArrayOfInt)
+  {
+    return SurfaceScaleUtils.scaleInv(paramArrayOfInt, paramArrayOfInt, hasPixelScale);
+  }
+  
+
+
+
+
+
+
+  public final int[] convertToPixelUnits(int[] paramArrayOfInt)
+  {
+    return SurfaceScaleUtils.scale(paramArrayOfInt, paramArrayOfInt, hasPixelScale);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean setSurfaceScale(float[] paramArrayOfFloat)
+  {
+    boolean bool = (hasPixelScale[0] != paramArrayOfFloat[0]) || (hasPixelScale[1] != paramArrayOfFloat[1]);
+    System.arraycopy(paramArrayOfFloat, 0, hasPixelScale, 0, 2);
+    return bool;
+  }
+  
+  public final float[] getRequestedSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(hasPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+  public final float[] getCurrentSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(hasPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+  public float[] getMinimumSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(hasPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+  public final float[] getMaximumSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(hasPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+}

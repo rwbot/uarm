@@ -1,0 +1,173 @@
+package jogamp.nativewindow.windows;
+
+import com.jogamp.nativewindow.NativeWindowException;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import jogamp.nativewindow.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class RegisteredClassFactory
+{
+  private static final boolean DEBUG = Debug.debug("RegisteredClass");
+  
+
+
+
+  private static final long hInstance = GDI.GetApplicationHandle();
+  static { if (0L == hInstance)
+      throw new NativeWindowException("Error: Null ModuleHandle for Application"); }
+  
+  private static final ArrayList<RegisteredClassFactory> registeredFactories = new ArrayList();
+  
+
+
+
+
+
+
+  private RegisteredClass sharedClass = null;
+  private int classIter = 0;
+  private int sharedRefCount = 0;
+  private final Object sync = new Object();
+  
+  private String toHexString(long paramLong) { return "0x" + Long.toHexString(paramLong); }
+  
+  private final String classBaseName;
+  private final long wndProc;
+  public final String toString() { return "RegisteredClassFactory[moduleHandle " + toHexString(hInstance) + ", " + classBaseName + ", wndProc " + toHexString(wndProc) + ", useDDT " + useDummyDispatchThread + ", shared[refCount " + sharedRefCount + ", class " + sharedClass + "]]"; }
+  
+  private final boolean useDummyDispatchThread;
+  private final long iconSmallHandle;
+  private final long iconBigHandle;
+  public static void shutdownSharedClasses() {
+    synchronized (registeredFactories) {
+      if (DEBUG) {
+        System.err.println("RegisteredClassFactory.shutdownSharedClasses: " + registeredFactories.size());
+      }
+      for (int i = 0; i < registeredFactories.size(); i++) {
+        RegisteredClassFactory localRegisteredClassFactory = (RegisteredClassFactory)registeredFactories.get(i);
+        synchronized (sync) {
+          if (null != sharedClass) {
+            GDIUtil.DestroyWindowClass0(sharedClass.getHInstance(), sharedClass.getName(), sharedClass.getHDispThreadContext());
+            sharedClass = null;
+            sharedRefCount = 0;
+            classIter = 0;
+            if (DEBUG) {
+              System.err.println("RegisteredClassFactory #" + i + "/" + registeredFactories.size() + ": shutdownSharedClasses : " + sharedClass);
+            }
+          } else if (DEBUG) {
+            System.err.println("RegisteredClassFactory #" + i + "/" + registeredFactories.size() + ": null");
+          }
+        }
+      }
+    }
+  }
+  
+  public static long getHInstance() {
+    return hInstance; }
+  
+  public RegisteredClassFactory(String paramString, long paramLong1, boolean paramBoolean, long paramLong2, long paramLong3) {
+    classBaseName = paramString;
+    wndProc = paramLong1;
+    useDummyDispatchThread = paramBoolean;
+    iconSmallHandle = paramLong2;
+    iconBigHandle = paramLong3;
+    synchronized (registeredFactories) {
+      registeredFactories.add(this);
+    }
+  }
+  
+  public RegisteredClass getSharedClass() throws NativeWindowException {
+    synchronized (sync) {
+      if (0 == sharedRefCount) {
+        if (null != sharedClass) {
+          throw new InternalError("Error (" + sharedRefCount + "): SharedClass not null: " + sharedClass);
+        }
+        String str = null;
+        boolean bool = false;
+        int i = classIter - 1;
+        while ((!bool) && (i != classIter))
+        {
+          str = classBaseName + classIter;
+          classIter += 1;
+          bool = GDIUtil.CreateWindowClass0(hInstance, str, wndProc, iconSmallHandle, iconBigHandle);
+        }
+        if (!bool) {
+          throw new NativeWindowException("Error: Could not create WindowClass: " + str);
+        }
+        long l;
+        if (useDummyDispatchThread) {
+          l = GDIUtil.CreateDummyDispatchThread0();
+          if (0L == l) {
+            throw new NativeWindowException("Error: Could not create DDT " + str);
+          }
+        } else {
+          l = 0L;
+        }
+        sharedClass = new RegisteredClass(hInstance, str, l);
+        if (DEBUG) {
+          System.err.println("RegisteredClassFactory getSharedClass (" + sharedRefCount + ") initialized: " + sharedClass);
+        }
+      } else if (null == sharedClass) {
+        throw new InternalError("Error (" + sharedRefCount + "): SharedClass is null");
+      }
+      sharedRefCount += 1;
+    }
+    return sharedClass;
+  }
+  
+  public void releaseSharedClass() {
+    synchronized (sync) {
+      if (0 == sharedRefCount) {
+        if (null != sharedClass) {
+          throw new InternalError("Error (" + sharedRefCount + "): SharedClass not null: " + sharedClass);
+        }
+        return;
+      }
+      sharedRefCount -= 1;
+      if (null == sharedClass) {
+        throw new InternalError("Error (" + sharedRefCount + "): SharedClass is null");
+      }
+      if (0 == sharedRefCount) {
+        GDIUtil.DestroyWindowClass0(sharedClass.getHInstance(), sharedClass.getName(), sharedClass.getHDispThreadContext());
+        if (DEBUG) {
+          System.err.println("RegisteredClassFactory releaseSharedClass (" + sharedRefCount + ") released: " + sharedClass);
+        }
+        sharedClass = null;
+        sharedRefCount = 0;
+        classIter = 0;
+      }
+    }
+  }
+  
+  public int getSharedRefCount() {
+    return sharedRefCount;
+  }
+}

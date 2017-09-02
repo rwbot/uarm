@@ -1,0 +1,164 @@
+package com.jogamp.common.util;
+
+import com.jogamp.common.JogampRuntimeException;
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class RunnableTask
+  extends TaskBase
+{
+  protected final Runnable runnable;
+  
+  /**
+   * @deprecated
+   */
+  public static void invoke(boolean paramBoolean, Runnable paramRunnable)
+  {
+    paramRunnable.run();
+  }
+  
+  /**
+   * @deprecated
+   */
+  public static Thread invokeOnNewThread(ThreadGroup paramThreadGroup, boolean paramBoolean, Runnable paramRunnable, String paramString) {
+    RunnableTask localRunnableTask = invokeOnNewThread(paramThreadGroup, paramString, paramBoolean, paramRunnable);
+    return localRunnableTask.getExecutionThread();
+  }
+  
+
+
+
+
+  public static RunnableTask invokeOnNewThread(ThreadGroup paramThreadGroup, String paramString, boolean paramBoolean, Runnable paramRunnable)
+  {
+    RunnableTask localRunnableTask;
+    
+
+
+    Object localObject1;
+    
+
+
+    if (!paramBoolean) {
+      localRunnableTask = new RunnableTask(paramRunnable, null, true, System.err);
+      localObject1 = InterruptSource.Thread.create(paramThreadGroup, localRunnableTask, paramString);
+      ((InterruptSource.Thread)localObject1).start();
+    } else {
+      localObject1 = new Object();
+      localRunnableTask = new RunnableTask(paramRunnable, localObject1, true, null);
+      InterruptSource.Thread localThread = InterruptSource.Thread.create(paramThreadGroup, localRunnableTask, paramString);
+      synchronized (localObject1) {
+        localThread.start();
+        while (localRunnableTask.isInQueue()) {
+          try {
+            localObject1.wait();
+          } catch (InterruptedException localInterruptedException) {
+            throw new InterruptedRuntimeException(localInterruptedException);
+          }
+          Throwable localThrowable = localRunnableTask.getThrowable();
+          if (null != localThrowable) {
+            throw new JogampRuntimeException(localThrowable);
+          }
+        }
+      }
+    }
+    return localRunnableTask;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public RunnableTask(Runnable paramRunnable, Object paramObject, boolean paramBoolean, PrintStream paramPrintStream)
+  {
+    super(paramObject, paramBoolean, paramPrintStream);
+    runnable = paramRunnable;
+  }
+  
+  public final Runnable getRunnable()
+  {
+    return runnable;
+  }
+  
+  public final void run()
+  {
+    execThread = Thread.currentThread();
+    
+    runnableException = null;
+    tStarted = System.currentTimeMillis();
+    if (null == syncObject) {
+      try {
+        runnable.run();
+      } catch (Throwable localThrowable1) {
+        runnableException = localThrowable1;
+        if (null != exceptionOut) {
+          exceptionOut.println("RunnableTask.run(): " + getExceptionOutIntro() + " exception occured on thread " + Thread.currentThread().getName() + ": " + toString());
+          printSourceTrace();
+          runnableException.printStackTrace(exceptionOut);
+        }
+        if (!catchExceptions) {
+          throw new RuntimeException(runnableException);
+        }
+      } finally {
+        tExecuted = System.currentTimeMillis();
+        isExecuted = true;
+      }
+    } else {
+      synchronized (syncObject) {
+        try {
+          runnable.run();
+        } catch (Throwable localThrowable2) {
+          runnableException = localThrowable2;
+          if (null != exceptionOut) {
+            exceptionOut.println("RunnableTask.run(): " + getExceptionOutIntro() + " exception occured on thread " + Thread.currentThread().getName() + ": " + toString());
+            printSourceTrace();
+            localThrowable2.printStackTrace(exceptionOut);
+          }
+          if (!catchExceptions) {
+            throw new RuntimeException(runnableException);
+          }
+        } finally {
+          tExecuted = System.currentTimeMillis();
+          isExecuted = true;
+          syncObject.notifyAll();
+        }
+      }
+    }
+  }
+}

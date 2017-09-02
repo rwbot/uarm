@@ -1,0 +1,270 @@
+package com.jogamp.nativewindow;
+
+import jogamp.nativewindow.NativeWindowFactoryImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class DefaultGraphicsDevice
+  implements Cloneable, AbstractGraphicsDevice
+{
+  private static final String separator = "_";
+  private final String type;
+  protected final String connection;
+  protected final int unitID;
+  protected final String uniqueID;
+  protected long handle;
+  protected ToolkitLock toolkitLock;
+  
+  public static String getDefaultDisplayConnection()
+  {
+    return NativeWindowFactory.getDefaultDisplayConnection();
+  }
+  
+
+
+
+  public static String getDefaultDisplayConnection(String paramString)
+  {
+    return NativeWindowFactory.getDefaultDisplayConnection(paramString);
+  }
+  
+
+
+
+
+  public DefaultGraphicsDevice(String paramString1, String paramString2, int paramInt)
+  {
+    this(paramString1, paramString2, paramInt, 0L, NativeWindowFactory.getDefaultToolkitLock(paramString1));
+  }
+  
+
+
+
+
+
+  public DefaultGraphicsDevice(String paramString1, String paramString2, int paramInt, long paramLong)
+  {
+    this(paramString1, paramString2, paramInt, paramLong, NativeWindowFactory.getDefaultToolkitLock(paramString1, paramLong));
+  }
+  
+
+
+
+
+
+  public DefaultGraphicsDevice(String paramString1, String paramString2, int paramInt, long paramLong, ToolkitLock paramToolkitLock)
+  {
+    type = paramString1;
+    connection = paramString2;
+    unitID = paramInt;
+    uniqueID = getUniqueID(paramString1, paramString2, paramInt);
+    handle = paramLong;
+    toolkitLock = (null != paramToolkitLock ? paramToolkitLock : NativeWindowFactoryImpl.getNullToolkitLock());
+  }
+  
+  public Object clone()
+  {
+    try {
+      return super.clone();
+    } catch (CloneNotSupportedException localCloneNotSupportedException) {
+      throw new NativeWindowException(localCloneNotSupportedException);
+    }
+  }
+  
+  public final String getType()
+  {
+    return type;
+  }
+  
+  public final String getConnection()
+  {
+    return connection;
+  }
+  
+  public final int getUnitID()
+  {
+    return unitID;
+  }
+  
+  public final String getUniqueID()
+  {
+    return uniqueID;
+  }
+  
+  public final long getHandle()
+  {
+    return handle;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final void lock()
+  {
+    toolkitLock.lock();
+  }
+  
+  public final void validateLocked() throws RuntimeException
+  {
+    toolkitLock.validateLocked();
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final void unlock()
+  {
+    toolkitLock.unlock();
+  }
+  
+  public boolean open()
+  {
+    return false;
+  }
+  
+  public boolean close()
+  {
+    toolkitLock.dispose();
+    if (0L != handle) {
+      handle = 0L;
+      return true;
+    }
+    return false;
+  }
+  
+  public boolean isHandleOwner()
+  {
+    return false;
+  }
+  
+
+  public void clearHandleOwner() {}
+  
+
+  public String toString()
+  {
+    return getClass().getSimpleName() + "[type " + getType() + ", connection " + getConnection() + ", unitID " + getUnitID() + ", handle 0x" + Long.toHexString(getHandle()) + ", owner " + isHandleOwner() + ", " + toolkitLock + "]";
+  }
+  
+
+
+
+  protected final long setHandle(long paramLong)
+  {
+    long l = handle;
+    handle = paramLong;
+    return l;
+  }
+  
+  protected Object getHandleOwnership() {
+    return null;
+  }
+  
+  protected Object setHandleOwnership(Object paramObject) { return null; }
+  
+  public static final void swapDeviceHandleAndOwnership(DefaultGraphicsDevice paramDefaultGraphicsDevice1, DefaultGraphicsDevice paramDefaultGraphicsDevice2)
+  {
+    paramDefaultGraphicsDevice1.lock();
+    try {
+      paramDefaultGraphicsDevice2.lock();
+      try {
+        long l1 = paramDefaultGraphicsDevice1.getHandle();
+        long l2 = paramDefaultGraphicsDevice2.setHandle(l1);
+        paramDefaultGraphicsDevice1.setHandle(l2);
+        Object localObject1 = paramDefaultGraphicsDevice1.getHandleOwnership();
+        Object localObject2 = paramDefaultGraphicsDevice2.setHandleOwnership(localObject1);
+        paramDefaultGraphicsDevice1.setHandleOwnership(localObject2);
+      }
+      finally {}
+    }
+    finally {
+      paramDefaultGraphicsDevice1.unlock();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  protected ToolkitLock setToolkitLock(ToolkitLock paramToolkitLock)
+  {
+    ToolkitLock localToolkitLock = toolkitLock;
+    localToolkitLock.lock();
+    try {
+      toolkitLock = (null == paramToolkitLock ? NativeWindowFactoryImpl.getNullToolkitLock() : paramToolkitLock);
+      
+      localToolkitLock.unlock(); } finally { localToolkitLock.unlock();
+    }
+    return localToolkitLock;
+  }
+  
+
+
+
+
+
+  public final ToolkitLock getToolkitLock()
+  {
+    return toolkitLock;
+  }
+  
+
+
+
+  private static String getUniqueID(String paramString1, String paramString2, int paramInt)
+  {
+    return (paramString1 + "_" + paramString2 + "_" + paramInt).intern();
+  }
+}

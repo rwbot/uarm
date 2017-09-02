@@ -1,0 +1,158 @@
+package g4p_controls;
+
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.util.LinkedList;
+import processing.awt.PGraphicsJava2D;
+import processing.core.PApplet;
+import processing.event.MouseEvent;
+
+public abstract class GToggleControl
+  extends GTextIconBase
+{
+  protected GToggleGroup group = null;
+  protected boolean selected = false;
+  
+  public GToggleControl(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    super(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+    opaque = false;
+    hotspots = new HotSpot[] { new HotSpot.HSrect(1, 0.0F, 0.0F, width, height) };
+  }
+  
+  public void setIcon(GIcon paramGIcon, GAlign paramGAlign1, GAlign paramGAlign2, GAlign paramGAlign3)
+  {
+    super.setIcon(paramGIcon, paramGAlign1, paramGAlign2, paramGAlign3);
+    if (icon.me() != null)
+    {
+      GAnimIcon localGAnimIcon = (GAnimIcon)icon;
+      if (!localGAnimIcon.hasClip("SELECT")) {
+        localGAnimIcon.storeAnim("SELECT", anim_clip.start, anim_clip.end, anim_clip.interval, 1);
+      }
+      if (!localGAnimIcon.hasClip("DESELECT")) {
+        localGAnimIcon.storeAnim("DESELECT", anim_clip.end, anim_clip.start, anim_clip.interval, 1);
+      }
+      setSelected(false);
+    }
+    bufferInvalid = true;
+  }
+  
+  protected void setToggleGroup(GToggleGroup paramGToggleGroup)
+  {
+    group = paramGToggleGroup;
+  }
+  
+  public GToggleGroup getToggleGroup()
+  {
+    return group;
+  }
+  
+  public boolean isSelected()
+  {
+    return selected;
+  }
+  
+  public void setSelected(boolean paramBoolean)
+  {
+    bufferInvalid = (selected != paramBoolean);
+    GAnimIcon localGAnimIcon = icon.me();
+    if (localGAnimIcon != null) {
+      if (paramBoolean) {
+        localGAnimIcon.animate("SELECT");
+      } else {
+        localGAnimIcon.animate("DESELECT");
+      }
+    }
+    if ((paramBoolean) && (group != null)) {
+      group.makeSelected(this);
+    }
+    selected = paramBoolean;
+  }
+  
+  public void mouseEvent(MouseEvent paramMouseEvent)
+  {
+    if ((!visible) || (!enabled) || (!available)) {
+      return;
+    }
+    calcTransformedOrigin(winApp.mouseX, winApp.mouseY);
+    currSpot = whichHotSpot(ox, oy);
+    if ((currSpot >= 0) || (focusIsWith == this)) {
+      cursorIsOver = this;
+    } else if (cursorIsOver == this) {
+      cursorIsOver = null;
+    }
+    switch (paramMouseEvent.getAction())
+    {
+    case 1: 
+      if ((focusIsWith != this) && (currSpot >= 0) && (z > focusObjectZ()))
+      {
+        dragging = false;
+        takeFocus();
+      }
+      break;
+    case 3: 
+      if (focusIsWith == this)
+      {
+        if ((!selected) || (group == null))
+        {
+          setSelected(!selected);
+          if (selected) {
+            fireEvent(new Object[] { this, GEvent.SELECTED });
+          } else if (group == null) {
+            fireEvent(new Object[] { this, GEvent.DESELECTED });
+          }
+        }
+        loseFocus(null);
+      }
+      break;
+    case 4: 
+      dragging = true;
+      break;
+    case 2: 
+      if ((focusIsWith == this) && (dragging)) {
+        loseFocus(null);
+      }
+      dragging = false;
+    }
+  }
+  
+  public void draw()
+  {
+    if (!visible) {
+      return;
+    }
+    updateBuffer();
+    winApp.pushStyle();
+    winApp.pushMatrix();
+    winApp.translate(cx, cy);
+    winApp.rotate(rotAngle);
+    winApp.translate(-halfWidth, -halfHeight);
+    winApp.imageMode(0);
+    if (alphaLevel < 255) {
+      winApp.tint(255, alphaLevel);
+    }
+    winApp.image(buffer, 0.0F, 0.0F);
+    winApp.popMatrix();
+    winApp.popStyle();
+  }
+  
+  protected void updateBuffer()
+  {
+    if (bufferInvalid)
+    {
+      bufferInvalid = false;
+      buffer.beginDraw();
+      Graphics2D localGraphics2D = buffer.g2;
+      localGraphics2D.setFont(localFont);
+      LinkedList localLinkedList = stext.getLines(localGraphics2D);
+      buffer.background(opaque ? palette[6].getRGB() : palette[2].getRGB() & 0xFFFFFF);
+      if (icon.me() == null) {
+        buffer.image(icon.getFrame(selected ? 1 : 0), iconX, iconY);
+      } else {
+        buffer.image(icon.getFrame(), iconX, iconY);
+      }
+      displayText(localGraphics2D, localLinkedList);
+      buffer.endDraw();
+    }
+  }
+}

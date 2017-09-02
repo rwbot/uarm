@@ -1,0 +1,66 @@
+package jogamp.common.jvm;
+
+import com.jogamp.common.nio.Buffers;
+import java.nio.ByteBuffer;
+import jogamp.common.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class JVMUtil
+{
+  public static void initSingleton() {}
+  
+  private JVMUtil() {}
+  
+  private static native boolean initialize(ByteBuffer paramByteBuffer);
+  
+  private static final boolean DEBUG = Debug.debug("JVMUtil");
+  
+  static {
+    ByteBuffer localByteBuffer = Buffers.newDirectByteBuffer(64);
+    if (!initialize(localByteBuffer)) {
+      throw new RuntimeException("Failed to initialize the JVMUtil " + Thread.currentThread().getName());
+    }
+    if (DEBUG) {
+      Exception localException = new Exception("JVMUtil.initSingleton() .. initialized " + Thread.currentThread().getName());
+      localException.printStackTrace();
+    }
+  }
+}

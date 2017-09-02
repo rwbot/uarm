@@ -1,0 +1,273 @@
+package com.jogamp.opengl.util.av;
+
+import com.jogamp.opengl.util.TimeFrameI;
+import java.nio.ByteBuffer;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract interface AudioSink
+{
+  public static final boolean DEBUG = Debug.debug("AudioSink");
+  
+  public static final int DefaultFrameDuration = 32;
+  
+  public static final int DefaultInitialQueueSize = 512;
+  
+  public static final int DefaultQueueGrowAmount = 512;
+  
+  public static final int DefaultQueueLimitWithVideo = 3072;
+  
+  public static final int DefaultQueueLimitAudioOnly = 1024;
+  
+
+  public abstract boolean isInitialized();
+  
+
+  public abstract float getPlaySpeed();
+  
+  public abstract boolean setPlaySpeed(float paramFloat);
+  
+  public abstract float getVolume();
+  
+  public abstract boolean setVolume(float paramFloat);
+  
+  public static class AudioFormat
+  {
+    public AudioFormat(int paramInt1, int paramInt2, int paramInt3, boolean paramBoolean1, boolean paramBoolean2, boolean paramBoolean3, boolean paramBoolean4)
+    {
+      sampleRate = paramInt1;
+      sampleSize = paramInt2;
+      channelCount = paramInt3;
+      signed = paramBoolean1;
+      fixedP = paramBoolean2;
+      planar = paramBoolean3;
+      littleEndian = paramBoolean4;
+      if (!paramBoolean2) {
+        if ((paramInt2 != 32) && (paramInt2 != 64)) {
+          throw new IllegalArgumentException("Floating point: sampleSize " + paramInt2 + " bits");
+        }
+        if (!paramBoolean1) {
+          throw new IllegalArgumentException("Floating point: unsigned");
+        }
+      }
+    }
+    
+
+
+
+    public final int sampleRate;
+    
+
+    public final int sampleSize;
+    
+
+    public final int channelCount;
+    
+
+    public final boolean signed;
+    
+
+    public final boolean fixedP;
+    
+
+    public final boolean planar;
+    
+
+    public final boolean littleEndian;
+    
+
+    public final int getDurationsByteSize(int paramInt)
+    {
+      int i = sampleSize >>> 3;
+      return paramInt * (channelCount * i * (sampleRate / 1000));
+    }
+    
+
+
+
+
+
+
+    public final int getBytesDuration(int paramInt)
+    {
+      int i = sampleSize >>> 3;
+      return paramInt / (channelCount * i * (sampleRate / 1000));
+    }
+    
+
+
+
+
+
+
+
+
+
+
+    public final float getSamplesDuration(int paramInt)
+    {
+      return 1000.0F * paramInt / sampleRate;
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public final int getFrameCount(int paramInt, float paramFloat)
+    {
+      return Math.max(1, (int)(paramInt / paramFloat + 0.5F));
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public final int getSamplesByteCount(int paramInt)
+    {
+      return paramInt * (sampleSize >>> 3);
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public final int getBytesSampleCount(int paramInt)
+    {
+      return (paramInt << 3) / sampleSize;
+    }
+    
+
+
+    public String toString() { return "AudioDataFormat[sampleRate " + sampleRate + ", sampleSize " + sampleSize + ", channelCount " + channelCount + ", signed " + signed + ", fixedP " + fixedP + ", " + (planar ? "planar" : "packed") + ", " + (littleEndian ? "little" : "big") + "-endian]"; } }
+  
+  public abstract AudioFormat getPreferredFormat();
+  
+  public static final AudioFormat DefaultFormat = new AudioFormat(44100, 16, 2, true, true, false, true);
+  
+  public abstract int getMaxSupportedChannels();
+  
+  public abstract boolean isSupported(AudioFormat paramAudioFormat);
+  
+  public static abstract class AudioFrame extends TimeFrameI {
+    public AudioFrame() { byteSize = 0; }
+    
+    public AudioFrame(int paramInt1, int paramInt2, int paramInt3) {
+      super(paramInt2);
+      byteSize = paramInt3;
+    }
+    
+
+    public final int getByteSize() { return byteSize; }
+    
+    public final void setByteSize(int paramInt) { byteSize = paramInt; }
+    
+
+    protected int byteSize;
+    public String toString() { return "AudioFrame[pts " + pts + " ms, l " + duration + " ms, " + byteSize + " bytes]"; }
+  }
+  
+  public abstract boolean init(AudioFormat paramAudioFormat, float paramFloat, int paramInt1, int paramInt2, int paramInt3);
+  
+  public static class AudioDataFrame extends AudioSink.AudioFrame {
+    public AudioDataFrame(int paramInt1, int paramInt2, ByteBuffer paramByteBuffer, int paramInt3) {
+      super(paramInt2, paramInt3);
+      if (paramInt3 > paramByteBuffer.remaining()) {
+        throw new IllegalArgumentException("Give size " + paramInt3 + " exceeds remaining bytes in ls " + paramByteBuffer + ". " + this);
+      }
+      data = paramByteBuffer;
+    }
+    
+    protected final ByteBuffer data;
+    public final ByteBuffer getData() { return data; }
+    
+    public String toString()
+    {
+      return "AudioDataFrame[pts " + pts + " ms, l " + duration + " ms, " + byteSize + " bytes, " + data + "]";
+    }
+  }
+  
+  public abstract AudioFormat getChosenFormat();
+  
+  public abstract boolean isPlaying();
+  
+  public abstract void play();
+  
+  public abstract void pause();
+  
+  public abstract void flush();
+  
+  public abstract void destroy();
+  
+  public abstract int getFrameCount();
+  
+  public abstract int getEnqueuedFrameCount();
+  
+  public abstract int getQueuedFrameCount();
+  
+  public abstract int getQueuedByteCount();
+  
+  public abstract int getQueuedTime();
+  
+  public abstract int getPTS();
+  
+  public abstract int getFreeFrameCount();
+  
+  public abstract AudioFrame enqueueData(int paramInt1, ByteBuffer paramByteBuffer, int paramInt2);
+}

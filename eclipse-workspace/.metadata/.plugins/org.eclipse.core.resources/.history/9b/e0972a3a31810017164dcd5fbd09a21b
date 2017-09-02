@@ -1,0 +1,181 @@
+package jogamp.opengl.util.av;
+
+import com.jogamp.opengl.util.av.AudioSink;
+import com.jogamp.opengl.util.av.AudioSink.AudioFormat;
+import com.jogamp.opengl.util.av.AudioSink.AudioFrame;
+import java.nio.ByteBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class NullAudioSink
+  implements AudioSink
+{
+  private volatile float playSpeed = 1.0F;
+  private volatile boolean playRequested = false;
+  private volatile int playingPTS = Integer.MIN_VALUE;
+  private float volume = 1.0F;
+  private AudioSink.AudioFormat chosenFormat;
+  private boolean initialized;
+  
+  public NullAudioSink()
+  {
+    initialized = true;
+    chosenFormat = null;
+  }
+  
+  public boolean isInitialized()
+  {
+    return initialized;
+  }
+  
+  public final float getPlaySpeed() {
+    return playSpeed;
+  }
+  
+  public final boolean setPlaySpeed(float paramFloat) {
+    if (Math.abs(1.0F - paramFloat) < 0.01F) {
+      paramFloat = 1.0F;
+    }
+    playSpeed = paramFloat;
+    return true;
+  }
+  
+
+  public final float getVolume()
+  {
+    return volume;
+  }
+  
+
+  public final boolean setVolume(float paramFloat)
+  {
+    volume = paramFloat;
+    return true;
+  }
+  
+  public AudioSink.AudioFormat getPreferredFormat()
+  {
+    return DefaultFormat;
+  }
+  
+  public final int getMaxSupportedChannels()
+  {
+    return 8;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final boolean isSupported(AudioSink.AudioFormat paramAudioFormat)
+  {
+    return true;
+  }
+  
+  public boolean init(AudioSink.AudioFormat paramAudioFormat, float paramFloat, int paramInt1, int paramInt2, int paramInt3)
+  {
+    chosenFormat = paramAudioFormat;
+    return true;
+  }
+  
+  public final AudioSink.AudioFormat getChosenFormat()
+  {
+    return chosenFormat;
+  }
+  
+  public boolean isPlaying()
+  {
+    return playRequested;
+  }
+  
+  public void play()
+  {
+    playRequested = true;
+  }
+  
+  public void pause()
+  {
+    playRequested = false;
+  }
+  
+
+  public void flush() {}
+  
+
+  public void destroy()
+  {
+    initialized = false;
+    chosenFormat = null;
+  }
+  
+  public final int getEnqueuedFrameCount()
+  {
+    return 0;
+  }
+  
+  public int getFrameCount()
+  {
+    return 0;
+  }
+  
+  public int getQueuedFrameCount()
+  {
+    return 0;
+  }
+  
+  public int getQueuedByteCount()
+  {
+    return 0;
+  }
+  
+  public int getQueuedTime()
+  {
+    return 0;
+  }
+  
+  public final int getPTS() {
+    return playingPTS;
+  }
+  
+  public int getFreeFrameCount() {
+    return 1;
+  }
+  
+  public AudioSink.AudioFrame enqueueData(int paramInt1, ByteBuffer paramByteBuffer, int paramInt2)
+  {
+    if ((!initialized) || (null == chosenFormat)) {
+      return null;
+    }
+    playingPTS = paramInt1;
+    return null;
+  }
+}

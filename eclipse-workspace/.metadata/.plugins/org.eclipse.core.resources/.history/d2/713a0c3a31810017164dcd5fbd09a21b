@@ -1,0 +1,99 @@
+package jogamp.nativewindow.jawt;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.StructAccessor;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import java.nio.ByteBuffer;
+import jogamp.common.os.MachineDataInfoRuntime;
+
+
+
+
+
+
+
+
+
+
+public class JAWT_Rectangle
+{
+  StructAccessor accessor;
+  private static final int mdIdx = MachineDataInfoRuntime.getStatic().ordinal();
+  
+  private final MachineDataInfo md;
+  private static final int[] JAWT_Rectangle_size = { 16, 16, 16, 16, 16, 16, 16, 16 };
+  private static final int[] x_offset = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  
+  private static final int[] y_offset = { 4, 4, 4, 4, 4, 4, 4, 4 };
+  
+  private static final int[] width_offset = { 8, 8, 8, 8, 8, 8, 8, 8 };
+  
+  private static final int[] height_offset = { 12, 12, 12, 12, 12, 12, 12, 12 };
+  
+  public static int size()
+  {
+    return JAWT_Rectangle_size[mdIdx];
+  }
+  
+  public static JAWT_Rectangle create() {
+    return create(Buffers.newDirectByteBuffer(size()));
+  }
+  
+  public static JAWT_Rectangle create(ByteBuffer paramByteBuffer) {
+    return new JAWT_Rectangle(paramByteBuffer);
+  }
+  
+  JAWT_Rectangle(ByteBuffer paramByteBuffer) {
+    md = valuesmdIdxmd;
+    accessor = new StructAccessor(paramByteBuffer);
+  }
+  
+  public ByteBuffer getBuffer() {
+    return accessor.getBuffer();
+  }
+  
+  public JAWT_Rectangle setX(int paramInt)
+  {
+    accessor.setIntAt(x_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getX()
+  {
+    return accessor.getIntAt(x_offset[mdIdx]);
+  }
+  
+  public JAWT_Rectangle setY(int paramInt)
+  {
+    accessor.setIntAt(y_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getY()
+  {
+    return accessor.getIntAt(y_offset[mdIdx]);
+  }
+  
+  public JAWT_Rectangle setWidth(int paramInt)
+  {
+    accessor.setIntAt(width_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getWidth()
+  {
+    return accessor.getIntAt(width_offset[mdIdx]);
+  }
+  
+  public JAWT_Rectangle setHeight(int paramInt)
+  {
+    accessor.setIntAt(height_offset[mdIdx], paramInt);
+    return this;
+  }
+  
+  public int getHeight()
+  {
+    return accessor.getIntAt(height_offset[mdIdx]);
+  }
+}

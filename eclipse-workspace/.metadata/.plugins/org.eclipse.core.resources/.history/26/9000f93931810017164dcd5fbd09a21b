@@ -1,0 +1,185 @@
+package jogamp.graph.font;
+
+import com.jogamp.common.util.IntObjectHashMap;
+import com.jogamp.graph.font.Font;
+import com.jogamp.graph.font.FontFactory;
+import com.jogamp.graph.font.FontSet;
+import com.jogamp.opengl.GLException;
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class JavaFontLoader
+  implements FontSet
+{
+  private static final IntObjectHashMap fontMap = new IntObjectHashMap();
+  
+  private static final FontSet fontLoader = new JavaFontLoader();
+  
+  public static FontSet get() {
+    return fontLoader;
+  }
+  
+  static final String[] availableFontFileNames = { "LucidaBrightRegular.ttf", "LucidaBrightItalic.ttf", "LucidaBrightDemiBold.ttf", "LucidaBrightDemiItalic.ttf", "LucidaSansRegular.ttf", "LucidaSansDemiBold.ttf", "LucidaTypewriterRegular.ttf", "LucidaTypewriterBold.ttf" };
+  
+
+
+
+
+  final String javaFontPath;
+  
+
+
+
+
+
+  private JavaFontLoader()
+  {
+    String str = (String)AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public String run() {
+        return System.getProperty("java.home");
+      }
+    });
+    if (null != str) {
+      javaFontPath = (str + "/lib/fonts/");
+    } else {
+      javaFontPath = null;
+    }
+  }
+  
+  static boolean is(int paramInt1, int paramInt2) {
+    return 0 != (paramInt1 & paramInt2);
+  }
+  
+  public Font getDefault() throws IOException
+  {
+    return get(0, 0);
+  }
+  
+  public Font get(int paramInt1, int paramInt2) throws IOException
+  {
+    if (null == javaFontPath) {
+      throw new GLException("java font path undefined");
+    }
+    Font localFont = (Font)fontMap.get(paramInt1 << 8 | paramInt2);
+    if (localFont != null) {
+      return localFont;
+    }
+    
+
+    if (is(paramInt2, 2)) {
+      if (is(paramInt2, 4)) {
+        localFont = abspath(availableFontFileNames[5], paramInt1, paramInt2);
+      } else {
+        localFont = abspath(availableFontFileNames[4], paramInt1, paramInt2);
+      }
+      if (null != localFont) {
+        fontMap.put(paramInt1 << 8 | paramInt2, localFont);
+      }
+      return localFont;
+    }
+    
+
+    switch (paramInt1) {
+    case 0: 
+    case 1: 
+    case 2: 
+    case 3: 
+      if (is(paramInt2, 4)) {
+        if (is(paramInt2, 8)) {
+          localFont = abspath(availableFontFileNames[3], paramInt1, paramInt2);
+        } else {
+          localFont = abspath(availableFontFileNames[2], paramInt1, paramInt2);
+        }
+      } else if (is(paramInt2, 8)) {
+        localFont = abspath(availableFontFileNames[1], paramInt1, paramInt2);
+      } else {
+        localFont = abspath(availableFontFileNames[0], paramInt1, paramInt2);
+      }
+      break;
+    
+    case 4: 
+      if (is(paramInt2, 4)) {
+        localFont = abspath(availableFontFileNames[7], paramInt1, paramInt2);
+      } else {
+        localFont = abspath(availableFontFileNames[6], paramInt1, paramInt2);
+      }
+      break;
+    }
+    
+    return localFont;
+  }
+  
+  Font abspath(String paramString, int paramInt1, int paramInt2) throws IOException {
+    try {
+      Font localFont = abspathImpl(javaFontPath + paramString, paramInt1, paramInt2);
+      if (null != localFont) {
+        return localFont;
+      }
+      throw new IOException(String.format("Problem loading font %s, file %s%s", new Object[] { paramString, javaFontPath, paramString }));
+    } catch (IOException localIOException) {
+      throw new IOException(String.format("Problem loading font %s, file %s%s", new Object[] { paramString, javaFontPath, paramString }), localIOException);
+    }
+  }
+  
+  private Font abspathImpl(final String paramString, int paramInt1, int paramInt2) throws IOException { final Exception[] arrayOfException = { null };
+    final int[] arrayOfInt = { 0 };
+    InputStream localInputStream = (InputStream)AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public InputStream run() {
+        try {
+          File localFile = new File(paramString);
+          arrayOfInt[0] = ((int)localFile.length());
+          return new BufferedInputStream(new FileInputStream(localFile), arrayOfInt[0]);
+        } catch (Exception localException) {
+          arrayOfException[0] = localException; }
+        return null;
+      }
+    });
+    if (null != arrayOfException[0]) {
+      throw new IOException(arrayOfException[0]);
+    }
+    if (null != localInputStream) {
+      Font localFont = FontFactory.get(localInputStream, arrayOfInt[0], true);
+      if (null != localFont) {
+        fontMap.put(paramInt1 << 8 | paramInt2, localFont);
+        return localFont;
+      }
+    }
+    return null;
+  }
+}

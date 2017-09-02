@@ -1,0 +1,73 @@
+package com.jogamp.newt.event;
+
+import com.jogamp.newt.MonitorDevice;
+import com.jogamp.newt.MonitorMode;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class MonitorEvent
+  extends OutputEvent
+{
+  public static final short EVENT_MONITOR_MODE_CHANGE_NOTIFY = 600;
+  public static final short EVENT_MONITOR_MODE_CHANGED = 601;
+  private final MonitorMode mode;
+  
+  public MonitorEvent(short paramShort, MonitorDevice paramMonitorDevice, long paramLong, MonitorMode paramMonitorMode)
+  {
+    super(paramShort, paramMonitorDevice, paramLong);
+    mode = paramMonitorMode;
+  }
+  
+
+  public final MonitorDevice getMonitor() { return (MonitorDevice)source; }
+  
+  public final MonitorMode getMode() { return mode; }
+  
+  public static String getEventTypeString(short paramShort) {
+    switch (paramShort) {
+    case 600:  return "EVENT_MONITOR_MODE_CHANGE_NOTIFY";
+    case 601:  return "EVENT_MONITOR_MODE_CHANGED"; }
+    return "unknown (" + paramShort + ")";
+  }
+  
+
+  public final String toString()
+  {
+    return toString(null).toString();
+  }
+  
+  public final StringBuilder toString(StringBuilder paramStringBuilder)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    
+    paramStringBuilder.append("MonitorEvent[").append(getEventTypeString(getEventType())).append(", source ").append(source).append(", mode ").append(mode).append(", ");
+    return super.toString(paramStringBuilder).append("]");
+  }
+}

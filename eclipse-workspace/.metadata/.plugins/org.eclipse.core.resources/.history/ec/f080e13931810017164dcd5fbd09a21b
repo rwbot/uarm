@@ -1,0 +1,63 @@
+package com.jogamp.nativewindow;
+
+
+
+public class DelegatedUpstreamSurfaceHookWithSurfaceSize
+  implements UpstreamSurfaceHook
+{
+  final UpstreamSurfaceHook upstream;
+  
+
+  final NativeSurface surface;
+  
+
+  public DelegatedUpstreamSurfaceHookWithSurfaceSize(UpstreamSurfaceHook paramUpstreamSurfaceHook, NativeSurface paramNativeSurface)
+  {
+    upstream = paramUpstreamSurfaceHook;
+    surface = paramNativeSurface;
+    if (null == paramNativeSurface) {
+      throw new IllegalArgumentException("given surface is null");
+    }
+  }
+  
+
+
+
+
+
+
+  public final NativeSurface getUpstreamSurface()
+  {
+    return null;
+  }
+  
+  public final void create(ProxySurface paramProxySurface)
+  {
+    if (null != upstream) {
+      upstream.create(paramProxySurface);
+    }
+  }
+  
+  public final void destroy(ProxySurface paramProxySurface)
+  {
+    if (null != upstream) {
+      upstream.destroy(paramProxySurface);
+    }
+  }
+  
+  public final int getSurfaceWidth(ProxySurface paramProxySurface)
+  {
+    return surface.getSurfaceWidth();
+  }
+  
+  public final int getSurfaceHeight(ProxySurface paramProxySurface)
+  {
+    return surface.getSurfaceHeight();
+  }
+  
+  public String toString()
+  {
+    String str = null != surface ? surface.getClass().getName() + ": 0x" + Long.toHexString(surface.getSurfaceHandle()) + " " + surface.getSurfaceWidth() + "x" + surface.getSurfaceHeight() : "nil";
+    return getClass().getSimpleName() + "[" + upstream + ", " + str + "]";
+  }
+}

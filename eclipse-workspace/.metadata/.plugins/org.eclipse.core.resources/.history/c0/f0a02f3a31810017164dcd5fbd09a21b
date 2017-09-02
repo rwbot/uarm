@@ -1,0 +1,64 @@
+package jogamp.opengl.util.pngj.chunks;
+
+import jogamp.opengl.util.pngj.ImageInfo;
+import jogamp.opengl.util.pngj.PngHelperInternal;
+import jogamp.opengl.util.pngj.PngjException;
+
+
+
+
+
+
+public class PngChunkHIST
+  extends PngChunkSingle
+{
+  public static final String ID = "hIST";
+  private int[] hist = new int[0];
+  
+  public PngChunkHIST(ImageInfo paramImageInfo) {
+    super("hIST", paramImageInfo);
+  }
+  
+  public PngChunk.ChunkOrderingConstraint getOrderingConstraint()
+  {
+    return PngChunk.ChunkOrderingConstraint.AFTER_PLTE_BEFORE_IDAT;
+  }
+  
+  public void parseFromRaw(ChunkRaw paramChunkRaw)
+  {
+    if (!imgInfo.indexed)
+      throw new PngjException("only indexed images accept a HIST chunk");
+    int i = data.length / 2;
+    hist = new int[i];
+    for (int j = 0; j < hist.length; j++) {
+      hist[j] = PngHelperInternal.readInt2fromBytes(data, j * 2);
+    }
+  }
+  
+  public ChunkRaw createRawChunk()
+  {
+    if (!imgInfo.indexed)
+      throw new PngjException("only indexed images accept a HIST chunk");
+    ChunkRaw localChunkRaw = null;
+    localChunkRaw = createEmptyChunk(hist.length * 2, true);
+    for (int i = 0; i < hist.length; i++) {
+      PngHelperInternal.writeInt2tobytes(hist[i], data, i * 2);
+    }
+    return localChunkRaw;
+  }
+  
+  public void cloneDataFromRead(PngChunk paramPngChunk)
+  {
+    PngChunkHIST localPngChunkHIST = (PngChunkHIST)paramPngChunk;
+    hist = new int[hist.length];
+    System.arraycopy(hist, 0, hist, 0, hist.length);
+  }
+  
+  public int[] getHist() {
+    return hist;
+  }
+  
+  public void setHist(int[] paramArrayOfInt) {
+    hist = paramArrayOfInt;
+  }
+}

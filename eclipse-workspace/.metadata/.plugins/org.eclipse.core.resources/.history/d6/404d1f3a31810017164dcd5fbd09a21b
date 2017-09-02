@@ -1,0 +1,79 @@
+package jogamp.opengl;
+
+import com.jogamp.common.util.PropertyAccess;
+import java.io.PrintStream;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Debug
+  extends PropertyAccess
+{
+  private static final boolean verbose;
+  private static final boolean debugAll;
+  
+  static
+  {
+    AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public Object run() {
+        Debug.addTrustedPrefix("jogl.");
+        return null;
+      }
+    });
+    verbose = isPropertyDefined("jogl.verbose", true);
+    debugAll = isPropertyDefined("jogl.debug", true);
+    if (verbose) {
+      Package localPackage = Package.getPackage("com.jogamp.opengl");
+      System.err.println("JOGL specification version " + localPackage.getSpecificationVersion());
+      System.err.println("JOGL implementation version " + localPackage.getImplementationVersion());
+      System.err.println("JOGL implementation vendor " + localPackage.getImplementationVendor());
+    }
+  }
+  
+
+
+  public static final boolean verbose()
+  {
+    return verbose;
+  }
+  
+  public static final boolean debugAll() {
+    return debugAll;
+  }
+  
+  public static final boolean debug(String paramString) {
+    return (debugAll()) || (isPropertyDefined("jogl.debug." + paramString, true));
+  }
+  
+  public Debug() {}
+  
+  public static final void initSingleton() {}
+}

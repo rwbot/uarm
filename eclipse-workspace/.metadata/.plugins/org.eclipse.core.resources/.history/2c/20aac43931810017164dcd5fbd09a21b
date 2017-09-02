@@ -1,0 +1,98 @@
+package g4p_controls;
+
+import java.awt.Toolkit;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.ClipboardOwner;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.StringSelection;
+import java.awt.datatransfer.Transferable;
+
+public class GClip
+  implements ClipboardOwner
+{
+  private static GClip gclip = null;
+  private Clipboard clipboard = null;
+  
+  public static boolean copy(String paramString)
+  {
+    if (gclip == null) {
+      gclip = new GClip();
+    }
+    return gclip.copyString(paramString);
+  }
+  
+  public static String paste()
+  {
+    if (gclip == null) {
+      gclip = new GClip();
+    }
+    return gclip.pasteString();
+  }
+  
+  private GClip()
+  {
+    if (clipboard == null) {
+      makeClipboardObject();
+    }
+  }
+  
+  private void makeClipboardObject()
+  {
+    SecurityManager localSecurityManager = System.getSecurityManager();
+    if (localSecurityManager != null) {
+      try
+      {
+        localSecurityManager.checkSystemClipboardAccess();
+        clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+      }
+      catch (SecurityException localSecurityException)
+      {
+        clipboard = new Clipboard("Application Clipboard");
+      }
+    } else {
+      try
+      {
+        clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+      }
+      catch (Exception localException) {}
+    }
+  }
+  
+  private boolean copyString(String paramString)
+  {
+    if (clipboard == null) {
+      makeClipboardObject();
+    }
+    if (clipboard != null)
+    {
+      StringSelection localStringSelection = new StringSelection(paramString);
+      clipboard.setContents(localStringSelection, this);
+      return true;
+    }
+    return false;
+  }
+  
+  private String pasteString()
+  {
+    if (clipboard == null)
+    {
+      makeClipboardObject();
+      return "";
+    }
+    Transferable localTransferable = clipboard.getContents(this);
+    if ((localTransferable != null) && (localTransferable.isDataFlavorSupported(DataFlavor.stringFlavor))) {
+      try
+      {
+        String str = (String)localTransferable.getTransferData(DataFlavor.stringFlavor);
+        return str;
+      }
+      catch (Exception localException)
+      {
+        localException.printStackTrace();
+      }
+    }
+    return "";
+  }
+  
+  public void lostOwnership(Clipboard paramClipboard, Transferable paramTransferable) {}
+}

@@ -1,0 +1,1538 @@
+package jogamp.opengl.glu.mipmap;
+
+import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import java.nio.ShortBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class HalveImage
+{
+  private static final int BOX2 = 2;
+  private static final int BOX4 = 4;
+  private static final int BOX8 = 8;
+  
+  public HalveImage() {}
+  
+  public static void halveImage(int paramInt1, int paramInt2, int paramInt3, ShortBuffer paramShortBuffer1, ShortBuffer paramShortBuffer2)
+  {
+    int i2 = 0;
+    short s = 0;
+    
+    int m = paramInt2 / 2;
+    int n = paramInt3 / 2;
+    int i1 = paramInt2 * paramInt1;
+    
+
+    for (int i = 0; i < n; i++) {
+      for (int j = 0; j < m; j++) {
+        for (int k = 0; k < paramInt1; k++) {
+          paramShortBuffer1.position(i2);
+          s = paramShortBuffer1.get();
+          paramShortBuffer1.position(i2 + paramInt1);
+          s = (short)(s + paramShortBuffer1.get());
+          paramShortBuffer1.position(i2 + i1);
+          s = (short)(s + paramShortBuffer1.get());
+          paramShortBuffer1.position(i2 + i1 + paramInt1);
+          s = (short)(s + paramShortBuffer1.get());
+          s = (short)(s + 2);
+          s = (short)(s / 4);
+          paramShortBuffer2.put(s);
+          i2++;
+        }
+        i2 += paramInt1;
+      }
+      i2 += i1;
+    }
+  }
+  
+
+
+
+
+
+
+
+  public static void halveImage_ubyte(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer1, ByteBuffer paramByteBuffer2, int paramInt4, int paramInt5, int paramInt6)
+  {
+    if ((paramInt2 == 1) || (paramInt3 == 1)) {
+      assert ((paramInt2 != 1) || (paramInt3 != 1));
+      halve1Dimage_ubyte(paramInt1, paramInt2, paramInt3, paramByteBuffer1, paramByteBuffer2, paramInt4, paramInt5, paramInt6);
+      return;
+    }
+    
+    int m = paramInt2 / 2;
+    int n = paramInt3 / 2;
+    int i1 = 0;
+    int i2 = 0;
+    
+    int i3 = 0;
+    
+    for (int i = 0; i < n; i++) {
+      for (int j = 0; j < m; j++) {
+        for (int k = 0; k < paramInt1; k++) {
+          paramByteBuffer1.position(i2);
+          i3 = 0xFF & paramByteBuffer1.get();
+          paramByteBuffer1.position(i2 + paramInt6);
+          i3 += (0xFF & paramByteBuffer1.get());
+          paramByteBuffer1.position(i2 + paramInt5);
+          i3 += (0xFF & paramByteBuffer1.get());
+          paramByteBuffer1.position(i2 + paramInt5 + paramInt6);
+          i3 += (0xFF & paramByteBuffer1.get()) + 2;
+          paramByteBuffer2.put((byte)(i3 / 4));
+          i2 += paramInt4;
+        }
+        i2 += paramInt6;
+      }
+      i2 += paramInt5;
+    }
+  }
+  
+
+  public static void halve1Dimage_ubyte(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer1, ByteBuffer paramByteBuffer2, int paramInt4, int paramInt5, int paramInt6)
+  {
+    int i = paramInt2 / 2;
+    int j = paramInt3 / 2;
+    int k = 0;
+    int m = 0;
+    
+    int i1 = 0;
+    
+    assert ((paramInt2 == 1) || (paramInt3 == 1));
+    assert (paramInt2 != paramInt3);
+    int n;
+    int i2; if (paramInt3 == 1) {
+      assert (paramInt2 != 1);
+      j = 1;
+      
+      for (n = 0; n < i; n++)
+      {
+        for (i2 = 0; i2 < paramInt1; i2++) {
+          paramByteBuffer1.position(k);
+          i1 = 0xFF & paramByteBuffer1.get();
+          paramByteBuffer1.position(k + paramInt6);
+          i1 += (0xFF & paramByteBuffer1.get());
+          i1 /= 2;
+          paramByteBuffer2.put((byte)i1);
+          
+
+
+
+          k += paramInt4;
+          
+          m++;
+        }
+        k += paramInt6;
+      }
+      i2 = paramInt5 - paramInt2 * paramInt6;
+      k += i2;
+    } else if (paramInt2 == 1) {
+      i2 = paramInt5 - paramInt2 * paramInt6;
+      assert (paramInt3 != 1);
+      i = 1;
+      
+
+      for (n = 0; n < j; n++)
+      {
+        for (int i3 = 0; i3 < paramInt1; i3++) {
+          paramByteBuffer1.position(k);
+          i1 = 0xFF & paramByteBuffer1.get();
+          paramByteBuffer1.position(k + paramInt5);
+          i1 += (0xFF & paramByteBuffer1.get());
+          i1 /= 2;
+          paramByteBuffer2.put((byte)i1);
+          
+
+
+
+          k += paramInt4;
+          
+          m++;
+        }
+        k += i2;
+        k += paramInt5;
+      }
+    }
+    assert (k == paramInt5 * paramInt3);
+    assert (m == paramInt1 * paramInt4 * i * j);
+  }
+  
+
+
+
+
+  public static void halveImage_byte(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer1, ByteBuffer paramByteBuffer2, int paramInt4, int paramInt5, int paramInt6)
+  {
+    int i1 = 0;
+    byte b = 0;
+    
+
+    if ((paramInt2 == 1) || (paramInt3 == 1)) {
+      assert ((paramInt2 != 1) || (paramInt3 != 1));
+      halve1Dimage_byte(paramInt1, paramInt2, paramInt3, paramByteBuffer1, paramByteBuffer2, paramInt4, paramInt5, paramInt6);
+      
+      return;
+    }
+    
+    int m = paramInt2 / 2;
+    int n = paramInt3 / 2;
+    
+    for (int i = 0; i < n; i++) {
+      for (int j = 0; j < m; j++) {
+        for (int k = 0; k < paramInt1; k++) {
+          paramByteBuffer1.position(i1);
+          b = paramByteBuffer1.get();
+          paramByteBuffer1.position(i1 + paramInt6);
+          b = (byte)(b + paramByteBuffer1.get());
+          paramByteBuffer1.position(i1 + paramInt5);
+          b = (byte)(b + paramByteBuffer1.get());
+          paramByteBuffer1.position(i1 + paramInt5 + paramInt6);
+          b = (byte)(b + paramByteBuffer1.get());
+          b = (byte)(b + 2);
+          b = (byte)(b / 4);
+          paramByteBuffer2.put(b);
+          i1 += paramInt4;
+        }
+        i1 += paramInt6;
+      }
+      i1 += paramInt5;
+    }
+  }
+  
+
+  public static void halve1Dimage_byte(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer1, ByteBuffer paramByteBuffer2, int paramInt4, int paramInt5, int paramInt6)
+  {
+    int i = paramInt2 / 2;
+    int j = paramInt2 / 2;
+    int k = 0;
+    int m = 0;
+    
+    byte b = 0;
+    
+    assert ((paramInt2 == 1) || (paramInt3 == 1));
+    assert (paramInt2 != paramInt3);
+    int n;
+    int i1; if (paramInt3 == 1) {
+      assert (paramInt2 != 1);
+      j = 1;
+      
+      for (n = 0; n < i; n++)
+      {
+        for (i1 = 0; i1 < paramInt1; i1++) {
+          paramByteBuffer1.position(k);
+          b = paramByteBuffer1.get();
+          paramByteBuffer1.position(k + paramInt6);
+          b = (byte)(b + paramByteBuffer1.get());
+          b = (byte)(b / 2);
+          paramByteBuffer2.put(b);
+          k += paramInt4;
+          m++;
+        }
+        k += paramInt6;
+      }
+      i1 = paramInt5 - paramInt2 * paramInt6;
+      k += i1;
+    } else if (paramInt2 == 1) {
+      i1 = paramInt5 - paramInt2 * paramInt6;
+      assert (paramInt3 != 1);
+      i = 1;
+      
+
+
+      for (n = 0; n < j; n++)
+      {
+        for (int i2 = 0; i2 < paramInt1; i2++) {
+          paramByteBuffer1.position(k);
+          b = paramByteBuffer1.get();
+          paramByteBuffer1.position(k + paramInt5);
+          b = (byte)(b + paramByteBuffer1.get());
+          b = (byte)(b / 2);
+          k += paramInt4;
+          m++;
+        }
+        k += i1;
+        k += paramInt5;
+      }
+      assert (k == paramInt5 * paramInt3);
+    }
+    assert (m == paramInt1 * paramInt4 * i * j);
+  }
+  
+
+
+
+
+
+  public static void halveImage_ushort(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer, ShortBuffer paramShortBuffer, int paramInt4, int paramInt5, int paramInt6, boolean paramBoolean)
+  {
+    int i1 = 0;
+    int i2 = 0;
+    
+    if ((paramInt2 == 1) || (paramInt3 == 1)) {
+      assert ((paramInt2 != 1) || (paramInt3 != 1));
+      halve1Dimage_ushort(paramInt1, paramInt2, paramInt3, paramByteBuffer, paramShortBuffer, paramInt4, paramInt5, paramInt6, paramBoolean);
+      
+      return;
+    }
+    
+    int m = paramInt2 / 2;
+    int n = paramInt3 / 2;
+    int j;
+    int k;
+    if (!paramBoolean) {
+      for (i = 0; i < n; i++) {
+        for (j = 0; j < m; j++) {
+          for (k = 0; k < paramInt1; k++) {
+            paramByteBuffer.position(i1);
+            i2 = 0xFFFF & paramByteBuffer.getShort();
+            paramByteBuffer.position(i1 + paramInt6);
+            i2 += (0xFFFF & paramByteBuffer.getShort());
+            paramByteBuffer.position(i1 + paramInt5);
+            i2 += (0xFFFF & paramByteBuffer.getShort());
+            paramByteBuffer.position(i1 + paramInt5 + paramInt6);
+            i2 += (0xFFFF & paramByteBuffer.getShort());
+            paramShortBuffer.put((short)((i2 + 2) / 4));
+            i1 += paramInt4;
+          }
+          i1 += paramInt6;
+        }
+        i1 += paramInt5;
+      }
+    }
+    for (int i = 0; i < n; i++) {
+      for (j = 0; j < m; j++) {
+        for (k = 0; k < paramInt1; k++) {
+          paramByteBuffer.position(i1);
+          i2 = 0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+          paramByteBuffer.position(i1 + paramInt6);
+          i2 += (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort()));
+          paramByteBuffer.position(i1 + paramInt5);
+          i2 += (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort()));
+          paramByteBuffer.position(i1 + paramInt5 + paramInt6);
+          i2 += (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort()));
+          paramShortBuffer.put((short)((i2 + 2) / 4));
+          i1 += paramInt4;
+        }
+        i1 += paramInt6;
+      }
+      i1 += paramInt5;
+    }
+  }
+  
+
+
+  public static void halve1Dimage_ushort(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer, ShortBuffer paramShortBuffer, int paramInt4, int paramInt5, int paramInt6, boolean paramBoolean)
+  {
+    int i = paramInt2 / 2;
+    int j = paramInt3 / 2;
+    int k = 0;
+    int m = 0;
+    
+
+    assert ((paramInt2 == 1) || (paramInt3 == 1));
+    assert (paramInt2 != paramInt3);
+    int n;
+    int i1; if (paramInt3 == 1) {
+      assert (paramInt2 != 1);
+      j = 1;
+      
+      for (n = 0; n < i; n++)
+      {
+        for (i1 = 0; i1 < j; i1++) {
+          int[] arrayOfInt1 = new int[2];
+          if (paramBoolean) {
+            paramByteBuffer.position(k);
+            arrayOfInt1[0] = (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort()));
+            paramByteBuffer.position(k + paramInt6);
+            arrayOfInt1[1] = (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort()));
+          } else {
+            paramByteBuffer.position(k);
+            arrayOfInt1[0] = (0xFFFF & paramByteBuffer.getShort());
+            paramByteBuffer.position(k + paramInt6);
+            arrayOfInt1[1] = (0xFFFF & paramByteBuffer.getShort());
+          }
+          paramShortBuffer.put((short)((arrayOfInt1[0] + arrayOfInt1[1]) / 2));
+          k += paramInt4;
+          m += 2;
+        }
+        k += paramInt6;
+      }
+      i1 = paramInt5 - paramInt2 * paramInt6;
+      k += i1;
+    } else if (paramInt2 == 1) {
+      i1 = paramInt5 - paramInt2 * paramInt6;
+      assert (paramInt3 != 1);
+      i = 1;
+      
+
+
+      for (n = 0; n < j; n++)
+      {
+        for (int i2 = 0; i2 < paramInt1; i2++) {
+          int[] arrayOfInt2 = new int[2];
+          if (paramBoolean) {
+            paramByteBuffer.position(k);
+            arrayOfInt2[0] = (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort()));
+            paramByteBuffer.position(k + paramInt5);
+            arrayOfInt2[0] = (0xFFFF & Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort()));
+          } else {
+            paramByteBuffer.position(k);
+            arrayOfInt2[0] = (0xFFFF & paramByteBuffer.getShort());
+            paramByteBuffer.position(k + paramInt5);
+            arrayOfInt2[1] = (0xFFFF & paramByteBuffer.getShort());
+          }
+          paramShortBuffer.put((short)((arrayOfInt2[0] + arrayOfInt2[1]) / 2));
+          k += paramInt4;
+          m += 2;
+        }
+        k += i1;
+        k += paramInt5;
+      }
+      assert (k == paramInt5 * paramInt3);
+    }
+    assert (m == paramInt1 * paramInt4 * i * j);
+  }
+  
+
+
+
+
+
+  public static void halveImage_short(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer, ShortBuffer paramShortBuffer, int paramInt4, int paramInt5, int paramInt6, boolean paramBoolean)
+  {
+    int i1 = 0;
+    short s = 0;
+    
+    if ((paramInt2 == 1) || (paramInt3 == 1)) {
+      assert ((paramInt2 != 1) || (paramInt3 != 1));
+      halve1Dimage_short(paramInt1, paramInt2, paramInt3, paramByteBuffer, paramShortBuffer, paramInt4, paramInt5, paramInt6, paramBoolean);
+      
+      return;
+    }
+    
+    int m = paramInt2 / 2;
+    int n = paramInt3 / 2;
+    int j;
+    int k;
+    if (!paramBoolean) {
+      for (i = 0; i < n; i++) {
+        for (j = 0; j < m; j++) {
+          for (k = 0; k < paramInt1; k++) {
+            paramByteBuffer.position(i1);
+            s = paramByteBuffer.getShort();
+            paramByteBuffer.position(i1 + paramInt6);
+            s = (short)(s + paramByteBuffer.getShort());
+            paramByteBuffer.position(i1 + paramInt5);
+            s = (short)(s + paramByteBuffer.getShort());
+            paramByteBuffer.position(i1 + paramInt5 + paramInt6);
+            s = (short)(s + paramByteBuffer.getShort());
+            s = (short)(s + 2);
+            s = (short)(s / 4);
+            paramShortBuffer.put(s);
+            i1 += paramInt4;
+          }
+          i1 += paramInt6;
+        }
+        i1 += paramInt5;
+      }
+    }
+    for (int i = 0; i < n; i++) {
+      for (j = 0; j < m; j++) {
+        for (k = 0; k < paramInt1; k++)
+        {
+
+          paramByteBuffer.position(i1);
+          s = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+          paramByteBuffer.position(i1 + paramInt6);
+          s = (short)(s + Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort()));
+          paramByteBuffer.position(i1 + paramInt5);
+          s = (short)(s + Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort()));
+          paramByteBuffer.position(i1 + paramInt5 + paramInt6);
+          s = (short)(s + Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort()));
+          s = (short)(s + 2);
+          s = (short)(s / 4);
+          paramShortBuffer.put(s);
+          i1 += paramInt4;
+        }
+        i1 += paramInt6;
+      }
+      i1 += paramInt5;
+    }
+  }
+  
+
+
+  public static void halve1Dimage_short(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer, ShortBuffer paramShortBuffer, int paramInt4, int paramInt5, int paramInt6, boolean paramBoolean)
+  {
+    int i = paramInt2 / 2;
+    int j = paramInt3 / 2;
+    int k = 0;
+    int m = 0;
+    
+
+    assert ((paramInt2 == 1) || (paramInt3 == 1));
+    assert (paramInt2 != paramInt3);
+    int n;
+    int i1; if (paramInt3 == 1) {
+      assert (paramInt2 != 1);
+      j = 1;
+      
+      for (n = 0; n < i; n++)
+      {
+        for (i1 = 0; i1 < paramInt1; i1++) {
+          short[] arrayOfShort1 = new short[2];
+          if (paramBoolean) {
+            paramByteBuffer.position(k);
+            arrayOfShort1[0] = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+            paramByteBuffer.position(k + paramInt6);
+            arrayOfShort1[1] = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+          } else {
+            paramByteBuffer.position(k);
+            arrayOfShort1[0] = paramByteBuffer.getShort();
+            paramByteBuffer.position(k + paramInt6);
+            arrayOfShort1[1] = paramByteBuffer.getShort();
+          }
+          paramShortBuffer.put((short)((arrayOfShort1[0] + arrayOfShort1[1]) / 2));
+          k += paramInt4;
+          m += 2;
+        }
+        k += paramInt6;
+      }
+      i1 = paramInt5 - paramInt2 * paramInt6;
+      k += i1;
+    } else if (paramInt2 == 1) {
+      i1 = paramInt5 - paramInt2 * paramInt6;
+      assert (paramInt3 != 1);
+      i = 1;
+      
+
+
+      for (n = 0; n < j; n++)
+      {
+        for (int i2 = 0; i2 < paramInt1; i2++) {
+          short[] arrayOfShort2 = new short[2];
+          if (paramBoolean) {
+            paramByteBuffer.position(k);
+            arrayOfShort2[0] = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+            paramByteBuffer.position(k + paramInt5);
+            arrayOfShort2[1] = Mipmap.GLU_SWAP_2_BYTES(paramByteBuffer.getShort());
+          } else {
+            paramByteBuffer.position(k);
+            arrayOfShort2[0] = paramByteBuffer.getShort();
+            paramByteBuffer.position(k + paramInt5);
+            arrayOfShort2[1] = paramByteBuffer.getShort();
+          }
+          paramShortBuffer.put((short)((arrayOfShort2[0] + arrayOfShort2[1]) / 2));
+          k += paramInt4;
+          m += 2;
+        }
+        k += i1;
+        k += paramInt5;
+      }
+      assert (k == paramInt5 * paramInt3);
+    }
+    assert (m == paramInt1 * paramInt4 * i * j);
+  }
+  
+
+
+
+
+
+  public static void halveImage_uint(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer, IntBuffer paramIntBuffer, int paramInt4, int paramInt5, int paramInt6, boolean paramBoolean)
+  {
+    int i1 = 0;
+    double d1 = 0.0D;
+    
+
+    if ((paramInt2 == 1) || (paramInt3 == 1)) {
+      assert ((paramInt2 != 1) || (paramInt3 != 1));
+      halve1Dimage_uint(paramInt1, paramInt2, paramInt3, paramByteBuffer, paramIntBuffer, paramInt4, paramInt5, paramInt6, paramBoolean);
+      
+      return;
+    }
+    
+    int m = paramInt2 / 2;
+    int n = paramInt3 / 2;
+    int j;
+    int k;
+    if (!paramBoolean) {
+      for (i = 0; i < n; i++) {
+        for (j = 0; j < m; j++) {
+          for (k = 0; k < paramInt1; k++) {
+            paramByteBuffer.position(i1);
+            d1 = 0x7FFFFFFF & paramByteBuffer.getInt();
+            paramByteBuffer.position(i1 + paramInt6);
+            d1 += (0x7FFFFFFF & paramByteBuffer.getInt());
+            paramByteBuffer.position(i1 + paramInt5);
+            d1 += (0x7FFFFFFF & paramByteBuffer.getInt());
+            paramByteBuffer.position(i1 + paramInt5 + paramInt6);
+            d1 += (0x7FFFFFFF & paramByteBuffer.getInt());
+            paramIntBuffer.put((int)(d1 / 4.0D + 0.5D));
+            i1 += paramInt4;
+          }
+          i1 += paramInt6;
+        }
+        i1 += paramInt5;
+      }
+    }
+    for (int i = 0; i < n; i++) {
+      for (j = 0; j < m; j++) {
+        for (k = 0; k < paramInt1; k++)
+        {
+
+          paramByteBuffer.position(i1);
+          double d2 = 0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+          paramByteBuffer.position(i1 + paramInt6);
+          d2 += (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt()));
+          paramByteBuffer.position(i1 + paramInt5);
+          d2 += (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt()));
+          paramByteBuffer.position(i1 + paramInt5 + paramInt6);
+          d2 += (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt()));
+          d1 /= 4.0D;
+          d1 += 0.5D;
+          paramIntBuffer.put((int)d1);
+          i1 += paramInt4;
+        }
+        i1 += paramInt6;
+      }
+      i1 += paramInt5;
+    }
+  }
+  
+
+
+  public static void halve1Dimage_uint(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer, IntBuffer paramIntBuffer, int paramInt4, int paramInt5, int paramInt6, boolean paramBoolean)
+  {
+    int i = paramInt2 / 2;
+    int j = paramInt3 / 2;
+    int k = 0;
+    int m = 0;
+    
+
+    assert ((paramInt2 == 1) || (paramInt3 == 1));
+    assert (paramInt2 != paramInt3);
+    int n;
+    int i1; if (paramInt3 == 1) {
+      assert (paramInt2 != 1);
+      j = 1;
+      
+      for (n = 0; n < i; n++)
+      {
+        for (i1 = 0; i1 < j; i1++) {
+          long[] arrayOfLong1 = new long[2];
+          if (paramBoolean) {
+            paramByteBuffer.position(k);
+            arrayOfLong1[0] = (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt()));
+            paramByteBuffer.position(k + paramInt6);
+            arrayOfLong1[1] = (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt()));
+          } else {
+            paramByteBuffer.position(k);
+            arrayOfLong1[0] = (0xFFFFFFFF & paramByteBuffer.getInt());
+            paramByteBuffer.position(k + paramInt6);
+            arrayOfLong1[1] = (0xFFFFFFFF & paramByteBuffer.getInt());
+          }
+          paramIntBuffer.put((int)((arrayOfLong1[0] + arrayOfLong1[1]) / 2.0D));
+          k += paramInt4;
+          m += 4;
+        }
+        k += paramInt6;
+      }
+      i1 = paramInt5 - paramInt2 * paramInt6;
+      k += i1;
+    } else if (paramInt2 == 1) {
+      i1 = paramInt5 - paramInt2 * paramInt6;
+      assert (paramInt3 != 1);
+      i = 1;
+      
+
+
+      for (n = 0; n < j; n++)
+      {
+        for (int i2 = 0; i2 < paramInt1; i2++) {
+          long[] arrayOfLong2 = new long[2];
+          if (paramBoolean) {
+            paramByteBuffer.position(k);
+            arrayOfLong2[0] = (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt()));
+            paramByteBuffer.position(k + paramInt6);
+            arrayOfLong2[0] = (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt()));
+          } else {
+            paramByteBuffer.position(k);
+            arrayOfLong2[0] = (0xFFFFFFFF & paramByteBuffer.getInt());
+            paramByteBuffer.position(k + paramInt5);
+            arrayOfLong2[1] = (0xFFFFFFFF & paramByteBuffer.getInt());
+          }
+          paramIntBuffer.put((int)((arrayOfLong2[0] + arrayOfLong2[1]) / 2.0D));
+          k += paramInt4;
+          m += 4;
+        }
+        k += i1;
+        k += paramInt5;
+      }
+      assert (k == paramInt5 * paramInt3);
+    }
+    assert (m == paramInt1 * paramInt4 * i * j);
+  }
+  
+
+
+
+
+
+  public static void halveImage_int(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer, IntBuffer paramIntBuffer, int paramInt4, int paramInt5, int paramInt6, boolean paramBoolean)
+  {
+    int i1 = 0;
+    int i2 = 0;
+    
+
+    if ((paramInt2 == 1) || (paramInt3 == 1)) {
+      assert ((paramInt2 != 1) || (paramInt3 != 1));
+      halve1Dimage_int(paramInt1, paramInt2, paramInt3, paramByteBuffer, paramIntBuffer, paramInt4, paramInt5, paramInt6, paramBoolean);
+      
+      return;
+    }
+    
+    int m = paramInt2 / 2;
+    int n = paramInt3 / 2;
+    int j;
+    int k;
+    if (!paramBoolean) {
+      for (i = 0; i < n; i++) {
+        for (j = 0; j < m; j++) {
+          for (k = 0; k < paramInt1; k++) {
+            paramByteBuffer.position(i1);
+            i2 = paramByteBuffer.getInt();
+            paramByteBuffer.position(i1 + paramInt6);
+            i2 += paramByteBuffer.getInt();
+            paramByteBuffer.position(i1 + paramInt5);
+            i2 += paramByteBuffer.getInt();
+            paramByteBuffer.position(i1 + paramInt5 + paramInt6);
+            i2 += paramByteBuffer.getInt();
+            i2 = (int)(i2 / 4.0F + 0.5F);
+            paramIntBuffer.put(i2);
+            i1 += paramInt4;
+          }
+          i1 += paramInt6;
+        }
+        i1 += paramInt5;
+      }
+    }
+    for (int i = 0; i < n; i++) {
+      for (j = 0; j < m; j++) {
+        for (k = 0; k < paramInt1; k++)
+        {
+
+          paramByteBuffer.position(i1);
+          long l = 0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+          float f = (float)l;
+          paramByteBuffer.position(i1 + paramInt6);
+          l = 0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+          f += (float)l;
+          paramByteBuffer.position(i1 + paramInt5);
+          l = 0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+          f += (float)l;
+          paramByteBuffer.position(i1 + paramInt5 + paramInt6);
+          l = 0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+          f += (float)l;
+          paramIntBuffer.put((int)(f / 4.0F + 0.5F));
+          i1 += paramInt4;
+        }
+        i1 += paramInt6;
+      }
+      i1 += paramInt5;
+    }
+  }
+  
+
+
+  public static void halve1Dimage_int(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer, IntBuffer paramIntBuffer, int paramInt4, int paramInt5, int paramInt6, boolean paramBoolean)
+  {
+    int i = paramInt2 / 2;
+    int j = paramInt3 / 2;
+    int k = 0;
+    int m = 0;
+    
+
+    assert ((paramInt2 == 1) || (paramInt3 == 1));
+    assert (paramInt2 != paramInt3);
+    int n;
+    int i1; if (paramInt3 == 1) {
+      assert (paramInt2 != 1);
+      j = 1;
+      
+      for (n = 0; n < i; n++)
+      {
+        for (i1 = 0; i1 < paramInt1; i1++) {
+          long[] arrayOfLong1 = new long[2];
+          if (paramBoolean) {
+            paramByteBuffer.position(k);
+            arrayOfLong1[0] = (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt()));
+            paramByteBuffer.position(k + paramInt6);
+            arrayOfLong1[1] = (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt()));
+          } else {
+            paramByteBuffer.position(k);
+            arrayOfLong1[0] = (0xFFFFFFFF & paramByteBuffer.getInt());
+            paramByteBuffer.position(k + paramInt6);
+            arrayOfLong1[1] = (0xFFFFFFFF & paramByteBuffer.getInt());
+          }
+          paramIntBuffer.put((int)(((float)arrayOfLong1[0] + (float)arrayOfLong1[1]) / 2.0F));
+          k += paramInt4;
+          m += 4;
+        }
+        k += paramInt6;
+      }
+      i1 = paramInt5 - paramInt2 * paramInt6;
+      k += i1;
+    } else if (paramInt2 == 1) {
+      i1 = paramInt5 - paramInt2 * paramInt6;
+      assert (paramInt3 != 1);
+      i = 1;
+      
+
+
+      for (n = 0; n < j; n++)
+      {
+        for (int i2 = 0; i2 < paramInt1; i2++) {
+          long[] arrayOfLong2 = new long[2];
+          if (paramBoolean) {
+            paramByteBuffer.position(k);
+            arrayOfLong2[0] = (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt()));
+            paramByteBuffer.position(k + paramInt5);
+            arrayOfLong2[1] = (0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt()));
+          } else {
+            paramByteBuffer.position(k);
+            arrayOfLong2[0] = (0xFFFFFFFF & paramByteBuffer.getInt());
+            paramByteBuffer.position(k + paramInt5);
+            arrayOfLong2[1] = (0xFFFFFFFF & paramByteBuffer.getInt());
+          }
+          paramIntBuffer.put((int)(((float)arrayOfLong2[0] + (float)arrayOfLong2[1]) / 2.0F));
+          k += paramInt4;
+          m += 4;
+        }
+        k += i1;
+        k += paramInt5;
+      }
+      assert (k == paramInt5 * paramInt3);
+    }
+    assert (m == paramInt1 * paramInt4 * i * j);
+  }
+  
+
+
+
+
+
+  public static void halveImage_float(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer, FloatBuffer paramFloatBuffer, int paramInt4, int paramInt5, int paramInt6, boolean paramBoolean)
+  {
+    int i1 = 0;
+    float f1 = 0.0F;
+    
+    if ((paramInt2 == 1) || (paramInt3 == 1)) {
+      assert ((paramInt2 != 1) || (paramInt3 != 1));
+      halve1Dimage_float(paramInt1, paramInt2, paramInt3, paramByteBuffer, paramFloatBuffer, paramInt4, paramInt5, paramInt6, paramBoolean);
+      
+      return;
+    }
+    
+    int m = paramInt2 / 2;
+    int n = paramInt3 / 2;
+    int j;
+    int k;
+    if (!paramBoolean) {
+      for (i = 0; i < n; i++) {
+        for (j = 0; j < m; j++) {
+          for (k = 0; k < paramInt1; k++) {
+            paramByteBuffer.position(i1);
+            f1 = paramByteBuffer.getFloat();
+            paramByteBuffer.position(i1 + paramInt6);
+            f1 += paramByteBuffer.getFloat();
+            paramByteBuffer.position(i1 + paramInt5);
+            f1 += paramByteBuffer.getFloat();
+            paramByteBuffer.position(i1 + paramInt5 + paramInt6);
+            f1 /= 4.0F;
+            paramFloatBuffer.put(f1);
+            i1 += paramInt4;
+          }
+          i1 += paramInt6;
+        }
+        i1 += paramInt5;
+      }
+    }
+    for (int i = 0; i < n; i++) {
+      for (j = 0; j < m; j++) {
+        for (k = 0; k < paramInt1; k++)
+        {
+          paramByteBuffer.position(i1);
+          float f2 = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+          paramByteBuffer.position(i1 + paramInt6);
+          f2 += Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+          paramByteBuffer.position(i1 + paramInt5);
+          f2 += Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+          paramByteBuffer.position(i1 + paramInt5 + paramInt6);
+          f2 += Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+          paramFloatBuffer.put(f2 / 4.0F);
+          i1 += paramInt4;
+        }
+        i1 += paramInt6;
+      }
+      i1 += paramInt5;
+    }
+  }
+  
+
+
+  public static void halve1Dimage_float(int paramInt1, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer, FloatBuffer paramFloatBuffer, int paramInt4, int paramInt5, int paramInt6, boolean paramBoolean)
+  {
+    int i = paramInt2 / 2;
+    int j = paramInt3 / 2;
+    int k = 0;
+    int m = 0;
+    
+
+    assert ((paramInt2 == 1) || (paramInt3 == 1));
+    assert (paramInt2 != paramInt3);
+    int n;
+    int i1; if (paramInt3 == 1) {
+      assert (paramInt2 != 1);
+      j = 1;
+      
+      for (n = 0; n < i; n++)
+      {
+        for (i1 = 0; i1 < paramInt1; i1++) {
+          float[] arrayOfFloat1 = new float[2];
+          if (paramBoolean) {
+            paramByteBuffer.position(k);
+            arrayOfFloat1[0] = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+            paramByteBuffer.position(k + paramInt6);
+            arrayOfFloat1[1] = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+          } else {
+            paramByteBuffer.position(k);
+            arrayOfFloat1[0] = paramByteBuffer.getFloat();
+            paramByteBuffer.position(k + paramInt6);
+            arrayOfFloat1[1] = paramByteBuffer.getFloat();
+          }
+          paramFloatBuffer.put((arrayOfFloat1[0] + arrayOfFloat1[1]) / 2.0F);
+          k += paramInt4;
+          m += 4;
+        }
+        k += paramInt6;
+      }
+      i1 = paramInt5 - paramInt2 * paramInt6;
+      k += i1;
+    } else if (paramInt2 == 1) {
+      i1 = paramInt5 - paramInt2 * paramInt6;
+      assert (paramInt3 != 1);
+      i = 1;
+      
+
+
+      for (n = 0; n < j; n++)
+      {
+        for (int i2 = 0; i2 < paramInt1; i2++) {
+          float[] arrayOfFloat2 = new float[2];
+          if (paramBoolean) {
+            paramByteBuffer.position(k);
+            arrayOfFloat2[0] = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+            paramByteBuffer.position(k + paramInt5);
+            arrayOfFloat2[1] = Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getFloat());
+          } else {
+            paramByteBuffer.position(k);
+            arrayOfFloat2[0] = paramByteBuffer.getFloat();
+            paramByteBuffer.position(k + paramInt5);
+            arrayOfFloat2[1] = paramByteBuffer.getFloat();
+          }
+          paramFloatBuffer.put((arrayOfFloat2[0] + arrayOfFloat2[1]) / 2.0F);
+          k += paramInt4;
+          m += 4;
+        }
+        k += i1;
+        k += paramInt5;
+      }
+      assert (k == paramInt5 * paramInt3);
+    }
+    assert (m == paramInt1 * paramInt4 * i * j);
+  }
+  
+
+  public static void halveImagePackedPixel(int paramInt1, Extract paramExtract, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer1, ByteBuffer paramByteBuffer2, int paramInt4, int paramInt5, boolean paramBoolean)
+  {
+    if ((paramInt2 == 1) || (paramInt3 == 1)) {
+      assert ((paramInt2 != 1) || (paramInt3 != 1));
+      halve1DimagePackedPixel(paramInt1, paramExtract, paramInt2, paramInt3, paramByteBuffer1, paramByteBuffer2, paramInt4, paramInt5, paramBoolean);
+      
+      return;
+    }
+    
+
+    int k = paramInt2 / 2;
+    int m = paramInt3 / 2;
+    int n = 0;
+    int i1 = paramInt5 - paramInt2 * paramInt4;
+    int i2 = 0;
+    
+    for (int i = 0; i < m; i++) {
+      for (int j = 0; j < k; j++) {
+        float[] arrayOfFloat = new float[4];
+        float[][] arrayOfFloat1 = new float[4][4];
+        
+
+        paramByteBuffer1.position(n);
+        paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[0]);
+        paramByteBuffer1.position(n + paramInt4);
+        paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[1]);
+        paramByteBuffer1.position(n + paramInt5);
+        paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[2]);
+        paramByteBuffer1.position(n + paramInt5 + paramInt4);
+        paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[3]);
+        for (int i3 = 0; i3 < paramInt1; i3++) {
+          int i4 = 0;
+          
+          arrayOfFloat[i3] = 0.0F;
+          for (i4 = 0; i4 < 4; i4++) {
+            arrayOfFloat[i3] += arrayOfFloat1[i4][i3];
+          }
+          arrayOfFloat[i3] /= 4.0F;
+        }
+        paramExtract.shove(arrayOfFloat, i2, paramByteBuffer2);
+        i2++;
+        n += paramInt4 + paramInt4;
+      }
+      
+      n += i1;
+      n += paramInt5;
+    }
+    assert (n == paramInt5 * paramInt3);
+    assert (i2 == k * m);
+  }
+  
+
+  public static void halve1DimagePackedPixel(int paramInt1, Extract paramExtract, int paramInt2, int paramInt3, ByteBuffer paramByteBuffer1, ByteBuffer paramByteBuffer2, int paramInt4, int paramInt5, boolean paramBoolean)
+  {
+    int i = paramInt2 / 2;
+    int j = paramInt3 / 2;
+    int k = 0;
+    
+
+    assert ((paramInt2 == 1) || (paramInt3 == 1));
+    assert (paramInt2 != paramInt3);
+    int n;
+    int m; float[][] arrayOfFloat; int i2; int i3; if (paramInt3 == 1) {
+      n = 0;
+      
+      assert (paramInt2 != 1);
+      j = 1;
+      
+
+
+      for (m = 0; m < i; m++) {
+        float[] arrayOfFloat1 = new float[4];
+        arrayOfFloat = new float[2][4];
+        
+
+        paramByteBuffer1.position(k);
+        paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat[0]);
+        paramByteBuffer1.position(k + paramInt4);
+        paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat[1]);
+        for (i2 = 0; i2 < paramInt1; i2++) {
+          i3 = 0;
+          
+          arrayOfFloat1[i2] = 0.0F;
+          for (i3 = 0; i3 < 2; i3++) {
+            arrayOfFloat1[i2] += arrayOfFloat[i3][i2];
+          }
+          arrayOfFloat1[i2] /= 2.0F;
+        }
+        paramExtract.shove(arrayOfFloat1, n, paramByteBuffer2);
+        n++;
+        
+        k += paramInt4 + paramInt4;
+      }
+      int i1 = paramInt5 - paramInt2 * paramInt4;
+      k += i1;
+      
+      assert (k == paramInt5);
+      assert (n == i * j);
+    } else if (paramInt2 == 1) {
+      n = 0;
+      
+      assert (paramInt3 != 1);
+      i = 1;
+      
+
+
+      for (m = 0; m < j; m++) {
+        float[] arrayOfFloat2 = new float[4];
+        arrayOfFloat = new float[2][4];
+        
+
+        paramByteBuffer1.position(k);
+        paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat[0]);
+        paramByteBuffer1.position(k + paramInt5);
+        paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat[1]);
+        for (i2 = 0; i2 < paramInt1; i2++) {
+          i3 = 0;
+          
+          arrayOfFloat2[i2] = 0.0F;
+          for (i3 = 0; i3 < 2; i3++) {
+            arrayOfFloat2[i2] += arrayOfFloat[i3][i2];
+          }
+          arrayOfFloat2[i2] /= 2.0F;
+        }
+        paramExtract.shove(arrayOfFloat2, n, paramByteBuffer2);
+        n++;
+        
+        k += paramInt5 + paramInt5;
+      }
+      assert (k == paramInt5);
+      assert (n == i * j);
+    }
+  }
+  
+
+
+
+  public static void halveImagePackedPixelSlice(int paramInt1, Extract paramExtract, int paramInt2, int paramInt3, int paramInt4, ByteBuffer paramByteBuffer1, ByteBuffer paramByteBuffer2, int paramInt5, int paramInt6, int paramInt7, boolean paramBoolean)
+  {
+    int k = paramInt2 / 2;
+    
+    int m = paramInt4 / 2;
+    int n = 0;
+    
+    int i1 = 0;
+    
+    assert (((paramInt2 == 1) || (paramInt3 == 1)) && (paramInt4 >= 2));
+    int i;
+    float[] arrayOfFloat; float[][] arrayOfFloat1; int i2; int i3; if (paramInt2 == paramInt3) {
+      assert ((paramInt2 == 1) && (paramInt3 == 1));
+      assert (paramInt4 >= 2);
+      
+      for (i = 0; i < m; i++) {
+        arrayOfFloat = new float[4];
+        arrayOfFloat1 = new float[2][4];
+        
+
+        paramByteBuffer1.position(n);
+        paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[0]);
+        paramByteBuffer1.position(n + paramInt7);
+        paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[1]);
+        
+        for (i2 = 0; i2 < paramInt1; i2++)
+        {
+
+
+          arrayOfFloat[i2] = 0.0F;
+          for (i3 = 0; i3 < 2; i3++) {
+            arrayOfFloat[i2] += arrayOfFloat1[i3][i2];
+          }
+          arrayOfFloat[i2] /= 2.0F;
+        }
+        
+        paramExtract.shove(arrayOfFloat, i1, paramByteBuffer2);
+        i1++;
+        
+        n += paramInt7 + paramInt7; } }
+    int j;
+    if (paramInt3 == 1) {
+      assert (paramInt2 != 1);
+      
+      for (i = 0; i < m; i++)
+        for (j = 0; j < k; j++) {
+          arrayOfFloat = new float[4];
+          arrayOfFloat1 = new float[4][4];
+          
+
+          paramByteBuffer1.position(n);
+          paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[0]);
+          paramByteBuffer1.position(n + paramInt5);
+          paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[1]);
+          paramByteBuffer1.position(n + paramInt7);
+          paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[2]);
+          paramByteBuffer1.position(n + paramInt5 + paramInt7);
+          paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[3]);
+          
+          for (i2 = 0; i2 < paramInt1; i2++)
+          {
+
+
+            arrayOfFloat[i2] = 0.0F;
+            for (i3 = 0; i3 < 4; i3++) {
+              arrayOfFloat[i2] += arrayOfFloat1[i3][i2];
+            }
+            arrayOfFloat[i2] /= 4.0F;
+          }
+          paramExtract.shove(arrayOfFloat, i1, paramByteBuffer2);
+          i1++;
+          
+          n += paramInt7 + paramInt7;
+        }
+    }
+    if (paramInt2 == 1) {
+      assert (paramInt3 != 1);
+      
+      for (i = 0; i < m; i++) {
+        for (j = 0; j < k; j++) {
+          arrayOfFloat = new float[4];
+          arrayOfFloat1 = new float[4][4];
+          
+
+          paramByteBuffer1.position(n);
+          paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[0]);
+          paramByteBuffer1.position(n + paramInt6);
+          paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[1]);
+          paramByteBuffer1.position(n + paramInt7);
+          paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[2]);
+          paramByteBuffer1.position(n + paramInt6 + paramInt7);
+          paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[3]);
+          
+          for (i2 = 0; i2 < paramInt1; i2++)
+          {
+
+
+            arrayOfFloat[i2] = 0.0F;
+            for (i3 = 0; i3 < 4; i3++) {
+              arrayOfFloat[i2] += arrayOfFloat1[i3][i2];
+            }
+            arrayOfFloat[i2] /= 4.0F;
+          }
+          paramExtract.shove(arrayOfFloat, i1, paramByteBuffer2);
+          i1++;
+          
+          n += paramInt7 + paramInt7;
+        }
+      }
+    }
+  }
+  
+
+
+
+  public static void halveImageSlice(int paramInt1, ExtractPrimitive paramExtractPrimitive, int paramInt2, int paramInt3, int paramInt4, ByteBuffer paramByteBuffer1, ByteBuffer paramByteBuffer2, int paramInt5, int paramInt6, int paramInt7, int paramInt8, boolean paramBoolean)
+  {
+    int k = paramInt2 / 2;
+    int m = paramInt3 / 2;
+    int n = paramInt4 / 2;
+    int i1 = 0;
+    int i2 = paramInt7 - paramInt2 * paramInt6;
+    int i3 = 0;
+    
+    assert (((paramInt2 == 1) || (paramInt3 == 1)) && (paramInt4 >= 2));
+    int i;
+    int i4; Object localObject; if (paramInt2 == paramInt3) {
+      assert ((paramInt2 == 1) && (paramInt3 == 1));
+      assert (paramInt4 >= 2);
+      
+      for (i = 0; i < n; i++)
+      {
+        for (i4 = 0; i4 < paramInt1; i4++) {
+          double[] arrayOfDouble = new double[4];
+          localObject = new double[2][4];
+          
+
+          paramByteBuffer1.position(i1);
+          localObject[0][i4] = paramExtractPrimitive.extract(paramBoolean, paramByteBuffer1);
+          paramByteBuffer1.position(i1 + paramInt8);
+          localObject[1][i4] = paramExtractPrimitive.extract(paramBoolean, paramByteBuffer1);
+          
+
+          arrayOfDouble[i4] = 0.0D;
+          
+
+          for (int i6 = 0; i6 < 2; i6++) {
+            arrayOfDouble[i4] += localObject[i6][i4];
+          }
+          arrayOfDouble[i4] /= 2.0D;
+          
+          paramExtractPrimitive.shove(arrayOfDouble[i4], i3, paramByteBuffer2);
+          i3++;
+          i1 += paramInt5;
+        }
+        
+        i1 += paramInt7;
+      }
+      
+      assert (i1 == paramInt7 * paramInt3 * paramInt4);
+      if ((!$assertionsDisabled) && (i3 != n * paramInt1)) throw new AssertionError(); } else { int j;
+      double[][] arrayOfDouble1; int i5; if (paramInt3 == 1) {
+        assert (paramInt2 != 1);
+        
+        for (i = 0; i < n; i++) {
+          for (j = 0; j < k; j++)
+          {
+            for (i4 = 0; i4 < paramInt1; i4++)
+            {
+              localObject = new double[4];
+              arrayOfDouble1 = new double[4][4];
+              
+              paramByteBuffer1.position(i1);
+              arrayOfDouble1[0][i4] = paramExtractPrimitive.extract(paramBoolean, paramByteBuffer1);
+              paramByteBuffer1.position(i1 + paramInt6);
+              arrayOfDouble1[1][i4] = paramExtractPrimitive.extract(paramBoolean, paramByteBuffer1);
+              paramByteBuffer1.position(i1 + paramInt8);
+              arrayOfDouble1[2][i4] = paramExtractPrimitive.extract(paramBoolean, paramByteBuffer1);
+              paramByteBuffer1.position(i1 + paramInt8 + paramInt6);
+              arrayOfDouble1[3][i4] = paramExtractPrimitive.extract(paramBoolean, paramByteBuffer1);
+              
+
+              localObject[i4] = 0.0D;
+              
+
+
+              for (i5 = 0; i5 < 4; i5++) {
+                localObject[i4] += arrayOfDouble1[i5][i4];
+              }
+              localObject[i4] /= 4.0D;
+              
+              paramExtractPrimitive.shove(localObject[i4], i3, paramByteBuffer2);
+              i3++;
+              i1 += paramInt5;
+            }
+            
+            i1 += paramInt5;
+          }
+          i1 += i2;
+          i1 += paramInt7;
+        }
+        assert (i1 == paramInt7 * paramInt3 * paramInt4);
+        if ((!$assertionsDisabled) && (i3 != k * n * paramInt1)) throw new AssertionError();
+      } else if (paramInt2 == 1) {
+        assert (paramInt3 != 1);
+        
+        for (i = 0; i < n; i++) {
+          for (j = 0; j < m; j++)
+          {
+            for (i4 = 0; i4 < paramInt1; i4++)
+            {
+              localObject = new double[4];
+              arrayOfDouble1 = new double[4][4];
+              
+              paramByteBuffer1.position(i1);
+              arrayOfDouble1[0][i4] = paramExtractPrimitive.extract(paramBoolean, paramByteBuffer1);
+              paramByteBuffer1.position(i1 + paramInt7);
+              arrayOfDouble1[1][i4] = paramExtractPrimitive.extract(paramBoolean, paramByteBuffer1);
+              paramByteBuffer1.position(i1 + paramInt8);
+              arrayOfDouble1[2][i4] = paramExtractPrimitive.extract(paramBoolean, paramByteBuffer1);
+              paramByteBuffer1.position(i1 + paramInt8 + paramInt6);
+              arrayOfDouble1[3][i4] = paramExtractPrimitive.extract(paramBoolean, paramByteBuffer1);
+              
+
+
+              localObject[i4] = 0.0D;
+              
+
+
+              for (i5 = 0; i5 < 4; i5++) {
+                localObject[i4] += arrayOfDouble1[i5][i4];
+              }
+              localObject[i4] /= 4.0D;
+              
+              paramExtractPrimitive.shove(localObject[i4], i3, paramByteBuffer2);
+              i3++;
+              i1 += paramInt5;
+            }
+            
+            i1 += i2;
+            i1 += paramInt7;
+          }
+          i1 += paramInt8;
+        }
+        assert (i1 == paramInt7 * paramInt3 * paramInt4);
+        assert (i3 == k * n * paramInt1);
+      }
+    }
+  }
+  
+
+  public static void halveImage3D(int paramInt1, ExtractPrimitive paramExtractPrimitive, int paramInt2, int paramInt3, int paramInt4, ByteBuffer paramByteBuffer1, ByteBuffer paramByteBuffer2, int paramInt5, int paramInt6, int paramInt7, int paramInt8, boolean paramBoolean)
+  {
+    assert (paramInt4 > 1);
+    
+
+    if ((paramInt2 == 1) || (paramInt3 == 1)) {
+      assert (1 <= paramInt4);
+      
+      halveImageSlice(paramInt1, paramExtractPrimitive, paramInt2, paramInt3, paramInt4, paramByteBuffer1, paramByteBuffer2, paramInt5, paramInt6, paramInt7, paramInt8, paramBoolean);
+      
+
+      return;
+    }
+    
+
+
+    int m = paramInt2 / 2;
+    int n = paramInt3 / 2;
+    int i1 = paramInt4 / 2;
+    int i2 = 0;
+    int i3 = paramInt7 - paramInt2 * paramInt6;
+    int i4 = 0;
+    
+    for (int k = 0; k < i1; k++) {
+      for (int i = 0; i < n; i++) {
+        for (int j = 0; j < m; j++)
+        {
+          for (int i5 = 0; i5 < paramInt1; i5++)
+          {
+            double[] arrayOfDouble = new double[4];
+            double[][] arrayOfDouble1 = new double[8][4];
+            
+            paramByteBuffer1.position(i2);
+            arrayOfDouble1[0][i5] = paramExtractPrimitive.extract(paramBoolean, paramByteBuffer1);
+            paramByteBuffer1.position(i2 + paramInt6);
+            arrayOfDouble1[1][i5] = paramExtractPrimitive.extract(paramBoolean, paramByteBuffer1);
+            paramByteBuffer1.position(i2 + paramInt7);
+            arrayOfDouble1[2][i5] = paramExtractPrimitive.extract(paramBoolean, paramByteBuffer1);
+            paramByteBuffer1.position(i2 + paramInt7 + paramInt6);
+            arrayOfDouble1[3][i5] = paramExtractPrimitive.extract(paramBoolean, paramByteBuffer1);
+            paramByteBuffer1.position(i2 + paramInt8);
+            arrayOfDouble1[4][i5] = paramExtractPrimitive.extract(paramBoolean, paramByteBuffer1);
+            paramByteBuffer1.position(i2 + paramInt6 + paramInt8);
+            arrayOfDouble1[5][i5] = paramExtractPrimitive.extract(paramBoolean, paramByteBuffer1);
+            paramByteBuffer1.position(i2 + paramInt7 + paramInt8);
+            arrayOfDouble1[6][i5] = paramExtractPrimitive.extract(paramBoolean, paramByteBuffer1);
+            paramByteBuffer1.position(i2 + paramInt7 + paramInt8 + paramInt6);
+            arrayOfDouble1[7][i5] = paramExtractPrimitive.extract(paramBoolean, paramByteBuffer1);
+            
+            arrayOfDouble[i5] = 0.0D;
+            
+            for (int i6 = 0; i6 < 8; i6++) {
+              arrayOfDouble[i5] += arrayOfDouble1[i6][i5];
+            }
+            arrayOfDouble[i5] /= 8.0D;
+            
+            paramExtractPrimitive.shove(arrayOfDouble[i5], i4, paramByteBuffer2);
+            i4++;
+            
+            i2 += paramInt5;
+          }
+          
+          i2 += paramInt6;
+        }
+        
+        i2 += i3;
+        i2 += paramInt7;
+      }
+      i2 += paramInt8;
+    }
+    assert (i2 == paramInt7 * paramInt3 * paramInt4);
+    assert (i4 == m * n * i1 * paramInt1);
+  }
+  
+
+
+  public static void halveImagePackedPixel3D(int paramInt1, Extract paramExtract, int paramInt2, int paramInt3, int paramInt4, ByteBuffer paramByteBuffer1, ByteBuffer paramByteBuffer2, int paramInt5, int paramInt6, int paramInt7, boolean paramBoolean)
+  {
+    if (paramInt4 == 1) {
+      assert ((1 <= paramInt2) && (1 <= paramInt3));
+      
+      halveImagePackedPixel(paramInt1, paramExtract, paramInt2, paramInt3, paramByteBuffer1, paramByteBuffer2, paramInt5, paramInt6, paramBoolean);
+      
+      return; }
+    if ((paramInt2 == 1) || (paramInt3 == 1)) {
+      assert (1 <= paramInt4);
+      
+      halveImagePackedPixelSlice(paramInt1, paramExtract, paramInt2, paramInt3, paramInt4, paramByteBuffer1, paramByteBuffer2, paramInt5, paramInt6, paramInt7, paramBoolean);
+      
+      return;
+    }
+    
+
+    int m = paramInt2 / 2;
+    int n = paramInt3 / 2;
+    int i1 = paramInt4 / 2;
+    int i2 = 0;
+    int i3 = paramInt6 - paramInt2 * paramInt5;
+    int i4 = 0;
+    
+    for (int k = 0; k < i1; k++) {
+      for (int i = 0; i < n; i++) {
+        for (int j = 0; j < m; j++) {
+          float[] arrayOfFloat = new float[4];
+          float[][] arrayOfFloat1 = new float[8][4];
+          
+
+          paramByteBuffer1.position(i2);
+          paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[0]);
+          paramByteBuffer1.position(i2 + paramInt5);
+          paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[1]);
+          paramByteBuffer1.position(i2 + paramInt6);
+          paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[2]);
+          paramByteBuffer1.position(i2 + paramInt6 + paramInt5);
+          paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[3]);
+          paramByteBuffer1.position(i2 + paramInt7);
+          paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[4]);
+          paramByteBuffer1.position(i2 + paramInt5 + paramInt7);
+          paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[5]);
+          paramByteBuffer1.position(i2 + paramInt6 + paramInt7);
+          paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[6]);
+          paramByteBuffer1.position(i2 + paramInt6 + paramInt5 + paramInt7);
+          paramExtract.extract(paramBoolean, paramByteBuffer1, arrayOfFloat1[7]);
+          
+          for (int i5 = 0; i5 < paramInt1; i5++)
+          {
+
+            arrayOfFloat[i5] = 0.0F;
+            for (int i6 = 0; i6 < 8; i6++) {
+              arrayOfFloat[i5] += arrayOfFloat1[i6][i5];
+            }
+            arrayOfFloat[i5] /= 8.0F;
+          }
+          paramExtract.shove(arrayOfFloat, i4, paramByteBuffer2);
+          i4++;
+          
+          i2 += paramInt5 + paramInt5;
+        }
+        
+        i2 += i3;
+        i2 += paramInt6;
+      }
+      i2 += paramInt7;
+    }
+    assert (i2 == paramInt6 * paramInt3 * paramInt4);
+    assert (i4 == m * n * i1);
+  }
+}

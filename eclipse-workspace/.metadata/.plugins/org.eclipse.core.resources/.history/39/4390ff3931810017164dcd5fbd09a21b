@@ -1,0 +1,59 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class TTCHeader
+{
+  public static final int ttcf = 1953784678;
+  private final int ttcTag;
+  private final int version;
+  private final int directoryCount;
+  private final int[] tableDirectory;
+  private int dsigTag;
+  private final int dsigLength;
+  private final int dsigOffset;
+  
+  public TTCHeader(DataInput paramDataInput)
+    throws IOException
+  {
+    ttcTag = paramDataInput.readInt();
+    version = paramDataInput.readInt();
+    directoryCount = paramDataInput.readInt();
+    tableDirectory = new int[directoryCount];
+    for (int i = 0; i < directoryCount; i++) {
+      tableDirectory[i] = paramDataInput.readInt();
+    }
+    if (version == 65536) {
+      dsigTag = paramDataInput.readInt();
+    }
+    dsigLength = paramDataInput.readInt();
+    dsigOffset = paramDataInput.readInt();
+  }
+  
+  public int getDirectoryCount() {
+    return directoryCount;
+  }
+  
+  public int getTableDirectory(int paramInt) {
+    return tableDirectory[paramInt];
+  }
+  
+  public static boolean isTTC(DataInput paramDataInput) throws IOException {
+    int i = paramDataInput.readInt();
+    return i == 1953784678;
+  }
+}

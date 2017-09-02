@@ -1,0 +1,141 @@
+package jogamp.opengl.glu.tessellator;
+
+
+
+
+
+
+
+
+
+
+
+
+class Dict
+{
+  DictNode head;
+  
+
+
+
+
+
+
+
+
+
+  Object frame;
+  
+
+
+
+
+
+
+
+
+
+  DictLeq leq;
+  
+
+
+
+
+
+
+
+
+
+
+  private Dict() {}
+  
+
+
+
+
+
+
+
+
+
+
+  static Dict dictNewDict(Object paramObject, DictLeq paramDictLeq)
+  {
+    Dict localDict = new Dict();
+    head = new DictNode();
+    
+    head.key = null;
+    head.next = head;
+    head.prev = head;
+    
+    frame = paramObject;
+    leq = paramDictLeq;
+    
+    return localDict;
+  }
+  
+  static void dictDeleteDict(Dict paramDict) {
+    head = null;
+    frame = null;
+    leq = null;
+  }
+  
+  static DictNode dictInsert(Dict paramDict, Object paramObject) {
+    return dictInsertBefore(paramDict, head, paramObject);
+  }
+  
+  static DictNode dictInsertBefore(Dict paramDict, DictNode paramDictNode, Object paramObject) {
+    do {
+      paramDictNode = prev;
+    } while ((key != null) && (!leq.leq(frame, key, paramObject)));
+    
+    DictNode localDictNode = new DictNode();
+    key = paramObject;
+    next = next;
+    next.prev = localDictNode;
+    prev = paramDictNode;
+    next = localDictNode;
+    
+    return localDictNode;
+  }
+  
+  static Object dictKey(DictNode paramDictNode) {
+    return key;
+  }
+  
+  static DictNode dictSucc(DictNode paramDictNode) {
+    return next;
+  }
+  
+  static DictNode dictPred(DictNode paramDictNode) {
+    return prev;
+  }
+  
+  static DictNode dictMin(Dict paramDict) {
+    return head.next;
+  }
+  
+  static DictNode dictMax(Dict paramDict) {
+    return head.prev;
+  }
+  
+  static void dictDelete(Dict paramDict, DictNode paramDictNode) {
+    next.prev = prev;
+    prev.next = next;
+  }
+  
+  static DictNode dictSearch(Dict paramDict, Object paramObject) {
+    DictNode localDictNode = head;
+    do
+    {
+      localDictNode = next;
+    } while ((key != null) && (!leq.leq(frame, paramObject, key)));
+    
+    return localDictNode;
+  }
+  
+  public static abstract interface DictLeq
+  {
+    public abstract boolean leq(Object paramObject1, Object paramObject2, Object paramObject3);
+  }
+}

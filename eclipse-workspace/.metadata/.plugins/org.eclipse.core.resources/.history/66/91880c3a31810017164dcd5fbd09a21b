@@ -1,0 +1,145 @@
+package jogamp.nativewindow.jawt.windows;
+
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.awt.JAWTWindow;
+import com.jogamp.nativewindow.util.Point;
+import java.awt.GraphicsConfiguration;
+import jogamp.nativewindow.jawt.JAWT;
+import jogamp.nativewindow.jawt.JAWTUtil;
+import jogamp.nativewindow.jawt.JAWT_DrawingSurface;
+import jogamp.nativewindow.jawt.JAWT_DrawingSurfaceInfo;
+import jogamp.nativewindow.windows.GDIUtil;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class WindowsJAWTWindow
+  extends JAWTWindow
+{
+  private JAWT_DrawingSurface ds;
+  private boolean dsLocked;
+  private JAWT_DrawingSurfaceInfo dsi;
+  private JAWT_Win32DrawingSurfaceInfo win32dsi;
+  protected long windowHandle;
+  
+  public WindowsJAWTWindow(Object paramObject, AbstractGraphicsConfiguration paramAbstractGraphicsConfiguration)
+  {
+    super(paramObject, paramAbstractGraphicsConfiguration);
+  }
+  
+  protected void invalidateNative()
+  {
+    windowHandle = 0L;
+  }
+  
+  protected JAWT fetchJAWTImpl() throws NativeWindowException
+  {
+    return JAWTUtil.getJAWT(false);
+  }
+  
+  protected int lockSurfaceImpl(GraphicsConfiguration paramGraphicsConfiguration) throws NativeWindowException
+  {
+    int i = 3;
+    ds = getJAWT().GetDrawingSurface(component);
+    if (ds == null)
+    {
+      unlockSurfaceImpl();
+      return 1;
+    }
+    int j = ds.Lock();
+    dsLocked = (0 == (j & 0x1));
+    if (!dsLocked) {
+      unlockSurfaceImpl();
+      throw new NativeWindowException("Unable to lock surface");
+    }
+    
+
+
+
+
+    if ((j & 0x8) != 0) {
+      i = 2;
+    }
+    dsi = ds.GetDrawingSurfaceInfo();
+    if (dsi == null) {
+      unlockSurfaceImpl();
+      return 1;
+    }
+    updateLockedData(dsi.getBounds(), paramGraphicsConfiguration);
+    win32dsi = ((JAWT_Win32DrawingSurfaceInfo)dsi.platformInfo(getJAWT()));
+    if (win32dsi == null) {
+      unlockSurfaceImpl();
+      return 1;
+    }
+    windowHandle = win32dsi.getHandle();
+    drawable = win32dsi.getHdc();
+    if ((windowHandle == 0L) || (drawable == 0L)) {
+      unlockSurfaceImpl();
+      return 1;
+    }
+    return i;
+  }
+  
+  protected void unlockSurfaceImpl() throws NativeWindowException
+  {
+    drawable = 0L;
+    if (null != ds) {
+      if (null != dsi) {
+        ds.FreeDrawingSurfaceInfo(dsi);
+      }
+      if (dsLocked) {
+        ds.Unlock();
+      }
+      getJAWT().FreeDrawingSurface(ds);
+    }
+    ds = null;
+    dsi = null;
+    win32dsi = null;
+  }
+  
+  public long getWindowHandle()
+  {
+    return windowHandle;
+  }
+  
+  protected Point getLocationOnScreenNativeImpl(int paramInt1, int paramInt2)
+  {
+    return GDIUtil.GetRelativeLocation(getWindowHandle(), 0L, paramInt1, paramInt2);
+  }
+}

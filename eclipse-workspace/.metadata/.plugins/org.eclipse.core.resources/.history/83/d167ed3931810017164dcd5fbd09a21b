@@ -1,0 +1,384 @@
+package com.jogamp.opengl.egl;
+
+import com.jogamp.common.nio.PointerBuffer;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import java.nio.LongBuffer;
+
+public abstract interface EGLExt
+{
+  public static final int EGL_SYNC_CONDITION_NV = 12526;
+  public static final int EGL_PLATFORM_X11_EXT = 12757;
+  public static final int EGL_READ_SURFACE_BIT_KHR = 1;
+  public static final int EGL_STREAM_FIFO_LENGTH_KHR = 12796;
+  public static final int EGL_FORMAT_RGBA_8888_KHR = 12483;
+  public static final int EGL_SYNC_REUSABLE_KHR = 12538;
+  public static final int EGL_MATCH_FORMAT_KHR = 12355;
+  public static final int EGL_COLOR_RGBA_HI = 36722;
+  public static final int EGL_DEBUG_CALLBACK_KHR = 13240;
+  public static final int EGL_LINUX_DMA_BUF_EXT = 12912;
+  public static final int EGL_BITMAP_PIXEL_BLUE_OFFSET_KHR = 12491;
+  public static final int EGL_SYNC_NEW_FRAME_NV = 12831;
+  public static final int EGL_DRM_DEVICE_FILE_EXT = 12851;
+  public static final int EGL_YUV_NUMBER_OF_PLANES_EXT = 13073;
+  public static final int EGL_SYNC_TYPE_KHR = 12535;
+  public static final int EGL_GL_TEXTURE_CUBE_MAP_POSITIVE_Z_KHR = 12471;
+  public static final int EGL_DEVICE_EXT = 12844;
+  public static final int EGL_OBJECT_CONTEXT_KHR = 13234;
+  public static final int EGL_STREAM_STATE_DISCONNECTED_KHR = 12826;
+  public static final int EGL_OBJECT_SYNC_KHR = 13237;
+  public static final int EGL_YUV_SUBSAMPLE_EXT = 13074;
+  public static final int EGL_YUV_ORDER_YUYV_EXT = 13060;
+  public static final int EGL_ALREADY_SIGNALED_NV = 12522;
+  public static final int EGL_YUV_FULL_RANGE_EXT = 12930;
+  public static final int EGL_CONTEXT_FLAGS_KHR = 12540;
+  public static final int EGL_BAD_STREAM_KHR = 12827;
+  public static final int EGL_DRM_CONNECTOR_EXT = 12854;
+  public static final int EGL_DMA_BUF_PLANE1_OFFSET_EXT = 12918;
+  public static final int EGL_BITMAP_PIXEL_SIZE_KHR = 12560;
+  public static final int EGL_FORMAT_RGBA_8888_EXACT_KHR = 12482;
+  public static final int EGL_OBJECT_IMAGE_KHR = 13236;
+  public static final int EGL_DMA_BUF_PLANE2_FD_EXT = 12920;
+  public static final int EGL_PLATFORM_X11_SCREEN_KHR = 12758;
+  public static final int EGL_ITU_REC601_EXT = 12927;
+  public static final int EGL_PRODUCER_FRAME_KHR = 12818;
+  public static final int EGL_YUV_CHROMA_SITING_0_5_EXT = 12933;
+  public static final int EGL_YUV_SUBSAMPLE_4_2_0_EXT = 13075;
+  public static final int EGL_PLATFORM_DEVICE_EXT = 12607;
+  public static final int EGL_YUV_ORDER_EXT = 13057;
+  public static final int EGL_VG_PARENT_IMAGE_KHR = 12474;
+  public static final int EGL_SYNC_CUDA_EVENT_NV = 12860;
+  public static final int EGL_SYNC_FLUSH_COMMANDS_BIT_KHR = 1;
+  public static final int EGL_CONTEXT_PRIORITY_MEDIUM_IMG = 12546;
+  public static final int EGL_DISCARD_SAMPLES_ARM = 12934;
+  public static final int EGL_YUV_ORDER_VYUY_EXT = 13063;
+  public static final int EGL_YUV_CSC_STANDARD_601_EXT = 13067;
+  public static final int EGL_COVERAGE_SAMPLES_NV = 12513;
+  public static final int EGL_SYNC_CL_EVENT_KHR = 12542;
+  public static final int EGL_PROTECTED_CONTENT_EXT = 12992;
+  public static final int EGL_PLATFORM_ANDROID_KHR = 12609;
+  public static final int EGL_MAP_PRESERVE_PIXELS_KHR = 12484;
+  public static final int EGL_YUV_DEPTH_RANGE_EXT = 13079;
+  public static final int EGL_COVERAGE_SAMPLE_RESOLVE_DEFAULT_NV = 12594;
+  public static final int EGL_SYNC_CUDA_EVENT_COMPLETE_NV = 12861;
+  public static final int EGL_NATIVE_PIXMAP_KHR = 12464;
+  public static final int EGL_DRM_BUFFER_FORMAT_ARGB32_MESA = 12754;
+  public static final int EGL_CONTEXT_OPENGL_ROBUST_ACCESS_EXT = 12479;
+  public static final int EGL_OPTIMAL_FORMAT_BIT_KHR = 256;
+  public static final int EGL_OBJECT_THREAD_KHR = 13232;
+  public static final int EGL_LOSE_CONTEXT_ON_RESET_KHR = 12735;
+  public static final int EGL_CONSUMER_LATENCY_USEC_KHR = 12816;
+  public static final int EGL_SWAP_INTERVAL_EXT = 12847;
+  public static final int EGL_STREAM_STATE_EMPTY_KHR = 12823;
+  public static final int EGL_BAD_STATE_KHR = 12828;
+  public static final int EGL_BITMAP_PIXEL_RED_OFFSET_KHR = 12489;
+  public static final int EGL_D3D_TEXTURE_2D_SHARE_HANDLE_ANGLE = 12800;
+  public static final int EGL_DMA_BUF_PLANE1_PITCH_EXT = 12919;
+  public static final int EGL_YUV_CSC_STANDARD_EXT = 13066;
+  public static final int EGL_YUV_SUBSAMPLE_4_4_4_EXT = 13077;
+  public static final int EGL_GL_TEXTURE_CUBE_MAP_POSITIVE_X_KHR = 12467;
+  public static final int EGL_DMA_BUF_PLANE0_PITCH_EXT = 12916;
+  public static final int EGL_COVERAGE_BUFFERS_NV = 12512;
+  public static final int EGL_YUV_CHROMA_SITING_0_EXT = 12932;
+  public static final int EGL_GL_TEXTURE_LEVEL_KHR = 12476;
+  public static final int EGL_CONSUMER_ACQUIRE_TIMEOUT_USEC_KHR = 12830;
+  public static final int EGL_LOWER_LEFT_KHR = 12494;
+  public static final int EGL_CONTEXT_MINOR_VERSION_KHR = 12539;
+  public static final int EGL_YUV_ORDER_YVYU_EXT = 13062;
+  public static final int EGL_COVERAGE_SAMPLE_RESOLVE_NONE_NV = 12595;
+  public static final int EGL_COLOR_RGB_HI = 36721;
+  public static final int EGL_CUDA_DEVICE_NV = 12858;
+  public static final int EGL_SYNC_STATUS_KHR = 12529;
+  public static final int EGL_LOSE_CONTEXT_ON_RESET_EXT = 12735;
+  public static final int EGL_CONTEXT_OPENGL_NO_ERROR_KHR = 12723;
+  public static final int EGL_CONTEXT_MAJOR_VERSION_KHR = 12440;
+  public static final int EGL_YUV_COLOR_SPACE_HINT_EXT = 12923;
+  public static final int EGL_PLATFORM_GBM_MESA = 12759;
+  public static final int EGL_DMA_BUF_PLANE2_OFFSET_EXT = 12921;
+  public static final int EGL_SYNC_CONDITION_KHR = 12536;
+  public static final int EGL_YUV_CSC_STANDARD_709_EXT = 13068;
+  public static final int EGL_YUV_PLANE_BPP_EXT = 13082;
+  public static final int EGL_ITU_REC2020_EXT = 12929;
+  public static final int EGL_SIGNALED_NV = 12520;
+  public static final int EGL_NO_RESET_NOTIFICATION_KHR = 12734;
+  public static final int EGL_YUV_SUBSAMPLE_4_2_2_EXT = 13076;
+  public static final int EGL_Y_INVERTED_NOK = 12415;
+  public static final int EGL_CONDITION_SATISFIED_KHR = 12534;
+  public static final int EGL_CONTEXT_PRIORITY_LOW_IMG = 12547;
+  public static final int EGL_OPENWF_PIPELINE_ID_EXT = 12856;
+  public static final int EGL_COLOR_FORMAT_HI = 36720;
+  public static final int EGL_DEBUG_MSG_WARN_KHR = 13243;
+  public static final int EGL_YUV_BUFFER_EXT = 13056;
+  public static final int EGL_GL_RENDERBUFFER_KHR = 12473;
+  public static final int EGL_GL_TEXTURE_CUBE_MAP_POSITIVE_Y_KHR = 12469;
+  public static final int EGL_GL_TEXTURE_2D_KHR = 12465;
+  public static final int EGL_UNSIGNALED_NV = 12521;
+  public static final int EGL_OBJECT_STREAM_KHR = 13238;
+  public static final int EGL_CONSUMER_FRAME_KHR = 12819;
+  public static final int EGL_SIGNALED_KHR = 12530;
+  public static final int EGL_STREAM_TIME_PRODUCER_KHR = 12799;
+  public static final int EGL_BAD_DEVICE_EXT = 12843;
+  public static final int EGL_CL_EVENT_HANDLE_KHR = 12444;
+  public static final int EGL_DRM_PLANE_EXT = 12853;
+  public static final int EGL_YUV_CHROMA_HORIZONTAL_SITING_HINT_EXT = 12925;
+  public static final int EGL_DEBUG_MSG_INFO_KHR = 13244;
+  public static final int EGL_GL_TEXTURE_3D_KHR = 12466;
+  public static final int EGL_DEPTH_ENCODING_NONE_NV = 0;
+  public static final int EGL_TIMEOUT_EXPIRED_NV = 12523;
+  public static final int EGL_STREAM_STATE_CONNECTING_KHR = 12822;
+  public static final int EGL_OPENWF_DEVICE_ID_EXT = 12855;
+  public static final int EGL_DMA_BUF_PLANE0_OFFSET_EXT = 12915;
+  public static final int EGL_NATIVE_SURFACE_TIZEN = 12961;
+  public static final int EGL_IMAGE_PRESERVED_KHR = 12498;
+  public static final int EGL_UNSIGNALED_KHR = 12531;
+  public static final int EGL_GL_COLORSPACE_LINEAR_KHR = 12426;
+  public static final int EGL_LOCK_USAGE_HINT_KHR = 12485;
+  public static final int EGL_YUV_PLANE_BPP_0_EXT = 13083;
+  public static final int EGL_NO_RESET_NOTIFICATION_EXT = 12734;
+  public static final int EGL_DEPTH_ENCODING_NONLINEAR_NV = 12515;
+  public static final int EGL_SYNC_PRIOR_COMMANDS_COMPLETE_KHR = 12528;
+  public static final int EGL_SYNC_PRIOR_COMMANDS_COMPLETE_NV = 12518;
+  public static final int EGL_STREAM_BIT_KHR = 2048;
+  public static final int EGL_COVERAGE_SAMPLE_RESOLVE_NV = 12593;
+  public static final int EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_KHR = 12733;
+  public static final int EGL_BITMAP_PIXEL_ALPHA_OFFSET_KHR = 12492;
+  public static final int EGL_PLATFORM_WAYLAND_KHR = 12760;
+  public static final int EGL_GL_TEXTURE_CUBE_MAP_NEGATIVE_Z_KHR = 12472;
+  public static final int EGL_YUV_DEPTH_RANGE_LIMITED_EXT = 13080;
+  public static final int EGL_FRAMEBUFFER_TARGET_ANDROID = 12615;
+  public static final int EGL_CONTEXT_OPENGL_FORWARD_COMPATIBLE_BIT_KHR = 2;
+  public static final int EGL_CLIENT_PIXMAP_POINTER_HI = 36724;
+  public static final int EGL_D3D9_DEVICE_ANGLE = 13216;
+  public static final int EGL_D3D11_DEVICE_ANGLE = 13217;
+  public static final int EGL_UPPER_LEFT_KHR = 12495;
+  public static final int EGL_OPENGL_ES3_BIT_KHR = 64;
+  public static final int EGL_DRM_BUFFER_USE_SCANOUT_MESA = 1;
+  public static final int EGL_DRM_BUFFER_USE_MESA = 12753;
+  public static final int EGL_FORMAT_RGB_565_KHR = 12481;
+  public static final int EGL_YUV_CSC_STANDARD_2020_EXT = 13069;
+  public static final int EGL_STREAM_STATE_KHR = 12820;
+  public static final int EGL_YUV_ORDER_UYVY_EXT = 13061;
+  public static final int EGL_NATIVE_BUFFER_TIZEN = 12960;
+  public static final int EGL_DRM_BUFFER_FORMAT_MESA = 12752;
+  public static final int EGL_BITMAP_PIXEL_GREEN_OFFSET_KHR = 12490;
+  public static final int EGL_NATIVE_BUFFER_ANDROID = 12608;
+  public static final int EGL_SYNC_NATIVE_FENCE_ANDROID = 12612;
+  public static final int EGL_YUV_ORDER_AYUV_EXT = 13064;
+  public static final int EGL_YUV_ORDER_YUV_EXT = 13058;
+  public static final int EGL_OBJECT_SURFACE_KHR = 13235;
+  public static final int EGL_YUV_NARROW_RANGE_EXT = 12931;
+  public static final int EGL_AUTO_STEREO_NV = 12598;
+  public static final int EGL_OPENWF_PORT_ID_EXT = 12857;
+  public static final int EGL_STREAM_TIME_CONSUMER_KHR = 12798;
+  public static final int EGL_CONFORMANT_KHR = 12354;
+  public static final int EGL_SYNC_NATIVE_FENCE_SIGNALED_ANDROID = 12614;
+  public static final int EGL_FIXED_SIZE_ANGLE = 12801;
+  public static final int EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_EXT = 12600;
+  public static final int EGL_CONDITION_SATISFIED_NV = 12524;
+  public static final int EGL_DRM_BUFFER_MESA = 12755;
+  public static final int EGL_DMA_BUF_PLANE2_PITCH_EXT = 12922;
+  public static final int EGL_GL_TEXTURE_CUBE_MAP_NEGATIVE_Y_KHR = 12470;
+  public static final int EGL_YUV_PLANE_BPP_8_EXT = 13084;
+  public static final int EGL_STREAM_STATE_CREATED_KHR = 12821;
+  public static final int EGL_SYNC_TYPE_NV = 12525;
+  public static final int EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT_KHR = 1;
+  public static final int EGL_BUFFER_AGE_KHR = 12605;
+  public static final int EGL_DEBUG_MSG_CRITICAL_KHR = 13241;
+  public static final int EGL_PLATFORM_X11_SCREEN_EXT = 12758;
+  public static final int EGL_BAD_OUTPUT_PORT_EXT = 12846;
+  public static final int EGL_SYNC_FLUSH_COMMANDS_BIT_NV = 1;
+  public static final int EGL_YUV_CHROMA_VERTICAL_SITING_HINT_EXT = 12926;
+  public static final int EGL_SYNC_STATUS_NV = 12519;
+  public static final int EGL_SYNC_FENCE_KHR = 12537;
+  public static final int EGL_CONTEXT_PRIORITY_HIGH_IMG = 12545;
+  public static final int EGL_GL_TEXTURE_CUBE_MAP_NEGATIVE_X_KHR = 12468;
+  public static final int EGL_GL_COLORSPACE_KHR = 12445;
+  public static final int EGL_CONTEXT_PRIORITY_LEVEL_IMG = 12544;
+  public static final int EGL_LOCK_SURFACE_BIT_KHR = 128;
+  public static final int EGL_DEBUG_MSG_ERROR_KHR = 13242;
+  public static final int EGL_DRM_CRTC_EXT = 12852;
+  public static final int EGL_POST_SUB_BUFFER_SUPPORTED_NV = 12478;
+  public static final int EGL_WRITE_SURFACE_BIT_KHR = 2;
+  public static final int EGL_CONTEXT_OPENGL_COMPATIBILITY_PROFILE_BIT_KHR = 2;
+  public static final int EGL_VG_COLORSPACE_LINEAR_BIT_KHR = 32;
+  public static final int EGL_YUV_PLANE_BPP_10_EXT = 13085;
+  public static final int EGL_MULTIVIEW_VIEW_COUNT_EXT = 12596;
+  public static final int EGL_BUFFER_AGE_EXT = 12605;
+  public static final int EGL_VG_ALPHA_FORMAT_PRE_BIT_KHR = 64;
+  public static final int EGL_GL_COLORSPACE_SRGB_KHR = 12425;
+  public static final int EGL_CONTEXT_OPENGL_DEBUG_BIT_KHR = 1;
+  public static final int EGL_DMA_BUF_PLANE1_FD_EXT = 12917;
+  public static final int EGL_PLATFORM_GBM_KHR = 12759;
+  public static final int EGL_STREAM_STATE_OLD_FRAME_AVAILABLE_KHR = 12825;
+  public static final int EGL_DEPTH_ENCODING_NV = 12514;
+  public static final int EGL_TIMEOUT_EXPIRED_KHR = 12533;
+  public static final int EGL_YUV_ORDER_YVU_EXT = 13059;
+  public static final int EGL_COLOR_ARGB_HI = 36723;
+  public static final int EGL_PLATFORM_X11_KHR = 12757;
+  public static final int EGL_SYNC_FENCE_NV = 12527;
+  public static final int EGL_OBJECT_DISPLAY_KHR = 13233;
+  public static final int EGL_GL_TEXTURE_ZOFFSET_KHR = 12477;
+  public static final int EGL_BITMAP_PITCH_KHR = 12487;
+  public static final int EGL_FORMAT_RGB_565_EXACT_KHR = 12480;
+  public static final int EGL_DMA_BUF_PLANE0_FD_EXT = 12914;
+  public static final int EGL_SAMPLE_RANGE_HINT_EXT = 12924;
+  public static final int EGL_YUV_DEPTH_RANGE_FULL_EXT = 13081;
+  public static final int EGL_SYNC_NATIVE_FENCE_FD_ANDROID = 12613;
+  public static final int EGL_SYNC_CL_EVENT_COMPLETE_KHR = 12543;
+  public static final int EGL_BITMAP_ORIGIN_KHR = 12488;
+  public static final int EGL_BAD_OUTPUT_LAYER_EXT = 12845;
+  public static final int EGL_DRM_BUFFER_STRIDE_MESA = 12756;
+  public static final int EGL_ITU_REC709_EXT = 12928;
+  public static final int EGL_BITMAP_PIXEL_LUMINANCE_OFFSET_KHR = 12493;
+  public static final int EGL_CONTEXT_OPENGL_PROFILE_MASK_KHR = 12541;
+  public static final int EGL_LINUX_DRM_FOURCC_EXT = 12913;
+  public static final int EGL_BITMAP_POINTER_KHR = 12486;
+  public static final int EGL_STREAM_STATE_NEW_FRAME_AVAILABLE_KHR = 12824;
+  public static final int EGL_PLATFORM_WAYLAND_EXT = 12760;
+  public static final int EGL_DRM_BUFFER_USE_SHARE_MESA = 2;
+  public static final int EGL_STREAM_TIME_NOW_KHR = 12797;
+  public static final int EGL_CONTEXT_OPENGL_ROBUST_ACCESS_BIT_KHR = 4;
+  public static final int EGL_RECORDABLE_ANDROID = 12610;
+  public static final int EGL_CUDA_EVENT_HANDLE_NV = 12859;
+  public static final long EGL_NO_IMAGE = 0L;
+  public static final long EGL_NO_SYNC_KHR = 0L;
+  
+  public abstract long eglCreateSync64KHR(long paramLong, int paramInt, PointerBuffer paramPointerBuffer);
+  
+  public abstract boolean eglQueryDebugKHR(int paramInt, PointerBuffer paramPointerBuffer);
+  
+  public abstract int eglLabelObjectKHR(long paramLong, int paramInt, Buffer paramBuffer1, Buffer paramBuffer2);
+  
+  public abstract long eglCreateSyncKHR(long paramLong, int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract boolean eglDestroySyncKHR(long paramLong1, long paramLong2);
+  
+  public abstract int eglClientWaitSyncKHR(long paramLong1, long paramLong2, int paramInt, long paramLong3);
+  
+  public abstract boolean eglGetSyncAttribKHR(long paramLong1, long paramLong2, int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract long eglCreateImageKHR(long paramLong1, long paramLong2, int paramInt, Buffer paramBuffer, IntBuffer paramIntBuffer);
+  
+  public abstract boolean eglDestroyImageKHR(long paramLong1, long paramLong2);
+  
+  public abstract boolean eglLockSurfaceKHR(long paramLong1, long paramLong2, IntBuffer paramIntBuffer);
+  
+  public abstract boolean eglUnlockSurfaceKHR(long paramLong1, long paramLong2);
+  
+  public abstract boolean eglQuerySurface64KHR(long paramLong1, long paramLong2, int paramInt, PointerBuffer paramPointerBuffer);
+  
+  public abstract boolean eglSetDamageRegionKHR(long paramLong1, long paramLong2, IntBuffer paramIntBuffer, int paramInt);
+  
+  public abstract boolean eglSignalSyncKHR(long paramLong1, long paramLong2, int paramInt);
+  
+  public abstract ByteBuffer eglCreateStreamKHR(long paramLong, IntBuffer paramIntBuffer);
+  
+  public abstract boolean eglDestroyStreamKHR(long paramLong, Buffer paramBuffer);
+  
+  public abstract boolean eglStreamAttribKHR(long paramLong, Buffer paramBuffer, int paramInt1, int paramInt2);
+  
+  public abstract boolean eglQueryStreamKHR(long paramLong, Buffer paramBuffer, int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract boolean eglQueryStreamu64KHR(long paramLong, Buffer paramBuffer, int paramInt, LongBuffer paramLongBuffer);
+  
+  public abstract boolean eglStreamConsumerGLTextureExternalKHR(long paramLong, Buffer paramBuffer);
+  
+  public abstract boolean eglStreamConsumerAcquireKHR(long paramLong, Buffer paramBuffer);
+  
+  public abstract boolean eglStreamConsumerReleaseKHR(long paramLong, Buffer paramBuffer);
+  
+  public abstract int eglGetStreamFileDescriptorKHR(long paramLong, Buffer paramBuffer);
+  
+  public abstract ByteBuffer eglCreateStreamFromFileDescriptorKHR(long paramLong, int paramInt);
+  
+  public abstract boolean eglQueryStreamTimeKHR(long paramLong, Buffer paramBuffer, int paramInt, LongBuffer paramLongBuffer);
+  
+  public abstract long eglCreateStreamProducerSurfaceKHR(long paramLong1, long paramLong2, Buffer paramBuffer, IntBuffer paramIntBuffer);
+  
+  public abstract boolean eglSwapBuffersWithDamageKHR(long paramLong1, long paramLong2, IntBuffer paramIntBuffer, int paramInt);
+  
+  public abstract int eglWaitSyncKHR(long paramLong1, long paramLong2, int paramInt);
+  
+  public abstract int eglDupNativeFenceFDANDROID(long paramLong1, long paramLong2);
+  
+  public abstract boolean eglQuerySurfacePointerANGLE(long paramLong1, long paramLong2, int paramInt, PointerBuffer paramPointerBuffer);
+  
+  public abstract boolean eglQueryDeviceAttribEXT(Buffer paramBuffer, int paramInt, PointerBuffer paramPointerBuffer);
+  
+  public abstract ByteBuffer eglQueryDeviceStringEXT(Buffer paramBuffer, int paramInt);
+  
+  public abstract boolean eglQueryDevicesEXT(int paramInt, PointerBuffer paramPointerBuffer, IntBuffer paramIntBuffer);
+  
+  public abstract boolean eglQueryDisplayAttribEXT(long paramLong, int paramInt, PointerBuffer paramPointerBuffer);
+  
+  public abstract boolean eglGetOutputLayersEXT(long paramLong, PointerBuffer paramPointerBuffer1, PointerBuffer paramPointerBuffer2, int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract boolean eglGetOutputPortsEXT(long paramLong, PointerBuffer paramPointerBuffer1, PointerBuffer paramPointerBuffer2, int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract boolean eglOutputLayerAttribEXT(long paramLong1, Buffer paramBuffer, int paramInt, long paramLong2);
+  
+  public abstract boolean eglQueryOutputLayerAttribEXT(long paramLong, Buffer paramBuffer, int paramInt, PointerBuffer paramPointerBuffer);
+  
+  public abstract ByteBuffer eglQueryOutputLayerStringEXT(long paramLong, Buffer paramBuffer, int paramInt);
+  
+  public abstract boolean eglOutputPortAttribEXT(long paramLong1, Buffer paramBuffer, int paramInt, long paramLong2);
+  
+  public abstract boolean eglQueryOutputPortAttribEXT(long paramLong, Buffer paramBuffer, int paramInt, PointerBuffer paramPointerBuffer);
+  
+  public abstract ByteBuffer eglQueryOutputPortStringEXT(long paramLong, Buffer paramBuffer, int paramInt);
+  
+  public abstract long eglGetPlatformDisplayEXT(int paramInt, Buffer paramBuffer, IntBuffer paramIntBuffer);
+  
+  public abstract long eglCreatePlatformWindowSurfaceEXT(long paramLong1, long paramLong2, Buffer paramBuffer, IntBuffer paramIntBuffer);
+  
+  public abstract long eglCreatePlatformPixmapSurfaceEXT(long paramLong1, long paramLong2, Buffer paramBuffer, IntBuffer paramIntBuffer);
+  
+  public abstract boolean eglStreamConsumerOutputEXT(long paramLong, Buffer paramBuffer1, Buffer paramBuffer2);
+  
+  public abstract boolean eglSwapBuffersWithDamageEXT(long paramLong1, long paramLong2, IntBuffer paramIntBuffer, int paramInt);
+  
+  public abstract long eglCreatePixmapSurfaceHI(long paramLong1, long paramLong2, EGLClientPixmapHI paramEGLClientPixmapHI);
+  
+  public abstract long eglCreateDRMImageMESA(long paramLong, IntBuffer paramIntBuffer);
+  
+  public abstract boolean eglExportDRMImageMESA(long paramLong1, long paramLong2, IntBuffer paramIntBuffer1, IntBuffer paramIntBuffer2, IntBuffer paramIntBuffer3);
+  
+  public abstract boolean eglExportDMABUFImageQueryMESA(long paramLong1, long paramLong2, IntBuffer paramIntBuffer1, IntBuffer paramIntBuffer2, LongBuffer paramLongBuffer);
+  
+  public abstract boolean eglExportDMABUFImageMESA(long paramLong1, long paramLong2, IntBuffer paramIntBuffer1, IntBuffer paramIntBuffer2, IntBuffer paramIntBuffer3);
+  
+  public abstract boolean eglSwapBuffersRegionNOK(long paramLong1, long paramLong2, int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract boolean eglSwapBuffersRegion2NOK(long paramLong1, long paramLong2, int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract boolean eglQueryNativeDisplayNV(long paramLong, PointerBuffer paramPointerBuffer);
+  
+  public abstract boolean eglQueryNativeWindowNV(long paramLong1, long paramLong2, PointerBuffer paramPointerBuffer);
+  
+  public abstract boolean eglQueryNativePixmapNV(long paramLong1, long paramLong2, PointerBuffer paramPointerBuffer);
+  
+  public abstract boolean eglPostSubBufferNV(long paramLong1, long paramLong2, int paramInt1, int paramInt2, int paramInt3, int paramInt4);
+  
+  public abstract long eglCreateStreamSyncNV(long paramLong, Buffer paramBuffer, int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract ByteBuffer eglCreateFenceSyncNV(long paramLong, int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract boolean eglDestroySyncNV(Buffer paramBuffer);
+  
+  public abstract boolean eglFenceNV(Buffer paramBuffer);
+  
+  public abstract int eglClientWaitSyncNV(Buffer paramBuffer, int paramInt, long paramLong);
+  
+  public abstract boolean eglSignalSyncNV(Buffer paramBuffer, int paramInt);
+  
+  public abstract boolean eglGetSyncAttribNV(Buffer paramBuffer, int paramInt, IntBuffer paramIntBuffer);
+  
+  public abstract long eglGetSystemTimeFrequencyNV();
+  
+  public abstract long eglGetSystemTimeNV();
+  
+  public abstract boolean isFunctionAvailable(String paramString);
+  
+  public abstract boolean isExtensionAvailable(String paramString);
+}

@@ -1,0 +1,938 @@
+package processing.data;
+
+import java.io.PrintStream;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.Random;
+import processing.core.PApplet;
+
+
+
+
+
+
+
+
+
+
+
+
+public class FloatList
+  implements Iterable<Float>
+{
+  int count;
+  float[] data;
+  
+  public FloatList()
+  {
+    data = new float[10];
+  }
+  
+
+
+
+  public FloatList(int length)
+  {
+    data = new float[length];
+  }
+  
+
+
+
+  public FloatList(float[] list)
+  {
+    count = list.length;
+    data = new float[count];
+    System.arraycopy(list, 0, data, 0, count);
+  }
+  
+
+
+
+
+
+
+  public FloatList(Iterable<Object> iter)
+  {
+    this(10);
+    for (Object o : iter) {
+      if (o == null) {
+        append(NaN.0F);
+      } else if ((o instanceof Number)) {
+        append(((Number)o).floatValue());
+      } else {
+        append(PApplet.parseFloat(o.toString().trim()));
+      }
+    }
+    crop();
+  }
+  
+
+
+
+
+
+
+
+  public FloatList(Object... items)
+  {
+    count = items.length;
+    data = new float[count];
+    int index = 0;
+    for (Object o : items) {
+      float value = NaN.0F;
+      if (o != null) {
+        if ((o instanceof Number)) {
+          value = ((Number)o).floatValue();
+        } else {
+          value = PApplet.parseFloat(o.toString().trim(), NaN.0F);
+        }
+      }
+      data[(index++)] = value;
+    }
+  }
+  
+
+
+
+
+
+
+  private void crop()
+  {
+    if (count != data.length) {
+      data = PApplet.subset(data, 0, count);
+    }
+  }
+  
+
+
+
+
+
+
+  public int size()
+  {
+    return count;
+  }
+  
+  public void resize(int length)
+  {
+    if (length > data.length) {
+      float[] temp = new float[length];
+      System.arraycopy(data, 0, temp, 0, count);
+      data = temp;
+    }
+    else if (length > count) {
+      Arrays.fill(data, count, length, 0.0F);
+    }
+    count = length;
+  }
+  
+
+
+
+
+
+
+  public void clear()
+  {
+    count = 0;
+  }
+  
+
+
+
+
+
+
+  public float get(int index)
+  {
+    if (index >= count) {
+      throw new ArrayIndexOutOfBoundsException(index);
+    }
+    return data[index];
+  }
+  
+
+
+
+
+
+
+
+
+  public void set(int index, float what)
+  {
+    if (index >= count) {
+      data = PApplet.expand(data, index + 1);
+      for (int i = count; i < index; i++) {
+        data[i] = 0.0F;
+      }
+      count = (index + 1);
+    }
+    data[index] = what;
+  }
+  
+
+  public void push(float value)
+  {
+    append(value);
+  }
+  
+  public float pop()
+  {
+    if (count == 0) {
+      throw new RuntimeException("Can't call pop() on an empty list");
+    }
+    float value = get(count - 1);
+    count -= 1;
+    return value;
+  }
+  
+
+
+
+
+
+
+  public float remove(int index)
+  {
+    if ((index < 0) || (index >= count)) {
+      throw new ArrayIndexOutOfBoundsException(index);
+    }
+    float entry = data[index];
+    
+
+
+
+
+
+
+    for (int i = index; i < count - 1; i++) {
+      data[i] = data[(i + 1)];
+    }
+    count -= 1;
+    return entry;
+  }
+  
+
+
+  public int removeValue(int value)
+  {
+    int index = index(value);
+    if (index != -1) {
+      remove(index);
+      return index;
+    }
+    return -1;
+  }
+  
+
+
+  public int removeValues(int value)
+  {
+    int ii = 0;
+    if (Float.isNaN(value)) {
+      for (int i = 0; i < count; i++) {
+        if (!Float.isNaN(data[i])) {
+          data[(ii++)] = data[i];
+        }
+      }
+    } else {
+      for (int i = 0; i < count; i++) {
+        if (data[i] != value) {
+          data[(ii++)] = data[i];
+        }
+      }
+    }
+    int removed = count - ii;
+    count = ii;
+    return removed;
+  }
+  
+
+  public boolean replaceValue(float value, float newValue)
+  {
+    if (Float.isNaN(value)) {
+      for (int i = 0; i < count; i++) {
+        if (Float.isNaN(data[i])) {
+          data[i] = newValue;
+          return true;
+        }
+      }
+    } else {
+      int index = index(value);
+      if (index != -1) {
+        data[index] = newValue;
+        return true;
+      }
+    }
+    return false;
+  }
+  
+
+  public boolean replaceValues(float value, float newValue)
+  {
+    boolean changed = false;
+    if (Float.isNaN(value)) {
+      for (int i = 0; i < count; i++) {
+        if (Float.isNaN(data[i])) {
+          data[i] = newValue;
+          changed = true;
+        }
+      }
+    } else {
+      for (int i = 0; i < count; i++) {
+        if (data[i] == value) {
+          data[i] = newValue;
+          changed = true;
+        }
+      }
+    }
+    return changed;
+  }
+  
+
+
+
+
+
+
+
+  public void append(float value)
+  {
+    if (count == data.length) {
+      data = PApplet.expand(data);
+    }
+    data[(count++)] = value;
+  }
+  
+  public void append(float[] values)
+  {
+    for (float v : values) {
+      append(v);
+    }
+  }
+  
+  public void append(FloatList list)
+  {
+    for (float v : list.values()) {
+      append(v);
+    }
+  }
+  
+
+  public void appendUnique(float value)
+  {
+    if (!hasValue(value)) {
+      append(value);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void insert(int index, float value)
+  {
+    insert(index, new float[] { value });
+  }
+  
+
+  public void insert(int index, float[] values)
+  {
+    if (index < 0) {
+      throw new IllegalArgumentException("insert() index cannot be negative: it was " + index);
+    }
+    if (index >= data.length) {
+      throw new IllegalArgumentException("insert() index " + index + " is past the end of this list");
+    }
+    
+    float[] temp = new float[count + values.length];
+    
+
+    System.arraycopy(data, 0, temp, 0, Math.min(count, index));
+    
+
+    System.arraycopy(values, 0, temp, index, values.length);
+    
+
+
+    System.arraycopy(data, index, temp, index + values.length, count - index);
+    count += values.length;
+    
+
+
+
+    data = temp;
+  }
+  
+  public void insert(int index, FloatList list)
+  {
+    insert(index, list.values());
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public int index(float what)
+  {
+    for (int i = 0; i < count; i++) {
+      if (data[i] == what) {
+        return i;
+      }
+    }
+    return -1;
+  }
+  
+
+
+
+
+  public boolean hasValue(float value)
+  {
+    if (Float.isNaN(value)) {
+      for (int i = 0; i < count; i++) {
+        if (Float.isNaN(data[i])) {
+          return true;
+        }
+      }
+    } else {
+      for (int i = 0; i < count; i++) {
+        if (data[i] == value) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  
+  private void boundsProblem(int index, String method)
+  {
+    String msg = String.format("The list size is %d. You cannot %s() to element %d.", new Object[] {
+      Integer.valueOf(count), method, Integer.valueOf(index) });
+    throw new ArrayIndexOutOfBoundsException(msg);
+  }
+  
+
+
+
+
+  public void add(int index, float amount)
+  {
+    if (index < count) {
+      data[index] += amount;
+    } else {
+      boundsProblem(index, "add");
+    }
+  }
+  
+
+
+
+
+  public void sub(int index, float amount)
+  {
+    if (index < count) {
+      data[index] -= amount;
+    } else {
+      boundsProblem(index, "sub");
+    }
+  }
+  
+
+
+
+
+  public void mult(int index, float amount)
+  {
+    if (index < count) {
+      data[index] *= amount;
+    } else {
+      boundsProblem(index, "mult");
+    }
+  }
+  
+
+
+
+
+  public void div(int index, float amount)
+  {
+    if (index < count) {
+      data[index] /= amount;
+    } else {
+      boundsProblem(index, "div");
+    }
+  }
+  
+  private void checkMinMax(String functionName)
+  {
+    if (count == 0) {
+      String msg = 
+        String.format("Cannot use %s() on an empty %s.", new Object[] {
+        functionName, getClass().getSimpleName() });
+      throw new RuntimeException(msg);
+    }
+  }
+  
+
+
+
+
+  public float min()
+  {
+    checkMinMax("min");
+    int index = minIndex();
+    return index == -1 ? NaN.0F : data[index];
+  }
+  
+  public int minIndex()
+  {
+    checkMinMax("minIndex");
+    float m = NaN.0F;
+    int mi = -1;
+    for (int i = 0; i < count; i++)
+    {
+      if (data[i] == data[i]) {
+        m = data[i];
+        mi = i;
+        
+
+        for (int j = i + 1; j < count; j++) {
+          float d = data[j];
+          if ((!Float.isNaN(d)) && (d < m)) {
+            m = data[j];
+            mi = j;
+          }
+        }
+        break;
+      }
+    }
+    return mi;
+  }
+  
+
+
+
+
+  public float max()
+  {
+    checkMinMax("max");
+    int index = maxIndex();
+    return index == -1 ? NaN.0F : data[index];
+  }
+  
+  public int maxIndex()
+  {
+    checkMinMax("maxIndex");
+    float m = NaN.0F;
+    int mi = -1;
+    for (int i = 0; i < count; i++)
+    {
+      if (data[i] == data[i]) {
+        m = data[i];
+        mi = i;
+        
+
+        for (int j = i + 1; j < count; j++) {
+          float d = data[j];
+          if ((!Float.isNaN(d)) && (d > m)) {
+            m = data[j];
+            mi = j;
+          }
+        }
+        break;
+      }
+    }
+    return mi;
+  }
+  
+  public float sum()
+  {
+    double outgoing = 0.0D;
+    for (int i = 0; i < count; i++) {
+      outgoing += data[i];
+    }
+    return (float)outgoing;
+  }
+  
+
+
+
+
+
+
+  public void sort()
+  {
+    Arrays.sort(data, 0, count);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void sortReverse()
+  {
+    new Sort()
+    {
+      public int size()
+      {
+        if (count == 0) {
+          return 0;
+        }
+        
+        int right = count - 1;
+        while (data[right] != data[right]) {
+          right--;
+          if (right == -1) {
+            return 0;
+          }
+        }
+        for (int i = right; i >= 0; i--) {
+          float v = data[i];
+          if (v != v) {
+            data[i] = data[right];
+            data[right] = v;
+            right--;
+          }
+        }
+        return right + 1;
+      }
+      
+      public float compare(int a, int b)
+      {
+        return data[b] - data[a];
+      }
+      
+      public void swap(int a, int b)
+      {
+        float temp = data[a];
+        data[a] = data[b];
+        data[b] = temp;
+      }
+    }.run();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void reverse()
+  {
+    int ii = count - 1;
+    for (int i = 0; i < count / 2; i++) {
+      float t = data[i];
+      data[i] = data[ii];
+      data[ii] = t;
+      ii--;
+    }
+  }
+  
+
+
+
+
+
+
+
+  public void shuffle()
+  {
+    Random r = new Random();
+    int num = count;
+    while (num > 1) {
+      int value = r.nextInt(num);
+      num--;
+      float temp = data[num];
+      data[num] = data[value];
+      data[value] = temp;
+    }
+  }
+  
+
+
+
+
+  public void shuffle(PApplet sketch)
+  {
+    int num = count;
+    while (num > 1) {
+      int value = (int)sketch.random(num);
+      num--;
+      float temp = data[num];
+      data[num] = data[value];
+      data[value] = temp;
+    }
+  }
+  
+  public FloatList copy()
+  {
+    FloatList outgoing = new FloatList(data);
+    count = count;
+    return outgoing;
+  }
+  
+
+
+
+
+
+  public float[] values()
+  {
+    crop();
+    return data;
+  }
+  
+
+
+
+
+
+
+  public Iterator<Float> iterator()
+  {
+    new Iterator() {
+      int index = -1;
+      
+      public void remove() {
+        remove(index);
+        index -= 1;
+      }
+      
+      public Float next() {
+        return Float.valueOf(data[(++index)]);
+      }
+      
+      public boolean hasNext() {
+        return index + 1 < count;
+      }
+    };
+  }
+  
+
+
+
+
+
+
+  public float[] array()
+  {
+    return array(null);
+  }
+  
+
+
+
+
+
+  public float[] array(float[] array)
+  {
+    if ((array == null) || (array.length != count)) {
+      array = new float[count];
+    }
+    System.arraycopy(data, 0, array, 0, count);
+    return array;
+  }
+  
+
+
+
+
+
+
+  public FloatList getPercent()
+  {
+    double sum = 0.0D;
+    for (float value : array()) {
+      sum += value;
+    }
+    FloatList outgoing = new FloatList(count);
+    for (int i = 0; i < count; i++) {
+      double percent = data[i] / sum;
+      outgoing.set(i, (float)percent);
+    }
+    return outgoing;
+  }
+  
+  public FloatList getSubset(int start)
+  {
+    return getSubset(start, count - start);
+  }
+  
+  public FloatList getSubset(int start, int num)
+  {
+    float[] subset = new float[num];
+    System.arraycopy(data, start, subset, 0, num);
+    return new FloatList(subset);
+  }
+  
+  public String join(String separator)
+  {
+    if (count == 0) {
+      return "";
+    }
+    StringBuilder sb = new StringBuilder();
+    sb.append(data[0]);
+    for (int i = 1; i < count; i++) {
+      sb.append(separator);
+      sb.append(data[i]);
+    }
+    return sb.toString();
+  }
+  
+  public void print()
+  {
+    for (int i = 0; i < size(); i++) {
+      System.out.format("[%d] %f%n", new Object[] { Integer.valueOf(i), Float.valueOf(data[i]) });
+    }
+  }
+  
+
+  public String toString()
+  {
+    StringBuilder sb = new StringBuilder();
+    sb.append(getClass().getSimpleName() + " size=" + size() + " [ ");
+    for (int i = 0; i < size(); i++) {
+      if (i != 0) {
+        sb.append(", ");
+      }
+      sb.append(i + ": " + data[i]);
+    }
+    sb.append(" ]");
+    return sb.toString();
+  }
+}

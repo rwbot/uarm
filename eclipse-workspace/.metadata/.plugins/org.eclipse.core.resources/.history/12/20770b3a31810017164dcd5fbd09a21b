@@ -1,0 +1,195 @@
+package jogamp.nativewindow;
+
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class SurfaceScaleUtils
+{
+  private static final float EPSILON = 1.1920929E-7F;
+  
+  public SurfaceScaleUtils() {}
+  
+  private static boolean isZero(float paramFloat)
+  {
+    return Math.abs(paramFloat) < 1.1920929E-7F;
+  }
+  
+
+
+
+
+
+
+  public static int scale(int paramInt, float paramFloat)
+  {
+    return (int)(paramInt * paramFloat + 0.5F);
+  }
+  
+
+
+
+
+
+
+  public static int scaleInv(int paramInt, float paramFloat)
+  {
+    return (int)(paramInt / paramFloat + 0.5F);
+  }
+  
+
+
+
+
+
+
+
+  public static int[] scale(int[] paramArrayOfInt1, int[] paramArrayOfInt2, float[] paramArrayOfFloat)
+  {
+    paramArrayOfInt1[0] = ((int)(paramArrayOfInt2[0] * paramArrayOfFloat[0] + 0.5F));
+    paramArrayOfInt1[1] = ((int)(paramArrayOfInt2[1] * paramArrayOfFloat[1] + 0.5F));
+    return paramArrayOfInt1;
+  }
+  
+
+
+
+
+
+
+  public static int[] scaleInv(int[] paramArrayOfInt1, int[] paramArrayOfInt2, float[] paramArrayOfFloat)
+  {
+    paramArrayOfInt1[0] = ((int)(paramArrayOfInt2[0] / paramArrayOfFloat[0] + 0.5F));
+    paramArrayOfInt1[1] = ((int)(paramArrayOfInt2[1] / paramArrayOfFloat[1] + 0.5F));
+    return paramArrayOfInt1;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static float clampPixelScale(float paramFloat1, float paramFloat2, float paramFloat3)
+  {
+    if (isZero(paramFloat1 - 1.0F))
+      return 1.0F;
+    if ((isZero(paramFloat1 - 0.0F)) || (paramFloat1 > paramFloat3) || 
+    
+      (isZero(paramFloat1 - paramFloat3)))
+    {
+
+      return paramFloat3; }
+    if ((paramFloat1 < paramFloat2) || (isZero(paramFloat1 - paramFloat2)))
+    {
+      return paramFloat2;
+    }
+    return paramFloat1;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static float[] clampPixelScale(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2, float[] paramArrayOfFloat3, float[] paramArrayOfFloat4)
+  {
+    paramArrayOfFloat1[0] = clampPixelScale(paramArrayOfFloat2[0], paramArrayOfFloat3[0], paramArrayOfFloat4[0]);
+    paramArrayOfFloat1[1] = clampPixelScale(paramArrayOfFloat2[1], paramArrayOfFloat3[1], paramArrayOfFloat4[1]);
+    return paramArrayOfFloat1;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static boolean setNewPixelScale(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2, float[] paramArrayOfFloat3, float[] paramArrayOfFloat4, float[] paramArrayOfFloat5, String paramString)
+  {
+    float f1 = clampPixelScale(paramArrayOfFloat3[0], paramArrayOfFloat4[0], paramArrayOfFloat5[0]);
+    float f2 = clampPixelScale(paramArrayOfFloat3[1], paramArrayOfFloat4[1], paramArrayOfFloat5[1]);
+    boolean bool = (f1 != paramArrayOfFloat2[0]) || (f2 != paramArrayOfFloat2[1]);
+    if (null != paramString) {
+      System.err.println(paramString + ".setNewPixelScale: pre[" + paramArrayOfFloat2[0] + ", " + paramArrayOfFloat2[1] + "], req[" + paramArrayOfFloat3[0] + ", " + paramArrayOfFloat3[1] + "], min[" + paramArrayOfFloat4[0] + ", " + paramArrayOfFloat4[1] + "], max[" + paramArrayOfFloat5[0] + ", " + paramArrayOfFloat5[1] + "] -> result[" + f1 + ", " + f2 + "], changed " + bool);
+    }
+    
+
+
+
+    paramArrayOfFloat1[0] = f1;
+    paramArrayOfFloat1[1] = f2;
+    return bool;
+  }
+}

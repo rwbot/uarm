@@ -1,0 +1,174 @@
+package com.jogamp.nativewindow;
+
+import com.jogamp.common.util.PropertyAccess;
+import java.io.PrintStream;
+import java.util.List;
+import jogamp.nativewindow.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class DefaultCapabilitiesChooser
+  implements CapabilitiesChooser
+{
+  private static final boolean DEBUG = PropertyAccess.isPropertyDefined("nativewindow.debug.CapabilitiesChooser", true);
+  
+  private static final int NO_SCORE = -9999999;
+  
+  private static final int COLOR_MISMATCH_PENALTY_SCALE = 36;
+  
+  public DefaultCapabilitiesChooser() {}
+  
+  public int chooseCapabilities(CapabilitiesImmutable paramCapabilitiesImmutable, List<? extends CapabilitiesImmutable> paramList, int paramInt)
+  {
+    if (DEBUG) {
+      System.err.println("Desired: " + paramCapabilitiesImmutable);
+      for (i = 0; i < paramList.size(); i++) {
+        System.err.println("Available " + i + ": " + paramList.get(i));
+      }
+      System.err.println("Window system's recommended choice: " + paramInt);
+    }
+    int i = paramList.size();
+    
+    if ((paramInt >= 0) && (paramInt < i))
+    {
+      if (null != paramList.get(paramInt)) {
+        if (DEBUG) {
+          System.err.println("Choosing window system's recommended choice of " + paramInt);
+          System.err.println(paramList.get(paramInt));
+        }
+        return paramInt;
+      }
+    }
+    
+    int[] arrayOfInt = new int[i];
+    for (int j = 0; j < i; j++) {
+      arrayOfInt[j] = -9999999;
+    }
+    
+    for (j = 0; j < i; j++) {
+      CapabilitiesImmutable localCapabilitiesImmutable = (CapabilitiesImmutable)paramList.get(j);
+      if (localCapabilitiesImmutable != null)
+      {
+
+        if ((!paramCapabilitiesImmutable.isOnscreen()) || (localCapabilitiesImmutable.isOnscreen()))
+        {
+
+
+          m = 0;
+          
+
+
+          m = m + 36 * (localCapabilitiesImmutable.getRedBits() + localCapabilitiesImmutable.getGreenBits() + localCapabilitiesImmutable.getBlueBits() + localCapabilitiesImmutable.getAlphaBits() - (paramCapabilitiesImmutable.getRedBits() + paramCapabilitiesImmutable.getGreenBits() + paramCapabilitiesImmutable.getBlueBits() + paramCapabilitiesImmutable.getAlphaBits()));
+          arrayOfInt[j] = m;
+        } }
+    }
+    if (DEBUG) {
+      System.err.print("Scores: [");
+      for (j = 0; j < i; j++) {
+        if (j > 0) {
+          System.err.print(",");
+        }
+        System.err.print(" " + arrayOfInt[j]);
+      }
+      System.err.println(" ]");
+    }
+    
+
+    j = -9999999;
+    int k = -1;
+    for (int m = 0; m < i; m++) {
+      int n = arrayOfInt[m];
+      if (n != -9999999)
+      {
+
+
+        if ((j == -9999999) || (
+          (Math.abs(n) < Math.abs(j)) && (
+          (sign(j) < 0) || (sign(n) > 0)))) {
+          j = n;
+          k = m;
+        } }
+    }
+    if (k < 0) {
+      throw new NativeWindowException("Unable to select one of the provided Capabilities");
+    }
+    if (DEBUG) {
+      System.err.println("Chosen index: " + k);
+      System.err.println("Chosen capabilities:");
+      System.err.println(paramList.get(k));
+    }
+    
+    return k;
+  }
+  
+  private static int sign(int paramInt) {
+    if (paramInt < 0) {
+      return -1;
+    }
+    return 1;
+  }
+  
+  static {}
+}

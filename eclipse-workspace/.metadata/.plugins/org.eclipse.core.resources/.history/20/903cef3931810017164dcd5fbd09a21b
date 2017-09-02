@@ -1,0 +1,169 @@
+package com.jogamp.opengl.math;
+
+import com.jogamp.opengl.GLException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Matrix4
+{
+  private final float[] matrix;
+  private final float[] matrixTxSx;
+  private final float[] mat4Tmp1;
+  private final float[] vec4Tmp1;
+  
+  public Matrix4()
+  {
+    matrix = new float[16];
+    matrixTxSx = new float[16];
+    mat4Tmp1 = new float[16];
+    vec4Tmp1 = new float[4];
+    FloatUtil.makeIdentity(matrixTxSx);
+    loadIdentity();
+  }
+  
+  public final float[] getMatrix() {
+    return matrix;
+  }
+  
+  public final void loadIdentity() {
+    FloatUtil.makeIdentity(matrix);
+  }
+  
+
+
+
+  public final void multMatrix(float[] paramArrayOfFloat, int paramInt)
+  {
+    FloatUtil.multMatrix(matrix, 0, paramArrayOfFloat, paramInt);
+  }
+  
+
+
+
+  public final void multMatrix(float[] paramArrayOfFloat)
+  {
+    FloatUtil.multMatrix(matrix, paramArrayOfFloat);
+  }
+  
+
+
+
+  public final void multMatrix(Matrix4 paramMatrix4)
+  {
+    FloatUtil.multMatrix(matrix, paramMatrix4.getMatrix());
+  }
+  
+
+
+
+  public final void multVec(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2)
+  {
+    FloatUtil.multMatrixVec(matrix, paramArrayOfFloat1, paramArrayOfFloat2);
+  }
+  
+
+
+
+  public final void multVec(float[] paramArrayOfFloat1, int paramInt1, float[] paramArrayOfFloat2, int paramInt2)
+  {
+    FloatUtil.multMatrixVec(matrix, 0, paramArrayOfFloat1, paramInt1, paramArrayOfFloat2, paramInt2);
+  }
+  
+  public final void translate(float paramFloat1, float paramFloat2, float paramFloat3) {
+    multMatrix(FloatUtil.makeTranslation(matrixTxSx, false, paramFloat1, paramFloat2, paramFloat3));
+  }
+  
+  public final void scale(float paramFloat1, float paramFloat2, float paramFloat3) {
+    multMatrix(FloatUtil.makeScale(matrixTxSx, false, paramFloat1, paramFloat2, paramFloat3));
+  }
+  
+  public final void rotate(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4) {
+    multMatrix(FloatUtil.makeRotationAxis(mat4Tmp1, 0, paramFloat1, paramFloat2, paramFloat3, paramFloat4, vec4Tmp1));
+  }
+  
+
+
+  public final void rotate(Quaternion paramQuaternion)
+  {
+    multMatrix(paramQuaternion.toMatrix(mat4Tmp1, 0));
+  }
+  
+  public final void transpose() {
+    System.arraycopy(matrix, 0, mat4Tmp1, 0, 16);
+    FloatUtil.transposeMatrix(mat4Tmp1, matrix);
+  }
+  
+  public final float determinant() {
+    return FloatUtil.matrixDeterminant(matrix);
+  }
+  
+  public final boolean invert() {
+    return null != FloatUtil.invertMatrix(matrix, matrix);
+  }
+  
+  public final void makeOrtho(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6) {
+    multMatrix(FloatUtil.makeOrtho(mat4Tmp1, 0, true, paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramFloat5, paramFloat6));
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final void makeFrustum(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6)
+    throws GLException
+  {
+    multMatrix(FloatUtil.makeFrustum(mat4Tmp1, 0, true, paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramFloat5, paramFloat6));
+  }
+  
+
+
+
+
+
+
+  public final void makePerspective(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+    throws GLException
+  {
+    multMatrix(FloatUtil.makePerspective(mat4Tmp1, 0, true, paramFloat1, paramFloat2, paramFloat3, paramFloat4));
+  }
+}

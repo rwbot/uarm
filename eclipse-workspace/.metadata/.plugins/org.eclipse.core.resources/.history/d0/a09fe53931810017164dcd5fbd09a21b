@@ -1,0 +1,458 @@
+package com.jogamp.newt;
+
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.SurfaceSize;
+import java.util.Comparator;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class MonitorMode
+  implements Comparable<MonitorMode>
+{
+  public static final Comparator<MonitorMode> monitorModeComparator = new Comparator()
+  {
+    public int compare(MonitorMode paramAnonymousMonitorMode1, MonitorMode paramAnonymousMonitorMode2) {
+      return paramAnonymousMonitorMode1.compareTo(paramAnonymousMonitorMode2);
+    }
+  };
+  
+  public static final Comparator<MonitorMode> monitorModeComparatorInv = new Comparator()
+  {
+
+    public int compare(MonitorMode paramAnonymousMonitorMode1, MonitorMode paramAnonymousMonitorMode2) { return paramAnonymousMonitorMode2.compareTo(paramAnonymousMonitorMode1); }
+  };
+  public static final int ROTATE_0 = 0;
+  public static final int ROTATE_90 = 90;
+  public static final int ROTATE_180 = 180;
+  public static final int ROTATE_270 = 270;
+  public static final int FLAG_INTERLACE = 1;
+  public static final int FLAG_DOUBLESCAN = 2;
+  private final int nativeId;
+  private final SizeAndRRate sizeAndRRate;
+  private final int rotation;
+  private final int hashCode;
+  
+  public static class SizeAndRRate implements Comparable<SizeAndRRate> {
+    public final SurfaceSize surfaceSize;
+    public final int flags;
+    public final float refreshRate;
+    public final int hashCode;
+    private static final String STR_INTERLACE = "Interlace";
+    private static final String STR_DOUBLESCAN = "DoubleScan";
+    private static final String STR_SEP = ", ";
+    
+    public SizeAndRRate(SurfaceSize paramSurfaceSize, float paramFloat, int paramInt) { if (null == paramSurfaceSize) {
+        throw new IllegalArgumentException("surfaceSize must be set (" + paramSurfaceSize + ")");
+      }
+      surfaceSize = paramSurfaceSize;
+      flags = paramInt;
+      refreshRate = paramFloat;
+      hashCode = getHashCode();
+    }
+    
+
+
+
+    public static final StringBuilder flags2String(int paramInt)
+    {
+      StringBuilder localStringBuilder = new StringBuilder();
+      int i = 0;
+      if (0 != (paramInt & 0x1)) {
+        localStringBuilder.append("Interlace");
+        i = 1;
+      }
+      if (0 != (paramInt & 0x2)) {
+        if (i != 0) {
+          localStringBuilder.append(", ");
+        }
+        localStringBuilder.append("DoubleScan");
+        i = 1;
+      }
+      return localStringBuilder;
+    }
+    
+    public final String toString() {
+      return surfaceSize + " @ " + refreshRate + " Hz, flags [" + flags2String(flags).toString() + "]";
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public int compareTo(SizeAndRRate paramSizeAndRRate)
+    {
+      int i = surfaceSize.compareTo(surfaceSize);
+      if (0 != i) {
+        return i;
+      }
+      int j = 0 == flags ? Integer.MAX_VALUE : flags;
+      int k = 0 == flags ? Integer.MAX_VALUE : flags;
+      if (j == k)
+      {
+        float f = refreshRate - refreshRate;
+        if (Math.abs(f) < 0.01F)
+          return 0;
+        if (f > 0.01F) {
+          return 1;
+        }
+        return -1;
+      }
+      
+      if (j > k)
+        return 1;
+      if (j < k) {
+        return -1;
+      }
+      return 0;
+    }
+    
+
+
+
+
+
+
+
+
+
+
+    public final boolean equals(Object paramObject)
+    {
+      if (this == paramObject) return true;
+      if ((paramObject instanceof SizeAndRRate)) {
+        SizeAndRRate localSizeAndRRate = (SizeAndRRate)paramObject;
+        return (surfaceSize.equals(surfaceSize)) && (flags == flags) && (refreshRate == refreshRate);
+      }
+      
+
+      return false;
+    }
+    
+
+
+
+
+
+
+
+
+    public final int hashCode()
+    {
+      return hashCode;
+    }
+    
+    private final int getHashCode() {
+      int i = 31 + surfaceSize.hashCode();
+      i = (i << 5) - i + flags;
+      i = (i << 5) - i + (int)(refreshRate * 100.0F);
+      return i;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static boolean isRotationValid(int paramInt)
+  {
+    return (paramInt == 0) || (paramInt == 90) || (paramInt == 180) || (paramInt == 270);
+  }
+  
+
+
+
+
+  public MonitorMode(int paramInt1, SizeAndRRate paramSizeAndRRate, int paramInt2)
+  {
+    if (!isRotationValid(paramInt2)) {
+      throw new RuntimeException("invalid rotation: " + paramInt2);
+    }
+    nativeId = paramInt1;
+    sizeAndRRate = paramSizeAndRRate;
+    rotation = paramInt2;
+    hashCode = getHashCode();
+  }
+  
+
+
+
+
+
+
+
+
+
+  public MonitorMode(SurfaceSize paramSurfaceSize, float paramFloat, int paramInt1, int paramInt2)
+  {
+    this(0, new SizeAndRRate(paramSurfaceSize, paramFloat, paramInt1), paramInt2);
+  }
+  
+  public final int getId() {
+    return nativeId;
+  }
+  
+  public final SizeAndRRate getSizeAndRRate() {
+    return sizeAndRRate;
+  }
+  
+  public final SurfaceSize getSurfaceSize()
+  {
+    return sizeAndRRate.surfaceSize;
+  }
+  
+  public final float getRefreshRate()
+  {
+    return sizeAndRRate.refreshRate;
+  }
+  
+  public final int getFlags()
+  {
+    return sizeAndRRate.flags;
+  }
+  
+  public final int getRotation()
+  {
+    return rotation;
+  }
+  
+
+
+
+  public final int getRotatedWidth()
+  {
+    return getRotatedWH(true);
+  }
+  
+
+
+
+  public final int getRotatedHeight()
+  {
+    return getRotatedWH(false);
+  }
+  
+  public final String toString()
+  {
+    return "[Id " + Display.toHexString(nativeId) + ", " + sizeAndRRate + ", " + rotation + " degr]";
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public int compareTo(MonitorMode paramMonitorMode)
+  {
+    int i = sizeAndRRate.compareTo(sizeAndRRate);
+    if (0 != i) {
+      return i;
+    }
+    int j = 360 - rotation;
+    int k = 360 - rotation;
+    if (j > k)
+      return 1;
+    if (j < k) {
+      return -1;
+    }
+    return 0;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final boolean equals(Object paramObject)
+  {
+    if (this == paramObject) return true;
+    if ((paramObject instanceof MonitorMode)) {
+      MonitorMode localMonitorMode = (MonitorMode)paramObject;
+      
+      return (nativeId == nativeId) && (sizeAndRRate.equals(sizeAndRRate)) && (rotation == rotation);
+    }
+    
+    return false;
+  }
+  
+
+
+
+
+
+
+
+
+  public final int hashCode()
+  {
+    return hashCode;
+  }
+  
+  private final int getHashCode() {
+    int i = 31 + getId();
+    i = (i << 5) - i + sizeAndRRate.hashCode();
+    i = (i << 5) - i + getRotation();
+    return i;
+  }
+  
+  private final int getRotatedWH(boolean paramBoolean) {
+    DimensionImmutable localDimensionImmutable = sizeAndRRate.surfaceSize.getResolution();
+    int i = (90 == rotation) || (270 == rotation) ? 1 : 0;
+    if (((paramBoolean) && (i != 0)) || ((!paramBoolean) && (i == 0))) {
+      return localDimensionImmutable.getHeight();
+    }
+    return localDimensionImmutable.getWidth();
+  }
+}

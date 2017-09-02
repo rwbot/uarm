@@ -1,0 +1,124 @@
+package jogamp.opengl.util.pngj.chunks;
+
+import jogamp.opengl.util.pngj.ImageInfo;
+import jogamp.opengl.util.pngj.PngHelperInternal;
+import jogamp.opengl.util.pngj.PngjException;
+
+
+
+
+
+public class PngChunkSBIT
+  extends PngChunkSingle
+{
+  public static final String ID = "sBIT";
+  private int graysb;
+  private int alphasb;
+  private int redsb;
+  private int greensb;
+  private int bluesb;
+  
+  public PngChunkSBIT(ImageInfo paramImageInfo)
+  {
+    super("sBIT", paramImageInfo);
+  }
+  
+  public PngChunk.ChunkOrderingConstraint getOrderingConstraint()
+  {
+    return PngChunk.ChunkOrderingConstraint.BEFORE_PLTE_AND_IDAT;
+  }
+  
+  private int getLen() {
+    int i = imgInfo.greyscale ? 1 : 3;
+    if (imgInfo.alpha)
+      i++;
+    return i;
+  }
+  
+  public void parseFromRaw(ChunkRaw paramChunkRaw)
+  {
+    if (len != getLen())
+      throw new PngjException("bad chunk length " + paramChunkRaw);
+    if (imgInfo.greyscale) {
+      graysb = PngHelperInternal.readInt1fromByte(data, 0);
+      if (imgInfo.alpha)
+        alphasb = PngHelperInternal.readInt1fromByte(data, 1);
+    } else {
+      redsb = PngHelperInternal.readInt1fromByte(data, 0);
+      greensb = PngHelperInternal.readInt1fromByte(data, 1);
+      bluesb = PngHelperInternal.readInt1fromByte(data, 2);
+      if (imgInfo.alpha) {
+        alphasb = PngHelperInternal.readInt1fromByte(data, 3);
+      }
+    }
+  }
+  
+  public ChunkRaw createRawChunk() {
+    ChunkRaw localChunkRaw = null;
+    localChunkRaw = createEmptyChunk(getLen(), true);
+    if (imgInfo.greyscale) {
+      data[0] = ((byte)graysb);
+      if (imgInfo.alpha)
+        data[1] = ((byte)alphasb);
+    } else {
+      data[0] = ((byte)redsb);
+      data[1] = ((byte)greensb);
+      data[2] = ((byte)bluesb);
+      if (imgInfo.alpha)
+        data[3] = ((byte)alphasb);
+    }
+    return localChunkRaw;
+  }
+  
+  public void cloneDataFromRead(PngChunk paramPngChunk)
+  {
+    PngChunkSBIT localPngChunkSBIT = (PngChunkSBIT)paramPngChunk;
+    graysb = graysb;
+    redsb = redsb;
+    greensb = greensb;
+    bluesb = bluesb;
+    alphasb = alphasb;
+  }
+  
+  public void setGraysb(int paramInt) {
+    if (!imgInfo.greyscale)
+      throw new PngjException("only greyscale images support this");
+    graysb = paramInt;
+  }
+  
+  public int getGraysb() {
+    if (!imgInfo.greyscale)
+      throw new PngjException("only greyscale images support this");
+    return graysb;
+  }
+  
+  public void setAlphasb(int paramInt) {
+    if (!imgInfo.alpha)
+      throw new PngjException("only images with alpha support this");
+    alphasb = paramInt;
+  }
+  
+  public int getAlphasb() {
+    if (!imgInfo.alpha)
+      throw new PngjException("only images with alpha support this");
+    return alphasb;
+  }
+  
+
+
+
+  public void setRGB(int paramInt1, int paramInt2, int paramInt3)
+  {
+    if ((imgInfo.greyscale) || (imgInfo.indexed))
+      throw new PngjException("only rgb or rgba images support this");
+    redsb = paramInt1;
+    greensb = paramInt2;
+    bluesb = paramInt3;
+  }
+  
+  public int[] getRGB() {
+    if ((imgInfo.greyscale) || (imgInfo.indexed))
+      throw new PngjException("only rgb or rgba images support this");
+    return new int[] { redsb, greensb, bluesb };
+  }
+}

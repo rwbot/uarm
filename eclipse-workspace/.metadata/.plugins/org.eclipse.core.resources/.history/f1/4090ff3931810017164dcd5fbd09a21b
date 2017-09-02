@@ -1,0 +1,79 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInputStream;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class SingleSubst
+  extends LookupSubtable
+{
+  public SingleSubst() {}
+  
+  public abstract int getFormat();
+  
+  public abstract int substitute(int paramInt);
+  
+  public static SingleSubst read(DataInputStream paramDataInputStream, int paramInt)
+    throws IOException
+  {
+    Object localObject = null;
+    paramDataInputStream.reset();
+    paramDataInputStream.skipBytes(paramInt);
+    int i = paramDataInputStream.readUnsignedShort();
+    if (i == 1) {
+      localObject = new SingleSubstFormat1(paramDataInputStream, paramInt);
+    } else if (i == 2) {
+      localObject = new SingleSubstFormat2(paramDataInputStream, paramInt);
+    }
+    return localObject;
+  }
+}

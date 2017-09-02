@@ -1,0 +1,328 @@
+package jogamp.opengl.util.pngj;
+
+import jogamp.opengl.util.pngj.chunks.PngChunkPLTE;
+import jogamp.opengl.util.pngj.chunks.PngChunkTRNS;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ImageLineHelper
+{
+  private static final double BIG_VALUE = 8.988465674311579E307D;
+  private static final double BIG_VALUE_NEG = -8.988465674311579E307D;
+  
+  public ImageLineHelper() {}
+  
+  public static int[] palette2rgb(ImageLine paramImageLine, PngChunkPLTE paramPngChunkPLTE, PngChunkTRNS paramPngChunkTRNS, int[] paramArrayOfInt)
+  {
+    int i = paramPngChunkTRNS != null ? 1 : 0;
+    int j = i != 0 ? 4 : 3;
+    int k = imgInfo.cols * j;
+    if ((paramArrayOfInt == null) || (paramArrayOfInt.length < k))
+      paramArrayOfInt = new int[k];
+    if (!samplesUnpacked)
+      paramImageLine = paramImageLine.unpackToNewImageLine();
+    int m = sampleType == ImageLine.SampleType.BYTE ? 1 : 0;
+    int n = paramPngChunkTRNS != null ? paramPngChunkTRNS.getPalletteAlpha().length : 0;
+    for (int i1 = 0; i1 < imgInfo.cols; i1++) {
+      int i2 = m != 0 ? scanlineb[i1] & 0xFF : scanline[i1];
+      paramPngChunkPLTE.getEntryRgb(i2, paramArrayOfInt, i1 * j);
+      if (i != 0) {
+        int i3 = i2 < n ? paramPngChunkTRNS.getPalletteAlpha()[i2] : 255;
+        paramArrayOfInt[(i1 * j + 3)] = i3;
+      }
+    }
+    return paramArrayOfInt;
+  }
+  
+  public static int[] palette2rgb(ImageLine paramImageLine, PngChunkPLTE paramPngChunkPLTE, int[] paramArrayOfInt) {
+    return palette2rgb(paramImageLine, paramPngChunkPLTE, null, paramArrayOfInt);
+  }
+  
+
+
+
+
+
+
+
+  public static String infoFirstLastPixels(ImageLine paramImageLine)
+  {
+    return imgInfo.channels == 1 ? String.format("first=(%d) last=(%d)", new Object[] { Integer.valueOf(scanline[0]), Integer.valueOf(scanline[(scanline.length - 1)]) }) : String.format("first=(%d %d %d) last=(%d %d %d)", new Object[] {
+      Integer.valueOf(scanline[0]), Integer.valueOf(scanline[1]), Integer.valueOf(scanline[2]), Integer.valueOf(scanline[(scanline.length - imgInfo.channels)]), 
+      Integer.valueOf(scanline[(scanline.length - imgInfo.channels + 1)]), 
+      Integer.valueOf(scanline[(scanline.length - imgInfo.channels + 2)]) });
+  }
+  
+  public static String infoFull(ImageLine paramImageLine) {
+    ImageLineStats localImageLineStats = new ImageLineStats(paramImageLine);
+    return "row=" + paramImageLine.getRown() + " " + localImageLineStats.toString() + "\n  " + infoFirstLastPixels(paramImageLine);
+  }
+  
+
+
+
+  static class ImageLineStats
+  {
+    public double[] prom = { 0.0D, 0.0D, 0.0D, 0.0D };
+    public double[] maxv = { -8.988465674311579E307D, -8.988465674311579E307D, -8.988465674311579E307D, -8.988465674311579E307D };
+    public double[] minv = { 8.988465674311579E307D, 8.988465674311579E307D, 8.988465674311579E307D, 8.988465674311579E307D };
+    public double promlum = 0.0D;
+    public double maxlum = -8.988465674311579E307D;
+    public double minlum = 8.988465674311579E307D;
+    public double[] maxdif = { -8.988465674311579E307D, -8.988465674311579E307D, -8.988465674311579E307D, 8.988465674311579E307D };
+    
+
+
+
+    public final int channels;
+    
+
+
+
+    public String toString()
+    {
+      return String.format("prom=%.1f (%.1f %.1f %.1f %.1f) max=%.1f (%.1f %.1f %.1f %.1f) min=%.1f (%.1f %.1f %.1f %.1f)", new Object[] { Double.valueOf(promlum), Double.valueOf(prom[0]), Double.valueOf(prom[1]), Double.valueOf(prom[2]), Double.valueOf(prom[3]), Double.valueOf(maxlum), Double.valueOf(maxv[0]), Double.valueOf(maxv[1]), Double.valueOf(maxv[2]), Double.valueOf(maxv[3]), Double.valueOf(minlum), Double.valueOf(minv[0]), Double.valueOf(minv[1]), Double.valueOf(minv[2]), Double.valueOf(minv[3]) }) + String.format(" maxdif=(%.1f %.1f %.1f %.1f)", new Object[] { Double.valueOf(maxdif[0]), Double.valueOf(maxdif[1]), Double.valueOf(maxdif[2]), Double.valueOf(maxdif[3]) });
+    }
+    
+    public ImageLineStats(ImageLine paramImageLine) {
+      channels = channels;
+      if (channels < 3)
+        throw new PngjException("ImageLineStats only works for RGB - RGBA");
+      int i = 0;
+      
+      for (int j = 0; j < imgInfo.cols; j++) {
+        double d1 = 0.0D;
+        for (i = channels - 1; i >= 0; i--) {
+          double d2 = ImageLineHelper.int2double(paramImageLine, scanline[(j * channels)]);
+          if (i < 3)
+            d1 += d2;
+          prom[i] += d2;
+          if (d2 > maxv[i])
+            maxv[i] = d2;
+          if (d2 < minv[i])
+            minv[i] = d2;
+          if (j >= channels) {
+            double d3 = Math.abs(d2 - ImageLineHelper.int2double(paramImageLine, scanline[(j - channels)]));
+            if (d3 > maxdif[i])
+              maxdif[i] = d3;
+          }
+        }
+        promlum += d1;
+        if (d1 > maxlum)
+          maxlum = d1;
+        if (d1 < minlum)
+          minlum = d1;
+      }
+      for (i = 0; i < channels; i++) {
+        prom[i] /= imgInfo.cols;
+      }
+      promlum /= imgInfo.cols * 3.0D;
+      maxlum /= 3.0D;
+      minlum /= 3.0D;
+    }
+  }
+  
+
+
+
+  public static int getPixelRGB8(ImageLine paramImageLine, int paramInt)
+  {
+    int i = paramInt * channels;
+    return (scanline[i] << 16) + (scanline[(i + 1)] << 8) + scanline[(i + 2)];
+  }
+  
+  public static int getPixelARGB8(ImageLine paramImageLine, int paramInt) {
+    int i = paramInt * channels;
+    return (scanline[(i + 3)] << 24) + (scanline[i] << 16) + (scanline[(i + 1)] << 8) + scanline[(i + 2)];
+  }
+  
+  public static void setPixelsRGB8(ImageLine paramImageLine, int[] paramArrayOfInt)
+  {
+    int i = 0; for (int j = 0; i < imgInfo.cols; i++) {
+      scanline[(j++)] = (paramArrayOfInt[i] >> 16 & 0xFF);
+      scanline[(j++)] = (paramArrayOfInt[i] >> 8 & 0xFF);
+      scanline[(j++)] = (paramArrayOfInt[i] & 0xFF);
+    }
+  }
+  
+  public static void setPixelRGB8(ImageLine paramImageLine, int paramInt1, int paramInt2, int paramInt3, int paramInt4) {
+    paramInt1 *= channels;
+    scanline[(paramInt1++)] = paramInt2;
+    scanline[(paramInt1++)] = paramInt3;
+    scanline[paramInt1] = paramInt4;
+  }
+  
+  public static void setPixelRGB8(ImageLine paramImageLine, int paramInt1, int paramInt2) {
+    setPixelRGB8(paramImageLine, paramInt1, paramInt2 >> 16 & 0xFF, paramInt2 >> 8 & 0xFF, paramInt2 & 0xFF);
+  }
+  
+  public static void setPixelsRGBA8(ImageLine paramImageLine, int[] paramArrayOfInt) {
+    int i = 0; for (int j = 0; i < imgInfo.cols; i++) {
+      scanline[(j++)] = (paramArrayOfInt[i] >> 16 & 0xFF);
+      scanline[(j++)] = (paramArrayOfInt[i] >> 8 & 0xFF);
+      scanline[(j++)] = (paramArrayOfInt[i] & 0xFF);
+      scanline[(j++)] = (paramArrayOfInt[i] >> 24 & 0xFF);
+    }
+  }
+  
+  public static void setPixelRGBA8(ImageLine paramImageLine, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5) {
+    paramInt1 *= channels;
+    scanline[(paramInt1++)] = paramInt2;
+    scanline[(paramInt1++)] = paramInt3;
+    scanline[(paramInt1++)] = paramInt4;
+    scanline[paramInt1] = paramInt5;
+  }
+  
+  public static void setPixelRGBA8(ImageLine paramImageLine, int paramInt1, int paramInt2) {
+    setPixelRGBA8(paramImageLine, paramInt1, paramInt2 >> 16 & 0xFF, paramInt2 >> 8 & 0xFF, paramInt2 & 0xFF, paramInt2 >> 24 & 0xFF);
+  }
+  
+  public static void setValD(ImageLine paramImageLine, int paramInt, double paramDouble) {
+    scanline[paramInt] = double2int(paramImageLine, paramDouble);
+  }
+  
+
+
+  public static int interpol(int paramInt1, int paramInt2, int paramInt3, int paramInt4, double paramDouble1, double paramDouble2)
+  {
+    double d1 = paramInt1 * (1.0D - paramDouble1) + paramInt2 * paramDouble1;
+    double d2 = paramInt3 * (1.0D - paramDouble1) + paramInt4 * paramDouble1;
+    return (int)(d1 * (1.0D - paramDouble2) + d2 * paramDouble2 + 0.5D);
+  }
+  
+  public static double int2double(ImageLine paramImageLine, int paramInt) {
+    return bitDepth == 16 ? paramInt / 65535.0D : paramInt / 255.0D;
+  }
+  
+
+  public static double int2doubleClamped(ImageLine paramImageLine, int paramInt)
+  {
+    double d = bitDepth == 16 ? paramInt / 65535.0D : paramInt / 255.0D;
+    return d >= 1.0D ? 1.0D : d <= 0.0D ? 0.0D : d;
+  }
+  
+  public static int double2int(ImageLine paramImageLine, double paramDouble) {
+    paramDouble = paramDouble >= 1.0D ? 1.0D : paramDouble <= 0.0D ? 0.0D : paramDouble;
+    return bitDepth == 16 ? (int)(paramDouble * 65535.0D + 0.5D) : (int)(paramDouble * 255.0D + 0.5D);
+  }
+  
+  public static int double2intClamped(ImageLine paramImageLine, double paramDouble) {
+    paramDouble = paramDouble >= 1.0D ? 1.0D : paramDouble <= 0.0D ? 0.0D : paramDouble;
+    return bitDepth == 16 ? (int)(paramDouble * 65535.0D + 0.5D) : (int)(paramDouble * 255.0D + 0.5D);
+  }
+  
+  public static int clampTo_0_255(int paramInt) {
+    return paramInt < 0 ? 0 : paramInt > 255 ? 255 : paramInt;
+  }
+  
+  public static int clampTo_0_65535(int paramInt) {
+    return paramInt < 0 ? 0 : paramInt > 65535 ? 65535 : paramInt;
+  }
+  
+  public static int clampTo_128_127(int paramInt) {
+    return paramInt < -128 ? -128 : paramInt > 127 ? 127 : paramInt;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static int[] unpack(ImageInfo paramImageInfo, int[] paramArrayOfInt1, int[] paramArrayOfInt2, boolean paramBoolean)
+  {
+    int i = samplesPerRow;
+    int j = samplesPerRowPacked;
+    if ((paramArrayOfInt2 == null) || (paramArrayOfInt2.length < i))
+      paramArrayOfInt2 = new int[i];
+    if (packed) {
+      ImageLine.unpackInplaceInt(paramImageInfo, paramArrayOfInt1, paramArrayOfInt2, paramBoolean);
+    } else
+      System.arraycopy(paramArrayOfInt1, 0, paramArrayOfInt2, 0, j);
+    return paramArrayOfInt2;
+  }
+  
+  public static byte[] unpack(ImageInfo paramImageInfo, byte[] paramArrayOfByte1, byte[] paramArrayOfByte2, boolean paramBoolean) {
+    int i = samplesPerRow;
+    int j = samplesPerRowPacked;
+    if ((paramArrayOfByte2 == null) || (paramArrayOfByte2.length < i))
+      paramArrayOfByte2 = new byte[i];
+    if (packed) {
+      ImageLine.unpackInplaceByte(paramImageInfo, paramArrayOfByte1, paramArrayOfByte2, paramBoolean);
+    } else
+      System.arraycopy(paramArrayOfByte1, 0, paramArrayOfByte2, 0, j);
+    return paramArrayOfByte2;
+  }
+  
+
+
+
+
+
+
+  public static int[] pack(ImageInfo paramImageInfo, int[] paramArrayOfInt1, int[] paramArrayOfInt2, boolean paramBoolean)
+  {
+    int i = samplesPerRowPacked;
+    if ((paramArrayOfInt2 == null) || (paramArrayOfInt2.length < i))
+      paramArrayOfInt2 = new int[i];
+    if (packed) {
+      ImageLine.packInplaceInt(paramImageInfo, paramArrayOfInt1, paramArrayOfInt2, paramBoolean);
+    } else
+      System.arraycopy(paramArrayOfInt1, 0, paramArrayOfInt2, 0, i);
+    return paramArrayOfInt2;
+  }
+  
+  public static byte[] pack(ImageInfo paramImageInfo, byte[] paramArrayOfByte1, byte[] paramArrayOfByte2, boolean paramBoolean) {
+    int i = samplesPerRowPacked;
+    if ((paramArrayOfByte2 == null) || (paramArrayOfByte2.length < i))
+      paramArrayOfByte2 = new byte[i];
+    if (packed) {
+      ImageLine.packInplaceByte(paramImageInfo, paramArrayOfByte1, paramArrayOfByte2, paramBoolean);
+    } else
+      System.arraycopy(paramArrayOfByte1, 0, paramArrayOfByte2, 0, i);
+    return paramArrayOfByte2;
+  }
+  
+  static int getMaskForPackedFormats(int paramInt) {
+    if (paramInt == 4)
+      return 240;
+    if (paramInt == 2) {
+      return 192;
+    }
+    return 128;
+  }
+  
+  static int getMaskForPackedFormatsLs(int paramInt) {
+    if (paramInt == 4)
+      return 15;
+    if (paramInt == 2) {
+      return 3;
+    }
+    return 1;
+  }
+}

@@ -1,0 +1,1082 @@
+package com.jogamp.opengl.util;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.util.FloatStack;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.fixedfunc.GLMatrixFunc;
+import com.jogamp.opengl.math.FloatUtil;
+import com.jogamp.opengl.math.Quaternion;
+import com.jogamp.opengl.math.Ray;
+import com.jogamp.opengl.math.geom.Frustum;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import jogamp.common.os.PlatformPropsImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public final class PMVMatrix
+  implements GLMatrixFunc
+{
+  public static final int MODIFIED_PROJECTION = 1;
+  public static final int MODIFIED_MODELVIEW = 2;
+  public static final int MODIFIED_TEXTURE = 4;
+  public static final int MODIFIED_ALL = 7;
+  public static final int DIRTY_INVERSE_MODELVIEW = 1;
+  public static final int DIRTY_INVERSE_TRANSPOSED_MODELVIEW = 2;
+  public static final int DIRTY_FRUSTUM = 4;
+  public static final int DIRTY_ALL = 7;
+  private static final String msgCantComputeInverse = "Invalid source Mv matrix, can't compute inverse";
+  private final float[] matrixArray;
+  private final int mP_offset;
+  private final int mMv_offset;
+  private final int mTex_offset;
+  private final FloatBuffer matrixPMvMvit;
+  private final FloatBuffer matrixPMvMvi;
+  private final FloatBuffer matrixPMv;
+  private final FloatBuffer matrixP;
+  private final FloatBuffer matrixTex;
+  private final FloatBuffer matrixMv;
+  private final FloatBuffer matrixMvi;
+  private final FloatBuffer matrixMvit;
+  private final float[] matrixTxSx;
+  private final float[] mat4Tmp1;
+  private final float[] mat4Tmp2;
+  private final float[] mat4Tmp3;
+  private final FloatStack matrixTStack;
+  private final FloatStack matrixPStack;
+  private final FloatStack matrixMvStack;
+  
+  public static final boolean isMatrixModeName(int paramInt)
+  {
+    switch (paramInt) {
+    case 2982: 
+    case 2983: 
+    case 2984: 
+      return true;
+    }
+    return false;
+  }
+  
+
+
+
+  public static final int matrixModeName2MatrixGetName(int paramInt)
+  {
+    switch (paramInt) {
+    case 5888: 
+      return 2982;
+    case 5889: 
+      return 2983;
+    case 5890: 
+      return 2984;
+    }
+    throw new GLException("unsupported matrixName: " + paramInt);
+  }
+  
+
+
+
+
+  public static final boolean isMatrixGetName(int paramInt)
+  {
+    switch (paramInt) {
+    case 2976: 
+    case 2982: 
+    case 2983: 
+    case 2984: 
+      return true;
+    }
+    return false;
+  }
+  
+
+
+
+  public static final int matrixGetName2MatrixModeName(int paramInt)
+  {
+    switch (paramInt) {
+    case 2982: 
+      return 5888;
+    case 2983: 
+      return 5889;
+    case 2984: 
+      return 5890;
+    }
+    throw new GLException("unsupported matrixGetName: " + paramInt);
+  }
+  
+
+
+
+
+
+
+
+  public static StringBuilder matrixToString(StringBuilder paramStringBuilder, String paramString, FloatBuffer paramFloatBuffer)
+  {
+    return FloatUtil.matrixToString(paramStringBuilder, null, paramString, paramFloatBuffer, 0, 4, 4, false);
+  }
+  
+
+
+
+
+
+
+
+  public static StringBuilder matrixToString(StringBuilder paramStringBuilder, String paramString, FloatBuffer paramFloatBuffer1, FloatBuffer paramFloatBuffer2)
+  {
+    return FloatUtil.matrixToString(paramStringBuilder, null, paramString, paramFloatBuffer1, 0, paramFloatBuffer2, 0, 4, 4, false);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public PMVMatrix()
+  {
+    matrixArray = new float[80];
+    
+    mP_offset = 0;
+    mMv_offset = 16;
+    mTex_offset = 64;
+    
+    matrixPMvMvit = Buffers.slice2Float(matrixArray, 0, 64);
+    matrixPMvMvi = Buffers.slice2Float(matrixArray, 0, 48);
+    matrixPMv = Buffers.slice2Float(matrixArray, 0, 32);
+    matrixP = Buffers.slice2Float(matrixArray, 0, 16);
+    matrixMv = Buffers.slice2Float(matrixArray, 16, 16);
+    matrixMvi = Buffers.slice2Float(matrixArray, 32, 16);
+    matrixMvit = Buffers.slice2Float(matrixArray, 48, 16);
+    matrixTex = Buffers.slice2Float(matrixArray, 64, 16);
+    
+    mat4Tmp1 = new float[16];
+    mat4Tmp2 = new float[16];
+    mat4Tmp3 = new float[16];
+    matrixTxSx = new float[16];
+    FloatUtil.makeIdentity(matrixTxSx);
+    
+
+    matrixTStack = new FloatStack(0, 32);
+    matrixPStack = new FloatStack(0, 32);
+    matrixMvStack = new FloatStack(0, 256);
+    
+    reset();
+    
+    frustum = null;
+  }
+  
+
+
+
+
+  public final void reset()
+  {
+    FloatUtil.makeIdentity(matrixArray, mMv_offset);
+    FloatUtil.makeIdentity(matrixArray, mP_offset);
+    FloatUtil.makeIdentity(matrixArray, mTex_offset);
+    
+    modifiedBits = 7;
+    dirtyBits = 7;
+    requestMask = 0;
+    matrixMode = 5888;
+  }
+  
+  public final int glGetMatrixMode()
+  {
+    return matrixMode;
+  }
+  
+
+
+
+
+
+  public final FloatBuffer glGetTMatrixf()
+  {
+    return matrixTex;
+  }
+  
+
+
+
+
+
+  public final FloatBuffer glGetPMatrixf()
+  {
+    return matrixP;
+  }
+  
+
+
+
+
+
+  public final FloatBuffer glGetMvMatrixf()
+  {
+    return matrixMv;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final FloatBuffer glGetMviMatrixf()
+  {
+    requestMask |= 0x1;
+    updateImpl(false);
+    return matrixMvi;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final FloatBuffer glGetMvitMatrixf()
+  {
+    requestMask |= 0x2;
+    updateImpl(false);
+    return matrixMvit;
+  }
+  
+
+
+
+
+
+  public final FloatBuffer glGetPMvMatrixf()
+  {
+    return matrixPMv;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final FloatBuffer glGetPMvMviMatrixf()
+  {
+    requestMask |= 0x1;
+    updateImpl(false);
+    return matrixPMvMvi;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final FloatBuffer glGetPMvMvitMatrixf()
+  {
+    requestMask |= 0x3;
+    updateImpl(false);
+    return matrixPMvMvit;
+  }
+  
+  public final Frustum glGetFrustum()
+  {
+    requestMask |= 0x4;
+    updateImpl(false);
+    return frustum;
+  }
+  
+
+
+  public final FloatBuffer glGetMatrixf()
+  {
+    return glGetMatrixf(matrixMode);
+  }
+  
+
+
+
+
+
+
+  public final FloatBuffer glGetMatrixf(int paramInt)
+  {
+    switch (paramInt) {
+    case 2982: 
+    case 5888: 
+      return matrixMv;
+    case 2983: 
+    case 5889: 
+      return matrixP;
+    case 2984: 
+    case 5890: 
+      return matrixTex;
+    }
+    throw new GLException("unsupported matrixName: " + paramInt);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final float[] multPMvMatrixf(float[] paramArrayOfFloat, int paramInt)
+  {
+    FloatUtil.multMatrix(matrixArray, mP_offset, matrixArray, mMv_offset, paramArrayOfFloat, paramInt);
+    return paramArrayOfFloat;
+  }
+  
+
+
+
+
+
+
+
+
+  public final float[] multMvPMatrixf(float[] paramArrayOfFloat, int paramInt)
+  {
+    FloatUtil.multMatrix(matrixArray, mMv_offset, matrixArray, mP_offset, paramArrayOfFloat, paramInt);
+    return paramArrayOfFloat;
+  }
+  
+
+
+
+
+  public final void glMatrixMode(int paramInt)
+  {
+    switch (paramInt) {
+    case 5888: 
+    case 5889: 
+    case 5890: 
+      break;
+    default: 
+      throw new GLException("unsupported matrixName: " + paramInt);
+    }
+    matrixMode = paramInt;
+  }
+  
+  public final void glGetFloatv(int paramInt, FloatBuffer paramFloatBuffer)
+  {
+    int i = paramFloatBuffer.position();
+    if (paramInt == 2976) {
+      paramFloatBuffer.put(matrixMode);
+    } else {
+      FloatBuffer localFloatBuffer = glGetMatrixf(paramInt);
+      paramFloatBuffer.put(localFloatBuffer);
+      localFloatBuffer.reset();
+    }
+    paramFloatBuffer.position(i);
+  }
+  
+  public final void glGetFloatv(int paramInt1, float[] paramArrayOfFloat, int paramInt2)
+  {
+    if (paramInt1 == 2976) {
+      paramArrayOfFloat[paramInt2] = matrixMode;
+    } else {
+      FloatBuffer localFloatBuffer = glGetMatrixf(paramInt1);
+      localFloatBuffer.get(paramArrayOfFloat, paramInt2, 16);
+      localFloatBuffer.reset();
+    }
+  }
+  
+  public final void glGetIntegerv(int paramInt, IntBuffer paramIntBuffer)
+  {
+    int i = paramIntBuffer.position();
+    if (paramInt == 2976) {
+      paramIntBuffer.put(matrixMode);
+    } else {
+      throw new GLException("unsupported pname: " + paramInt);
+    }
+    paramIntBuffer.position(i);
+  }
+  
+  public final void glGetIntegerv(int paramInt1, int[] paramArrayOfInt, int paramInt2)
+  {
+    if (paramInt1 == 2976) {
+      paramArrayOfInt[paramInt2] = matrixMode;
+    } else {
+      throw new GLException("unsupported pname: " + paramInt1);
+    }
+  }
+  
+  public final void glLoadMatrixf(float[] paramArrayOfFloat, int paramInt)
+  {
+    if (matrixMode == 5888) {
+      matrixMv.put(paramArrayOfFloat, paramInt, 16);
+      matrixMv.reset();
+      dirtyBits |= 0x7;
+      modifiedBits |= 0x2;
+    } else if (matrixMode == 5889) {
+      matrixP.put(paramArrayOfFloat, paramInt, 16);
+      matrixP.reset();
+      dirtyBits |= 0x4;
+      modifiedBits |= 0x1;
+    } else if (matrixMode == 5890) {
+      matrixTex.put(paramArrayOfFloat, paramInt, 16);
+      matrixTex.reset();
+      modifiedBits |= 0x4;
+    }
+  }
+  
+  public final void glLoadMatrixf(FloatBuffer paramFloatBuffer)
+  {
+    int i = paramFloatBuffer.position();
+    if (matrixMode == 5888) {
+      matrixMv.put(paramFloatBuffer);
+      matrixMv.reset();
+      dirtyBits |= 0x7;
+      modifiedBits |= 0x2;
+    } else if (matrixMode == 5889) {
+      matrixP.put(paramFloatBuffer);
+      matrixP.reset();
+      dirtyBits |= 0x4;
+      modifiedBits |= 0x1;
+    } else if (matrixMode == 5890) {
+      matrixTex.put(paramFloatBuffer);
+      matrixTex.reset();
+      modifiedBits |= 0x4;
+    }
+    paramFloatBuffer.position(i);
+  }
+  
+
+
+  public final void glLoadMatrix(Quaternion paramQuaternion)
+  {
+    if (matrixMode == 5888) {
+      paramQuaternion.toMatrix(matrixArray, mMv_offset);
+      matrixMv.reset();
+      dirtyBits |= 0x7;
+      modifiedBits |= 0x2;
+    } else if (matrixMode == 5889) {
+      paramQuaternion.toMatrix(matrixArray, mP_offset);
+      matrixP.reset();
+      dirtyBits |= 0x4;
+      modifiedBits |= 0x1;
+    } else if (matrixMode == 5890) {
+      paramQuaternion.toMatrix(matrixArray, mTex_offset);
+      matrixTex.reset();
+      modifiedBits |= 0x4;
+    }
+  }
+  
+  public final void glPopMatrix()
+  {
+    FloatStack localFloatStack;
+    if (matrixMode == 5888) {
+      localFloatStack = matrixMvStack;
+    } else if (matrixMode == 5889) {
+      localFloatStack = matrixPStack;
+    } else if (matrixMode == 5890) {
+      localFloatStack = matrixTStack;
+    } else {
+      throw new InternalError("XXX: mode " + matrixMode);
+    }
+    localFloatStack.position(localFloatStack.position() - 16);
+    glLoadMatrixf(localFloatStack.buffer(), localFloatStack.position());
+  }
+  
+  public final void glPushMatrix()
+  {
+    if (matrixMode == 5888) {
+      matrixMvStack.putOnTop(matrixMv, 16);
+      matrixMv.reset();
+    } else if (matrixMode == 5889) {
+      matrixPStack.putOnTop(matrixP, 16);
+      matrixP.reset();
+    } else if (matrixMode == 5890) {
+      matrixTStack.putOnTop(matrixTex, 16);
+      matrixTex.reset();
+    }
+  }
+  
+  public final void glLoadIdentity()
+  {
+    if (matrixMode == 5888) {
+      FloatUtil.makeIdentity(matrixArray, mMv_offset);
+      dirtyBits |= 0x7;
+      modifiedBits |= 0x2;
+    } else if (matrixMode == 5889) {
+      FloatUtil.makeIdentity(matrixArray, mP_offset);
+      dirtyBits |= 0x4;
+      modifiedBits |= 0x1;
+    } else if (matrixMode == 5890) {
+      FloatUtil.makeIdentity(matrixArray, mTex_offset);
+      modifiedBits |= 0x4;
+    }
+  }
+  
+
+  public final void glMultMatrixf(FloatBuffer paramFloatBuffer)
+  {
+    if (matrixMode == 5888) {
+      FloatUtil.multMatrix(matrixMv, paramFloatBuffer);
+      dirtyBits |= 0x7;
+      modifiedBits |= 0x2;
+    } else if (matrixMode == 5889) {
+      FloatUtil.multMatrix(matrixP, paramFloatBuffer);
+      dirtyBits |= 0x4;
+      modifiedBits |= 0x1;
+    } else if (matrixMode == 5890) {
+      FloatUtil.multMatrix(matrixTex, paramFloatBuffer);
+      modifiedBits |= 0x4;
+    }
+  }
+  
+  public final void glMultMatrixf(float[] paramArrayOfFloat, int paramInt)
+  {
+    if (matrixMode == 5888) {
+      FloatUtil.multMatrix(matrixArray, mMv_offset, paramArrayOfFloat, paramInt);
+      dirtyBits |= 0x7;
+      modifiedBits |= 0x2;
+    } else if (matrixMode == 5889) {
+      FloatUtil.multMatrix(matrixArray, mP_offset, paramArrayOfFloat, paramInt);
+      dirtyBits |= 0x4;
+      modifiedBits |= 0x1;
+    } else if (matrixMode == 5890) {
+      FloatUtil.multMatrix(matrixArray, mTex_offset, paramArrayOfFloat, paramInt);
+      modifiedBits |= 0x4;
+    }
+  }
+  
+  public final void glTranslatef(float paramFloat1, float paramFloat2, float paramFloat3)
+  {
+    glMultMatrixf(FloatUtil.makeTranslation(matrixTxSx, false, paramFloat1, paramFloat2, paramFloat3), 0);
+  }
+  
+  public final void glScalef(float paramFloat1, float paramFloat2, float paramFloat3)
+  {
+    glMultMatrixf(FloatUtil.makeScale(matrixTxSx, false, paramFloat1, paramFloat2, paramFloat3), 0);
+  }
+  
+  public final void glRotatef(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    glMultMatrixf(FloatUtil.makeRotationAxis(mat4Tmp1, 0, paramFloat1 * 3.1415927F / 180.0F, paramFloat2, paramFloat3, paramFloat4, mat4Tmp2), 0);
+  }
+  
+
+
+  public final void glRotate(Quaternion paramQuaternion)
+  {
+    glMultMatrixf(paramQuaternion.toMatrix(mat4Tmp1, 0), 0);
+  }
+  
+  public final void glOrthof(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6)
+  {
+    glMultMatrixf(FloatUtil.makeOrtho(mat4Tmp1, 0, true, paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramFloat5, paramFloat6), 0);
+  }
+  
+
+
+
+
+
+
+  public final void glFrustumf(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6)
+    throws GLException
+  {
+    glMultMatrixf(FloatUtil.makeFrustum(mat4Tmp1, 0, true, paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramFloat5, paramFloat6), 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void gluPerspective(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+    throws GLException
+  {
+    glMultMatrixf(FloatUtil.makePerspective(mat4Tmp1, 0, true, paramFloat1 * 3.1415927F / 180.0F, paramFloat2, paramFloat3, paramFloat4), 0);
+  }
+  
+
+
+
+
+
+  public final void gluLookAt(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6, float paramFloat7, float paramFloat8, float paramFloat9)
+  {
+    mat4Tmp2[0] = paramFloat1;
+    mat4Tmp2[1] = paramFloat2;
+    mat4Tmp2[2] = paramFloat3;
+    mat4Tmp2[4] = paramFloat4;
+    mat4Tmp2[5] = paramFloat5;
+    mat4Tmp2[6] = paramFloat6;
+    mat4Tmp2[8] = paramFloat7;
+    mat4Tmp2[9] = paramFloat8;
+    mat4Tmp2[10] = paramFloat9;
+    glMultMatrixf(
+      FloatUtil.makeLookAt(mat4Tmp1, 0, mat4Tmp2, 0, mat4Tmp2, 4, mat4Tmp2, 8, mat4Tmp3), 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean gluProject(float paramFloat1, float paramFloat2, float paramFloat3, int[] paramArrayOfInt, int paramInt1, float[] paramArrayOfFloat, int paramInt2)
+  {
+    return FloatUtil.mapObjToWinCoords(paramFloat1, paramFloat2, paramFloat3, matrixArray, mMv_offset, matrixArray, mP_offset, paramArrayOfInt, paramInt1, paramArrayOfFloat, paramInt2, mat4Tmp1, mat4Tmp2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean gluUnProject(float paramFloat1, float paramFloat2, float paramFloat3, int[] paramArrayOfInt, int paramInt1, float[] paramArrayOfFloat, int paramInt2)
+  {
+    return FloatUtil.mapWinToObjCoords(paramFloat1, paramFloat2, paramFloat3, matrixArray, mMv_offset, matrixArray, mP_offset, paramArrayOfInt, paramInt1, paramArrayOfFloat, paramInt2, mat4Tmp1, mat4Tmp2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean gluUnProject4(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, int[] paramArrayOfInt, int paramInt1, float paramFloat5, float paramFloat6, float[] paramArrayOfFloat, int paramInt2)
+  {
+    return FloatUtil.mapWinToObjCoords(paramFloat1, paramFloat2, paramFloat3, paramFloat4, matrixArray, mMv_offset, matrixArray, mP_offset, paramArrayOfInt, paramInt1, paramFloat5, paramFloat6, paramArrayOfFloat, paramInt2, mat4Tmp1, mat4Tmp2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void gluPickMatrix(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, int[] paramArrayOfInt, int paramInt)
+  {
+    if (null != FloatUtil.makePick(mat4Tmp1, 0, paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramArrayOfInt, paramInt, mat4Tmp2)) {
+      glMultMatrixf(mat4Tmp1, 0);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean gluUnProjectRay(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, int[] paramArrayOfInt, int paramInt, Ray paramRay)
+  {
+    return FloatUtil.mapWinToRay(paramFloat1, paramFloat2, paramFloat3, paramFloat4, matrixArray, mMv_offset, matrixArray, mP_offset, paramArrayOfInt, paramInt, paramRay, mat4Tmp1, mat4Tmp2, mat4Tmp3);
+  }
+  
+
+
+
+
+  public StringBuilder toString(StringBuilder paramStringBuilder, String paramString)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    boolean bool1 = 0 != (0x1 & dirtyBits);
+    boolean bool2 = 0 != (0x2 & dirtyBits);
+    boolean bool3 = 0 != (0x4 & dirtyBits);
+    boolean bool4 = 0 != (0x1 & requestMask);
+    boolean bool5 = 0 != (0x2 & requestMask);
+    boolean bool6 = 0 != (0x4 & requestMask);
+    boolean bool7 = 0 != (0x1 & modifiedBits);
+    boolean bool8 = 0 != (0x2 & modifiedBits);
+    boolean bool9 = 0 != (0x4 & modifiedBits);
+    
+    paramStringBuilder.append("PMVMatrix[modified[P ").append(bool7).append(", Mv ").append(bool8).append(", T ").append(bool9);
+    paramStringBuilder.append("], dirty/req[Mvi ").append(bool1).append("/").append(bool4).append(", Mvit ").append(bool2).append("/").append(bool5).append(", Frustum ").append(bool3).append("/").append(bool6).append("]").append(PlatformPropsImpl.NEWLINE);
+    paramStringBuilder.append(", Projection").append(PlatformPropsImpl.NEWLINE);
+    matrixToString(paramStringBuilder, paramString, matrixP);
+    paramStringBuilder.append(", Modelview").append(PlatformPropsImpl.NEWLINE);
+    matrixToString(paramStringBuilder, paramString, matrixMv);
+    paramStringBuilder.append(", Texture").append(PlatformPropsImpl.NEWLINE);
+    matrixToString(paramStringBuilder, paramString, matrixTex);
+    if (0 != (requestMask & 0x1)) {
+      paramStringBuilder.append(", Inverse Modelview").append(PlatformPropsImpl.NEWLINE);
+      matrixToString(paramStringBuilder, paramString, matrixMvi);
+    }
+    if (0 != (requestMask & 0x2)) {
+      paramStringBuilder.append(", Inverse Transposed Modelview").append(PlatformPropsImpl.NEWLINE);
+      matrixToString(paramStringBuilder, paramString, matrixMvit);
+    }
+    paramStringBuilder.append("]");
+    return paramStringBuilder;
+  }
+  
+  public String toString()
+  {
+    return toString(null, "%10.5f").toString();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public final int getModifiedBits(boolean paramBoolean)
+  {
+    int i = modifiedBits;
+    if (paramBoolean) {
+      modifiedBits = 0;
+    }
+    return i;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  /**
+   * @deprecated
+   */
+  public final int getDirtyBits()
+  {
+    return dirtyBits;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  /**
+   * @deprecated
+   */
+  public final int getRequestMask()
+  {
+    return requestMask;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void clearAllUpdateRequests()
+  {
+    requestMask &= 0xFFFFFFF8;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final boolean update() { return updateImpl(true); }
+  
+  private final boolean updateImpl(boolean paramBoolean) {
+    boolean bool = 0 != modifiedBits;
+    if (paramBoolean) {
+      modifiedBits = 0;
+    }
+    
+    if (0 != (dirtyBits & 0x4 & requestMask)) {
+      if (null == frustum) {
+        frustum = new Frustum();
+      }
+      FloatUtil.multMatrix(matrixArray, mP_offset, matrixArray, mMv_offset, mat4Tmp1, 0);
+      
+      frustum.updateByPMV(mat4Tmp1, 0);
+      dirtyBits &= 0xFFFFFFFB;
+      bool = true;
+    }
+    
+    if (0 == (dirtyBits & requestMask)) {
+      return bool;
+    }
+    
+    return (setMviMvit()) || (bool);
+  }
+  
+
+
+
+
+  private final boolean setMviMvit()
+  {
+    float[] arrayOfFloat = matrixMvi.array();
+    int i = matrixMvi.position();
+    boolean bool = false;
+    if (0 != (dirtyBits & 0x1)) {
+      if (null == FloatUtil.invertMatrix(matrixArray, mMv_offset, arrayOfFloat, i)) {
+        throw new GLException("Invalid source Mv matrix, can't compute inverse");
+      }
+      dirtyBits &= 0xFFFFFFFE;
+      bool = true;
+    }
+    if (0 != (requestMask & dirtyBits & 0x2)) {
+      FloatUtil.transposeMatrix(arrayOfFloat, i, matrixMvit.array(), matrixMvit.position());
+      dirtyBits &= 0xFFFFFFFD;
+      bool = true;
+    }
+    return bool;
+  }
+  
+
+
+
+
+
+
+  private int matrixMode = 5888;
+  private int modifiedBits = 7;
+  private int dirtyBits = 7;
+  private int requestMask = 0;
+  private Frustum frustum;
+}

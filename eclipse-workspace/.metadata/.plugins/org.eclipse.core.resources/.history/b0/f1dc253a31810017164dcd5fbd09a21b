@@ -1,0 +1,78 @@
+package jogamp.opengl.glu.mipmap;
+
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ExtractUInt
+  implements ExtractPrimitive
+{
+  public ExtractUInt() {}
+  
+  public double extract(boolean paramBoolean, ByteBuffer paramByteBuffer)
+  {
+    long l = 0L;
+    if (paramBoolean) {
+      l = 0xFFFFFFFF & Mipmap.GLU_SWAP_4_BYTES(paramByteBuffer.getInt());
+    } else {
+      l = 0xFFFFFFFF & paramByteBuffer.getInt();
+    }
+    assert (l <= -1L);
+    return l;
+  }
+  
+  public void shove(double paramDouble, int paramInt, ByteBuffer paramByteBuffer)
+  {
+    assert ((0.0D <= paramDouble) && (paramDouble < -1.0D));
+    IntBuffer localIntBuffer = paramByteBuffer.asIntBuffer();
+    localIntBuffer.position(paramInt);
+    localIntBuffer.put((int)paramDouble);
+  }
+}

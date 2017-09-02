@@ -1,0 +1,69 @@
+package jogamp.opengl.util;
+
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.util.GLArrayDataEditable;
+import java.nio.Buffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class GLVBOArrayHandler
+  implements GLArrayHandler
+{
+  protected GLArrayDataEditable ad;
+  
+  public GLVBOArrayHandler(GLArrayDataEditable paramGLArrayDataEditable)
+  {
+    ad = paramGLArrayDataEditable;
+  }
+  
+  public final boolean bindBuffer(GL paramGL, boolean paramBoolean)
+  {
+    if (!ad.isVBO()) {
+      return false;
+    }
+    if (paramBoolean)
+    {
+
+      paramGL.glBindBuffer(ad.getVBOTarget(), ad.getVBOName());
+      if (!ad.isVBOWritten()) {
+        Buffer localBuffer = ad.getBuffer();
+        if (null != localBuffer) {
+          paramGL.glBufferData(ad.getVBOTarget(), localBuffer.limit() * ad.getComponentSizeInBytes(), localBuffer, ad.getVBOUsage());
+        }
+        ad.setVBOWritten(true);
+      }
+    } else {
+      paramGL.glBindBuffer(ad.getVBOTarget(), 0);
+    }
+    return true;
+  }
+}

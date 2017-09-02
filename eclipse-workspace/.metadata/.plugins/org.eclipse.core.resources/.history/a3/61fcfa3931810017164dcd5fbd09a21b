@@ -1,0 +1,33 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.IOException;
+import java.io.RandomAccessFile;
+
+
+
+
+
+
+
+
+
+
+public abstract class ClassDef
+{
+  public ClassDef() {}
+  
+  public abstract int getFormat();
+  
+  protected static ClassDef read(RandomAccessFile paramRandomAccessFile)
+    throws IOException
+  {
+    Object localObject = null;
+    int i = paramRandomAccessFile.readUnsignedShort();
+    if (i == 1) {
+      localObject = new ClassDefFormat1(paramRandomAccessFile);
+    } else if (i == 2) {
+      localObject = new ClassDefFormat2(paramRandomAccessFile);
+    }
+    return localObject;
+  }
+}

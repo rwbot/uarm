@@ -1,0 +1,233 @@
+package com.jogamp.newt.event;
+
+import com.jogamp.common.util.Bitfield.Util;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class InputEvent
+  extends NEWTEvent
+{
+  public static final int SHIFT_MASK = 1;
+  public static final int CTRL_MASK = 2;
+  public static final int META_MASK = 4;
+  public static final int ALT_MASK = 8;
+  public static final int ALT_GRAPH_MASK = 16;
+  public static final int BUTTON1_MASK = 32;
+  public static final int BUTTON2_MASK = 64;
+  public static final int BUTTON3_MASK = 128;
+  public static final int BUTTON4_MASK = 256;
+  public static final int BUTTON5_MASK = 512;
+  public static final int BUTTON6_MASK = 1024;
+  public static final int BUTTON7_MASK = 2048;
+  public static final int BUTTON8_MASK = 4096;
+  public static final int BUTTON9_MASK = 8192;
+  public static final int BUTTONLAST_MASK = 1048576;
+  public static final int BUTTONALL_MASK = 2097120;
+  public static final int AUTOREPEAT_MASK = 536870912;
+  public static final int CONFINED_MASK = 1073741824;
+  public static final int INVISIBLE_MASK = Integer.MIN_VALUE;
+  private final int modifiers;
+  
+  public static final int getButtonMask(int paramInt)
+  {
+    if ((0 < paramInt) && (paramInt <= 16)) {
+      return 1 << 4 + paramInt;
+    }
+    return 0;
+  }
+  
+  protected InputEvent(short paramShort, Object paramObject, long paramLong, int paramInt) {
+    super(paramShort, paramObject, paramLong);
+    modifiers = paramInt;
+  }
+  
+  public final int getModifiers()
+  {
+    return modifiers;
+  }
+  
+  public final boolean isAltDown() {
+    return (modifiers & 0x8) != 0;
+  }
+  
+  public final boolean isAltGraphDown() {
+    return (modifiers & 0x10) != 0;
+  }
+  
+  public final boolean isControlDown() {
+    return (modifiers & 0x2) != 0;
+  }
+  
+  public final boolean isMetaDown() {
+    return (modifiers & 0x4) != 0;
+  }
+  
+  public final boolean isShiftDown() {
+    return (modifiers & 0x1) != 0;
+  }
+  
+  public final boolean isAutoRepeat() {
+    return (modifiers & 0x20000000) != 0;
+  }
+  
+  public final boolean isConfined() {
+    return (modifiers & 0x40000000) != 0;
+  }
+  
+  public final boolean isInvisible() {
+    return (modifiers & 0x80000000) != 0;
+  }
+  
+  public final StringBuilder getModifiersString(StringBuilder paramStringBuilder) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    paramStringBuilder.append("[");
+    int i = 1;
+    if (isShiftDown()) { if (i == 0) paramStringBuilder.append(", "); i = 0;paramStringBuilder.append("shift"); }
+    if (isControlDown()) { if (i == 0) paramStringBuilder.append(", "); i = 0;paramStringBuilder.append("ctrl"); }
+    if (isMetaDown()) { if (i == 0) paramStringBuilder.append(", "); i = 0;paramStringBuilder.append("meta"); }
+    if (isAltDown()) { if (i == 0) paramStringBuilder.append(", "); i = 0;paramStringBuilder.append("alt"); }
+    if (isAltGraphDown()) { if (i == 0) paramStringBuilder.append(", "); i = 0;paramStringBuilder.append("altgr"); }
+    if (isAutoRepeat()) { if (i == 0) paramStringBuilder.append(", "); i = 0;paramStringBuilder.append("repeat"); }
+    for (int j = 1; j <= 16; j++)
+      if (isButtonDown(j)) { if (i == 0) paramStringBuilder.append(", "); i = 0;paramStringBuilder.append("button").append(j);
+      }
+    if (isConfined()) { if (i == 0) paramStringBuilder.append(", "); i = 0;paramStringBuilder.append("confined"); }
+    if (isInvisible()) { if (i == 0) paramStringBuilder.append(", "); i = 0;paramStringBuilder.append("invisible"); }
+    paramStringBuilder.append("]");
+    
+    return paramStringBuilder;
+  }
+  
+
+
+
+
+  public final short[] getButtonsDown()
+  {
+    int i = getButtonDownCount();
+    
+    short[] arrayOfShort = new short[i];
+    int j = 0;
+    for (int k = 1; k <= 16; k++) {
+      if (isButtonDown(k)) arrayOfShort[(j++)] = ((short)(0 + k));
+    }
+    return arrayOfShort;
+  }
+  
+
+
+
+
+  public final boolean isButtonDown(int paramInt)
+  {
+    return (modifiers & getButtonMask(paramInt)) != 0;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final int getButtonDownCount()
+  {
+    return Bitfield.Util.bitCount(modifiers & 0x1FFFE0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final boolean isAnyButtonDown()
+  {
+    return 0 != (modifiers & 0x1FFFE0);
+  }
+  
+  public String toString()
+  {
+    return toString(null).toString();
+  }
+  
+  public StringBuilder toString(StringBuilder paramStringBuilder)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    paramStringBuilder.append("InputEvent[modifiers: ");
+    getModifiersString(paramStringBuilder);
+    paramStringBuilder.append(", ");
+    super.toString(paramStringBuilder).append("]");
+    return paramStringBuilder;
+  }
+  
+  public static abstract interface InputType {}
+  
+  public static abstract interface InputClass {}
+}

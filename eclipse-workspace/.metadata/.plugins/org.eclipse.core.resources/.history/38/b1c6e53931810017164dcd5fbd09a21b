@@ -1,0 +1,372 @@
+package com.jogamp.newt;
+
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.util.Rectangle;
+import com.jogamp.nativewindow.util.RectangleImmutable;
+import com.jogamp.newt.event.MonitorModeListener;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import jogamp.newt.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class Screen
+{
+  public static final int SCREEN_MODE_CHANGE_TIMEOUT = 10000;
+  public static final boolean DEBUG = Debug.debug("Screen");
+  
+
+  public Screen() {}
+  
+  public abstract int hashCode();
+  
+  public boolean equals(Object paramObject)
+  {
+    if (this == paramObject) return true;
+    if ((paramObject instanceof Screen)) {
+      Screen localScreen = (Screen)paramObject;
+      return localScreen.getFQName().equals(getFQName());
+    }
+    return false;
+  }
+  
+
+
+
+
+
+
+  public abstract void createNative()
+    throws NativeWindowException;
+  
+
+
+
+
+
+
+  public abstract void destroy();
+  
+
+
+
+
+
+
+  public abstract boolean isNativeValid();
+  
+
+
+
+
+
+  public abstract int getReferenceCount();
+  
+
+
+
+
+
+  public abstract int addReference()
+    throws NativeWindowException;
+  
+
+
+
+
+
+  public abstract int removeReference();
+  
+
+
+
+
+
+  public abstract AbstractGraphicsScreen getGraphicsScreen();
+  
+
+
+
+
+
+  public abstract int getIndex();
+  
+
+
+
+
+
+  public abstract int getX();
+  
+
+
+
+
+
+  public abstract int getY();
+  
+
+
+
+
+
+  public abstract int getWidth();
+  
+
+
+
+
+
+  public abstract int getHeight();
+  
+
+
+
+
+
+  public abstract RectangleImmutable getViewport();
+  
+
+
+
+
+
+  public abstract RectangleImmutable getViewportInWindowUnits();
+  
+
+
+
+
+
+  public abstract Display getDisplay();
+  
+
+
+
+
+
+  public abstract String getFQName();
+  
+
+
+
+
+
+  public abstract List<MonitorMode> getMonitorModes();
+  
+
+
+
+
+
+  public abstract List<MonitorDevice> getMonitorDevices();
+  
+
+
+
+
+
+  public abstract MonitorDevice getPrimaryMonitor();
+  
+
+
+
+
+
+  public final MonitorDevice getMainMonitor(RectangleImmutable paramRectangleImmutable)
+  {
+    Object localObject = null;
+    float f1 = Float.MIN_VALUE;
+    List localList = getMonitorDevices();
+    int i = localList.size();
+    for (int j = 0; j < i; j++) {
+      MonitorDevice localMonitorDevice = (MonitorDevice)localList.get(j);
+      if (!localMonitorDevice.isClone()) {
+        float f2 = localMonitorDevice.getViewportInWindowUnits().coverage(paramRectangleImmutable);
+        if (f2 > f1) {
+          f1 = f2;
+          localObject = localMonitorDevice;
+        }
+      }
+    }
+    if ((f1 > 0.0F) && (null != localObject)) {
+      return localObject;
+    }
+    return (MonitorDevice)localList.get(0);
+  }
+  
+  public final MonitorDevice getMonitor(int paramInt) {
+    List localList = getMonitorDevices();
+    int i = localList.size();
+    for (int j = 0; j < i; j++) {
+      MonitorDevice localMonitorDevice = (MonitorDevice)localList.get(j);
+      if (localMonitorDevice.getId() == paramInt) {
+        return localMonitorDevice;
+      }
+    }
+    return null;
+  }
+  
+
+
+
+
+
+
+
+
+  public final void unionOfMonitorViewports(Rectangle paramRectangle1, Rectangle paramRectangle2)
+  {
+    MonitorDevice.unionOfViewports(paramRectangle1, paramRectangle2, getMonitorDevices());
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  protected static final ArrayList<WeakReference<Screen>> screenList = new ArrayList();
+  protected static int screensActive = 0;
+  
+
+  public abstract void addMonitorModeListener(MonitorModeListener paramMonitorModeListener);
+  
+
+  public abstract void removeMonitorModeListener(MonitorModeListener paramMonitorModeListener);
+  
+  public static Screen getFirstScreenOf(Display paramDisplay, int paramInt1, int paramInt2)
+  {
+    return getScreenOfImpl(paramDisplay, paramInt1, paramInt2, 1);
+  }
+  
+
+
+
+
+
+
+  public static Screen getLastScreenOf(Display paramDisplay, int paramInt1, int paramInt2)
+  {
+    return getScreenOfImpl(paramDisplay, paramInt1, paramInt2, -1);
+  }
+  
+  private static Screen getScreenOfImpl(Display paramDisplay, int paramInt1, int paramInt2, int paramInt3) {
+    synchronized (screenList) {
+      int i = paramInt2 >= 0 ? paramInt2 : screenList.size() - 1;
+      while (paramInt3 > 0 ? i < screenList.size() : i >= 0) {
+        Screen localScreen = (Screen)((WeakReference)screenList.get(i)).get();
+        if (null == localScreen)
+        {
+          screenList.remove(i);
+          if (paramInt3 < 0)
+          {
+            i += paramInt3;
+          }
+        } else {
+          if ((localScreen.getDisplay().equals(paramDisplay)) && 
+            (localScreen.getIndex() == paramInt1)) {
+            return localScreen;
+          }
+          i += paramInt3;
+        }
+      }
+    }
+    return null;
+  }
+  
+  protected static void addScreen2List(Screen paramScreen) {
+    synchronized (screenList)
+    {
+      int i = 0;
+      while (i < screenList.size()) {
+        if (null == ((WeakReference)screenList.get(i)).get()) {
+          screenList.remove(i);
+        } else {
+          i++;
+        }
+      }
+      screenList.add(new WeakReference(paramScreen));
+    }
+  }
+  
+  public static Collection<Screen> getAllScreens()
+  {
+    ArrayList localArrayList;
+    synchronized (screenList) {
+      localArrayList = new ArrayList();
+      int i = 0;
+      while (i < screenList.size()) {
+        Screen localScreen = (Screen)((WeakReference)screenList.get(i)).get();
+        if (null == localScreen) {
+          screenList.remove(i);
+        } else {
+          localArrayList.add(((WeakReference)screenList.get(i)).get());
+          i++;
+        }
+      }
+    }
+    return localArrayList;
+  }
+  
+  public static int getActiveScreenNumber() {
+    synchronized (screenList) {
+      return screensActive;
+    }
+  }
+}

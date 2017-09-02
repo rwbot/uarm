@@ -1,0 +1,204 @@
+package com.jogamp.opengl.util.stereo;
+
+import com.jogamp.common.util.ReflectionUtil;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.opengl.util.stereo.generic.GenericStereoDeviceFactory;
+import java.io.PrintStream;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class StereoDeviceFactory
+{
+  private static final String OVRStereoDeviceClazzName = "jogamp.opengl.oculusvr.OVRStereoDeviceFactory";
+  private static final String GenericStereoDeviceClazzName = GenericStereoDeviceFactory.class.getName();
+  private static final String isAvailableMethodName = "isAvailable";
+  
+  static { NativeWindowFactory.addCustomShutdownHook(false, new Runnable()
+    {
+      public void run() {}
+    }); }
+  
+
+
+
+
+
+
+
+
+
+
+  public static enum DeviceType
+  {
+    Default, 
+    
+
+
+    Generic, 
+    
+
+
+    OculusVR, 
+    
+
+
+    OculusVR_DK2;
+    
+    private DeviceType() {} }
+  
+  public static StereoDeviceFactory createDefaultFactory() { ClassLoader localClassLoader = StereoDeviceFactory.class.getClassLoader();
+    StereoDeviceFactory localStereoDeviceFactory = createFactory(localClassLoader, "jogamp.opengl.oculusvr.OVRStereoDeviceFactory");
+    if (null == localStereoDeviceFactory) {
+      localStereoDeviceFactory = createFactory(localClassLoader, GenericStereoDeviceClazzName);
+    }
+    return localStereoDeviceFactory;
+  }
+  
+  public static StereoDeviceFactory createFactory(DeviceType paramDeviceType) {
+    String str;
+    switch (2.$SwitchMap$com$jogamp$opengl$util$stereo$StereoDeviceFactory$DeviceType[paramDeviceType.ordinal()]) {
+    case 1:  return createDefaultFactory();
+    case 2:  str = GenericStereoDeviceClazzName; break;
+    case 3:  str = "jogamp.opengl.oculusvr.OVRStereoDeviceFactory"; break;
+    default:  throw new InternalError("Unsupported type " + paramDeviceType);
+    }
+    ClassLoader localClassLoader = StereoDeviceFactory.class.getClassLoader();
+    return createFactory(localClassLoader, str);
+  }
+  
+  public static StereoDeviceFactory createFactory(ClassLoader paramClassLoader, String paramString) {
+    StereoDeviceFactory localStereoDeviceFactory = null;
+    try {
+      if (((Boolean)ReflectionUtil.callStaticMethod(paramString, "isAvailable", null, null, paramClassLoader)).booleanValue())
+        localStereoDeviceFactory = (StereoDeviceFactory)ReflectionUtil.createInstance(paramString, paramClassLoader);
+    } catch (Throwable localThrowable) {
+      if (StereoDevice.DEBUG) { System.err.println("Caught " + localThrowable.getClass().getName() + ": " + localThrowable.getMessage());localThrowable.printStackTrace(); } }
+    if (null != localStereoDeviceFactory) {
+      addFactory2List(localStereoDeviceFactory);
+    }
+    return localStereoDeviceFactory;
+  }
+  
+
+
+
+
+
+
+  public final StereoDevice createDevice(int paramInt, StereoDeviceConfig paramStereoDeviceConfig, boolean paramBoolean)
+  {
+    StereoDevice localStereoDevice = createDeviceImpl(paramInt, paramStereoDeviceConfig, paramBoolean);
+    if (null != localStereoDevice) {
+      addDevice2List(localStereoDevice);
+    }
+    return localStereoDevice;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  private static final ArrayList<WeakReference<StereoDeviceFactory>> factoryList = new ArrayList();
+  
+  private static void addFactory2List(StereoDeviceFactory paramStereoDeviceFactory) { synchronized (factoryList)
+    {
+      int i = 0;
+      while (i < factoryList.size()) {
+        if (null == ((WeakReference)factoryList.get(i)).get()) {
+          factoryList.remove(i);
+        } else {
+          i++;
+        }
+      }
+      factoryList.add(new WeakReference(paramStereoDeviceFactory));
+    } }
+  
+  private static final ArrayList<WeakReference<StereoDevice>> deviceList = new ArrayList();
+  
+  private static void addDevice2List(StereoDevice paramStereoDevice) { synchronized (deviceList)
+    {
+      int i = 0;
+      while (i < deviceList.size()) {
+        if (null == ((WeakReference)deviceList.get(i)).get()) {
+          deviceList.remove(i);
+        } else {
+          i++;
+        }
+      }
+      deviceList.add(new WeakReference(paramStereoDevice));
+    }
+  }
+  
+  private static final void shutdownAll() {
+    shutdownDevices();
+    shutdownFactories();
+  }
+  
+  private static final void shutdownFactories() { while (0 < factoryList.size()) {
+      StereoDeviceFactory localStereoDeviceFactory = (StereoDeviceFactory)((WeakReference)factoryList.remove(0)).get();
+      if ((null != localStereoDeviceFactory) && (localStereoDeviceFactory.isValid()))
+        localStereoDeviceFactory.shutdown();
+    }
+  }
+  
+  private static final void shutdownDevices() {
+    while (0 < deviceList.size()) {
+      StereoDevice localStereoDevice = (StereoDevice)((WeakReference)deviceList.remove(0)).get();
+      if ((null != localStereoDevice) && (localStereoDevice.isValid())) {
+        localStereoDevice.dispose();
+      }
+    }
+  }
+  
+  public StereoDeviceFactory() {}
+  
+  protected abstract StereoDevice createDeviceImpl(int paramInt, StereoDeviceConfig paramStereoDeviceConfig, boolean paramBoolean);
+  
+  public abstract boolean isValid();
+  
+  public abstract void shutdown();
+}

@@ -1,0 +1,106 @@
+package de.voidplus.leapmotion;
+
+import com.leapmotion.leap.Bone.Type;
+import processing.core.PApplet;
+import processing.core.PVector;
+
+public class Bone
+  implements RawAccess<com.leapmotion.leap.Bone>
+{
+  protected PApplet parent;
+  protected LeapMotion leap;
+  private com.leapmotion.leap.Bone _bone;
+  
+  public Bone(PApplet paramPApplet, LeapMotion paramLeapMotion, com.leapmotion.leap.Bone paramBone)
+  {
+    parent = paramPApplet;
+    leap = paramLeapMotion;
+    _bone = paramBone;
+  }
+  
+  public boolean isValid()
+  {
+    return _bone.isValid();
+  }
+  
+  public com.leapmotion.leap.Bone getRaw()
+  {
+    return _bone;
+  }
+  
+  public int getType()
+  {
+    Bone.Type localType = _bone.type();
+    switch (1.$SwitchMap$com$leapmotion$leap$Bone$Type[localType.ordinal()])
+    {
+    case 1: 
+      return 0;
+    case 2: 
+      return 1;
+    case 3: 
+      return 2;
+    case 4: 
+      return 3;
+    }
+    return -1;
+  }
+  
+  public float getBoneLength()
+  {
+    return _bone.length();
+  }
+  
+  public float getBoneWidth()
+  {
+    return _bone.width();
+  }
+  
+  public PVector getNextJoint()
+  {
+    return leap.map(_bone.nextJoint());
+  }
+  
+  public PVector getRawNextJoint()
+  {
+    return leap.convert(_bone.nextJoint());
+  }
+  
+  public PVector getPrevJoint()
+  {
+    return leap.map(_bone.prevJoint());
+  }
+  
+  public PVector getRawPrevJoint()
+  {
+    return leap.convert(_bone.prevJoint());
+  }
+  
+  public PVector getDirection()
+  {
+    return leap.map(_bone.direction());
+  }
+  
+  public PVector getRawDirection()
+  {
+    return leap.convert(_bone.direction());
+  }
+  
+  public void draw()
+  {
+    parent.noFill();
+    PVector localPVector1 = getNextJoint();
+    PVector localPVector2 = getPrevJoint();
+    parent.beginShape(5);
+    if (leap.is2D)
+    {
+      parent.vertex(x, y);
+      parent.vertex(x, y);
+    }
+    else
+    {
+      parent.vertex(x, y, z);
+      parent.vertex(x, y, z);
+    }
+    parent.endShape(1);
+  }
+}

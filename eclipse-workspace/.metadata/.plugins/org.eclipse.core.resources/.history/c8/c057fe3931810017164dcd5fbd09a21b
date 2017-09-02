@@ -1,0 +1,70 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+public class LtshTable
+  implements Table
+{
+  private final DirectoryEntry de;
+  private final int version;
+  private final int numGlyphs;
+  private final int[] yPels;
+  
+  protected LtshTable(DirectoryEntry paramDirectoryEntry, DataInput paramDataInput)
+    throws IOException
+  {
+    de = ((DirectoryEntry)paramDirectoryEntry.clone());
+    version = paramDataInput.readUnsignedShort();
+    numGlyphs = paramDataInput.readUnsignedShort();
+    yPels = new int[numGlyphs];
+    for (int i = 0; i < numGlyphs; i++) {
+      yPels[i] = paramDataInput.readUnsignedByte();
+    }
+  }
+  
+
+
+
+
+  public int getType()
+  {
+    return 1280594760;
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("'LTSH' Table - Linear Threshold Table\n-------------------------------------")
+      .append("\n 'LTSH' Version:       ").append(version)
+      .append("\n Number of Glyphs:     ").append(numGlyphs)
+      .append("\n\n   Glyph #   Threshold\n   -------   ---------\n");
+    for (int i = 0; i < numGlyphs; i++)
+    {
+      localStringBuilder.append("   ").append(i).append(".        ").append(yPels[i]).append("\n");
+    }
+    return localStringBuilder.toString();
+  }
+  
+
+
+
+
+
+
+  public DirectoryEntry getDirectoryEntry()
+  {
+    return de;
+  }
+}

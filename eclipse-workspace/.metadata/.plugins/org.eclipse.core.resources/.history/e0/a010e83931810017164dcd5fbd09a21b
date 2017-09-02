@@ -1,0 +1,305 @@
+package com.jogamp.newt.event.awt;
+
+import com.jogamp.nativewindow.NativeSurfaceHolder;
+import com.jogamp.newt.Display;
+import com.jogamp.newt.Screen;
+import com.jogamp.newt.Window;
+import com.jogamp.newt.event.NEWTEvent;
+import com.jogamp.newt.event.NEWTEventListener;
+import java.awt.Component;
+import java.util.EventListener;
+import jogamp.newt.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class AWTAdapter
+  implements EventListener
+{
+  public static final boolean DEBUG_IMPLEMENTATION = Debug.debug("Window");
+  
+  NEWTEventListener newtListener;
+  
+  Window newtWindow;
+  
+  NativeSurfaceHolder nsHolder;
+  
+  boolean consumeAWTEvent;
+  
+  protected boolean isSetup;
+  
+  protected AWTAdapter(NEWTEventListener paramNEWTEventListener, NativeSurfaceHolder paramNativeSurfaceHolder)
+  {
+    if (null == paramNEWTEventListener) {
+      throw new IllegalArgumentException("Argument newtListener is null");
+    }
+    if (null == paramNativeSurfaceHolder) {
+      throw new IllegalArgumentException("Argument nwProxy is null");
+    }
+    newtListener = paramNEWTEventListener;
+    newtWindow = null;
+    nsHolder = paramNativeSurfaceHolder;
+    consumeAWTEvent = false;
+    isSetup = true;
+  }
+  
+
+
+
+
+  protected AWTAdapter(NEWTEventListener paramNEWTEventListener, Window paramWindow)
+  {
+    if (null == paramNEWTEventListener) {
+      throw new IllegalArgumentException("Argument newtListener is null");
+    }
+    if (null == paramWindow) {
+      throw new IllegalArgumentException("Argument newtProxy is null");
+    }
+    newtListener = paramNEWTEventListener;
+    newtWindow = paramWindow;
+    nsHolder = paramWindow;
+    consumeAWTEvent = false;
+    isSetup = true;
+  }
+  
+
+
+
+
+  protected AWTAdapter(Window paramWindow)
+    throws IllegalStateException
+  {
+    this();
+    setDownstream(paramWindow);
+  }
+  
+  public AWTAdapter() {
+    clear();
+    consumeAWTEvent = false;
+  }
+  
+
+
+
+
+  public synchronized AWTAdapter setDownstream(Window paramWindow)
+    throws IllegalStateException
+  {
+    if (null == paramWindow) {
+      throw new RuntimeException("Argument downstream is null");
+    }
+    newtListener = null;
+    newtWindow = paramWindow;
+    nsHolder = paramWindow;
+    if (null == newtWindow.getScreen().getDisplay().getEDTUtil()) {
+      throw new IllegalStateException("EDT not enabled");
+    }
+    isSetup = true;
+    return this;
+  }
+  
+
+
+
+
+
+  public synchronized AWTAdapter clear()
+  {
+    newtListener = null;
+    newtWindow = null;
+    nsHolder = null;
+    isSetup = false;
+    consumeAWTEvent = false;
+    return this;
+  }
+  
+  public final synchronized void setConsumeAWTEvent(boolean paramBoolean) {
+    consumeAWTEvent = paramBoolean;
+  }
+  
+
+
+
+
+
+
+
+  public final synchronized NativeSurfaceHolder getNativeSurfaceHolder()
+  {
+    return nsHolder;
+  }
+  
+
+
+
+
+
+
+
+  public final synchronized Window getNewtWindow()
+  {
+    return newtWindow;
+  }
+  
+
+
+
+
+
+  public final synchronized NEWTEventListener getNewtEventListener()
+  {
+    return newtListener;
+  }
+  
+
+
+
+
+  public abstract AWTAdapter addTo(Component paramComponent);
+  
+
+
+
+  public abstract AWTAdapter removeFrom(Component paramComponent);
+  
+
+
+
+  static enum EventProcRes
+  {
+    DISPATCH, 
+    
+    ENQUEUED, 
+    
+    NOP;
+    
+
+
+
+
+
+
+
+
+    private EventProcRes() {}
+  }
+  
+
+
+
+
+
+
+
+
+  EventProcRes processEvent(boolean paramBoolean, NEWTEvent paramNEWTEvent)
+  {
+    if (null != newtListener) {
+      return EventProcRes.DISPATCH;
+    }
+    if (null != newtWindow) {
+      newtWindow.enqueueEvent(paramBoolean, paramNEWTEvent);
+      return EventProcRes.ENQUEUED;
+    }
+    return EventProcRes.NOP;
+  }
+}

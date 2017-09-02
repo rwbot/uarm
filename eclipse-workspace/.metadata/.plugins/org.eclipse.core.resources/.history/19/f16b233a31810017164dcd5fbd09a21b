@@ -1,0 +1,513 @@
+package jogamp.opengl.egl;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.PointerBuffer;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.GraphicsConfigurationFactory;
+import com.jogamp.nativewindow.MutableGraphicsConfiguration;
+import com.jogamp.nativewindow.egl.EGLGraphicsDevice;
+import com.jogamp.opengl.DefaultGLCapabilitiesChooser;
+import com.jogamp.opengl.GLCapabilitiesChooser;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.GLRendererQuirks;
+import com.jogamp.opengl.egl.EGL;
+import java.io.PrintStream;
+import java.nio.IntBuffer;
+import jogamp.opengl.GLGraphicsConfigurationUtil;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class EGLGraphicsConfiguration
+  extends MutableGraphicsConfiguration
+  implements Cloneable
+{
+  private static final String dbgCfgFailIntro = "Info: EGLConfig could not retrieve ";
+  private static final String dbgCfgFailForConfig = " for config ";
+  private static final String dbgCfgFailError = ", error ";
+  private final GLCapabilitiesChooser chooser;
+  
+  public final long getNativeConfig()
+  {
+    return ((EGLGLCapabilities)capabilitiesChosen).getEGLConfig();
+  }
+  
+  public final int getNativeConfigID() {
+    return ((EGLGLCapabilities)capabilitiesChosen).getEGLConfigID();
+  }
+  
+  EGLGraphicsConfiguration(AbstractGraphicsScreen paramAbstractGraphicsScreen, EGLGLCapabilities paramEGLGLCapabilities, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser)
+  {
+    super(paramAbstractGraphicsScreen, paramEGLGLCapabilities, paramGLCapabilitiesImmutable);
+    chooser = paramGLCapabilitiesChooser;
+  }
+  
+
+
+
+
+
+
+  public static EGLGraphicsConfiguration create(GLCapabilitiesImmutable paramGLCapabilitiesImmutable, AbstractGraphicsScreen paramAbstractGraphicsScreen, int paramInt)
+  {
+    AbstractGraphicsDevice localAbstractGraphicsDevice = paramAbstractGraphicsScreen.getDevice();
+    if ((null == localAbstractGraphicsDevice) || (!(localAbstractGraphicsDevice instanceof EGLGraphicsDevice))) {
+      throw new GLException("GraphicsDevice must be a valid EGLGraphicsDevice");
+    }
+    long l1 = localAbstractGraphicsDevice.getHandle();
+    if (l1 == 0L) {
+      throw new GLException("Invalid EGL display: " + localAbstractGraphicsDevice);
+    }
+    long l2 = EGLConfigId2EGLConfig(l1, paramInt);
+    if (0L < l2) {
+      GLRendererQuirks localGLRendererQuirks = GLRendererQuirks.getStickyDeviceQuirks(GLDrawableFactory.getEGLFactory().getDefaultDevice());
+      int i = GLGraphicsConfigurationUtil.getExclusiveWinAttributeBits(paramGLCapabilitiesImmutable);
+      EGLGLCapabilities localEGLGLCapabilities = EGLConfig2Capabilities(localGLRendererQuirks, (EGLGraphicsDevice)localAbstractGraphicsDevice, paramGLCapabilitiesImmutable.getGLProfile(), l2, i, false);
+      return new EGLGraphicsConfiguration(paramAbstractGraphicsScreen, localEGLGLCapabilities, paramGLCapabilitiesImmutable, new DefaultGLCapabilitiesChooser());
+    }
+    return null;
+  }
+  
+  public Object clone()
+  {
+    return super.clone();
+  }
+  
+  void updateGraphicsConfiguration() {
+    CapabilitiesImmutable localCapabilitiesImmutable = getChosenCapabilities();
+    
+    EGLGraphicsConfiguration localEGLGraphicsConfiguration = (EGLGraphicsConfiguration)GraphicsConfigurationFactory.getFactory(getScreen().getDevice(), localCapabilitiesImmutable).chooseGraphicsConfiguration(localCapabilitiesImmutable, 
+      getRequestedCapabilities(), chooser, getScreen(), 0);
+    if (null != localEGLGraphicsConfiguration)
+    {
+      setChosenCapabilities(localEGLGraphicsConfiguration.getChosenCapabilities());
+      if (DEBUG) {
+        System.err.println("updateGraphicsConfiguration(1): " + this);
+      }
+    }
+  }
+  
+  public static long EGLConfigId2EGLConfig(long paramLong, int paramInt) {
+    IntBuffer localIntBuffer1 = Buffers.newDirectIntBuffer(new int[] { 12328, paramInt, 12344 });
+    
+
+
+    PointerBuffer localPointerBuffer = PointerBuffer.allocateDirect(1);
+    IntBuffer localIntBuffer2 = Buffers.newDirectIntBuffer(1);
+    if (!EGL.eglChooseConfig(paramLong, localIntBuffer1, localPointerBuffer, 1, localIntBuffer2))
+    {
+
+
+      return 0L;
+    }
+    if (localIntBuffer2.get(0) == 0) {
+      return 0L;
+    }
+    return localPointerBuffer.get(0);
+  }
+  
+  public static boolean isEGLConfigValid(long paramLong1, long paramLong2) {
+    if (0L == paramLong2) {
+      return false;
+    }
+    IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(1);
+    
+
+    if (!EGL.eglGetConfigAttrib(paramLong1, paramLong2, 12328, localIntBuffer)) {
+      int i = EGL.eglGetError();
+      if (DEBUG) {
+        System.err.println("Info: EGLConfig could not retrieve EGL_CONFIG_ID for config " + toHexString(paramLong2) + ", error " + toHexString(i));
+      }
+      return false;
+    }
+    return true;
+  }
+  
+  static int EGLConfigDrawableTypeBits(EGLGraphicsDevice paramEGLGraphicsDevice, long paramLong) {
+    int i = 0;
+    
+    IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(1);
+    if (!EGL.eglGetConfigAttrib(paramEGLGraphicsDevice.getHandle(), paramLong, 12339, localIntBuffer)) {
+      throw new GLException("Could not determine EGL_SURFACE_TYPE");
+    }
+    
+    int j = localIntBuffer.get(0);
+    if (0 != (j & 0x4)) {
+      i |= 0x1;
+    }
+    if (0 != (j & 0x2)) {
+      i |= 0x2;
+    }
+    if (0 != (j & 0x1)) {
+      i |= 0xC;
+    }
+    
+    return i;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public static EGLGLCapabilities EGLConfig2Capabilities(GLRendererQuirks paramGLRendererQuirks, EGLGraphicsDevice paramEGLGraphicsDevice, GLProfile paramGLProfile, long paramLong, int paramInt, boolean paramBoolean)
+  {
+    long l = paramEGLGraphicsDevice.getHandle();
+    
+
+
+
+    int[] arrayOfInt = { 12328, 12352, 12334, 12327, 12324, 12323, 12322, 12321, 12326, 12325, 12340, 12343, 12342, 12341, 12337, 12512, 12513 };
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    IntBuffer localIntBuffer1 = Buffers.newDirectIntBuffer(arrayOfInt);
+    IntBuffer localIntBuffer2 = Buffers.newDirectIntBuffer(localIntBuffer1.remaining());
+    EGL.eglGetConfigAttributes(l, paramLong, localIntBuffer1, localIntBuffer2);
+    
+
+    if (12328 != localIntBuffer1.get(0)) {
+      if (DEBUG)
+      {
+        System.err.println("Info: EGLConfig could not retrieve ConfigID for config " + toHexString(paramLong) + ", error " + toHexString(EGL.eglGetError()));
+      }
+      return null;
+    }
+    int i = localIntBuffer2.get(0);
+    
+    if (12352 != localIntBuffer1.get(1)) {
+      if (DEBUG) {
+        System.err.println("Info: EGLConfig could not retrieve EGL_RENDERABLE_TYPE for config " + toHexString(paramLong) + ", error " + toHexString(EGL.eglGetError()));
+      }
+      return null;
+    }
+    
+    int m = localIntBuffer2.get(1);
+    int j; if ((paramGLRendererQuirks.exist(15)) && (0 != (0x4 & m))) {
+      j = m | 0x40;
+    } else {
+      j = m;
+    }
+    
+    int k;
+    if (12334 == localIntBuffer1.get(2)) {
+      k = localIntBuffer2.get(2);
+    } else {
+      if (DEBUG) {
+        System.err.println("Info: EGLConfig could not retrieve EGL_NATIVE_VISUAL_ID for config " + toHexString(paramLong) + ", error " + toHexString(EGL.eglGetError()));
+      }
+      k = 0;
+    }
+    
+    EGLGLCapabilities localEGLGLCapabilities = null;
+    try {
+      if (null == paramGLProfile) {
+        paramGLProfile = EGLGLCapabilities.getCompatible(paramEGLGraphicsDevice, j);
+      }
+      if (!EGLGLCapabilities.isCompatible(paramGLProfile, j)) {
+        if (DEBUG) {
+          System.err.println("config " + toHexString(paramLong) + ": Requested GLProfile " + paramGLProfile + " with quirks " + paramGLRendererQuirks + " not compatible with EGL-RenderableType[" + 
+            EGLGLCapabilities.renderableTypeToString(null, j) + "]");
+        }
+        return null;
+      }
+      localEGLGLCapabilities = new EGLGLCapabilities(paramLong, i, k, paramGLProfile, j);
+    } catch (GLException localGLException) {
+      if (DEBUG) {
+        System.err.println("config " + toHexString(paramLong) + ": " + localGLException);
+      }
+      return null;
+    }
+    
+    if (12327 == localIntBuffer1.get(3)) {
+      if (12368 == localIntBuffer2.get(3)) {
+        localEGLGLCapabilities.setHardwareAccelerated(false);
+      }
+    } else if (DEBUG) {
+      System.err.println("Info: EGLConfig could not retrieve EGL_CONFIG_CAVEAT for config " + toHexString(paramLong) + ", error " + toHexString(EGL.eglGetError()));
+    }
+    
+    if (12324 == localIntBuffer1.get(4)) {
+      localEGLGLCapabilities.setRedBits(localIntBuffer2.get(4));
+    } else if (DEBUG) {
+      System.err.println("Info: EGLConfig could not retrieve EGL_RED_SIZE for config " + toHexString(paramLong) + ", error " + toHexString(EGL.eglGetError()));
+    }
+    if (12323 == localIntBuffer1.get(5)) {
+      localEGLGLCapabilities.setGreenBits(localIntBuffer2.get(5));
+    } else if (DEBUG) {
+      System.err.println("Info: EGLConfig could not retrieve EGL_GREEN_SIZE for config " + toHexString(paramLong) + ", error " + toHexString(EGL.eglGetError()));
+    }
+    if (12322 == localIntBuffer1.get(6)) {
+      localEGLGLCapabilities.setBlueBits(localIntBuffer2.get(6));
+    } else if (DEBUG) {
+      System.err.println("Info: EGLConfig could not retrieve EGL_BLUE_SIZE for config " + toHexString(paramLong) + ", error " + toHexString(EGL.eglGetError()));
+    }
+    if (12321 == localIntBuffer1.get(7)) {
+      localEGLGLCapabilities.setAlphaBits(localIntBuffer2.get(7));
+    } else if (DEBUG) {
+      System.err.println("Info: EGLConfig could not retrieve EGL_ALPHA_SIZE for config " + toHexString(paramLong) + ", error " + toHexString(EGL.eglGetError()));
+    }
+    if (12326 == localIntBuffer1.get(8)) {
+      localEGLGLCapabilities.setStencilBits(localIntBuffer2.get(8));
+    } else if (DEBUG) {
+      System.err.println("Info: EGLConfig could not retrieve EGL_STENCIL_SIZE for config " + toHexString(paramLong) + ", error " + toHexString(EGL.eglGetError()));
+    }
+    if (12325 == localIntBuffer1.get(9)) {
+      localEGLGLCapabilities.setDepthBits(localIntBuffer2.get(9));
+    } else if (DEBUG) {
+      System.err.println("Info: EGLConfig could not retrieve EGL_DEPTH_SIZE for config " + toHexString(paramLong) + ", error " + toHexString(EGL.eglGetError()));
+    }
+    if (paramBoolean) {
+      localEGLGLCapabilities.setBackgroundOpaque(false);
+    } else if (12340 == localIntBuffer1.get(10)) {
+      localEGLGLCapabilities.setBackgroundOpaque(localIntBuffer2.get(10) != 12370);
+    } else if (DEBUG) {
+      System.err.println("Info: EGLConfig could not retrieve EGL_TRANSPARENT_TYPE for config " + toHexString(paramLong) + ", error " + toHexString(EGL.eglGetError()));
+    }
+    if (!localEGLGLCapabilities.isBackgroundOpaque()) {
+      if (12343 == localIntBuffer1.get(11)) {
+        n = localIntBuffer2.get(11);
+        localEGLGLCapabilities.setTransparentRedValue(-1 == n ? -1 : n);
+      } else if (DEBUG) {
+        System.err.println("Info: EGLConfig could not retrieve EGL_TRANSPARENT_RED_VALUE for config " + toHexString(paramLong) + ", error " + toHexString(EGL.eglGetError()));
+      }
+      if (12342 == localIntBuffer1.get(12)) {
+        n = localIntBuffer2.get(12);
+        localEGLGLCapabilities.setTransparentGreenValue(-1 == n ? -1 : n);
+      } else if (DEBUG) {
+        System.err.println("Info: EGLConfig could not retrieve EGL_TRANSPARENT_GREEN_VALUE for config " + toHexString(paramLong) + ", error " + toHexString(EGL.eglGetError()));
+      }
+      if (12341 == localIntBuffer1.get(13)) {
+        n = localIntBuffer2.get(13);
+        localEGLGLCapabilities.setTransparentBlueValue(-1 == n ? -1 : n);
+      } else if (DEBUG) {
+        System.err.println("Info: EGLConfig could not retrieve EGL_TRANSPARENT_BLUE_VALUE for config " + toHexString(paramLong) + ", error " + toHexString(EGL.eglGetError()));
+      }
+    }
+    
+
+
+
+
+
+
+    if (12337 == localIntBuffer1.get(14)) {
+      n = localIntBuffer2.get(14);
+      localEGLGLCapabilities.setSampleBuffers(n > 0);
+      localEGLGLCapabilities.setNumSamples(n);
+    } else if (DEBUG) {
+      System.err.println("Info: EGLConfig could not retrieve EGL_SAMPLES for config " + toHexString(paramLong) + ", error " + toHexString(EGL.eglGetError()));
+    }
+    if (!localEGLGLCapabilities.getSampleBuffers())
+    {
+      if (12512 == localIntBuffer1.get(15)) {
+        n = localIntBuffer2.get(15) > 0 ? 1 : 0;
+        if ((n != 0) && (12513 == localIntBuffer1.get(16))) {
+          localEGLGLCapabilities.setSampleExtension("NV_coverage_sample");
+          localEGLGLCapabilities.setSampleBuffers(true);
+          localEGLGLCapabilities.setNumSamples(localIntBuffer2.get(16));
+        } else if (DEBUG) {
+          System.err.println("Info: EGLConfig could not retrieve EGL_COVERAGE_SAMPLES_NV for config " + toHexString(paramLong) + ", error " + toHexString(EGL.eglGetError()));
+        }
+      }
+    }
+    
+
+
+
+
+    int n = EGLConfigDrawableTypeBits(paramEGLGraphicsDevice, paramLong);
+    int i1 = paramInt & n;
+    
+    if (0 == i1) {
+      return null;
+    }
+    
+    return (EGLGLCapabilities)GLGraphicsConfigurationUtil.fixWinAttribBitsAndHwAccel(paramEGLGraphicsDevice, i1, localEGLGLCapabilities);
+  }
+  
+  public static IntBuffer GLCapabilities2AttribList(GLCapabilitiesImmutable paramGLCapabilitiesImmutable) {
+    IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(32);
+    int i = 0;
+    
+    localIntBuffer.put(i++, 12339);
+    int j;
+    if (paramGLCapabilitiesImmutable.isOnscreen()) {
+      j = 4;
+    } else if (paramGLCapabilitiesImmutable.isFBO()) {
+      j = 1;
+    } else if (paramGLCapabilitiesImmutable.isPBuffer()) {
+      j = 1;
+    } else if (paramGLCapabilitiesImmutable.isBitmap()) {
+      j = 2;
+    } else {
+      throw new GLException("no surface type set in caps: " + paramGLCapabilitiesImmutable);
+    }
+    localIntBuffer.put(i++, j);
+    
+    localIntBuffer.put(i++, 12324);
+    localIntBuffer.put(i++, paramGLCapabilitiesImmutable.getRedBits());
+    
+    localIntBuffer.put(i++, 12323);
+    localIntBuffer.put(i++, paramGLCapabilitiesImmutable.getGreenBits());
+    
+    localIntBuffer.put(i++, 12322);
+    localIntBuffer.put(i++, paramGLCapabilitiesImmutable.getBlueBits());
+    
+    if (paramGLCapabilitiesImmutable.getAlphaBits() > 0) {
+      localIntBuffer.put(i++, 12321);
+      localIntBuffer.put(i++, paramGLCapabilitiesImmutable.getAlphaBits());
+    }
+    
+    if (paramGLCapabilitiesImmutable.getStencilBits() > 0) {
+      localIntBuffer.put(i++, 12326);
+      localIntBuffer.put(i++, paramGLCapabilitiesImmutable.getStencilBits());
+    }
+    
+    localIntBuffer.put(i++, 12325);
+    localIntBuffer.put(i++, paramGLCapabilitiesImmutable.getDepthBits());
+    
+    if (paramGLCapabilitiesImmutable.getSampleBuffers()) {
+      if (paramGLCapabilitiesImmutable.getSampleExtension().equals("NV_coverage_sample")) {
+        localIntBuffer.put(i++, 12512);
+        localIntBuffer.put(i++, 1);
+        localIntBuffer.put(i++, 12513);
+        localIntBuffer.put(i++, paramGLCapabilitiesImmutable.getNumSamples());
+      }
+      else {
+        localIntBuffer.put(i++, 12338);
+        localIntBuffer.put(i++, 1);
+        localIntBuffer.put(i++, 12337);
+        localIntBuffer.put(i++, paramGLCapabilitiesImmutable.getNumSamples());
+      }
+    }
+    
+    localIntBuffer.put(i++, 12340);
+    localIntBuffer.put(i++, paramGLCapabilitiesImmutable.isBackgroundOpaque() ? 12344 : 12340);
+    
+
+
+    if (!paramGLCapabilitiesImmutable.isBackgroundOpaque()) {
+      localIntBuffer.put(i++, 12343);
+      localIntBuffer.put(i++, paramGLCapabilitiesImmutable.getTransparentRedValue() >= 0 ? paramGLCapabilitiesImmutable.getTransparentRedValue() : -1);
+      
+      localIntBuffer.put(i++, 12342);
+      localIntBuffer.put(i++, paramGLCapabilitiesImmutable.getTransparentGreenValue() >= 0 ? paramGLCapabilitiesImmutable.getTransparentGreenValue() : -1);
+      
+      localIntBuffer.put(i++, 12341);
+      localIntBuffer.put(i++, paramGLCapabilitiesImmutable.getTransparentBlueValue() >= 0 ? paramGLCapabilitiesImmutable.getTransparentBlueValue() : -1);
+    }
+    
+
+
+
+
+
+    localIntBuffer.put(i++, 12352);
+    if (paramGLCapabilitiesImmutable.getGLProfile().usesNativeGLES1()) {
+      localIntBuffer.put(i++, 1);
+    } else if (paramGLCapabilitiesImmutable.getGLProfile().usesNativeGLES2()) {
+      localIntBuffer.put(i++, 4);
+    } else if (paramGLCapabilitiesImmutable.getGLProfile().usesNativeGLES3()) {
+      if (GLRendererQuirks.existStickyDeviceQuirk(GLDrawableFactory.getEGLFactory().getDefaultDevice(), 15)) {
+        localIntBuffer.put(i++, 4);
+      } else {
+        localIntBuffer.put(i++, 64);
+      }
+    } else {
+      localIntBuffer.put(i++, 8);
+    }
+    
+
+
+    localIntBuffer.put(i++, 12344);
+    
+    return localIntBuffer;
+  }
+  
+  public static IntBuffer CreatePBufferSurfaceAttribList(int paramInt1, int paramInt2, int paramInt3) {
+    IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(16);
+    int i = 0;
+    
+    localIntBuffer.put(i++, 12375);
+    localIntBuffer.put(i++, paramInt1);
+    
+    localIntBuffer.put(i++, 12374);
+    localIntBuffer.put(i++, paramInt2);
+    
+    localIntBuffer.put(i++, 12416);
+    localIntBuffer.put(i++, paramInt3);
+    
+    localIntBuffer.put(i++, 12417);
+    localIntBuffer.put(i++, 12380 == paramInt3 ? 12380 : 12383);
+    
+    localIntBuffer.put(i++, 12344);
+    
+    return localIntBuffer;
+  }
+  
+
+
+
+  public String toString()
+  {
+    return getClass().getSimpleName() + "[" + getScreen() + ",\n\teglConfigHandle " + toHexString(getNativeConfig()) + ", eglConfigID " + toHexString(getNativeConfigID()) + ",\n\trequested " + getRequestedCapabilities() + ",\n\tchosen    " + getChosenCapabilities() + "]";
+  }
+}

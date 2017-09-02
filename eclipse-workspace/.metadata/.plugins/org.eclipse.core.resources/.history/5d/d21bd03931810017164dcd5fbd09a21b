@@ -1,0 +1,206 @@
+package com.jogamp.common.util;
+
+import com.jogamp.common.JogampRuntimeException;
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class FunctionTask<R, A>
+  extends TaskBase
+  implements Function<R, A>
+{
+  protected Function<R, A> runnable;
+  protected R result;
+  protected A[] args;
+  
+  /**
+   * @deprecated
+   */
+  public static <U, V> U invoke(boolean paramBoolean, Function<U, V> paramFunction, V... paramVarArgs)
+  {
+    return paramFunction.eval(paramVarArgs);
+  }
+  
+
+
+
+
+
+  public static <U, V> FunctionTask<U, V> invokeOnNewThread(ThreadGroup paramThreadGroup, String paramString, boolean paramBoolean, Function<U, V> paramFunction, V... paramVarArgs)
+  {
+    FunctionTask localFunctionTask;
+    
+
+
+
+
+    Object localObject1;
+    
+
+
+
+    if (!paramBoolean) {
+      localFunctionTask = new FunctionTask(paramFunction, null, true, System.err);
+      localObject1 = InterruptSource.Thread.create(paramThreadGroup, localFunctionTask, paramString);
+      args = paramVarArgs;
+      ((InterruptSource.Thread)localObject1).start();
+    } else {
+      localObject1 = new Object();
+      localFunctionTask = new FunctionTask(paramFunction, localObject1, true, null);
+      InterruptSource.Thread localThread = InterruptSource.Thread.create(paramThreadGroup, localFunctionTask, paramString);
+      synchronized (localObject1) {
+        args = paramVarArgs;
+        localThread.start();
+        while (localFunctionTask.isInQueue()) {
+          try {
+            localObject1.wait();
+          } catch (InterruptedException localInterruptedException) {
+            throw new InterruptedRuntimeException(localInterruptedException);
+          }
+          Throwable localThrowable = localFunctionTask.getThrowable();
+          if (null != localThrowable) {
+            throw new JogampRuntimeException(localThrowable);
+          }
+        }
+      }
+    }
+    return localFunctionTask;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public FunctionTask(Function<R, A> paramFunction, Object paramObject, boolean paramBoolean, PrintStream paramPrintStream)
+  {
+    super(paramObject, paramBoolean, paramPrintStream);
+    runnable = paramFunction;
+    result = null;
+    args = null;
+  }
+  
+  public final Function<R, A> getRunnable()
+  {
+    return runnable;
+  }
+  
+
+
+
+  public final void setArgs(A... paramVarArgs)
+  {
+    args = paramVarArgs;
+  }
+  
+
+
+
+  public final R getResult()
+  {
+    Object localObject = result;
+    result = null;
+    return localObject;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final void run()
+  {
+    execThread = Thread.currentThread();
+    
+    Object[] arrayOfObject = args;
+    args = null;
+    result = null;
+    runnableException = null;
+    tStarted = System.currentTimeMillis();
+    if (null == syncObject) {
+      try {
+        result = runnable.eval(arrayOfObject);
+      } catch (Throwable localThrowable1) {
+        runnableException = localThrowable1;
+        if (null != exceptionOut) {
+          exceptionOut.println("FunctionTask.run(): " + getExceptionOutIntro() + " exception occured on thread " + Thread.currentThread().getName() + ": " + toString());
+          printSourceTrace();
+          localThrowable1.printStackTrace(exceptionOut);
+        }
+        if (!catchExceptions) {
+          throw new RuntimeException(runnableException);
+        }
+      } finally {
+        tExecuted = System.currentTimeMillis();
+        isExecuted = true;
+      }
+    } else {
+      synchronized (syncObject) {
+        try {
+          result = runnable.eval(arrayOfObject);
+        } catch (Throwable localThrowable2) {
+          runnableException = localThrowable2;
+          if (null != exceptionOut) {
+            exceptionOut.println("FunctionTask.run(): " + getExceptionOutIntro() + " exception occured on thread " + Thread.currentThread().getName() + ": " + toString());
+            printSourceTrace();
+            localThrowable2.printStackTrace(exceptionOut);
+          }
+          if (!catchExceptions) {
+            throw new RuntimeException(runnableException);
+          }
+        } finally {
+          tExecuted = System.currentTimeMillis();
+          isExecuted = true;
+          syncObject.notifyAll();
+        }
+      }
+    }
+  }
+  
+  public final R eval(A... paramVarArgs)
+  {
+    args = paramVarArgs;
+    run();
+    Object localObject = result;
+    result = null;
+    return localObject;
+  }
+}

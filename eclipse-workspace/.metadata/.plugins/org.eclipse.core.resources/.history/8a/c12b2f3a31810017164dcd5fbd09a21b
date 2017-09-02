@@ -1,0 +1,176 @@
+package jogamp.opengl.util.pngj.chunks;
+
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import jogamp.opengl.util.pngj.ImageInfo;
+import jogamp.opengl.util.pngj.PngjException;
+import jogamp.opengl.util.pngj.PngjOutputException;
+
+
+
+
+
+public class ChunksListForWrite
+  extends ChunksList
+{
+  private final List<PngChunk> queuedChunks = new ArrayList();
+  
+
+  private final HashMap<String, Integer> alreadyWrittenKeys = new HashMap();
+  
+  public ChunksListForWrite(ImageInfo paramImageInfo) {
+    super(paramImageInfo);
+  }
+  
+
+
+  public List<? extends PngChunk> getQueuedById(String paramString)
+  {
+    return getQueuedById(paramString, null);
+  }
+  
+
+
+  public List<? extends PngChunk> getQueuedById(String paramString1, String paramString2)
+  {
+    return getXById(queuedChunks, paramString1, paramString2);
+  }
+  
+
+
+  public PngChunk getQueuedById1(String paramString1, String paramString2, boolean paramBoolean)
+  {
+    List localList = getQueuedById(paramString1, paramString2);
+    if (localList.isEmpty())
+      return null;
+    if ((localList.size() > 1) && ((paramBoolean) || (!((PngChunk)localList.get(0)).allowsMultiple())))
+      throw new PngjException("unexpected multiple chunks id=" + paramString1);
+    return (PngChunk)localList.get(localList.size() - 1);
+  }
+  
+
+
+  public PngChunk getQueuedById1(String paramString, boolean paramBoolean)
+  {
+    return getQueuedById1(paramString, null, paramBoolean);
+  }
+  
+
+
+  public PngChunk getQueuedById1(String paramString)
+  {
+    return getQueuedById1(paramString, false);
+  }
+  
+
+
+
+
+
+
+  public boolean removeChunk(PngChunk paramPngChunk)
+  {
+    return queuedChunks.remove(paramPngChunk);
+  }
+  
+
+
+
+
+
+
+  public boolean queue(PngChunk paramPngChunk)
+  {
+    queuedChunks.add(paramPngChunk);
+    return true;
+  }
+  
+
+
+
+  private static boolean shouldWrite(PngChunk paramPngChunk, int paramInt)
+  {
+    if (paramInt == 2)
+      return id.equals("PLTE");
+    if (paramInt % 2 == 0)
+      throw new PngjOutputException("bad chunk group?");
+    int j;
+    int i; if (paramPngChunk.getOrderingConstraint().mustGoBeforePLTE()) {
+      i = j = 1;
+    } else if (paramPngChunk.getOrderingConstraint().mustGoBeforeIDAT()) {
+      j = 3;
+      i = paramPngChunk.getOrderingConstraint().mustGoAfterPLTE() ? 3 : 1;
+    }
+    else {
+      j = 5;
+      i = 1;
+    }
+    
+    int k = j;
+    if (paramPngChunk.hasPriority())
+      k = i;
+    if ((ChunkHelper.isUnknown(paramPngChunk)) && (paramPngChunk.getChunkGroup() > 0))
+      k = paramPngChunk.getChunkGroup();
+    if (paramInt == k)
+      return true;
+    if ((paramInt > k) && (paramInt <= j))
+      return true;
+    return false;
+  }
+  
+  public int writeChunks(OutputStream paramOutputStream, int paramInt) {
+    int i = 0;
+    Iterator localIterator = queuedChunks.iterator();
+    while (localIterator.hasNext()) {
+      PngChunk localPngChunk = (PngChunk)localIterator.next();
+      if (shouldWrite(localPngChunk, paramInt))
+      {
+        if ((ChunkHelper.isCritical(id)) && (!id.equals("PLTE")))
+          throw new PngjOutputException("bad chunk queued: " + localPngChunk);
+        if ((alreadyWrittenKeys.containsKey(id)) && (!localPngChunk.allowsMultiple()))
+          throw new PngjOutputException("duplicated chunk does not allow multiple: " + localPngChunk);
+        localPngChunk.write(paramOutputStream);
+        chunks.add(localPngChunk);
+        alreadyWrittenKeys.put(id, Integer.valueOf(alreadyWrittenKeys.containsKey(id) ? ((Integer)alreadyWrittenKeys.get(id)).intValue() + 1 : 1));
+        localPngChunk.setChunkGroup(paramInt);
+        localIterator.remove();
+        i++;
+      } }
+    return i;
+  }
+  
+
+
+  public List<PngChunk> getQueuedChunks()
+  {
+    return queuedChunks;
+  }
+  
+  public String toString()
+  {
+    return "ChunkList: written: " + chunks.size() + " queue: " + queuedChunks.size();
+  }
+  
+
+
+
+  public String toStringFull()
+  {
+    StringBuilder localStringBuilder = new StringBuilder(toString());
+    localStringBuilder.append("\n Written:\n");
+    for (Iterator localIterator = chunks.iterator(); localIterator.hasNext();) { localPngChunk = (PngChunk)localIterator.next();
+      localStringBuilder.append(localPngChunk).append(" G=" + localPngChunk.getChunkGroup() + "\n"); }
+    PngChunk localPngChunk;
+    if (!queuedChunks.isEmpty()) {
+      localStringBuilder.append(" Queued:\n");
+      for (localIterator = queuedChunks.iterator(); localIterator.hasNext();) { localPngChunk = (PngChunk)localIterator.next();
+        localStringBuilder.append(localPngChunk).append("\n");
+      }
+    }
+    
+    return localStringBuilder.toString();
+  }
+}

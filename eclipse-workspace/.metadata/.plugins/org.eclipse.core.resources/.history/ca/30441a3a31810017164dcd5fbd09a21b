@@ -1,0 +1,961 @@
+package jogamp.newt;
+
+import com.jogamp.common.util.ArrayHashSet;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.util.Dimension;
+import com.jogamp.nativewindow.util.Rectangle;
+import com.jogamp.nativewindow.util.RectangleImmutable;
+import com.jogamp.nativewindow.util.SurfaceSize;
+import com.jogamp.newt.Display;
+import com.jogamp.newt.MonitorDevice;
+import com.jogamp.newt.MonitorMode;
+import com.jogamp.newt.NewtFactory;
+import com.jogamp.newt.Screen;
+import com.jogamp.newt.event.MonitorEvent;
+import com.jogamp.newt.event.MonitorModeListener;
+import com.jogamp.newt.util.MonitorModeUtil;
+import java.io.PrintStream;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class ScreenImpl
+  extends Screen
+  implements MonitorModeListener
+{
+  protected static final boolean DEBUG_TEST_SCREENMODE_DISABLED;
+  public static final int default_sm_bpp = 32;
+  public static final int default_sm_widthmm = 519;
+  public static final int default_sm_heightmm = 324;
+  public static final int default_sm_rate = 60;
+  public static final int default_sm_rotation = 0;
+  protected DisplayImpl display;
+  protected int screen_idx;
+  protected String fqname;
+  protected int hashCode;
+  protected AbstractGraphicsScreen aScreen;
+  protected int refCount;
+  
+  static
+  {
+    Debug.initSingleton();
+    DEBUG_TEST_SCREENMODE_DISABLED = PropertyAccess.isPropertyDefined("newt.test.Screen.disableScreenMode", true);
+    
+
+
+
+
+
+
+
+
+    DisplayImpl.initSingleton();
+  }
+  
+
+
+
+
+
+
+
+
+
+  protected Rectangle virtViewportPU = new Rectangle(0, 0, 0, 0);
+  protected Rectangle virtViewportWU = new Rectangle(0, 0, 0, 0);
+  protected static Dimension usrSize = null;
+  protected static volatile boolean usrSizeQueried = false;
+  private final ArrayList<MonitorModeListener> refMonitorModeListener = new ArrayList();
+  private long tCreated;
+  
+  private static Class<?> getScreenClass(String paramString)
+    throws ClassNotFoundException
+  {
+    Class localClass = NewtFactory.getCustomClass(paramString, "ScreenDriver");
+    if (null == localClass) {
+      throw new ClassNotFoundException("Failed to find NEWT Screen Class <" + paramString + ".ScreenDriver>");
+    }
+    return localClass;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean equals(Object paramObject)
+  {
+    if (paramObject == null) {
+      return false;
+    }
+    if (getClass() != paramObject.getClass()) {
+      return false;
+    }
+    ScreenImpl localScreenImpl = (ScreenImpl)paramObject;
+    if ((display != display) && ((display == null) || (!display.equals(display)))) {
+      return false;
+    }
+    if (screen_idx != screen_idx) {
+      return false;
+    }
+    return true;
+  }
+  
+  public int hashCode()
+  {
+    return hashCode;
+  }
+  
+
+  public final synchronized void createNative()
+    throws NativeWindowException
+  {
+    if (null == aScreen) {
+      if (DEBUG) {
+        tCreated = System.nanoTime();
+        System.err.println("Screen.createNative() START (" + Display.getThreadName() + ", " + this + ")");
+      } else {
+        tCreated = 0L;
+      }
+      display.addReference();
+      
+      createNativeImpl();
+      if (null == aScreen) {
+        throw new NativeWindowException("Screen.createNative() failed to instanciate an AbstractGraphicsScreen");
+      }
+      
+      initMonitorState();
+      synchronized (screenList) {
+        screensActive += 1;
+        if (DEBUG) {
+          System.err.println("Screen.createNative() END (" + Display.getThreadName() + ", " + this + "), active " + screensActive + ", total " + (System.nanoTime() - tCreated) / 1000000.0D + "ms");
+        }
+      }
+      ScreenMonitorState.getScreenMonitorState(getFQName()).addListener(this);
+    }
+  }
+  
+  public final synchronized void destroy()
+  {
+    synchronized (screenList) {
+      if (0 < screensActive) {
+        screensActive -= 1;
+      }
+      if (DEBUG) {
+        System.err.println("Screen.destroy() (" + Display.getThreadName() + "): active " + screensActive);
+      }
+    }
+    
+
+    if (null != aScreen) {
+      releaseMonitorState();
+      closeNativeImpl();
+      aScreen = null;
+    }
+    refCount = 0;
+    display.removeReference();
+  }
+  
+  public final synchronized int addReference() throws NativeWindowException
+  {
+    if (DEBUG) {
+      System.err.println("Screen.addReference() (" + Display.getThreadName() + "): " + refCount + " -> " + (refCount + 1));
+    }
+    
+    if (0 == refCount) {
+      createNative();
+    } else if (null == aScreen) {
+      throw new NativeWindowException("Screen.addReference() (refCount " + refCount + ") null AbstractGraphicsScreen");
+    }
+    return ++refCount;
+  }
+  
+  public final synchronized int removeReference()
+  {
+    if (DEBUG) {
+      System.err.println("Screen.removeReference() (" + Display.getThreadName() + "): " + refCount + " -> " + (refCount - 1));
+    }
+    
+    refCount -= 1;
+    if (0 >= refCount) {
+      destroy();
+      refCount = 0;
+    }
+    return refCount;
+  }
+  
+  public final synchronized int getReferenceCount()
+  {
+    return refCount;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected void calcVirtualScreenOriginAndSize(Rectangle paramRectangle1, Rectangle paramRectangle2)
+  {
+    unionOfMonitorViewports(paramRectangle1, paramRectangle2);
+  }
+  
+  public final String getFQName()
+  {
+    return fqname;
+  }
+  
+
+
+  protected void updateVirtualScreenOriginAndSize()
+  {
+    if (null != usrSize) {
+      virtViewportPU.set(0, 0, usrSize.getWidth(), usrSize.getHeight());
+      virtViewportWU.set(0, 0, usrSize.getWidth(), usrSize.getHeight());
+      if (DEBUG) {
+        System.err.println("Update user virtual screen viewport @ " + Thread.currentThread().getName() + ": " + virtViewportPU);
+      }
+    } else {
+      calcVirtualScreenOriginAndSize(virtViewportPU, virtViewportWU);
+      if (DEBUG) {
+        System.err.println("Updated virtual screen viewport @ " + Thread.currentThread().getName() + ": " + virtViewportPU + " [pixel], " + virtViewportWU + " [window]");
+      }
+    }
+  }
+  
+  public final Display getDisplay()
+  {
+    return display;
+  }
+  
+  public final int getIndex()
+  {
+    return screen_idx;
+  }
+  
+  public final AbstractGraphicsScreen getGraphicsScreen()
+  {
+    return aScreen;
+  }
+  
+  public final synchronized boolean isNativeValid()
+  {
+    return null != aScreen;
+  }
+  
+
+  public final int getX() { return virtViewportPU.getX(); }
+  
+  public final int getY() { return virtViewportPU.getY(); }
+  
+  public final int getWidth() { return virtViewportPU.getWidth(); }
+  
+  public final int getHeight() { return virtViewportPU.getHeight(); }
+  
+  public final RectangleImmutable getViewport() { return virtViewportPU; }
+  
+  public final RectangleImmutable getViewportInWindowUnits() { return virtViewportWU; }
+  
+
+  public String toString()
+  {
+    return "NEWT-Screen[" + getFQName() + ", idx " + screen_idx + ", refCount " + refCount + ", vsize " + virtViewportPU + " [pixels], " + virtViewportWU + " [window], " + aScreen + ", " + display + ", monitors: " + getMonitorDevices() + "]";
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected boolean updateNativeMonitorDeviceViewportImpl(MonitorDevice paramMonitorDevice, float[] paramArrayOfFloat, Rectangle paramRectangle1, Rectangle paramRectangle2)
+  {
+    return false;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final List<MonitorMode> getMonitorModes()
+  {
+    ScreenMonitorState localScreenMonitorState = getScreenMonitorStatus(false);
+    return null != localScreenMonitorState ? localScreenMonitorState.getMonitorModes().getData() : null;
+  }
+  
+  public final List<MonitorDevice> getMonitorDevices()
+  {
+    ScreenMonitorState localScreenMonitorState = getScreenMonitorStatus(false);
+    return null != localScreenMonitorState ? localScreenMonitorState.getMonitorDevices().getData() : null;
+  }
+  
+  public MonitorDevice getPrimaryMonitor()
+  {
+    ScreenMonitorState localScreenMonitorState = getScreenMonitorStatus(false);
+    return null != localScreenMonitorState ? localScreenMonitorState.getPrimaryMonitorDevice() : null;
+  }
+  
+  final ScreenMonitorState getScreenMonitorStatus(boolean paramBoolean) {
+    String str = getFQName();
+    ScreenMonitorState localScreenMonitorState = ScreenMonitorState.getScreenMonitorState(str);
+    if ((null == localScreenMonitorState & paramBoolean)) {
+      throw new InternalError("ScreenMonitorStatus.getMonitorModeStatus(" + str + ") == null");
+    }
+    return localScreenMonitorState;
+  }
+  
+  public void monitorModeChangeNotify(MonitorEvent paramMonitorEvent)
+  {
+    if (DEBUG) {
+      System.err.println("monitorModeChangeNotify @ " + Thread.currentThread().getName() + ": " + paramMonitorEvent);
+    }
+    for (int i = 0; i < refMonitorModeListener.size(); i++) {
+      ((MonitorModeListener)refMonitorModeListener.get(i)).monitorModeChangeNotify(paramMonitorEvent);
+    }
+  }
+  
+  private void updateNativeMonitorDevicesViewport() {
+    List localList = getMonitorDevices();
+    for (int i = localList.size() - 1; i >= 0; i--) {
+      MonitorDeviceImpl localMonitorDeviceImpl = (MonitorDeviceImpl)localList.get(i);
+      float[] arrayOfFloat = localMonitorDeviceImpl.getPixelScale(new float[2]);
+      boolean bool = updateNativeMonitorDeviceViewportImpl(localMonitorDeviceImpl, arrayOfFloat, localMonitorDeviceImpl
+        .getMutuableViewportPU(), localMonitorDeviceImpl
+        .getMutuableViewportWU());
+      if (DEBUG) {
+        System.err.println("Screen.updateMonitorViewport[" + Display.toHexString(localMonitorDeviceImpl.getId()) + "] @  " + Thread.currentThread().getName() + ": updated: " + bool + ", PU " + localMonitorDeviceImpl
+          .getViewport() + ", WU " + localMonitorDeviceImpl.getViewportInWindowUnits() + ", pixelScale [" + arrayOfFloat[0] + ", " + arrayOfFloat[1] + "]");
+      }
+    }
+  }
+  
+
+  public void monitorModeChanged(MonitorEvent paramMonitorEvent, boolean paramBoolean)
+  {
+    if (paramBoolean) {
+      updateNativeMonitorDevicesViewport();
+      updateVirtualScreenOriginAndSize();
+    }
+    if (DEBUG) {
+      System.err.println("monitorModeChangeNotify @ " + Thread.currentThread().getName() + ": success " + paramBoolean + ", " + paramMonitorEvent);
+    }
+    for (int i = 0; i < refMonitorModeListener.size(); i++) {
+      ((MonitorModeListener)refMonitorModeListener.get(i)).monitorModeChanged(paramMonitorEvent, paramBoolean);
+    }
+  }
+  
+  public final synchronized void addMonitorModeListener(MonitorModeListener paramMonitorModeListener)
+  {
+    refMonitorModeListener.add(paramMonitorModeListener);
+  }
+  
+  public final synchronized void removeMonitorModeListener(MonitorModeListener paramMonitorModeListener)
+  {
+    refMonitorModeListener.remove(paramMonitorModeListener);
+  }
+  
+
+
+
+
+
+  private final MonitorMode getVirtualMonitorMode(MonitorModeProps.Cache paramCache, int paramInt)
+  {
+    int[] arrayOfInt = new int[8];
+    int i = 0;
+    arrayOfInt[(i++)] = 8;
+    arrayOfInt[(i++)] = getWidth();
+    arrayOfInt[(i++)] = getHeight();
+    arrayOfInt[(i++)] = 32;
+    arrayOfInt[(i++)] = 6000;
+    arrayOfInt[(i++)] = 0;
+    arrayOfInt[(i++)] = paramInt;
+    arrayOfInt[(i++)] = 0;
+    if (8 != i) {
+      throw new InternalError("XX");
+    }
+    return MonitorModeProps.streamInMonitorMode(null, paramCache, arrayOfInt, 0);
+  }
+  
+
+
+
+
+
+
+  private final MonitorDevice getVirtualMonitorDevice(MonitorModeProps.Cache paramCache, int paramInt, MonitorMode paramMonitorMode)
+  {
+    int[] arrayOfInt = new int[17];
+    int i = 0;
+    arrayOfInt[(i++)] = 17;
+    arrayOfInt[(i++)] = paramInt;
+    arrayOfInt[(i++)] = 0;
+    arrayOfInt[(i++)] = (0 == paramInt ? 1 : 0);
+    arrayOfInt[(i++)] = 519;
+    arrayOfInt[(i++)] = 324;
+    arrayOfInt[(i++)] = 0;
+    arrayOfInt[(i++)] = 0;
+    arrayOfInt[(i++)] = paramMonitorMode.getRotatedWidth();
+    arrayOfInt[(i++)] = paramMonitorMode.getRotatedHeight();
+    arrayOfInt[(i++)] = 0;
+    arrayOfInt[(i++)] = 0;
+    arrayOfInt[(i++)] = paramMonitorMode.getRotatedWidth();
+    arrayOfInt[(i++)] = paramMonitorMode.getRotatedHeight();
+    arrayOfInt[(i++)] = paramMonitorMode.getId();
+    arrayOfInt[(i++)] = paramMonitorMode.getRotation();
+    arrayOfInt[(i++)] = paramMonitorMode.getId();
+    if (17 != i) {
+      throw new InternalError("XX");
+    }
+    return MonitorModeProps.streamInMonitorDevice(paramCache, this, null, arrayOfInt, 0, null);
+  }
+  
+
+
+  protected final MonitorMode queryCurrentMonitorModeIntern(MonitorDevice paramMonitorDevice)
+  {
+    MonitorMode localMonitorMode;
+    
+    if (DEBUG_TEST_SCREENMODE_DISABLED) {
+      localMonitorMode = null;
+    } else {
+      localMonitorMode = queryCurrentMonitorModeImpl(paramMonitorDevice);
+    }
+    if (null == localMonitorMode) {
+      if ((0 >= getWidth()) || (0 >= getHeight())) {
+        updateVirtualScreenOriginAndSize();
+      }
+      localMonitorMode = getVirtualMonitorMode(null, paramMonitorDevice.getCurrentMode().getId());
+    }
+    return localMonitorMode;
+  }
+  
+  private final ScreenMonitorState initMonitorState() {
+    long l;
+    if (DEBUG) {
+      l = System.nanoTime();
+      System.err.println("Screen.initMonitorState() START (" + Display.getThreadName() + ", " + this + ")");
+    } else {
+      l = 0L;
+    }
+    
+    int i = 0;
+    
+    ScreenMonitorState.lockScreenMonitorState();
+    ScreenMonitorState localScreenMonitorState;
+    try { localScreenMonitorState = ScreenMonitorState.getScreenMonitorState(getFQName());
+      if (null == localScreenMonitorState) {
+        MonitorModeProps.Cache localCache = new MonitorModeProps.Cache();
+        Object localObject2; if (0 >= collectNativeMonitorModes(localCache)) {
+          updateVirtualScreenOriginAndSize();
+          i = 1;
+          localObject1 = getVirtualMonitorMode(localCache, 0);
+          monitorModes.getOrAdd(localObject1);
+          localObject2 = getVirtualMonitorDevice(localCache, 0, (MonitorMode)localObject1);
+          ((MonitorDeviceImpl)localObject2).setIsPrimary(true);
+          monitorDevices.getOrAdd(localObject2);
+          localCache.setPrimary((MonitorDevice)localObject2);
+        }
+        if (null == localCache.getPrimary())
+        {
+          localObject1 = (MonitorDevice)monitorDevices.get(0);
+          ((MonitorDeviceImpl)localObject1).setIsPrimary(true);
+          localCache.setPrimary((MonitorDevice)localObject1);
+          if (DEBUG) {
+            System.err.println("WARNING: Fallback primary: " + localObject1);
+          }
+        }
+        
+        MonitorModeUtil.sort(monitorModes.getData(), false);
+        for (Object localObject1 = monitorDevices.iterator(); ((Iterator)localObject1).hasNext();) {
+          MonitorModeUtil.sort(((MonitorDevice)((Iterator)localObject1).next()).getSupportedModes(), false);
+        }
+        if (DEBUG) {
+          int j = 0;
+          for (localObject2 = monitorModes.iterator(); ((Iterator)localObject2).hasNext(); j++) {
+            System.err.println("All[" + j + "]: " + ((Iterator)localObject2).next());
+          }
+          j = 0;
+          for (localObject2 = monitorDevices.iterator(); ((Iterator)localObject2).hasNext(); j++) {
+            MonitorDevice localMonitorDevice = (MonitorDevice)((Iterator)localObject2).next();
+            System.err.println("[" + j + "]: " + localMonitorDevice);
+            int k = 0;
+            for (Iterator localIterator = localMonitorDevice.getSupportedModes().iterator(); localIterator.hasNext(); k++) {
+              System.err.println("[" + j + "][" + k + "]: " + localIterator.next());
+            }
+          }
+          System.err.println("Primary: " + localCache.getPrimary());
+        }
+        localScreenMonitorState = new ScreenMonitorState(monitorDevices, monitorModes, localCache.getPrimary());
+        ScreenMonitorState.mapScreenMonitorState(getFQName(), localScreenMonitorState);
+      }
+    } finally {
+      ScreenMonitorState.unlockScreenMonitorState();
+    }
+    if (DEBUG) {
+      System.err.println("Screen.initMonitorState() END dt " + (System.nanoTime() - l) / 1000000.0D + "ms");
+    }
+    if (i == 0) {
+      updateVirtualScreenOriginAndSize();
+    }
+    
+    return localScreenMonitorState;
+  }
+  
+
+
+
+
+
+  private final int collectNativeMonitorModes(MonitorModeProps.Cache paramCache)
+  {
+    if (!DEBUG_TEST_SCREENMODE_DISABLED) {
+      collectNativeMonitorModesAndDevicesImpl(paramCache);
+      MonitorModeProps.identifyMonitorDevices(paramCache);
+    }
+    
+    for (int i = monitorModes.size() - 1; i >= 0; i--) {
+      MonitorMode localMonitorMode = (MonitorMode)monitorModes.get(i);
+      if (16 > localMonitorMode.getSurfaceSize().getBitsPerPixel()) {
+        boolean bool = false;
+        Object localObject; for (int j = monitorDevices.size() - 1; (!bool) && (j >= 0); j--) {
+          localObject = (MonitorDevice)monitorDevices.get(j);
+          bool = ((MonitorDevice)localObject).getCurrentMode().equals(localMonitorMode);
+        }
+        if (!bool) {
+          monitorModes.remove(i);
+          for (j = monitorDevices.size() - 1; j >= 0; j--) {
+            localObject = (MonitorDeviceImpl)monitorDevices.get(j);
+            ((MonitorDeviceImpl)localObject).getSupportedModesImpl().remove(localMonitorMode);
+          }
+        }
+      }
+    }
+    if (DEBUG) {
+      System.err.println("ScreenImpl.collectNativeMonitorModes: MonitorDevice number : " + monitorDevices.size());
+      System.err.println("ScreenImpl.collectNativeMonitorModes: MonitorMode number   : " + monitorModes.size());
+      System.err.println("ScreenImpl.collectNativeMonitorModes: SizeAndRate number   : " + sizeAndRates.size());
+      System.err.println("ScreenImpl.collectNativeMonitorModes: SurfaceSize number   : " + surfaceSizes.size());
+      System.err.println("ScreenImpl.collectNativeMonitorModes: Resolution number    : " + resolutions.size());
+    }
+    return monitorDevices.size();
+  }
+  
+  private final void releaseMonitorState()
+  {
+    
+    try {
+      ScreenMonitorState localScreenMonitorState = ScreenMonitorState.getScreenMonitorState(getFQName());
+      if (null != localScreenMonitorState) {
+        localScreenMonitorState.lock();
+        try {
+          if (0 == localScreenMonitorState.removeListener(this)) {
+            ArrayList localArrayList = localScreenMonitorState.getMonitorDevices().getData();
+            for (int i = 0; i < localArrayList.size(); i++) {
+              MonitorDevice localMonitorDevice = (MonitorDevice)localArrayList.get(i);
+              if (localMonitorDevice.isModeChangedByUs()) {
+                System.err.println("Screen.destroy(): Reset " + localMonitorDevice);
+                try {
+                  localMonitorDevice.setCurrentMode(localMonitorDevice.getOriginalMode());
+                }
+                catch (Throwable localThrowable) {}
+              }
+            }
+            
+
+            ScreenMonitorState.unmapScreenMonitorState(getFQName());
+          }
+        } finally {
+          localScreenMonitorState.unlock();
+        }
+      }
+    } finally {
+      ScreenMonitorState.unlockScreenMonitorState();
+    }
+  }
+  
+  private final void shutdown() {
+    ScreenMonitorState localScreenMonitorState = ScreenMonitorState.getScreenMonitorStateUnlocked(getFQName());
+    if (null != localScreenMonitorState) {
+      ArrayList localArrayList = localScreenMonitorState.getMonitorDevices().getData();
+      for (int i = 0; i < localArrayList.size(); i++) {
+        MonitorDevice localMonitorDevice = (MonitorDevice)localArrayList.get(i);
+        if (localMonitorDevice.isModeChangedByUs()) {
+          System.err.println("Screen.shutdown(): Reset " + localMonitorDevice);
+          try {
+            localMonitorDevice.setCurrentMode(localMonitorDevice.getOriginalMode());
+          }
+          catch (Throwable localThrowable) {}
+        }
+      }
+      
+      ScreenMonitorState.unmapScreenMonitorStateUnlocked(getFQName());
+    }
+  }
+  
+  static final void shutdownAll() {
+    int i = screenList.size();
+    if (DEBUG) {
+      System.err.println("Screen.shutdownAll " + i + " instances, on thread " + Display.getThreadName());
+    }
+    for (int j = 0; (j < i) && (screenList.size() > 0); j++) {
+      ScreenImpl localScreenImpl = (ScreenImpl)((WeakReference)screenList.remove(0)).get();
+      if (DEBUG) {
+        System.err.println("Screen.shutdownAll[" + (j + 1) + "/" + i + "]: " + localScreenImpl + ", GCed " + (null == localScreenImpl));
+      }
+      if (null != localScreenImpl) {
+        localScreenImpl.shutdown();
+      }
+    }
+  }
+  
+  public ScreenImpl() {}
+  
+  static void initSingleton() {}
+  
+  /* Error */
+  public static Screen create(Display paramDisplay, int paramInt)
+  {
+    // Byte code:
+    //   0: getstatic 19	jogamp/newt/ScreenImpl:usrSizeQueried	Z
+    //   3: ifne +96 -> 99
+    //   6: ldc 20
+    //   8: dup
+    //   9: astore_2
+    //   10: monitorenter
+    //   11: getstatic 19	jogamp/newt/ScreenImpl:usrSizeQueried	Z
+    //   14: ifne +73 -> 87
+    //   17: iconst_1
+    //   18: putstatic 19	jogamp/newt/ScreenImpl:usrSizeQueried	Z
+    //   21: ldc 21
+    //   23: iconst_1
+    //   24: iconst_0
+    //   25: invokestatic 22	com/jogamp/common/util/PropertyAccess:getIntProperty	(Ljava/lang/String;ZI)I
+    //   28: istore_3
+    //   29: ldc 23
+    //   31: iconst_1
+    //   32: iconst_0
+    //   33: invokestatic 22	com/jogamp/common/util/PropertyAccess:getIntProperty	(Ljava/lang/String;ZI)I
+    //   36: istore 4
+    //   38: iload_3
+    //   39: ifle +48 -> 87
+    //   42: iload 4
+    //   44: ifle +43 -> 87
+    //   47: new 24	com/jogamp/nativewindow/util/Dimension
+    //   50: dup
+    //   51: iload_3
+    //   52: iload 4
+    //   54: invokespecial 25	com/jogamp/nativewindow/util/Dimension:<init>	(II)V
+    //   57: putstatic 26	jogamp/newt/ScreenImpl:usrSize	Lcom/jogamp/nativewindow/util/Dimension;
+    //   60: getstatic 27	java/lang/System:err	Ljava/io/PrintStream;
+    //   63: new 12	java/lang/StringBuilder
+    //   66: dup
+    //   67: invokespecial 13	java/lang/StringBuilder:<init>	()V
+    //   70: ldc 28
+    //   72: invokevirtual 15	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   75: getstatic 26	jogamp/newt/ScreenImpl:usrSize	Lcom/jogamp/nativewindow/util/Dimension;
+    //   78: invokevirtual 29	java/lang/StringBuilder:append	(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+    //   81: invokevirtual 17	java/lang/StringBuilder:toString	()Ljava/lang/String;
+    //   84: invokevirtual 30	java/io/PrintStream:println	(Ljava/lang/String;)V
+    //   87: aload_2
+    //   88: monitorexit
+    //   89: goto +10 -> 99
+    //   92: astore 5
+    //   94: aload_2
+    //   95: monitorexit
+    //   96: aload 5
+    //   98: athrow
+    //   99: getstatic 31	jogamp/newt/ScreenImpl:screenList	Ljava/util/ArrayList;
+    //   102: dup
+    //   103: astore_2
+    //   104: monitorenter
+    //   105: aload_0
+    //   106: invokevirtual 32	com/jogamp/newt/Display:getType	()Ljava/lang/String;
+    //   109: invokestatic 33	jogamp/newt/ScreenImpl:getScreenClass	(Ljava/lang/String;)Ljava/lang/Class;
+    //   112: astore_3
+    //   113: aload_3
+    //   114: invokevirtual 34	java/lang/Class:newInstance	()Ljava/lang/Object;
+    //   117: checkcast 35	jogamp/newt/ScreenImpl
+    //   120: astore 4
+    //   122: aload 4
+    //   124: aload_0
+    //   125: checkcast 36	jogamp/newt/DisplayImpl
+    //   128: putfield 37	jogamp/newt/ScreenImpl:display	Ljogamp/newt/DisplayImpl;
+    //   131: aload 4
+    //   133: iload_1
+    //   134: invokevirtual 38	jogamp/newt/ScreenImpl:validateScreenIndex	(I)I
+    //   137: istore_1
+    //   138: aload_0
+    //   139: iload_1
+    //   140: iconst_m1
+    //   141: invokestatic 39	com/jogamp/newt/Screen:getLastScreenOf	(Lcom/jogamp/newt/Display;II)Lcom/jogamp/newt/Screen;
+    //   144: astore 5
+    //   146: aconst_null
+    //   147: aload 5
+    //   149: if_acmpeq +54 -> 203
+    //   152: getstatic 40	jogamp/newt/ScreenImpl:DEBUG	Z
+    //   155: ifeq +40 -> 195
+    //   158: getstatic 27	java/lang/System:err	Ljava/io/PrintStream;
+    //   161: new 12	java/lang/StringBuilder
+    //   164: dup
+    //   165: invokespecial 13	java/lang/StringBuilder:<init>	()V
+    //   168: ldc 41
+    //   170: invokevirtual 15	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   173: aload 5
+    //   175: invokevirtual 29	java/lang/StringBuilder:append	(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+    //   178: ldc 42
+    //   180: invokevirtual 15	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   183: invokestatic 43	com/jogamp/newt/Display:getThreadName	()Ljava/lang/String;
+    //   186: invokevirtual 15	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   189: invokevirtual 17	java/lang/StringBuilder:toString	()Ljava/lang/String;
+    //   192: invokevirtual 30	java/io/PrintStream:println	(Ljava/lang/String;)V
+    //   195: aconst_null
+    //   196: astore 4
+    //   198: aload 5
+    //   200: aload_2
+    //   201: monitorexit
+    //   202: areturn
+    //   203: aload 4
+    //   205: iload_1
+    //   206: putfield 44	jogamp/newt/ScreenImpl:screen_idx	I
+    //   209: aload 4
+    //   211: new 12	java/lang/StringBuilder
+    //   214: dup
+    //   215: invokespecial 13	java/lang/StringBuilder:<init>	()V
+    //   218: aload_0
+    //   219: invokevirtual 45	com/jogamp/newt/Display:getFQName	()Ljava/lang/String;
+    //   222: invokevirtual 15	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   225: ldc 46
+    //   227: invokevirtual 15	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   230: iload_1
+    //   231: invokevirtual 47	java/lang/StringBuilder:append	(I)Ljava/lang/StringBuilder;
+    //   234: invokevirtual 17	java/lang/StringBuilder:toString	()Ljava/lang/String;
+    //   237: putfield 48	jogamp/newt/ScreenImpl:fqname	Ljava/lang/String;
+    //   240: aload 4
+    //   242: aload 4
+    //   244: getfield 48	jogamp/newt/ScreenImpl:fqname	Ljava/lang/String;
+    //   247: invokevirtual 49	java/lang/String:hashCode	()I
+    //   250: putfield 50	jogamp/newt/ScreenImpl:hashCode	I
+    //   253: aload 4
+    //   255: invokevirtual 51	jogamp/newt/ScreenImpl:instantiationFinished	()V
+    //   258: aload 4
+    //   260: invokestatic 52	com/jogamp/newt/Screen:addScreen2List	(Lcom/jogamp/newt/Screen;)V
+    //   263: getstatic 40	jogamp/newt/ScreenImpl:DEBUG	Z
+    //   266: ifeq +40 -> 306
+    //   269: getstatic 27	java/lang/System:err	Ljava/io/PrintStream;
+    //   272: new 12	java/lang/StringBuilder
+    //   275: dup
+    //   276: invokespecial 13	java/lang/StringBuilder:<init>	()V
+    //   279: ldc 53
+    //   281: invokevirtual 15	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   284: aload 4
+    //   286: invokevirtual 29	java/lang/StringBuilder:append	(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+    //   289: ldc 42
+    //   291: invokevirtual 15	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   294: invokestatic 43	com/jogamp/newt/Display:getThreadName	()Ljava/lang/String;
+    //   297: invokevirtual 15	java/lang/StringBuilder:append	(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    //   300: invokevirtual 17	java/lang/StringBuilder:toString	()Ljava/lang/String;
+    //   303: invokevirtual 30	java/io/PrintStream:println	(Ljava/lang/String;)V
+    //   306: aload 4
+    //   308: aload_2
+    //   309: monitorexit
+    //   310: areturn
+    //   311: astore 6
+    //   313: aload_2
+    //   314: monitorexit
+    //   315: aload 6
+    //   317: athrow
+    //   318: astore_2
+    //   319: new 55	java/lang/RuntimeException
+    //   322: dup
+    //   323: aload_2
+    //   324: invokespecial 56	java/lang/RuntimeException:<init>	(Ljava/lang/Throwable;)V
+    //   327: athrow
+    // Line number table:
+    //   Java source line #104	-> byte code offset #0
+    //   Java source line #105	-> byte code offset #6
+    //   Java source line #106	-> byte code offset #11
+    //   Java source line #107	-> byte code offset #17
+    //   Java source line #108	-> byte code offset #21
+    //   Java source line #109	-> byte code offset #29
+    //   Java source line #110	-> byte code offset #38
+    //   Java source line #111	-> byte code offset #47
+    //   Java source line #112	-> byte code offset #60
+    //   Java source line #115	-> byte code offset #87
+    //   Java source line #117	-> byte code offset #99
+    //   Java source line #118	-> byte code offset #105
+    //   Java source line #119	-> byte code offset #113
+    //   Java source line #120	-> byte code offset #122
+    //   Java source line #121	-> byte code offset #131
+    //   Java source line #123	-> byte code offset #138
+    //   Java source line #124	-> byte code offset #146
+    //   Java source line #125	-> byte code offset #152
+    //   Java source line #126	-> byte code offset #158
+    //   Java source line #128	-> byte code offset #195
+    //   Java source line #129	-> byte code offset #198
+    //   Java source line #132	-> byte code offset #203
+    //   Java source line #133	-> byte code offset #209
+    //   Java source line #134	-> byte code offset #240
+    //   Java source line #135	-> byte code offset #253
+    //   Java source line #136	-> byte code offset #258
+    //   Java source line #137	-> byte code offset #263
+    //   Java source line #138	-> byte code offset #269
+    //   Java source line #140	-> byte code offset #306
+    //   Java source line #141	-> byte code offset #311
+    //   Java source line #142	-> byte code offset #318
+    //   Java source line #143	-> byte code offset #319
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	328	0	paramDisplay	Display
+    //   0	328	1	paramInt	int
+    //   318	6	2	localException	Exception
+    //   28	24	3	i	int
+    //   112	2	3	localClass	Class
+    //   36	17	4	j	int
+    //   120	187	4	localScreenImpl	ScreenImpl
+    //   92	5	5	localObject1	Object
+    //   144	55	5	localScreen	Screen
+    //   311	5	6	localObject2	Object
+    // Exception table:
+    //   from	to	target	type
+    //   11	89	92	finally
+    //   92	96	92	finally
+    //   105	202	311	finally
+    //   203	310	311	finally
+    //   311	315	311	finally
+    //   0	202	318	java/lang/Exception
+    //   203	310	318	java/lang/Exception
+    //   311	318	318	java/lang/Exception
+  }
+  
+  protected void instantiationFinished() {}
+  
+  protected abstract void createNativeImpl();
+  
+  protected abstract void closeNativeImpl();
+  
+  protected abstract int validateScreenIndex(int paramInt);
+  
+  protected abstract void collectNativeMonitorModesAndDevicesImpl(MonitorModeProps.Cache paramCache);
+  
+  protected abstract MonitorMode queryCurrentMonitorModeImpl(MonitorDevice paramMonitorDevice);
+  
+  protected abstract boolean setCurrentMonitorModeImpl(MonitorDevice paramMonitorDevice, MonitorMode paramMonitorMode);
+}

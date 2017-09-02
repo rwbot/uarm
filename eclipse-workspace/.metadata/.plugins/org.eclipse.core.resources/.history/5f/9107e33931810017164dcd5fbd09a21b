@@ -1,0 +1,339 @@
+package com.jogamp.nativewindow.awt;
+
+import com.jogamp.common.nio.Buffers;
+import java.awt.Point;
+import java.awt.color.ColorSpace;
+import java.awt.image.BufferedImage;
+import java.awt.image.ColorModel;
+import java.awt.image.DataBuffer;
+import java.awt.image.DirectColorModel;
+import java.awt.image.SampleModel;
+import java.awt.image.SinglePixelPackedSampleModel;
+import java.awt.image.WritableRaster;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import java.util.Hashtable;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public final class DirectDataBufferInt
+  extends DataBuffer
+{
+  private final ByteBuffer dataBytes;
+  private final IntBuffer dataInts;
+  private final ByteBuffer[] bankdataBytes;
+  private final IntBuffer[] bankdataInts;
+  
+  public static class DirectWritableRaster
+    extends WritableRaster
+  {
+    protected DirectWritableRaster(SampleModel paramSampleModel, DirectDataBufferInt paramDirectDataBufferInt, Point paramPoint)
+    {
+      super(paramDirectDataBufferInt, paramPoint);
+    }
+  }
+  
+  public static class BufferedImageInt extends BufferedImage {
+    final int customImageType;
+    final DirectDataBufferInt dataBuffer;
+    
+    public BufferedImageInt(int paramInt, ColorModel paramColorModel, DirectDataBufferInt paramDirectDataBufferInt, WritableRaster paramWritableRaster, Hashtable<?, ?> paramHashtable) {
+      super(paramWritableRaster, false, paramHashtable);
+      customImageType = paramInt;
+      dataBuffer = paramDirectDataBufferInt;
+    }
+    
+
+
+
+
+    public int getCustomType()
+    {
+      return customImageType;
+    }
+    
+
+    public DirectDataBufferInt getDataBuffer()
+    {
+      return dataBuffer;
+    }
+    
+
+    public String toString()
+    {
+      return "BufferedImageInt@" + Integer.toHexString(hashCode()) + ": custom/internal type = " + customImageType + "/" + getType() + " " + getColorModel() + " " + getRaster();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static BufferedImageInt createBufferedImage(int paramInt1, int paramInt2, int paramInt3, Point paramPoint, Hashtable<?, ?> paramHashtable)
+  {
+    ColorSpace localColorSpace = ColorSpace.getInstance(1000);
+    int i;
+    int j;
+    int k;
+    int m; int n; boolean bool; switch (paramInt3) {
+    case 2: 
+      i = 32;
+      j = 16711680;
+      k = 65280;
+      m = 255;
+      n = -16777216;
+      bool = false;
+      break;
+    case 3: 
+      i = 32;
+      j = 16711680;
+      k = 65280;
+      m = 255;
+      n = -16777216;
+      bool = true;
+      break;
+    case 1: 
+      i = 24;
+      j = 16711680;
+      k = 65280;
+      m = 255;
+      n = 0;
+      bool = false;
+      break;
+    case 4: 
+      i = 24;
+      j = 255;
+      k = 65280;
+      m = 16711680;
+      n = 0;
+      bool = false;
+      break;
+    default: 
+      throw new IllegalArgumentException("Unsupported imageType, must be [INT_ARGB, INT_ARGB_PRE, INT_RGB, INT_BGR], has " + paramInt3);
+    }
+    DirectColorModel localDirectColorModel = new DirectColorModel(localColorSpace, i, j, k, m, n, bool, 3);
+    int[] arrayOfInt;
+    if (0 != n) {
+      arrayOfInt = new int[4];
+      arrayOfInt[3] = n;
+    }
+    else {
+      arrayOfInt = new int[3];
+    }
+    arrayOfInt[0] = j;
+    arrayOfInt[1] = k;
+    arrayOfInt[2] = m;
+    
+    DirectDataBufferInt localDirectDataBufferInt = new DirectDataBufferInt(paramInt1 * paramInt2);
+    if (null == paramPoint) {
+      paramPoint = new Point(0, 0);
+    }
+    SinglePixelPackedSampleModel localSinglePixelPackedSampleModel = new SinglePixelPackedSampleModel(localDirectDataBufferInt.getDataType(), paramInt1, paramInt2, paramInt1, arrayOfInt);
+    
+
+
+
+
+    DirectWritableRaster localDirectWritableRaster = new DirectWritableRaster(localSinglePixelPackedSampleModel, localDirectDataBufferInt, paramPoint);
+    
+    return new BufferedImageInt(paramInt3, localDirectColorModel, localDirectDataBufferInt, localDirectWritableRaster, paramHashtable);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public DirectDataBufferInt(int paramInt)
+  {
+    super(3, paramInt);
+    dataBytes = Buffers.newDirectByteBuffer(paramInt * 4);
+    dataInts = dataBytes.asIntBuffer();
+    bankdataBytes = new ByteBuffer[1];
+    bankdataInts = new IntBuffer[1];
+    bankdataBytes[0] = dataBytes;
+    bankdataInts[0] = dataInts;
+  }
+  
+
+
+
+
+
+
+  public DirectDataBufferInt(int paramInt1, int paramInt2)
+  {
+    super(3, paramInt1, paramInt2);
+    bankdataBytes = new ByteBuffer[paramInt2];
+    bankdataInts = new IntBuffer[paramInt2];
+    for (int i = 0; i < paramInt2; i++) {
+      bankdataBytes[i] = Buffers.newDirectByteBuffer(paramInt1 * 4);
+      bankdataInts[i] = bankdataBytes[i].asIntBuffer();
+    }
+    dataBytes = bankdataBytes[0];
+    dataInts = bankdataInts[0];
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public DirectDataBufferInt(ByteBuffer paramByteBuffer, int paramInt)
+  {
+    super(3, paramInt);
+    dataBytes = Buffers.nativeOrder(paramByteBuffer);
+    dataInts = dataBytes.asIntBuffer();
+    bankdataBytes = new ByteBuffer[1];
+    bankdataInts = new IntBuffer[1];
+    bankdataBytes[0] = dataBytes;
+    bankdataInts[0] = dataInts;
+  }
+  
+
+
+
+
+
+  public IntBuffer getData()
+  {
+    return dataInts;
+  }
+  
+
+
+
+
+  public ByteBuffer getDataBytes()
+  {
+    return dataBytes;
+  }
+  
+
+
+
+
+
+
+  public IntBuffer getData(int paramInt)
+  {
+    return bankdataInts[paramInt];
+  }
+  
+
+
+
+
+
+  public ByteBuffer getDataBytes(int paramInt)
+  {
+    return bankdataBytes[paramInt];
+  }
+  
+
+
+
+
+
+
+
+
+  public int getElem(int paramInt)
+  {
+    return dataInts.get(paramInt + offset);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public int getElem(int paramInt1, int paramInt2)
+  {
+    return bankdataInts[paramInt1].get(paramInt2 + offsets[paramInt1]);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public void setElem(int paramInt1, int paramInt2)
+  {
+    dataInts.put(paramInt1 + offset, paramInt2);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public void setElem(int paramInt1, int paramInt2, int paramInt3)
+  {
+    bankdataInts[paramInt1].put(paramInt2 + offsets[paramInt1], paramInt3);
+  }
+}

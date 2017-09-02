@@ -1,0 +1,179 @@
+package com.leapmotion.leap;
+
+
+
+
+public class Controller
+  extends Interface
+{
+  private long swigCPtr;
+  
+
+
+  public Controller(long paramLong, boolean paramBoolean)
+  {
+    super(LeapJNI.Controller_SWIGUpcast(paramLong), paramBoolean);
+    swigCPtr = paramLong;
+  }
+  
+  public static long getCPtr(Controller paramController) {
+    return paramController == null ? 0L : swigCPtr;
+  }
+  
+  protected void finalize() {
+    delete();
+  }
+  
+  public synchronized void delete() {
+    if (swigCPtr != 0L) {
+      if (swigCMemOwn) {
+        swigCMemOwn = false;
+        LeapJNI.delete_Controller(swigCPtr);
+      }
+      swigCPtr = 0L;
+    }
+    super.delete();
+  }
+  
+  public Controller() {
+    this(LeapJNI.new_Controller__SWIG_0(), true);
+  }
+  
+  public Controller(Listener paramListener) {
+    this(LeapJNI.new_Controller__SWIG_1(Listener.getCPtr(paramListener), paramListener), true);
+  }
+  
+  public boolean isConnected() {
+    return LeapJNI.Controller_isConnected(swigCPtr, this);
+  }
+  
+  public boolean isServiceConnected() {
+    return LeapJNI.Controller_isServiceConnected(swigCPtr, this);
+  }
+  
+  public boolean hasFocus() {
+    return LeapJNI.Controller_hasFocus(swigCPtr, this);
+  }
+  
+  public PolicyFlag policyFlags() {
+    return PolicyFlag.swigToEnum(LeapJNI.Controller_policyFlags(swigCPtr, this));
+  }
+  
+  public void setPolicyFlags(PolicyFlag paramPolicyFlag) {
+    LeapJNI.Controller_setPolicyFlags(swigCPtr, this, paramPolicyFlag.swigValue());
+  }
+  
+  public void setPolicy(PolicyFlag paramPolicyFlag) {
+    LeapJNI.Controller_setPolicy(swigCPtr, this, paramPolicyFlag.swigValue());
+  }
+  
+  public void clearPolicy(PolicyFlag paramPolicyFlag) {
+    LeapJNI.Controller_clearPolicy(swigCPtr, this, paramPolicyFlag.swigValue());
+  }
+  
+  public boolean isPolicySet(PolicyFlag paramPolicyFlag) {
+    return LeapJNI.Controller_isPolicySet(swigCPtr, this, paramPolicyFlag.swigValue());
+  }
+  
+  public boolean addListener(Listener paramListener) {
+    return LeapJNI.Controller_addListener(swigCPtr, this, Listener.getCPtr(paramListener), paramListener);
+  }
+  
+  public boolean removeListener(Listener paramListener) {
+    return LeapJNI.Controller_removeListener(swigCPtr, this, Listener.getCPtr(paramListener), paramListener);
+  }
+  
+  public Frame frame(int paramInt) {
+    return new Frame(LeapJNI.Controller_frame__SWIG_0(swigCPtr, this, paramInt), true);
+  }
+  
+  public Frame frame() {
+    return new Frame(LeapJNI.Controller_frame__SWIG_1(swigCPtr, this), true);
+  }
+  
+  public ImageList images() {
+    return new ImageList(LeapJNI.Controller_images(swigCPtr, this), true);
+  }
+  
+  public Config config() {
+    return new Config(LeapJNI.Controller_config(swigCPtr, this), true);
+  }
+  
+  public DeviceList devices() {
+    return new DeviceList(LeapJNI.Controller_devices(swigCPtr, this), true);
+  }
+  
+  public ScreenList locatedScreens() {
+    return new ScreenList(LeapJNI.Controller_locatedScreens(swigCPtr, this), true);
+  }
+  
+  public BugReport bugReport() {
+    return new BugReport(LeapJNI.Controller_bugReport(swigCPtr, this), true);
+  }
+  
+  public void enableGesture(Gesture.Type paramType, boolean paramBoolean) {
+    LeapJNI.Controller_enableGesture__SWIG_0(swigCPtr, this, paramType.swigValue(), paramBoolean);
+  }
+  
+  public void enableGesture(Gesture.Type paramType) {
+    LeapJNI.Controller_enableGesture__SWIG_1(swigCPtr, this, paramType.swigValue());
+  }
+  
+  public boolean isGestureEnabled(Gesture.Type paramType) {
+    return LeapJNI.Controller_isGestureEnabled(swigCPtr, this, paramType.swigValue());
+  }
+  
+  public TrackedQuad trackedQuad() {
+    return new TrackedQuad(LeapJNI.Controller_trackedQuad(swigCPtr, this), true);
+  }
+  
+  public long now() {
+    return LeapJNI.Controller_now(swigCPtr, this);
+  }
+  
+  public static enum PolicyFlag {
+    POLICY_DEFAULT(0), 
+    POLICY_BACKGROUND_FRAMES(1), 
+    POLICY_IMAGES(2), 
+    POLICY_OPTIMIZE_HMD(4);
+    
+    public final int swigValue() {
+      return swigValue;
+    }
+    
+    public static PolicyFlag swigToEnum(int paramInt) {
+      PolicyFlag[] arrayOfPolicyFlag1 = (PolicyFlag[])PolicyFlag.class.getEnumConstants();
+      if ((paramInt < arrayOfPolicyFlag1.length) && (paramInt >= 0) && (swigValue == paramInt))
+        return arrayOfPolicyFlag1[paramInt];
+      for (PolicyFlag localPolicyFlag : arrayOfPolicyFlag1)
+        if (swigValue == paramInt)
+          return localPolicyFlag;
+      throw new IllegalArgumentException("No enum " + PolicyFlag.class + " with value " + paramInt);
+    }
+    
+    private PolicyFlag()
+    {
+      swigValue = SwigNext.access$008();
+    }
+    
+    private PolicyFlag(int paramInt)
+    {
+      swigValue = paramInt;
+      SwigNext.access$002(paramInt + 1);
+    }
+    
+    private PolicyFlag(PolicyFlag paramPolicyFlag)
+    {
+      swigValue = swigValue;
+      SwigNext.access$002(swigValue + 1);
+    }
+    
+    private final int swigValue;
+    private static class SwigNext
+    {
+      private static int next = 0;
+      
+      private SwigNext() {}
+    }
+  }
+}

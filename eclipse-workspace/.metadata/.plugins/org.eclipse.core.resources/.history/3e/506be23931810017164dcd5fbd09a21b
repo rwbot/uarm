@@ -1,0 +1,197 @@
+package com.jogamp.nativewindow.awt;
+
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.Capabilities;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.DefaultGraphicsConfiguration;
+import com.jogamp.nativewindow.GraphicsConfigurationFactory;
+import com.jogamp.nativewindow.NativeWindowException;
+import java.awt.Component;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.awt.image.ColorModel;
+import java.io.PrintStream;
+import jogamp.nativewindow.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AWTGraphicsConfiguration
+  extends DefaultGraphicsConfiguration
+  implements Cloneable
+{
+  private final GraphicsConfiguration config;
+  AbstractGraphicsConfiguration encapsulated;
+  
+  public AWTGraphicsConfiguration(AWTGraphicsScreen paramAWTGraphicsScreen, CapabilitiesImmutable paramCapabilitiesImmutable1, CapabilitiesImmutable paramCapabilitiesImmutable2, GraphicsConfiguration paramGraphicsConfiguration, AbstractGraphicsConfiguration paramAbstractGraphicsConfiguration)
+  {
+    super(paramAWTGraphicsScreen, paramCapabilitiesImmutable1, paramCapabilitiesImmutable2);
+    config = paramGraphicsConfiguration;
+    encapsulated = paramAbstractGraphicsConfiguration;
+  }
+  
+  private AWTGraphicsConfiguration(AWTGraphicsScreen paramAWTGraphicsScreen, CapabilitiesImmutable paramCapabilitiesImmutable1, CapabilitiesImmutable paramCapabilitiesImmutable2, GraphicsConfiguration paramGraphicsConfiguration)
+  {
+    super(paramAWTGraphicsScreen, paramCapabilitiesImmutable1, paramCapabilitiesImmutable2);
+    config = paramGraphicsConfiguration;
+    encapsulated = null;
+  }
+  
+
+
+
+
+
+
+  /**
+   * @deprecated
+   */
+  public static AWTGraphicsConfiguration create(Component paramComponent, CapabilitiesImmutable paramCapabilitiesImmutable1, CapabilitiesImmutable paramCapabilitiesImmutable2)
+  {
+    if (null == paramComponent) {
+      throw new IllegalArgumentException("Null AWT Component");
+    }
+    GraphicsConfiguration localGraphicsConfiguration = paramComponent.getGraphicsConfiguration();
+    if (null == localGraphicsConfiguration) {
+      throw new NativeWindowException("Null AWT GraphicsConfiguration @ " + paramComponent);
+    }
+    return create(localGraphicsConfiguration, paramCapabilitiesImmutable1, paramCapabilitiesImmutable2);
+  }
+  
+
+
+
+
+
+
+
+
+  public static AWTGraphicsConfiguration create(GraphicsConfiguration paramGraphicsConfiguration, CapabilitiesImmutable paramCapabilitiesImmutable1, CapabilitiesImmutable paramCapabilitiesImmutable2)
+  {
+    if (null == paramGraphicsConfiguration) {
+      throw new IllegalArgumentException("Null AWT GraphicsConfiguration");
+    }
+    GraphicsDevice localGraphicsDevice = paramGraphicsConfiguration.getDevice();
+    if (null == localGraphicsDevice) {
+      throw new NativeWindowException("Null AWT GraphicsDevice @ " + paramGraphicsConfiguration);
+    }
+    
+
+    AWTGraphicsDevice localAWTGraphicsDevice = new AWTGraphicsDevice(localGraphicsDevice, 0);
+    AWTGraphicsScreen localAWTGraphicsScreen = new AWTGraphicsScreen(localAWTGraphicsDevice);
+    
+    if (null == paramCapabilitiesImmutable2) {
+      paramCapabilitiesImmutable2 = new Capabilities();
+    }
+    if (null == paramCapabilitiesImmutable1) {
+      paramCapabilitiesImmutable1 = setupCapabilitiesRGBABits(paramCapabilitiesImmutable2, paramGraphicsConfiguration);
+    }
+    GraphicsConfigurationFactory localGraphicsConfigurationFactory = GraphicsConfigurationFactory.getFactory(localAWTGraphicsDevice, paramCapabilitiesImmutable1);
+    AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = localGraphicsConfigurationFactory.chooseGraphicsConfiguration(paramCapabilitiesImmutable1, paramCapabilitiesImmutable2, null, localAWTGraphicsScreen, 0);
+    if ((localAbstractGraphicsConfiguration instanceof AWTGraphicsConfiguration)) {
+      return (AWTGraphicsConfiguration)localAbstractGraphicsConfiguration;
+    }
+    
+    return new AWTGraphicsConfiguration(localAWTGraphicsScreen, paramCapabilitiesImmutable1, paramCapabilitiesImmutable2, paramGraphicsConfiguration);
+  }
+  
+
+  public void setChosenCapabilities(CapabilitiesImmutable paramCapabilitiesImmutable)
+  {
+    super.setChosenCapabilities(paramCapabilitiesImmutable);
+  }
+  
+  public Object clone()
+  {
+    return super.clone();
+  }
+  
+  public GraphicsConfiguration getAWTGraphicsConfiguration()
+  {
+    return config;
+  }
+  
+  public AbstractGraphicsConfiguration getNativeGraphicsConfiguration()
+  {
+    return null != encapsulated ? encapsulated : this;
+  }
+  
+
+
+
+
+
+
+  public static CapabilitiesImmutable setupCapabilitiesRGBABits(CapabilitiesImmutable paramCapabilitiesImmutable, GraphicsConfiguration paramGraphicsConfiguration)
+  {
+    Capabilities localCapabilities = (Capabilities)paramCapabilitiesImmutable.cloneMutable();
+    
+    ColorModel localColorModel = paramGraphicsConfiguration.getColorModel();
+    if (null == localColorModel) {
+      throw new NativeWindowException("Could not determine AWT ColorModel");
+    }
+    int i = localColorModel.getPixelSize();
+    int j = 0;
+    int[] arrayOfInt = localColorModel.getComponentSize();
+    if (arrayOfInt.length >= 3) {
+      localCapabilities.setRedBits(arrayOfInt[0]);
+      j += arrayOfInt[0];
+      localCapabilities.setGreenBits(arrayOfInt[1]);
+      j += arrayOfInt[1];
+      localCapabilities.setBlueBits(arrayOfInt[2]);
+      j += arrayOfInt[2];
+    }
+    if (arrayOfInt.length >= 4) {
+      localCapabilities.setAlphaBits(arrayOfInt[3]);
+      j += arrayOfInt[3];
+    } else {
+      localCapabilities.setAlphaBits(0);
+    }
+    if ((Debug.debugAll()) && 
+      (i != j)) {
+      System.err.println("AWT Colormodel bits per components/pixel mismatch: " + j + " != " + i);
+    }
+    
+    return localCapabilities;
+  }
+  
+  public String toString()
+  {
+    return getClass().getSimpleName() + "[" + getScreen() + ",\n\tchosen    " + capabilitiesChosen + ",\n\trequested " + capabilitiesRequested + ",\n\t" + config + ",\n\tencapsulated " + encapsulated + "]";
+  }
+}

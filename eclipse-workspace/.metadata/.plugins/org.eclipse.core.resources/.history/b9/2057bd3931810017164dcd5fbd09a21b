@@ -1,0 +1,57 @@
+package g4p_controls;
+
+import processing.core.PApplet;
+import processing.core.PGraphics;
+
+public class GSketchPad
+  extends GAbstractControl
+{
+  protected boolean scaleGraphic = false;
+  protected PGraphics pad = null;
+  
+  public GSketchPad(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    super(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+    cursorOver = G4P.mouseOff;
+    registeredMethods = 1;
+    G4P.registerControl(this);
+  }
+  
+  public void setGraphic(PGraphics paramPGraphics)
+  {
+    if (paramPGraphics == null) {
+      return;
+    }
+    pad = paramPGraphics;
+    scaleGraphic = (((int)width != width) || ((int)height != height));
+  }
+  
+  public void draw()
+  {
+    if (!visible) {
+      return;
+    }
+    winApp.pushStyle();
+    winApp.pushMatrix();
+    winApp.translate(cx, cy);
+    winApp.rotate(rotAngle);
+    winApp.translate(-halfWidth, -halfHeight);
+    winApp.imageMode(0);
+    if (alphaLevel < 255) {
+      winApp.tint(255, alphaLevel);
+    }
+    if (pad != null) {
+      try
+      {
+        if (scaleGraphic) {
+          winApp.image(pad, 0.0F, 0.0F, width, height);
+        } else {
+          winApp.image(pad, 0.0F, 0.0F);
+        }
+      }
+      catch (Exception localException) {}
+    }
+    winApp.popMatrix();
+    winApp.popStyle();
+  }
+}

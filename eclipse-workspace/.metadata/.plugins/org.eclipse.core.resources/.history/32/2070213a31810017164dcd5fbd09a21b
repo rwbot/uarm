@@ -1,0 +1,625 @@
+package jogamp.opengl;
+
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.fixedfunc.GLMatrixFunc;
+import com.jogamp.opengl.math.FloatUtil;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ProjectFloat
+{
+  public static final int getRequiredFloatBufferSize()
+  {
+    return 16;
+  }
+  
+
+
+
+
+
+
+
+  private final float[] mat4Tmp1 = new float[16];
+  private final float[] mat4Tmp2 = new float[16];
+  private final float[] mat4Tmp3 = new float[16];
+  
+
+
+
+
+  public ProjectFloat() {}
+  
+
+
+
+
+  public void gluOrtho2D(GLMatrixFunc paramGLMatrixFunc, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    paramGLMatrixFunc.glOrthof(paramFloat1, paramFloat2, paramFloat3, paramFloat4, -1.0F, 1.0F);
+  }
+  
+
+
+
+
+
+
+
+
+  public void gluPerspective(GLMatrixFunc paramGLMatrixFunc, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+    throws GLException
+  {
+    paramGLMatrixFunc.glMultMatrixf(FloatUtil.makePerspective(mat4Tmp1, 0, true, paramFloat1 * 3.1415927F / 180.0F, paramFloat2, paramFloat3, paramFloat4), 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void gluLookAt(GLMatrixFunc paramGLMatrixFunc, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6, float paramFloat7, float paramFloat8, float paramFloat9)
+  {
+    mat4Tmp2[0] = paramFloat1;
+    mat4Tmp2[1] = paramFloat2;
+    mat4Tmp2[2] = paramFloat3;
+    mat4Tmp2[4] = paramFloat4;
+    mat4Tmp2[5] = paramFloat5;
+    mat4Tmp2[6] = paramFloat6;
+    mat4Tmp2[8] = paramFloat7;
+    mat4Tmp2[9] = paramFloat8;
+    mat4Tmp2[10] = paramFloat9;
+    paramGLMatrixFunc.glMultMatrixf(
+      FloatUtil.makeLookAt(mat4Tmp1, 0, mat4Tmp2, 0, mat4Tmp2, 4, mat4Tmp2, 8, mat4Tmp3), 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean gluProject(float paramFloat1, float paramFloat2, float paramFloat3, float[] paramArrayOfFloat1, int paramInt1, float[] paramArrayOfFloat2, int paramInt2, int[] paramArrayOfInt, int paramInt3, float[] paramArrayOfFloat3, int paramInt4)
+  {
+    return FloatUtil.mapObjToWinCoords(paramFloat1, paramFloat2, paramFloat3, paramArrayOfFloat1, paramInt1, paramArrayOfFloat2, paramInt2, paramArrayOfInt, paramInt3, paramArrayOfFloat3, paramInt4, mat4Tmp1, mat4Tmp2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean gluProject(float paramFloat1, float paramFloat2, float paramFloat3, FloatBuffer paramFloatBuffer1, FloatBuffer paramFloatBuffer2, int[] paramArrayOfInt, int paramInt1, float[] paramArrayOfFloat, int paramInt2)
+  {
+    float[] arrayOfFloat1 = mat4Tmp1;
+    float[] arrayOfFloat2 = mat4Tmp2;
+    
+    arrayOfFloat1[0] = paramFloat1;
+    arrayOfFloat1[1] = paramFloat2;
+    arrayOfFloat1[2] = paramFloat3;
+    arrayOfFloat1[3] = 1.0F;
+    
+    FloatUtil.multMatrixVec(paramFloatBuffer1, arrayOfFloat1, arrayOfFloat2);
+    FloatUtil.multMatrixVec(paramFloatBuffer2, arrayOfFloat2, arrayOfFloat1);
+    
+    if (arrayOfFloat1[3] == 0.0F) {
+      return false;
+    }
+    
+    arrayOfFloat1[3] = (1.0F / arrayOfFloat1[3] * 0.5F);
+    
+
+    arrayOfFloat1[0] = (arrayOfFloat1[0] * arrayOfFloat1[3] + 0.5F);
+    arrayOfFloat1[1] = (arrayOfFloat1[1] * arrayOfFloat1[3] + 0.5F);
+    arrayOfFloat1[2] = (arrayOfFloat1[2] * arrayOfFloat1[3] + 0.5F);
+    
+
+    paramArrayOfFloat[(0 + paramInt2)] = (arrayOfFloat1[0] * paramArrayOfInt[(2 + paramInt1)] + paramArrayOfInt[(0 + paramInt1)]);
+    paramArrayOfFloat[(1 + paramInt2)] = (arrayOfFloat1[1] * paramArrayOfInt[(3 + paramInt1)] + paramArrayOfInt[(1 + paramInt1)]);
+    paramArrayOfFloat[(2 + paramInt2)] = arrayOfFloat1[2];
+    
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean gluProject(float paramFloat1, float paramFloat2, float paramFloat3, FloatBuffer paramFloatBuffer1, FloatBuffer paramFloatBuffer2, IntBuffer paramIntBuffer, FloatBuffer paramFloatBuffer3)
+  {
+    float[] arrayOfFloat1 = mat4Tmp1;
+    float[] arrayOfFloat2 = mat4Tmp2;
+    
+    arrayOfFloat1[0] = paramFloat1;
+    arrayOfFloat1[1] = paramFloat2;
+    arrayOfFloat1[2] = paramFloat3;
+    arrayOfFloat1[3] = 1.0F;
+    
+    FloatUtil.multMatrixVec(paramFloatBuffer1, arrayOfFloat1, arrayOfFloat2);
+    FloatUtil.multMatrixVec(paramFloatBuffer2, arrayOfFloat2, arrayOfFloat1);
+    
+    if (arrayOfFloat1[3] == 0.0F) {
+      return false;
+    }
+    
+    arrayOfFloat1[3] = (1.0F / arrayOfFloat1[3] * 0.5F);
+    
+
+    arrayOfFloat1[0] = (arrayOfFloat1[0] * arrayOfFloat1[3] + 0.5F);
+    arrayOfFloat1[1] = (arrayOfFloat1[1] * arrayOfFloat1[3] + 0.5F);
+    arrayOfFloat1[2] = (arrayOfFloat1[2] * arrayOfFloat1[3] + 0.5F);
+    
+
+    int i = paramIntBuffer.position();
+    int j = paramFloatBuffer3.position();
+    paramFloatBuffer3.put(0 + j, arrayOfFloat1[0] * paramIntBuffer.get(2 + i) + paramIntBuffer.get(0 + i));
+    paramFloatBuffer3.put(1 + j, arrayOfFloat1[1] * paramIntBuffer.get(3 + i) + paramIntBuffer.get(1 + i));
+    paramFloatBuffer3.put(2 + j, arrayOfFloat1[2]);
+    
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean gluUnProject(float paramFloat1, float paramFloat2, float paramFloat3, float[] paramArrayOfFloat1, int paramInt1, float[] paramArrayOfFloat2, int paramInt2, int[] paramArrayOfInt, int paramInt3, float[] paramArrayOfFloat3, int paramInt4)
+  {
+    return FloatUtil.mapWinToObjCoords(paramFloat1, paramFloat2, paramFloat3, paramArrayOfFloat1, paramInt1, paramArrayOfFloat2, paramInt2, paramArrayOfInt, paramInt3, paramArrayOfFloat3, paramInt4, mat4Tmp1, mat4Tmp2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean gluUnProject(float paramFloat1, float paramFloat2, float paramFloat3, FloatBuffer paramFloatBuffer1, FloatBuffer paramFloatBuffer2, int[] paramArrayOfInt, int paramInt1, float[] paramArrayOfFloat, int paramInt2)
+  {
+    FloatUtil.multMatrix(paramFloatBuffer2, paramFloatBuffer1, mat4Tmp1);
+    
+
+    if (null == FloatUtil.invertMatrix(mat4Tmp1, mat4Tmp1)) {
+      return false;
+    }
+    
+    mat4Tmp2[0] = paramFloat1;
+    mat4Tmp2[1] = paramFloat2;
+    mat4Tmp2[2] = paramFloat3;
+    mat4Tmp2[3] = 1.0F;
+    
+
+    mat4Tmp2[0] = ((mat4Tmp2[0] - paramArrayOfInt[(0 + paramInt1)]) / paramArrayOfInt[(2 + paramInt1)]);
+    mat4Tmp2[1] = ((mat4Tmp2[1] - paramArrayOfInt[(1 + paramInt1)]) / paramArrayOfInt[(3 + paramInt1)]);
+    
+
+    mat4Tmp2[0] = (mat4Tmp2[0] * 2.0F - 1.0F);
+    mat4Tmp2[1] = (mat4Tmp2[1] * 2.0F - 1.0F);
+    mat4Tmp2[2] = (mat4Tmp2[2] * 2.0F - 1.0F);
+    
+
+
+    FloatUtil.multMatrixVec(mat4Tmp1, 0, mat4Tmp2, 0, mat4Tmp2, 4);
+    
+    if (mat4Tmp2[7] == 0.0D) {
+      return false;
+    }
+    
+    mat4Tmp2[7] = (1.0F / mat4Tmp2[7]);
+    
+    paramArrayOfFloat[(0 + paramInt2)] = (mat4Tmp2[4] * mat4Tmp2[7]);
+    paramArrayOfFloat[(1 + paramInt2)] = (mat4Tmp2[5] * mat4Tmp2[7]);
+    paramArrayOfFloat[(2 + paramInt2)] = (mat4Tmp2[6] * mat4Tmp2[7]);
+    
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean gluUnProject(float paramFloat1, float paramFloat2, float paramFloat3, FloatBuffer paramFloatBuffer1, FloatBuffer paramFloatBuffer2, IntBuffer paramIntBuffer, FloatBuffer paramFloatBuffer3)
+  {
+    int i = paramIntBuffer.position();
+    int j = paramFloatBuffer3.position();
+    
+
+    FloatUtil.multMatrix(paramFloatBuffer2, paramFloatBuffer1, mat4Tmp1);
+    
+
+    if (null == FloatUtil.invertMatrix(mat4Tmp1, mat4Tmp1)) {
+      return false;
+    }
+    
+    mat4Tmp2[0] = paramFloat1;
+    mat4Tmp2[1] = paramFloat2;
+    mat4Tmp2[2] = paramFloat3;
+    mat4Tmp2[3] = 1.0F;
+    
+
+    mat4Tmp2[0] = ((mat4Tmp2[0] - paramIntBuffer.get(0 + i)) / paramIntBuffer.get(2 + i));
+    mat4Tmp2[1] = ((mat4Tmp2[1] - paramIntBuffer.get(1 + i)) / paramIntBuffer.get(3 + i));
+    
+
+    mat4Tmp2[0] = (mat4Tmp2[0] * 2.0F - 1.0F);
+    mat4Tmp2[1] = (mat4Tmp2[1] * 2.0F - 1.0F);
+    mat4Tmp2[2] = (mat4Tmp2[2] * 2.0F - 1.0F);
+    
+
+
+    FloatUtil.multMatrixVec(mat4Tmp1, 0, mat4Tmp2, 0, mat4Tmp2, 4);
+    
+    if (mat4Tmp2[7] == 0.0D) {
+      return false;
+    }
+    
+    mat4Tmp2[7] = (1.0F / mat4Tmp2[7]);
+    
+    paramFloatBuffer3.put(0 + j, mat4Tmp2[4] * mat4Tmp2[7]);
+    paramFloatBuffer3.put(1 + j, mat4Tmp2[5] * mat4Tmp2[7]);
+    paramFloatBuffer3.put(2 + j, mat4Tmp2[6] * mat4Tmp2[7]);
+    
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean gluUnProject4(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float[] paramArrayOfFloat1, int paramInt1, float[] paramArrayOfFloat2, int paramInt2, int[] paramArrayOfInt, int paramInt3, float paramFloat5, float paramFloat6, float[] paramArrayOfFloat3, int paramInt4)
+  {
+    return FloatUtil.mapWinToObjCoords(paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramArrayOfFloat1, paramInt1, paramArrayOfFloat2, paramInt2, paramArrayOfInt, paramInt3, paramFloat5, paramFloat6, paramArrayOfFloat3, paramInt4, mat4Tmp1, mat4Tmp2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean gluUnProject4(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, FloatBuffer paramFloatBuffer1, FloatBuffer paramFloatBuffer2, IntBuffer paramIntBuffer, float paramFloat5, float paramFloat6, FloatBuffer paramFloatBuffer3)
+  {
+    FloatUtil.multMatrix(paramFloatBuffer2, paramFloatBuffer1, mat4Tmp1);
+    
+    if (null == FloatUtil.invertMatrix(mat4Tmp1, mat4Tmp1)) {
+      return false;
+    }
+    
+    mat4Tmp2[0] = paramFloat1;
+    mat4Tmp2[1] = paramFloat2;
+    mat4Tmp2[2] = paramFloat3;
+    mat4Tmp2[3] = paramFloat4;
+    
+
+    int i = paramIntBuffer.position();
+    mat4Tmp2[0] = ((mat4Tmp2[0] - paramIntBuffer.get(0 + i)) / paramIntBuffer.get(2 + i));
+    mat4Tmp2[1] = ((mat4Tmp2[1] - paramIntBuffer.get(1 + i)) / paramIntBuffer.get(3 + i));
+    mat4Tmp2[2] = ((mat4Tmp2[2] - paramFloat5) / (paramFloat6 - paramFloat5));
+    
+
+    mat4Tmp2[0] = (mat4Tmp2[0] * 2.0F - 1.0F);
+    mat4Tmp2[1] = (mat4Tmp2[1] * 2.0F - 1.0F);
+    mat4Tmp2[2] = (mat4Tmp2[2] * 2.0F - 1.0F);
+    
+
+    FloatUtil.multMatrixVec(mat4Tmp1, 0, mat4Tmp2, 0, mat4Tmp2, 4);
+    
+    if (mat4Tmp2[7] == 0.0F) {
+      return false;
+    }
+    
+    int j = paramFloatBuffer3.position();
+    paramFloatBuffer3.put(0 + j, mat4Tmp2[4]);
+    paramFloatBuffer3.put(1 + j, mat4Tmp2[5]);
+    paramFloatBuffer3.put(2 + j, mat4Tmp2[6]);
+    paramFloatBuffer3.put(3 + j, mat4Tmp2[7]);
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void gluPickMatrix(GLMatrixFunc paramGLMatrixFunc, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, IntBuffer paramIntBuffer)
+  {
+    if ((paramFloat3 <= 0.0F) || (paramFloat4 <= 0.0F)) {
+      return;
+    }
+    
+
+    int i = paramIntBuffer.position();
+    paramGLMatrixFunc.glTranslatef((paramIntBuffer.get(2 + i) - 2.0F * (paramFloat1 - paramIntBuffer.get(0 + i))) / paramFloat3, 
+      (paramIntBuffer.get(3 + i) - 2.0F * (paramFloat2 - paramIntBuffer.get(1 + i))) / paramFloat4, 0.0F);
+    
+    paramGLMatrixFunc.glScalef(paramIntBuffer.get(2) / paramFloat3, paramIntBuffer.get(3) / paramFloat4, 1.0F);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void gluPickMatrix(GLMatrixFunc paramGLMatrixFunc, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, int[] paramArrayOfInt, int paramInt)
+  {
+    if (null != FloatUtil.makePick(mat4Tmp1, 0, paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramArrayOfInt, paramInt, mat4Tmp2)) {
+      paramGLMatrixFunc.glMultMatrixf(mat4Tmp1, 0);
+    }
+  }
+}

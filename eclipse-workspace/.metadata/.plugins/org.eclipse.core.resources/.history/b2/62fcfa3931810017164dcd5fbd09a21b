@@ -1,0 +1,39 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.IOException;
+import java.io.RandomAccessFile;
+
+
+
+
+
+
+
+
+
+
+
+
+public class ClassDefFormat1
+  extends ClassDef
+{
+  private final int startGlyph;
+  private final int glyphCount;
+  private final int[] classValues;
+  
+  public ClassDefFormat1(RandomAccessFile paramRandomAccessFile)
+    throws IOException
+  {
+    startGlyph = paramRandomAccessFile.readUnsignedShort();
+    glyphCount = paramRandomAccessFile.readUnsignedShort();
+    classValues = new int[glyphCount];
+    for (int i = 0; i < glyphCount; i++) {
+      classValues[i] = paramRandomAccessFile.readUnsignedShort();
+    }
+  }
+  
+  public int getFormat()
+  {
+    return 1;
+  }
+}

@@ -1,0 +1,574 @@
+package com.jogamp.graph.curve.opengl;
+
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.os.Platform.OSType;
+import com.jogamp.common.util.IntObjectHashMap;
+import com.jogamp.common.util.IntObjectHashMap.Entry;
+import com.jogamp.graph.curve.Region;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.util.PMVMatrix;
+import com.jogamp.opengl.util.glsl.ShaderCode;
+import com.jogamp.opengl.util.glsl.ShaderProgram;
+import com.jogamp.opengl.util.texture.TextureSequence;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.Iterator;
+import jogamp.graph.curve.opengl.shader.AttributeNames;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class RegionRenderer
+{
+  protected static final boolean DEBUG = Region.DEBUG;
+  protected static final boolean DEBUG_INSTANCE = Region.DEBUG_INSTANCE;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final GLCallback defaultBlendEnable = new GLCallback()
+  {
+    public void run(GL paramAnonymousGL, RegionRenderer paramAnonymousRegionRenderer) {
+      if (rs.isHintMaskSet(2)) {
+        paramAnonymousGL.glDepthMask(false);
+      }
+      
+
+      paramAnonymousGL.glEnable(3042);
+      paramAnonymousGL.glBlendEquation(32774);
+      rs.setHintMask(1);
+    }
+  };
+  
+
+
+
+
+
+
+
+
+
+
+  public static final GLCallback defaultBlendDisable = new GLCallback()
+  {
+    public void run(GL paramAnonymousGL, RegionRenderer paramAnonymousRegionRenderer) {
+      rs.clearHintMask(1);
+      paramAnonymousGL.glDisable(3042);
+      if (rs.isHintMaskSet(2))
+      {
+
+        paramAnonymousGL.glDepthMask(true);
+      }
+    }
+  };
+  
+
+  private final RenderState rs;
+  
+
+  private final GLCallback enableCallback;
+  
+
+  private final GLCallback disableCallback;
+  
+  private int vp_width;
+  
+  private int vp_height;
+  
+  private boolean initialized;
+  
+
+  public static RegionRenderer create(RenderState paramRenderState, GLCallback paramGLCallback1, GLCallback paramGLCallback2)
+  {
+    return new RegionRenderer(paramRenderState, paramGLCallback1, paramGLCallback2);
+  }
+  
+
+
+
+
+
+
+
+
+  private boolean vboSupported = false;
+  
+  public final boolean isInitialized() { return initialized; }
+  
+
+  public final int getWidth() { return vp_width; }
+  
+  public final int getHeight() { return vp_height; }
+  
+  public final PMVMatrix getMatrix() { return rs.getMatrix(); }
+  
+
+
+
+
+  protected RegionRenderer(RenderState paramRenderState, GLCallback paramGLCallback1, GLCallback paramGLCallback2)
+  {
+    rs = paramRenderState;
+    enableCallback = paramGLCallback1;
+    disableCallback = paramGLCallback2;
+  }
+  
+  public final boolean isVBOSupported() { return vboSupported; }
+  
+
+
+  private static final String SHADER_SRC_SUB = "";
+  
+
+  private static final String SHADER_BIN_SUB = "bin";
+  
+
+  public final void init(GL2ES2 paramGL2ES2, int paramInt)
+    throws GLException
+  {
+    if (initialized) {
+      return;
+    }
+    
+
+
+
+
+    vboSupported = ((paramGL2ES2.isFunctionAvailable("glGenBuffers")) && (paramGL2ES2.isFunctionAvailable("glBindBuffer")) && (paramGL2ES2.isFunctionAvailable("glBufferData")) && (paramGL2ES2.isFunctionAvailable("glDrawElements")) && (paramGL2ES2.isFunctionAvailable("glVertexAttribPointer")) && (paramGL2ES2.isFunctionAvailable("glDeleteBuffers")));
+    
+    if (DEBUG) {
+      System.err.println("TextRendererImpl01: VBO Supported = " + isVBOSupported());
+    }
+    
+    if (!vboSupported) {
+      throw new GLException("VBO not supported");
+    }
+    
+    rs.attachTo(paramGL2ES2);
+    
+    if (null != enableCallback) {
+      enableCallback.run(paramGL2ES2, this);
+    }
+    initialized = true;
+  }
+  
+  public final void destroy(GL2ES2 paramGL2ES2) {
+    if (!initialized) {
+      if (DEBUG_INSTANCE) {
+        System.err.println("TextRenderer: Not initialized!");
+      }
+      return;
+    }
+    for (Iterator localIterator = shaderPrograms.iterator(); localIterator.hasNext();) {
+      ShaderProgram localShaderProgram = (ShaderProgram)((IntObjectHashMap.Entry)localIterator.next()).getValue();
+      localShaderProgram.destroy(paramGL2ES2);
+    }
+    shaderPrograms.clear();
+    rs.destroy(paramGL2ES2);
+    initialized = false;
+  }
+  
+  public final RenderState getRenderState() { return rs; }
+  
+
+
+
+
+
+
+
+
+  public final void enable(GL2ES2 paramGL2ES2, boolean paramBoolean)
+  {
+    if (paramBoolean) {
+      if (null != enableCallback) {
+        enableCallback.run(paramGL2ES2, this);
+      }
+    }
+    else if (null != disableCallback) {
+      disableCallback.run(paramGL2ES2, this);
+    }
+    
+    if (!paramBoolean) {
+      ShaderProgram localShaderProgram = rs.getShaderProgram();
+      if (null != localShaderProgram) {
+        localShaderProgram.useProgram(paramGL2ES2, false);
+      }
+    }
+  }
+  
+  public final void reshapeNotify(int paramInt1, int paramInt2)
+  {
+    vp_width = paramInt1;
+    vp_height = paramInt2;
+  }
+  
+  public final void reshapePerspective(float paramFloat1, int paramInt1, int paramInt2, float paramFloat2, float paramFloat3) {
+    vp_width = paramInt1;
+    vp_height = paramInt2;
+    float f = paramInt1 / paramInt2;
+    PMVMatrix localPMVMatrix = rs.getMatrix();
+    localPMVMatrix.glMatrixMode(5889);
+    localPMVMatrix.glLoadIdentity();
+    localPMVMatrix.gluPerspective(paramFloat1, f, paramFloat2, paramFloat3);
+  }
+  
+  public final void reshapeOrtho(int paramInt1, int paramInt2, float paramFloat1, float paramFloat2) {
+    vp_width = paramInt1;
+    vp_height = paramInt2;
+    PMVMatrix localPMVMatrix = rs.getMatrix();
+    localPMVMatrix.glMatrixMode(5889);
+    localPMVMatrix.glLoadIdentity();
+    localPMVMatrix.glOrthof(0.0F, paramInt1, 0.0F, paramInt2, paramFloat1, paramFloat2);
+  }
+  
+
+
+
+
+
+
+
+  private static String GLSL_USE_COLOR_CHANNEL = "#define USE_COLOR_CHANNEL 1\n";
+  private static String GLSL_USE_COLOR_TEXTURE = "#define USE_COLOR_TEXTURE 1\n";
+  private static String GLSL_DEF_SAMPLE_COUNT = "#define SAMPLE_COUNT ";
+  private static String GLSL_CONST_SAMPLE_COUNT = "const float sample_count = ";
+  private static String GLSL_MAIN_BEGIN = "void main (void)\n{\n";
+  private static final String gcuTexture2D = "gcuTexture2D";
+  private static final String es2_precision_fp = "\nprecision mediump float;\nprecision mediump int;\nprecision mediump sampler2D;\n";
+  
+  private String getVersionedShaderName() { return "curverenderer01"; }
+  
+
+
+
+  private final String getFragmentShaderPrecision(GL2ES2 paramGL2ES2)
+  {
+    if (paramGL2ES2.isGLES()) {
+      return "\nprecision mediump float;\nprecision mediump int;\nprecision mediump sampler2D;\n";
+    }
+    if (ShaderCode.requiresGL3DefaultPrecision(paramGL2ES2)) {
+      return "\nprecision highp float;\nprecision mediump int;\n/*precision mediump sampler2D;*/\n";
+    }
+    return null;
+  }
+  
+  private static enum ShaderModeSelector1
+  {
+    PASS1_SIMPLE("curve", "_simple", 0), 
+    
+    PASS1_WEIGHT("curve", "_weight", 0), 
+    
+    PASS2_MSAA("msaa", "", 0), 
+    
+    PASS2_VBAA_QUAL0_SAMPLES1("vbaa", "_flipquad3", 1), 
+    
+    PASS2_VBAA_QUAL0_SAMPLES2("vbaa", "_flipquad3", 2), 
+    
+    PASS2_VBAA_QUAL0_SAMPLES4("vbaa", "_flipquad3", 4), 
+    
+    PASS2_VBAA_QUAL0_SAMPLES8("vbaa", "_flipquad3", 8), 
+    
+
+    PASS2_VBAA_QUAL1_SAMPLES1("vbaa", "_bforce_odd", 1), 
+    
+    PASS2_VBAA_QUAL1_SAMPLES2("vbaa", "_bforce_even", 2), 
+    
+    PASS2_VBAA_QUAL1_SAMPLES3("vbaa", "_bforce_odd", 3), 
+    
+    PASS2_VBAA_QUAL1_SAMPLES4("vbaa", "_bforce_even", 4), 
+    
+    PASS2_VBAA_QUAL1_SAMPLES5("vbaa", "_bforce_odd", 5), 
+    
+    PASS2_VBAA_QUAL1_SAMPLES6("vbaa", "_bforce_even", 6), 
+    
+    PASS2_VBAA_QUAL1_SAMPLES7("vbaa", "_bforce_odd", 7), 
+    
+    PASS2_VBAA_QUAL1_SAMPLES8("vbaa", "_bforce_even", 8);
+    
+    public final String tech;
+    public final String sub;
+    public final int sampleCount;
+    
+    private ShaderModeSelector1(String paramString1, String paramString2, int paramInt) {
+      tech = paramString1;
+      sub = paramString2;
+      sampleCount = paramInt;
+    }
+    
+    public static ShaderModeSelector1 selectPass1(int paramInt) {
+      return Region.hasVariableWeight(paramInt) ? PASS1_WEIGHT : PASS1_SIMPLE;
+    }
+    
+    public static ShaderModeSelector1 selectPass2(int paramInt1, int paramInt2, int paramInt3) {
+      if (Region.isMSAA(paramInt1))
+        return PASS2_MSAA;
+      if (Region.isVBAA(paramInt1)) {
+        if (0 == paramInt2) {
+          if (paramInt3 < 2)
+            return PASS2_VBAA_QUAL0_SAMPLES1;
+          if (paramInt3 < 4)
+            return PASS2_VBAA_QUAL0_SAMPLES2;
+          if (paramInt3 < 8) {
+            return PASS2_VBAA_QUAL0_SAMPLES4;
+          }
+          return PASS2_VBAA_QUAL0_SAMPLES8;
+        }
+        
+        switch (paramInt3) {
+        case 0: case 1: 
+          return PASS2_VBAA_QUAL1_SAMPLES1;
+        case 2:  return PASS2_VBAA_QUAL1_SAMPLES2;
+        case 3:  return PASS2_VBAA_QUAL1_SAMPLES3;
+        case 4:  return PASS2_VBAA_QUAL1_SAMPLES4;
+        case 5:  return PASS2_VBAA_QUAL1_SAMPLES5;
+        case 6:  return PASS2_VBAA_QUAL1_SAMPLES6;
+        case 7:  return PASS2_VBAA_QUAL1_SAMPLES7; }
+        return PASS2_VBAA_QUAL1_SAMPLES8;
+      }
+      
+
+      return null;
+    }
+  }
+  
+  private final IntObjectHashMap shaderPrograms = new IntObjectHashMap();
+  
+
+
+  private static final int HIGH_MASK = 1536;
+  
+
+
+  private static final int TWO_PASS_BIT = Integer.MIN_VALUE;
+  
+
+
+
+  public final boolean useShaderProgram(GL2ES2 paramGL2ES2, int paramInt1, boolean paramBoolean, int paramInt2, int paramInt3, TextureSequence paramTextureSequence)
+  {
+    int i;
+    
+
+    if (null != paramTextureSequence) {
+      i = paramTextureSequence.getTextureFragmentShaderHashCode();
+    } else {
+      i = 0;
+    }
+    
+    ShaderModeSelector1 localShaderModeSelector1 = paramBoolean ? ShaderModeSelector1.selectPass1(paramInt1) : ShaderModeSelector1.selectPass2(paramInt1, paramInt2, paramInt3);
+    boolean bool1 = Region.isTwoPass(paramInt1);
+    int j = (paramBoolean) && (null != paramTextureSequence) ? 1 : 0;
+    
+    int k = (i << 5) - i + (localShaderModeSelector1.ordinal() | 0x600 & paramInt1 | (bool1 ? Integer.MIN_VALUE : 0));
+    
+
+
+
+
+
+
+    ShaderProgram localShaderProgram = (ShaderProgram)shaderPrograms.get(k);
+    if (null != localShaderProgram) {
+      boolean bool2 = getRenderState().setShaderProgram(paramGL2ES2, localShaderProgram);
+      if (DEBUG) {
+        if (bool2) {
+          System.err.printf("RegionRendererImpl01.useShaderProgram.X1: GOT renderModes %s, sel1 %s, key 0x%X -> sp %d / %d (changed)%n", new Object[] { Region.getRenderModeString(paramInt1), localShaderModeSelector1, Integer.valueOf(k), Integer.valueOf(localShaderProgram.program()), Integer.valueOf(localShaderProgram.id()) });
+        } else {
+          System.err.printf("RegionRendererImpl01.useShaderProgram.X1: GOT renderModes %s, sel1 %s, key 0x%X -> sp %d / %d (keep)%n", new Object[] { Region.getRenderModeString(paramInt1), localShaderModeSelector1, Integer.valueOf(k), Integer.valueOf(localShaderProgram.program()), Integer.valueOf(localShaderProgram.id()) });
+        }
+      }
+      return bool2;
+    }
+    String str1 = getVersionedShaderName();
+    String str2;
+    if (bool1) {
+      str2 = str1 + "-pass" + (paramBoolean ? 1 : 2);
+    } else {
+      str2 = str1 + "-single";
+    }
+    ShaderCode localShaderCode1 = ShaderCode.create(paramGL2ES2, 35633, AttributeNames.class, "", "bin", str2, true);
+    ShaderCode localShaderCode2 = ShaderCode.create(paramGL2ES2, 35632, AttributeNames.class, "", "bin", str1 + "-segment-head", true);
+    
+    if ((j != 0) && (36197 == paramTextureSequence.getTextureTarget()) && 
+      (!paramGL2ES2.isExtensionAvailable("GL_OES_EGL_image_external"))) {
+      throw new GLException("GL_OES_EGL_image_external requested but not available");
+    }
+    
+    int m = 0;
+    if ((j != 0) && (36197 == paramTextureSequence.getTextureTarget()) && 
+      (Platform.OSType.ANDROID == Platform.getOSType()) && (paramGL2ES2.isGLES3()))
+    {
+
+
+      m = 1;
+    }
+    
+
+
+
+    int n = localShaderCode1.defaultShaderCustomization(paramGL2ES2, m == 0, true);
+    
+    int i1 = m != 0 ? 0 : localShaderCode2.addGLSLVersion(paramGL2ES2);
+    if (j != 0) {
+      i1 = localShaderCode2.insertShaderSource(0, i1, paramTextureSequence.getRequiredExtensionsShaderStub());
+    }
+    if (((paramBoolean) && (m != 0)) || ((paramGL2ES2.isGLES2()) && (!paramGL2ES2.isGLES3()))) {
+      i1 = localShaderCode2.insertShaderSource(0, i1, ShaderCode.createExtensionDirective("GL_OES_standard_derivatives", "enable"));
+    }
+    
+
+
+
+
+
+    i1 = localShaderCode2.addDefaultShaderPrecision(paramGL2ES2, i1);
+    
+
+
+
+    i1 = -1;
+    
+    if (Region.hasColorChannel(paramInt1)) {
+      n = localShaderCode1.insertShaderSource(0, n, GLSL_USE_COLOR_CHANNEL);
+      i1 = localShaderCode2.insertShaderSource(0, i1, GLSL_USE_COLOR_CHANNEL);
+    }
+    if (Region.hasColorTexture(paramInt1)) {
+      localShaderCode1.insertShaderSource(0, n, GLSL_USE_COLOR_TEXTURE);
+      i1 = localShaderCode2.insertShaderSource(0, i1, GLSL_USE_COLOR_TEXTURE);
+    }
+    if (!paramBoolean) {
+      i1 = localShaderCode2.insertShaderSource(0, i1, GLSL_DEF_SAMPLE_COUNT + sampleCount + "\n");
+      i1 = localShaderCode2.insertShaderSource(0, i1, GLSL_CONST_SAMPLE_COUNT + sampleCount + ".0;\n");
+    }
+    try
+    {
+      i1 = localShaderCode2.insertShaderSource(0, i1, AttributeNames.class, "uniforms.glsl");
+      i1 = localShaderCode2.insertShaderSource(0, i1, AttributeNames.class, "varyings.glsl");
+    } catch (IOException localIOException1) {
+      throw new RuntimeException("Failed to read: includes", localIOException1);
+    }
+    if (0 > i1) {
+      throw new RuntimeException("Failed to read: includes");
+    }
+    
+    String str3;
+    if (j != 0) {
+      i1 = localShaderCode2.insertShaderSource(0, i1, "uniform " + paramTextureSequence.getTextureSampler2DType() + " " + "gcu_ColorTexUnit" + ";\n");
+      str3 = paramTextureSequence.getTextureLookupFunctionName("gcuTexture2D");
+      i1 = localShaderCode2.insertShaderSource(0, i1, paramTextureSequence.getTextureLookupFragmentShaderImpl());
+    } else {
+      str3 = null;
+    }
+    
+    i1 = localShaderCode2.insertShaderSource(0, i1, GLSL_MAIN_BEGIN);
+    
+    String str4 = paramBoolean ? "-pass1-" : "-pass2-";
+    String str5 = str1 + str4 + tech + sub + ".glsl";
+    if (DEBUG) {
+      System.err.printf("RegionRendererImpl01.useShaderProgram.1: segment %s%n", new Object[] { str5 });
+    }
+    try {
+      i1 = localShaderCode2.insertShaderSource(0, i1, AttributeNames.class, str5);
+    } catch (IOException localIOException2) {
+      throw new RuntimeException("Failed to read: " + str5, localIOException2);
+    }
+    if (0 > i1) {
+      throw new RuntimeException("Failed to read: " + str5);
+    }
+    i1 = localShaderCode2.insertShaderSource(0, i1, "}\n");
+    
+    if (j != 0) {
+      localShaderCode2.replaceInShaderSource("gcuTexture2D", str3);
+    }
+    
+    localShaderProgram = new ShaderProgram();
+    localShaderProgram.add(localShaderCode1);
+    localShaderProgram.add(localShaderCode2);
+    
+    if (!localShaderProgram.init(paramGL2ES2)) {
+      throw new GLException("RegionRenderer: Couldn't init program: " + localShaderProgram);
+    }
+    
+    if (!localShaderProgram.link(paramGL2ES2, System.err)) {
+      throw new GLException("could not link program: " + localShaderProgram);
+    }
+    getRenderState().setShaderProgram(paramGL2ES2, localShaderProgram);
+    
+    shaderPrograms.put(k, localShaderProgram);
+    if (DEBUG) {
+      System.err.printf("RegionRendererImpl01.useShaderProgram.X1: PUT renderModes %s, sel1 %s, key 0x%X -> sp %d / %d (changed)%n", new Object[] {
+        Region.getRenderModeString(paramInt1), localShaderModeSelector1, Integer.valueOf(k), Integer.valueOf(localShaderProgram.program()), Integer.valueOf(localShaderProgram.id()) });
+    }
+    return true;
+  }
+  
+  public static abstract interface GLCallback
+  {
+    public abstract void run(GL paramGL, RegionRenderer paramRegionRenderer);
+  }
+}

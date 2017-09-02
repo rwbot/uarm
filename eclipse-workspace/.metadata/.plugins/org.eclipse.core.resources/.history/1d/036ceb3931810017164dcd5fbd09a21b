@@ -1,0 +1,251 @@
+package com.jogamp.opengl;
+
+import com.jogamp.common.os.Platform;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLDebugMessage
+{
+  final GLContext source;
+  final long when;
+  final int dbgSource;
+  final int dbgType;
+  final int dbgId;
+  final int dbgSeverity;
+  final String dbgMsg;
+  
+  public GLDebugMessage(GLContext paramGLContext, long paramLong, int paramInt1, int paramInt2, int paramInt3, int paramInt4, String paramString)
+  {
+    source = paramGLContext;
+    when = paramLong;
+    dbgSource = paramInt1;
+    dbgType = paramInt2;
+    dbgId = paramInt3;
+    dbgSeverity = paramInt4;
+    dbgMsg = paramString;
+  }
+  
+
+
+
+
+  public static GLDebugMessage translateAMDEvent(GLContext paramGLContext, long paramLong, int paramInt1, int paramInt2, int paramInt3, String paramString)
+  {
+    int i;
+    
+
+
+    int j;
+    
+
+
+    switch (paramInt2) {
+    case 37193: 
+      i = 33350;
+      j = 33356;
+      break;
+    
+
+
+
+
+    case 37194: 
+      i = 33351;
+      j = 33361;
+      break;
+    
+    case 37198: 
+      i = 33352;
+      j = 33361;
+      break;
+    
+    case 37199: 
+      i = 33354;
+      j = 33361;
+      break;
+    
+
+
+
+
+
+    case 37195: 
+      i = 33355;
+      j = 33357;
+      break;
+    
+    case 37196: 
+      i = 33355;
+      j = 33358;
+      break;
+    
+    case 37197: 
+      i = 33355;
+      j = 33360;
+      break;
+    
+    case 37200: 
+    default: 
+      i = 33355;
+      j = 33361;
+    }
+    
+    return new GLDebugMessage(paramGLContext, paramLong, i, j, paramInt1, paramInt3, paramString);
+  }
+  
+  public static int translateARB2AMDCategory(int paramInt1, int paramInt2) {
+    switch (paramInt1) {
+    case 33351: 
+      return 37194;
+    
+    case 33352: 
+      return 37198;
+    
+    case 33354: 
+      return 37199;
+    }
+    
+    switch (paramInt2) {
+    case 33357: 
+      return 37195;
+    
+    case 33358: 
+      return 37196;
+    
+    case 33360: 
+      return 37197;
+    }
+    
+    return 37200;
+  }
+  
+  public GLContext getSource() {
+    return source;
+  }
+  
+  public long getWhen() {
+    return when;
+  }
+  
+  public int getDbgSource() {
+    return dbgSource;
+  }
+  
+  public int getDbgType() {
+    return dbgType;
+  }
+  
+  public int getDbgId() {
+    return dbgId;
+  }
+  
+  public int getDbgSeverity() {
+    return dbgSeverity;
+  }
+  
+  public String getDbgMsg() {
+    return dbgMsg;
+  }
+  
+  public StringBuilder toString(StringBuilder paramStringBuilder) {
+    String str = Platform.getNewline() + "\t";
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    paramStringBuilder.append("GLDebugEvent[ id ");
+    toHexString(paramStringBuilder, dbgId)
+      .append(str).append("type ").append(getDbgTypeString(dbgType))
+      .append(str).append("severity ").append(getDbgSeverityString(dbgSeverity))
+      .append(str).append("source ").append(getDbgSourceString(dbgSource))
+      .append(str).append("msg ").append(dbgMsg)
+      .append(str).append("when ").append(when);
+    if (null != source) {
+      paramStringBuilder.append(str).append("source ").append(source.getGLVersion()).append(" - hash 0x").append(Integer.toHexString(source.hashCode()));
+    }
+    paramStringBuilder.append("]");
+    return paramStringBuilder;
+  }
+  
+  public String toString()
+  {
+    return toString(null).toString();
+  }
+  
+  public static String getDbgSourceString(int paramInt) {
+    switch (paramInt) {
+    case 33350:  return "GL API";
+    case 33352:  return "GLSL or extension compiler";
+    case 33351:  return "Native Windowing binding";
+    case 33353:  return "Third party";
+    case 33354:  return "Application";
+    case 33355:  return "generic"; }
+    return "Unknown (" + toHexString(paramInt) + ")";
+  }
+  
+  public static String getDbgTypeString(int paramInt)
+  {
+    switch (paramInt) {
+    case 33356:  return "Error";
+    case 33357:  return "Warning: marked for deprecation";
+    case 33358:  return "Warning: undefined behavior";
+    case 33360:  return "Warning: implementation dependent performance";
+    case 33359:  return "Warning: vendor-specific extension use";
+    case 33361:  return "Warning: generic"; }
+    return "Unknown (" + toHexString(paramInt) + ")";
+  }
+  
+  public static String getDbgSeverityString(int paramInt)
+  {
+    switch (paramInt) {
+    case 37190:  return "High: dangerous undefined behavior";
+    case 37191:  return "Medium: Severe performance/deprecation/other warnings";
+    case 37192:  return "Low: Performance warnings (redundancy/undefined)"; }
+    return "Unknown (" + toHexString(paramInt) + ")";
+  }
+  
+  public static StringBuilder toHexString(StringBuilder paramStringBuilder, int paramInt)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    return paramStringBuilder.append("0x").append(Integer.toHexString(paramInt));
+  }
+  
+  public static String toHexString(int paramInt) { return "0x" + Integer.toHexString(paramInt); }
+}

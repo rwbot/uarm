@@ -1,0 +1,67 @@
+package de.voidplus.leapmotion;
+
+import com.leapmotion.leap.Pointable;
+import com.leapmotion.leap.Vector;
+import processing.core.PApplet;
+import processing.core.PVector;
+
+public class SwipeGesture
+  extends Gesture
+  implements RawAccess<com.leapmotion.leap.SwipeGesture>
+{
+  private com.leapmotion.leap.SwipeGesture _swipe;
+  
+  public SwipeGesture(PApplet paramPApplet, LeapMotion paramLeapMotion, com.leapmotion.leap.Gesture paramGesture)
+  {
+    super(paramPApplet, paramLeapMotion, paramGesture);
+    _swipe = new com.leapmotion.leap.SwipeGesture(paramGesture);
+  }
+  
+  public com.leapmotion.leap.SwipeGesture getRaw()
+  {
+    return _swipe;
+  }
+  
+  public PVector getPosition()
+  {
+    return leap.map(_swipe.position());
+  }
+  
+  public PVector getRawPosition()
+  {
+    return leap.convert(_swipe.position());
+  }
+  
+  public PVector getStartPosition()
+  {
+    return leap.map(_swipe.startPosition());
+  }
+  
+  public PVector getRawStartPosition()
+  {
+    return leap.convert(_swipe.startPosition());
+  }
+  
+  public PVector getDirection()
+  {
+    return new PVector(PApplet.degrees(_swipe.direction().roll()), PApplet.degrees(_swipe.direction().pitch()), PApplet.degrees(_swipe.direction().yaw()));
+  }
+  
+  public PVector getRawDirection()
+  {
+    return leap.convert(_swipe.direction());
+  }
+  
+  public float getSpeed()
+  {
+    return _swipe.speed();
+  }
+  
+  public Finger getFinger()
+  {
+    if (_swipe.pointable().isFinger()) {
+      return new Finger(parent, leap, new com.leapmotion.leap.Finger(_swipe.pointable()));
+    }
+    return null;
+  }
+}

@@ -1,0 +1,1655 @@
+package jogamp.opengl.util.av;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.net.Uri;
+import com.jogamp.common.net.Uri.Encoded;
+import com.jogamp.common.net.UriQueryProps;
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.util.InterruptSource.Thread;
+import com.jogamp.common.util.InterruptedRuntimeException;
+import com.jogamp.common.util.LFRingbuffer;
+import com.jogamp.common.util.Ringbuffer;
+import com.jogamp.common.util.SourcedInterruptedException;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawable;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.util.av.AudioSink;
+import com.jogamp.opengl.util.av.GLMediaPlayer;
+import com.jogamp.opengl.util.av.GLMediaPlayer.GLMediaEventListener;
+import com.jogamp.opengl.util.av.GLMediaPlayer.State;
+import com.jogamp.opengl.util.av.GLMediaPlayer.StreamException;
+import com.jogamp.opengl.util.glsl.ShaderCode;
+import com.jogamp.opengl.util.texture.Texture;
+import com.jogamp.opengl.util.texture.TextureSequence.TextureFrame;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class GLMediaPlayerImpl
+  implements GLMediaPlayer
+{
+  private static final int STREAM_WORKER_DELAY = Debug.getIntProperty("jogl.debug.GLMediaPlayer.StreamWorker.delay", false, 0);
+  
+  private static final String unknown = "unknown";
+  
+  private volatile GLMediaPlayer.State state;
+  private final Object stateLock = new Object();
+  
+  private int textureCount;
+  
+  private int textureTarget;
+  
+  private int textureFormat;
+  private int textureInternalFormat;
+  private int textureType;
+  private int texUnit;
+  private int textureFragmentShaderHashCode;
+  private final int[] texMinMagFilter = { 9728, 9728 };
+  private final int[] texWrapST = { 33071, 33071 };
+  
+
+  private Uri streamLoc = null;
+  
+
+
+
+
+
+
+  protected Uri.Encoded cameraPath = null;
+  
+  protected Map<String, String> cameraProps = null;
+  
+  private volatile float playSpeed = 1.0F;
+  private float audioVolume = 1.0F;
+  
+
+  private int vid = -1;
+  
+  private int aid = -1;
+  
+  private int width = 0;
+  
+  private int height = 0;
+  
+  private float fps = 0.0F;
+  
+  private float frame_duration = 0.0F;
+  
+  private int bps_stream = 0;
+  
+  private int bps_video = 0;
+  
+  private int bps_audio = 0;
+  
+  private int videoFrames = 0;
+  
+  private int audioFrames = 0;
+  
+  private int duration = 0;
+  
+  private String acodec = "unknown";
+  
+  private String vcodec = "unknown";
+  
+  private volatile int decodedFrameCount = 0;
+  private int presentedFrameCount = 0;
+  private int displayedFrameCount = 0;
+  private volatile int video_pts_last = 0;
+  
+
+
+
+
+  private int nullFrameCount = 0;
+  private int maxNullFrameCountUntilEOS = 0;
+  
+
+  private static final int MAX_FRAMELESS_MS_UNTIL_EOS = 5000;
+  
+
+  private static final int MAX_FRAMELESS_UNTIL_EOS_DEFAULT = 166;
+  
+  protected AudioSink audioSink = null;
+  protected boolean audioSinkPlaySpeedSet = false;
+  
+
+  private long audio_scr_t0 = 0L;
+  private boolean audioSCR_reset = true;
+  
+
+  private long video_scr_t0 = 0L;
+  
+  private int video_scr_pts = 0;
+  
+  private float video_dpts_cum = 0.0F;
+  
+  private int video_dpts_count = 0;
+  
+  private static final int VIDEO_DPTS_NUM = 20;
+  
+  private static final float VIDEO_DPTS_COEFF = 0.7943282F;
+  
+  private static final int VIDEO_DPTS_MAX = 5000;
+  
+  private boolean videoSCR_reset = false;
+  
+  private TextureSequence.TextureFrame[] videoFramesOrig = null;
+  private Ringbuffer<TextureSequence.TextureFrame> videoFramesFree = null;
+  private Ringbuffer<TextureSequence.TextureFrame> videoFramesDecoded = null;
+  private volatile TextureSequence.TextureFrame lastFrame = null;
+  
+
+
+  private boolean isInGLOrientation = false;
+  
+  private final ArrayList<GLMediaPlayer.GLMediaEventListener> eventListeners = new ArrayList();
+  
+  protected GLMediaPlayerImpl() {
+    textureCount = 0;
+    textureTarget = 3553;
+    textureFormat = 6408;
+    textureInternalFormat = 6408;
+    textureType = 5121;
+    texUnit = 0;
+    textureFragmentShaderHashCode = 0;
+    state = GLMediaPlayer.State.Uninitialized;
+  }
+  
+  public final void setTextureUnit(int paramInt) {
+    texUnit = paramInt;
+  }
+  
+  public final int getTextureUnit() { return texUnit; }
+  
+
+  public final int getTextureTarget() { return textureTarget; }
+  
+  protected final int getTextureFormat() { return textureFormat; }
+  
+  protected final int getTextureType() { return textureType; }
+  
+
+  public final int getTextureCount() { return textureCount; }
+  
+  protected final void setTextureTarget(int paramInt) { textureTarget = paramInt; }
+  
+  protected final void setTextureFormat(int paramInt1, int paramInt2) { textureInternalFormat = paramInt1;
+    textureFormat = paramInt2; }
+  
+  protected final void setTextureType(int paramInt) { textureType = paramInt; }
+  
+  public final void setTextureMinMagFilter(int[] paramArrayOfInt) {
+    texMinMagFilter[0] = paramArrayOfInt[0];texMinMagFilter[1] = paramArrayOfInt[1]; }
+  
+  public final int[] getTextureMinMagFilter() { return texMinMagFilter; }
+  
+  public final void setTextureWrapST(int[] paramArrayOfInt) {
+    texWrapST[0] = paramArrayOfInt[0];texWrapST[1] = paramArrayOfInt[1]; }
+  
+  public final int[] getTextureWrapST() { return texWrapST; }
+  
+  private final void checkGLInit() {
+    if ((GLMediaPlayer.State.Uninitialized == state) || (GLMediaPlayer.State.Initialized == state)) {
+      throw new IllegalStateException("GL not initialized: " + this);
+    }
+  }
+  
+  public String getRequiredExtensionsShaderStub() throws IllegalStateException
+  {
+    checkGLInit();
+    if (36197 == textureTarget) {
+      return ShaderCode.createExtensionDirective("GL_OES_EGL_image_external", "enable");
+    }
+    return "";
+  }
+  
+  public String getTextureSampler2DType() throws IllegalStateException
+  {
+    checkGLInit();
+    switch (textureTarget) {
+    case 3553: 
+    case 34037: 
+      return "sampler2D";
+    case 36197: 
+      return "samplerExternalOES";
+    }
+    throw new GLException("Unsuported texture target: " + toHexString(textureTarget));
+  }
+  
+
+
+
+
+
+
+  public String getTextureLookupFunctionName(String paramString)
+    throws IllegalStateException
+  {
+    checkGLInit();
+    return "texture2D";
+  }
+  
+
+
+
+
+
+
+  public String getTextureLookupFragmentShaderImpl()
+    throws IllegalStateException
+  {
+    checkGLInit();
+    return "";
+  }
+  
+  public final int getTextureFragmentShaderHashCode()
+  {
+    if (!isTextureAvailable()) {
+      textureFragmentShaderHashCode = 0;
+      return 0; }
+    if (0 == textureFragmentShaderHashCode) {
+      int i = 31 + getTextureLookupFragmentShaderImpl().hashCode();
+      i = (i << 5) - i + getTextureSampler2DType().hashCode();
+      textureFragmentShaderHashCode = i;
+    }
+    return textureFragmentShaderHashCode;
+  }
+  
+  public final int getDecodedFrameCount() {
+    return decodedFrameCount;
+  }
+  
+  public final int getPresentedFrameCount() { return presentedFrameCount; }
+  
+  public final int getVideoPTS() {
+    return video_pts_last;
+  }
+  
+  public final int getAudioPTS() {
+    if (GLMediaPlayer.State.Uninitialized != state) {
+      return getAudioPTSImpl();
+    }
+    return 0;
+  }
+  
+  protected int getAudioPTSImpl() {
+    if (null != audioSink) {
+      return audioSink.getPTS();
+    }
+    return 0;
+  }
+  
+
+
+  public final GLMediaPlayer.State getState() { return state; }
+  
+  protected final void setState(GLMediaPlayer.State paramState) { state = paramState; }
+  
+  public final GLMediaPlayer.State play()
+  {
+    synchronized (stateLock) {
+      GLMediaPlayer.State localState = state;
+      switch (2.$SwitchMap$com$jogamp$opengl$util$av$GLMediaPlayer$State[state.ordinal()]) {
+      case 1: 
+        if (playImpl()) {
+          resetAVPTS();
+          if (null != audioSink) {
+            audioSink.play();
+          }
+          if (null != streamWorker) {
+            streamWorker.doResume();
+          }
+          changeState(0, GLMediaPlayer.State.Playing);
+        }
+        break;
+      }
+      if (DEBUG) System.err.println("Play: " + localState + " -> " + state + ", " + toString());
+      return state;
+    }
+  }
+  
+
+  protected abstract boolean playImpl();
+  
+  public final GLMediaPlayer.State pause(boolean paramBoolean) { return pauseImpl(paramBoolean, 0); }
+  
+  private final GLMediaPlayer.State pauseImpl(boolean paramBoolean, int paramInt) {
+    synchronized (stateLock) {
+      GLMediaPlayer.State localState = state;
+      if (GLMediaPlayer.State.Playing == state) {
+        paramInt = addStateEventMask(paramInt, GLMediaPlayer.State.Paused);
+        setState(GLMediaPlayer.State.Paused);
+        if (null != streamWorker) {
+          streamWorker.doPause(true);
+        }
+        if (paramBoolean) {
+          resetAVPTSAndFlush();
+        } else if (null != audioSink) {
+          audioSink.pause();
+        }
+        attributesUpdated(paramInt);
+        if (!pauseImpl()) {
+          play();
+        }
+      }
+      if (DEBUG) System.err.println("Pause: " + localState + " -> " + state + ", " + toString());
+      return state;
+    }
+  }
+  
+
+  protected abstract boolean pauseImpl();
+  
+  public final GLMediaPlayer.State destroy(GL paramGL) { return destroyImpl(paramGL, 0); }
+  
+  private final GLMediaPlayer.State destroyImpl(GL paramGL, int paramInt) {
+    synchronized (stateLock) {
+      if (null != streamWorker) {
+        streamWorker.doStop();
+        streamWorker = null;
+      }
+      destroyImpl(paramGL);
+      removeAllTextureFrames(paramGL);
+      textureCount = 0;
+      changeState(paramInt, GLMediaPlayer.State.Uninitialized);
+      attachedObjects.clear();
+      return state;
+    }
+  }
+  
+  protected abstract void destroyImpl(GL paramGL);
+  
+  public final int seek(int paramInt) {
+    synchronized (stateLock) {
+      GLMediaPlayer.State localState1 = state;
+      int i;
+      switch (2.$SwitchMap$com$jogamp$opengl$util$av$GLMediaPlayer$State[state.ordinal()]) {
+      case 1: 
+      case 2: 
+        GLMediaPlayer.State localState2 = state;
+        setState(GLMediaPlayer.State.Paused);
+        if (null != streamWorker) {
+          streamWorker.doPause(true);
+        }
+        
+        if (paramInt >= duration) {
+          paramInt = duration - (int)Math.floor(frame_duration);
+        } else if (paramInt < 0) {
+          paramInt = 0;
+        }
+        i = seekImpl(paramInt);
+        resetAVPTSAndFlush();
+        if ((null != audioSink) && (GLMediaPlayer.State.Playing == localState2)) {
+          audioSink.play();
+        }
+        if (DEBUG) {
+          System.err.println("Seek(" + paramInt + "): " + getPerfString());
+        }
+        if (null != streamWorker) {
+          streamWorker.doResume();
+        }
+        setState(localState2);
+        break;
+      default: 
+        i = 0;
+      }
+      if (DEBUG) System.err.println("Seek(" + paramInt + "): " + localState1 + " -> " + state + ", " + toString());
+      return i;
+    }
+  }
+  
+  protected abstract int seekImpl(int paramInt);
+  
+  public final float getPlaySpeed() { return playSpeed; }
+  
+  public final boolean setPlaySpeed(float paramFloat)
+  {
+    synchronized (stateLock) {
+      float f = playSpeed;
+      boolean bool = false;
+      if ((GLMediaPlayer.State.Uninitialized != state) && 
+        (paramFloat > 0.01F)) {
+        if (Math.abs(1.0F - paramFloat) < 0.01F) {
+          paramFloat = 1.0F;
+        }
+        if (setPlaySpeedImpl(paramFloat)) {
+          resetAVPTS();
+          playSpeed = paramFloat;
+          bool = true;
+        }
+      }
+      
+      if (DEBUG) System.err.println("setPlaySpeed(" + paramFloat + "): " + state + ", " + f + " -> " + playSpeed + ", " + toString());
+      return bool;
+    }
+  }
+  
+
+
+
+
+
+  protected boolean setPlaySpeedImpl(float paramFloat)
+  {
+    if (null != audioSink) {
+      audioSinkPlaySpeedSet = audioSink.setPlaySpeed(paramFloat);
+    }
+    
+
+    return true;
+  }
+  
+  public final float getAudioVolume()
+  {
+    getAudioVolumeImpl();
+    return audioVolume;
+  }
+  
+
+  protected void getAudioVolumeImpl()
+  {
+    if (null != audioSink) {
+      audioVolume = audioSink.getVolume();
+    }
+  }
+  
+  public boolean setAudioVolume(float paramFloat)
+  {
+    synchronized (stateLock) {
+      float f = audioVolume;
+      boolean bool = false;
+      if (GLMediaPlayer.State.Uninitialized != state) {
+        if (Math.abs(paramFloat) < 0.01F) {
+          paramFloat = 0.0F;
+        } else if (Math.abs(1.0F - paramFloat) < 0.01F) {
+          paramFloat = 1.0F;
+        }
+        if (setAudioVolumeImpl(paramFloat)) {
+          audioVolume = paramFloat;
+          bool = true;
+        }
+      }
+      if (DEBUG) System.err.println("setAudioVolume(" + paramFloat + "): " + state + ", " + f + " -> " + audioVolume + ", " + toString());
+      return bool;
+    }
+  }
+  
+
+  protected boolean setAudioVolumeImpl(float paramFloat)
+  {
+    if (null != audioSink) {
+      return audioSink.setVolume(paramFloat);
+    }
+    
+    return true;
+  }
+  
+  public final void initStream(Uri paramUri, final int paramInt1, final int paramInt2, int paramInt3) throws IllegalStateException, IllegalArgumentException
+  {
+    synchronized (stateLock) {
+      if (GLMediaPlayer.State.Uninitialized != state) {
+        throw new IllegalStateException("Instance not in state unintialized: " + this);
+      }
+      if (null == paramUri) {
+        throw new IllegalArgumentException("streamLock is null");
+      }
+      if (-2 != paramInt1) {
+        textureCount = validateTextureCount(paramInt3);
+        if (textureCount < 1) {
+          throw new InternalError("Validated texture count < 1: " + textureCount);
+        }
+      } else {
+        textureCount = 0;
+      }
+      decodedFrameCount = 0;
+      presentedFrameCount = 0;
+      displayedFrameCount = 0;
+      nullFrameCount = 0;
+      maxNullFrameCountUntilEOS = 166;
+      streamLoc = paramUri;
+      
+
+      cameraPath = null;
+      cameraProps = null;
+      Uri.Encoded localEncoded1 = scheme;
+      if ((null != localEncoded1) && (localEncoded1.equals(CameraInputScheme))) {
+        Uri.Encoded localEncoded2 = path;
+        if ((null != localEncoded2) && (localEncoded2.length() > 0))
+        {
+          cameraPath = localEncoded2.substring(1);
+          UriQueryProps localUriQueryProps = UriQueryProps.create(paramUri, ';');
+          cameraProps = localUriQueryProps.getProperties();
+        } else {
+          throw new IllegalArgumentException("Camera path is empty: " + paramUri.toString());
+        }
+      }
+      
+      vid = paramInt1;
+      aid = paramInt2;
+      new InterruptSource.Thread()
+      {
+        public void run() {
+          try {
+            initStreamImpl(paramInt1, paramInt2);
+          } catch (Throwable localThrowable) {
+            streamErr = new GLMediaPlayer.StreamException(localThrowable.getClass().getSimpleName() + " while initializing: " + toString(), localThrowable);
+            changeState(32, GLMediaPlayer.State.Uninitialized);
+          }
+        }
+      }.start();
+    }
+  }
+  
+
+
+
+
+  protected abstract void initStreamImpl(int paramInt1, int paramInt2)
+    throws Exception;
+  
+
+
+
+
+  public final GLMediaPlayer.StreamException getStreamException()
+  {
+    GLMediaPlayer.StreamException localStreamException;
+    
+
+
+    synchronized (stateLock) {
+      localStreamException = streamErr;
+      streamErr = null;
+    }
+    return localStreamException;
+  }
+  
+  public final void initGL(GL paramGL) throws IllegalStateException, GLMediaPlayer.StreamException, GLException
+  {
+    synchronized (stateLock) {
+      if (GLMediaPlayer.State.Initialized != state) {
+        throw new IllegalStateException("Stream not in state initialized: " + this);
+      }
+      if (null != streamWorker) {
+        GLMediaPlayer.StreamException localStreamException = getStreamException();
+        if (null != localStreamException) {
+          streamWorker = null;
+          destroy(null);
+          throw localStreamException;
+        }
+      }
+      try {
+        if (-2 != vid) {
+          removeAllTextureFrames(paramGL);
+          initGLImpl(paramGL);
+          if (DEBUG) {
+            System.err.println("initGLImpl.X " + this);
+          }
+          videoFramesOrig = createTexFrames(paramGL, textureCount);
+          if (1 == textureCount) {
+            videoFramesFree = null;
+            videoFramesDecoded = null;
+            lastFrame = videoFramesOrig[0];
+          } else {
+            videoFramesFree = new LFRingbuffer(videoFramesOrig);
+            videoFramesDecoded = new LFRingbuffer([Lcom.jogamp.opengl.util.texture.TextureSequence.TextureFrame.class, textureCount);
+            lastFrame = ((TextureSequence.TextureFrame)videoFramesFree.getBlocking());
+          }
+          if (null != streamWorker) {
+            streamWorker.initGL(paramGL);
+          }
+        } else {
+          removeAllTextureFrames(null);
+          initGLImpl(null);
+          setTextureFormat(-1, -1);
+          setTextureType(-1);
+          videoFramesOrig = null;
+          videoFramesFree = null;
+          videoFramesDecoded = null;
+          lastFrame = null;
+        }
+        changeState(0, GLMediaPlayer.State.Paused);
+      } catch (Throwable localThrowable) {
+        destroyImpl(paramGL, 32);
+        throw new GLException("Error initializing GL resources", localThrowable);
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  protected abstract void initGLImpl(GL paramGL)
+    throws IOException, GLException;
+  
+
+
+
+
+
+
+
+
+  protected int validateTextureCount(int paramInt)
+  {
+    return paramInt < 1 ? 1 : paramInt;
+  }
+  
+  protected TextureSequence.TextureFrame[] createTexFrames(GL paramGL, int paramInt) {
+    int[] arrayOfInt = new int[paramInt];
+    paramGL.glGenTextures(paramInt, arrayOfInt, 0);
+    int i = paramGL.glGetError();
+    if (0 != i) {
+      throw new RuntimeException("TextureNames creation failed (num: " + paramInt + "): err " + toHexString(i));
+    }
+    TextureSequence.TextureFrame[] arrayOfTextureFrame = new TextureSequence.TextureFrame[paramInt];
+    for (int j = 0; j < paramInt; j++) {
+      arrayOfTextureFrame[j] = createTexImage(paramGL, arrayOfInt[j]);
+    }
+    return arrayOfTextureFrame;
+  }
+  
+  protected abstract TextureSequence.TextureFrame createTexImage(GL paramGL, int paramInt);
+  
+  protected final Texture createTexImageImpl(GL paramGL, int paramInt1, int paramInt2, int paramInt3) { if (0 > paramInt1) {
+      throw new RuntimeException("TextureName " + toHexString(paramInt1) + " invalid.");
+    }
+    paramGL.glActiveTexture(33984 + getTextureUnit());
+    paramGL.glBindTexture(textureTarget, paramInt1);
+    
+    int i = paramGL.glGetError();
+    if (0 != i) {
+      throw new RuntimeException("Couldn't bind textureName " + toHexString(paramInt1) + " to 2D target, err " + toHexString(i));
+    }
+    
+
+    if (36197 != textureTarget)
+    {
+      paramGL.glTexImage2D(textureTarget, 0, textureInternalFormat, paramInt2, paramInt3, 0, textureFormat, textureType, null);
+      
+
+
+
+
+
+
+
+
+
+      i = paramGL.glGetError();
+      if (0 != i)
+      {
+
+        throw new RuntimeException("Couldn't create TexImage2D RGBA " + paramInt2 + "x" + paramInt3 + ", target " + toHexString(textureTarget) + ", ifmt " + toHexString(textureInternalFormat) + ", fmt " + toHexString(textureFormat) + ", type " + toHexString(textureType) + ", err " + toHexString(i));
+      }
+      
+      if (DEBUG) {
+        System.err.println("Created TexImage2D RGBA " + paramInt2 + "x" + paramInt3 + ", target " + toHexString(textureTarget) + ", ifmt " + 
+          toHexString(textureInternalFormat) + ", fmt " + toHexString(textureFormat) + ", type " + toHexString(textureType));
+      }
+    }
+    paramGL.glTexParameteri(textureTarget, 10241, texMinMagFilter[0]);
+    paramGL.glTexParameteri(textureTarget, 10240, texMinMagFilter[1]);
+    paramGL.glTexParameteri(textureTarget, 10242, texWrapST[0]);
+    paramGL.glTexParameteri(textureTarget, 10243, texWrapST[1]);
+    
+    return new Texture(paramInt1, textureTarget, paramInt2, paramInt3, width, height, !isInGLOrientation);
+  }
+  
+  protected void destroyTexFrame(GL paramGL, TextureSequence.TextureFrame paramTextureFrame)
+  {
+    paramTextureFrame.getTexture().destroy(paramGL);
+  }
+  
+  public final boolean isTextureAvailable()
+  {
+    return (GLMediaPlayer.State.Paused == state) || (GLMediaPlayer.State.Playing == state);
+  }
+  
+  public final TextureSequence.TextureFrame getLastTexture() throws IllegalStateException
+  {
+    if ((GLMediaPlayer.State.Paused != state) && (GLMediaPlayer.State.Playing != state)) {
+      throw new IllegalStateException("Instance not paused or playing: " + this);
+    }
+    return lastFrame;
+  }
+  
+  private final void removeAllTextureFrames(GL paramGL) {
+    TextureSequence.TextureFrame[] arrayOfTextureFrame = videoFramesOrig;
+    videoFramesOrig = null;
+    videoFramesFree = null;
+    videoFramesDecoded = null;
+    lastFrame = null;
+    if (null != arrayOfTextureFrame) {
+      for (int i = 0; i < arrayOfTextureFrame.length; i++) {
+        TextureSequence.TextureFrame localTextureFrame = arrayOfTextureFrame[i];
+        if (null != localTextureFrame) {
+          if (null != paramGL) {
+            destroyTexFrame(paramGL, localTextureFrame);
+          }
+          arrayOfTextureFrame[i] = null;
+        }
+        if (DEBUG) {
+          System.err.println(Thread.currentThread().getName() + "> Clear TexFrame[" + i + "]: " + localTextureFrame + " -> null");
+        }
+      }
+    }
+  }
+  
+  private TextureSequence.TextureFrame cachedFrame = null;
+  private long lastTimeMillis = 0L;
+  
+  private final boolean[] stGotVFrame = { false };
+  
+  public final TextureSequence.TextureFrame getNextTexture(GL paramGL) throws IllegalStateException
+  {
+    synchronized (stateLock) {
+      if ((GLMediaPlayer.State.Paused != state) && (GLMediaPlayer.State.Playing != state)) {
+        throw new IllegalStateException("Instance not paused or playing: " + this);
+      }
+      if (GLMediaPlayer.State.Playing == state) {
+        boolean bool1 = false;
+        try {
+          do {
+            boolean bool2;
+            if (bool1) {
+              presentedFrameCount -= 1;
+              bool1 = false;
+              bool2 = true;
+            } else {
+              bool2 = false;
+            }
+            boolean bool3 = null != cachedFrame;
+            TextureSequence.TextureFrame localTextureFrame1;
+            int i;
+            int j;
+            if (bool3) {
+              localTextureFrame1 = cachedFrame;
+              cachedFrame = null;
+              presentedFrameCount -= 1;
+              i = localTextureFrame1.getPTS();
+              j = 1;
+            }
+            else if (null != videoFramesDecoded)
+            {
+              localTextureFrame1 = (TextureSequence.TextureFrame)videoFramesDecoded.get();
+              if (null != localTextureFrame1) {
+                i = localTextureFrame1.getPTS();
+                j = 1;
+              } else {
+                i = Integer.MIN_VALUE;
+                j = 0;
+              }
+            }
+            else {
+              i = getNextSingleThreaded(paramGL, lastFrame, stGotVFrame);
+              localTextureFrame1 = lastFrame;
+              j = stGotVFrame[0];
+            }
+            
+            long l = Platform.currentTimeMillis();
+            
+            if ((Integer.MAX_VALUE == i) || ((duration > 0) && (duration <= i)) || (maxNullFrameCountUntilEOS <= nullFrameCount))
+            {
+
+
+              if (DEBUG) {
+                System.err.println("AV-EOS (getNextTexture): EOS_PTS " + (Integer.MAX_VALUE == i) + ", " + this);
+              }
+              pauseImpl(true, 16); } else { int k;
+              int m;
+              int n; int i1; int i2; if (Integer.MIN_VALUE == i) {
+                if ((null == videoFramesDecoded) || (!videoFramesDecoded.isEmpty())) {
+                  nullFrameCount += 1;
+                }
+                if (DEBUG) {
+                  k = getAudioPTSImpl();
+                  m = (int)((float)(l - audio_scr_t0) * playSpeed);
+                  
+                  if (k != Integer.MIN_VALUE) {
+                    n = k - m;
+                  } else {
+                    n = 0;
+                  }
+                  i1 = video_scr_pts + (int)((float)(l - video_scr_t0) * playSpeed);
+                  i2 = i - i1;
+                  System.err.println("AV~: dT " + (l - lastTimeMillis) + ", nullFrames " + nullFrameCount + 
+                    getPerfStringImpl(i1, i, i2, m, k, n, 0) + ", droppedFrame " + bool2);
+                }
+              } else {
+                nullFrameCount = 0;
+                
+                if (j != 0) {
+                  presentedFrameCount += 1;
+                  
+                  k = getAudioPTSImpl();
+                  m = (int)((float)(l - audio_scr_t0) * playSpeed);
+                  
+                  if (k != Integer.MIN_VALUE) {
+                    n = k - m;
+                  } else {
+                    n = 0;
+                  }
+                  
+                  i1 = i - video_pts_last;
+                  if ((videoSCR_reset) || (i1 > frame_duration * 10.0F)) {
+                    videoSCR_reset = false;
+                    video_scr_t0 = l;
+                    video_scr_pts = i;
+                  }
+                  i2 = video_scr_pts + (int)((float)(l - video_scr_t0) * playSpeed);
+                  int i3 = i - i2;
+                  
+                  if ((60536 > i3) || (i3 > 5000))
+                  {
+                    if (DEBUG) {
+                      System.err.println("AV*: dT " + (l - lastTimeMillis) + ", " + 
+                        getPerfStringImpl(i2, i, i3, m, k, n, 0) + ", " + localTextureFrame1 + ", playCached " + bool3 + ", dropFrame " + bool1);
+                    }
+                  } else {
+                    int i4 = displayedFrameCount > 0 ? displayedFrameCount : 1;
+                    int i5 = (int)(l - video_scr_t0) / i4;
+                    int i6 = Math.min(i5, 22);
+                    video_dpts_count += 1;
+                    
+                    video_dpts_cum = (i3 + 0.7943282F * video_dpts_cum);
+                    int i7 = video_dpts_count >= 20 ? getVideoDPTSAvg() : 0;
+                    int i8 = (int)(i7 / playSpeed + 0.5F);
+                    
+
+                    TextureSequence.TextureFrame localTextureFrame3 = localTextureFrame1;
+                    if (i8 > i6) {
+                      cachedFrame = localTextureFrame1;
+                      localTextureFrame1 = null;
+                    } else if ((!bool2) && (i8 < -i6) && (null != videoFramesDecoded) && (videoFramesDecoded.size() > 0))
+                    {
+
+                      bool1 = true;
+                    }
+                    video_pts_last = i;
+                    if (DEBUG) {
+                      System.err.println("AV_: dT " + (l - lastTimeMillis) + ", " + 
+                        getPerfStringImpl(i2, i, i3, m, k, n, i7) + ", avg dpy-fps " + i5 + " ms/f, maxD " + i6 + " ms, " + localTextureFrame3 + ", playCached " + bool3 + ", dropFrame " + bool1);
+                    }
+                  }
+                }
+              }
+            }
+            
+
+
+            if ((null != videoFramesFree) && (null != localTextureFrame1))
+            {
+              TextureSequence.TextureFrame localTextureFrame2 = lastFrame;
+              lastFrame = localTextureFrame1;
+              if (null != localTextureFrame2) {
+                videoFramesFree.putBlocking(localTextureFrame2);
+              }
+            }
+            lastTimeMillis = l;
+          } while (bool1);
+        } catch (InterruptedException localInterruptedException) {
+          localInterruptedException.printStackTrace();
+        }
+      }
+      displayedFrameCount += 1;
+      return lastFrame;
+    }
+  }
+  
+
+
+
+
+  protected void preNextTextureImpl(GL paramGL) {}
+  
+
+
+
+  protected void postNextTextureImpl(GL paramGL) {}
+  
+
+
+
+  protected abstract int getNextTextureImpl(GL paramGL, TextureSequence.TextureFrame paramTextureFrame)
+    throws InterruptedException;
+  
+
+
+
+  protected final int getNextSingleThreaded(GL paramGL, TextureSequence.TextureFrame paramTextureFrame, boolean[] paramArrayOfBoolean)
+    throws InterruptedException
+  {
+    int i;
+    
+
+
+    if (-2 != vid) {
+      preNextTextureImpl(paramGL);
+      i = getNextTextureImpl(paramGL, paramTextureFrame);
+      postNextTextureImpl(paramGL);
+      if (Integer.MIN_VALUE != i) {
+        newFrameAvailable(paramTextureFrame, Platform.currentTimeMillis());
+        paramArrayOfBoolean[0] = true;
+      } else {
+        paramArrayOfBoolean[0] = false;
+      }
+    }
+    else {
+      i = getNextTextureImpl(null, null);
+      paramArrayOfBoolean[0] = false;
+    }
+    return i;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public final AudioSink getAudioSink()
+  {
+    return audioSink;
+  }
+  
+
+
+
+  protected void setFirstAudioPTS2SCR(int paramInt)
+  {
+    if (audioSCR_reset) {
+      audio_scr_t0 = (Platform.currentTimeMillis() - paramInt);
+      audioSCR_reset = false;
+    }
+  }
+  
+  private void flushAllVideoFrames() { if (null != videoFramesFree) {
+      videoFramesFree.resetFull(videoFramesOrig);
+      lastFrame = ((TextureSequence.TextureFrame)videoFramesFree.get());
+      if (null == lastFrame) throw new InternalError("XXX");
+      videoFramesDecoded.clear();
+    }
+    cachedFrame = null;
+  }
+  
+  private void resetAVPTSAndFlush() { video_dpts_cum = 0.0F;
+    video_dpts_count = 0;
+    resetAVPTS();
+    flushAllVideoFrames();
+    if (null != audioSink)
+      audioSink.flush();
+  }
+  
+  private void resetAVPTS() {
+    nullFrameCount = 0;
+    presentedFrameCount = 0;
+    displayedFrameCount = 0;
+    decodedFrameCount = 0;
+    audioSCR_reset = true;
+    videoSCR_reset = true;
+  }
+  
+  private final int getVideoDPTSAvg() { return (int)(video_dpts_cum * 0.20567179F + 0.5F); }
+  
+  private final void newFrameAvailable(TextureSequence.TextureFrame paramTextureFrame, long paramLong)
+  {
+    decodedFrameCount += 1;
+    if (0 == paramTextureFrame.getDuration())
+      paramTextureFrame.setDuration((int)frame_duration);
+    Iterator localIterator;
+    synchronized (eventListenersLock) {
+      for (localIterator = eventListeners.iterator(); localIterator.hasNext();) {
+        ((GLMediaPlayer.GLMediaEventListener)localIterator.next()).newFrameAvailable(this, paramTextureFrame, paramLong);
+      }
+    }
+  }
+  
+
+
+
+  class StreamWorker
+    extends InterruptSource.Thread
+  {
+    private volatile boolean isRunning = false;
+    private volatile boolean isActive = false;
+    private volatile boolean isBlocked = false;
+    
+    private volatile boolean shallPause = true;
+    private volatile boolean shallStop = false;
+    
+    private volatile GLContext sharedGLCtx = null;
+    private boolean sharedGLCtxCurrent = false;
+    private GLDrawable dummyDrawable = null;
+    
+
+
+
+
+
+    StreamWorker()
+    {
+      setDaemon(true);
+      synchronized (this) {
+        start();
+        try {
+          notifyAll();
+          while ((!isRunning) && (!shallStop)) {
+            wait();
+          }
+        } catch (InterruptedException localInterruptedException) {
+          throw new InterruptedRuntimeException(localInterruptedException);
+        }
+      }
+    }
+    
+    private void makeCurrent(GLContext paramGLContext) {
+      if (0 >= paramGLContext.makeCurrent()) {
+        throw new GLException("Couldn't make ctx current: " + paramGLContext);
+      }
+    }
+    
+    private void destroySharedGL() {
+      if (null != sharedGLCtx) {
+        if (sharedGLCtx.isCreated())
+        {
+          try
+          {
+            sharedGLCtx.destroy();
+          } catch (GLException localGLException) {
+            localGLException.printStackTrace();
+          }
+        }
+        sharedGLCtx = null;
+      }
+      if (null != dummyDrawable) {
+        AbstractGraphicsDevice localAbstractGraphicsDevice = dummyDrawable.getNativeSurface().getGraphicsConfiguration().getScreen().getDevice();
+        dummyDrawable.setRealized(false);
+        dummyDrawable = null;
+        localAbstractGraphicsDevice.close();
+      }
+    }
+    
+    public final synchronized void initGL(GL paramGL) {
+      GLContext localGLContext = paramGL.getContext();
+      boolean bool = localGLContext.isCurrent();
+      GLProfile localGLProfile = paramGL.getGLProfile();
+      GLDrawableFactory localGLDrawableFactory = GLDrawableFactory.getFactory(localGLProfile);
+      AbstractGraphicsDevice localAbstractGraphicsDevice = localGLContext.getGLDrawable().getNativeSurface().getGraphicsConfiguration().getScreen().getDevice();
+      dummyDrawable = localGLDrawableFactory.createDummyDrawable(localAbstractGraphicsDevice, true, localGLContext.getGLDrawable().getChosenGLCapabilities(), null);
+      dummyDrawable.setRealized(true);
+      sharedGLCtx = dummyDrawable.createContext(localGLContext);
+      makeCurrent(sharedGLCtx);
+      if (bool) {
+        makeCurrent(localGLContext);
+      } else
+        sharedGLCtx.release();
+    }
+    
+    public final synchronized void doPause(boolean paramBoolean) {
+      if (isActive) {
+        shallPause = true;
+        if (Thread.currentThread() != this) {
+          if ((isBlocked) && (isActive)) {
+            interrupt();
+          }
+          if (paramBoolean)
+            try {
+              while ((isActive) && (isRunning)) {
+                wait();
+              }
+            } catch (InterruptedException localInterruptedException) {
+              throw new InterruptedRuntimeException(localInterruptedException);
+            }
+        }
+      }
+    }
+    
+    public final synchronized void doResume() {
+      if ((isRunning) && (!isActive)) {
+        shallPause = false;
+        if (Thread.currentThread() != this)
+          try {
+            notifyAll();
+            while ((!isActive) && (!shallPause) && (isRunning)) {
+              wait();
+            }
+          } catch (InterruptedException localInterruptedException1) {
+            InterruptedException localInterruptedException2 = SourcedInterruptedException.wrap(localInterruptedException1);
+            doPause(false);
+            throw new InterruptedRuntimeException(localInterruptedException2);
+          }
+      }
+    }
+    
+    public final synchronized void doStop() {
+      if (isRunning) {
+        shallStop = true;
+        if (Thread.currentThread() != this) {
+          if ((isBlocked) && (isRunning)) {
+            interrupt();
+          }
+          try {
+            notifyAll();
+            while (isRunning) {
+              wait();
+            }
+          } catch (InterruptedException localInterruptedException) {
+            throw new InterruptedRuntimeException(localInterruptedException);
+          }
+        }
+      } }
+    
+    public final boolean isRunning() { return isRunning; }
+    public final boolean isActive() { return isActive; }
+    
+    public final void run()
+    {
+      setName(getName() + "-StreamWorker_" + GLMediaPlayerImpl.StreamWorkerInstanceId);
+      GLMediaPlayerImpl.StreamWorkerInstanceId += 1;
+      
+      synchronized (this) {
+        isRunning = true;
+        notifyAll();
+      }
+      
+      while (!shallStop) {
+        ??? = null;
+        try {
+          if (shallPause) {
+            synchronized (this) {
+              if (sharedGLCtxCurrent) {
+                postNextTextureImpl(sharedGLCtx.getGL());
+                sharedGLCtx.release();
+              }
+              while ((shallPause) && (!shallStop)) {
+                isActive = false;
+                notifyAll();
+                try {
+                  wait();
+                } catch (InterruptedException localInterruptedException) {
+                  if (!shallPause) {
+                    throw SourcedInterruptedException.wrap(localInterruptedException);
+                  }
+                }
+              }
+              if (sharedGLCtxCurrent) {
+                makeCurrent(sharedGLCtx);
+                preNextTextureImpl(sharedGLCtx.getGL());
+              }
+              isActive = true;
+              notifyAll();
+            }
+          }
+          if ((!sharedGLCtxCurrent) && (null != sharedGLCtx)) {
+            synchronized (this) {
+              if (null != sharedGLCtx) {
+                makeCurrent(sharedGLCtx);
+                preNextTextureImpl(sharedGLCtx.getGL());
+                sharedGLCtxCurrent = true;
+              }
+              if (null == videoFramesFree) {
+                throw new InternalError("XXX videoFramesFree is null");
+              }
+            }
+          }
+          
+          if (!shallStop) {
+            isBlocked = true;
+            
+            if (-2 != vid) {
+              ??? = (TextureSequence.TextureFrame)videoFramesFree.getBlocking();
+              ???.setPTS(Integer.MIN_VALUE);
+              ??? = sharedGLCtx.getGL();
+            } else {
+              ??? = null;
+            }
+            isBlocked = false;
+            int i = getNextTextureImpl((GL)???, ???);
+            int j = 0;
+            if (Integer.MIN_VALUE != i) {
+              if (null != ???) {
+                if (GLMediaPlayerImpl.STREAM_WORKER_DELAY > 0) {
+                  Thread.sleep(GLMediaPlayerImpl.STREAM_WORKER_DELAY);
+                }
+                if (!videoFramesDecoded.put(???)) {
+                  throw new InternalError("XXX: free " + videoFramesFree + ", decoded " + videoFramesDecoded + ", " + GLMediaPlayerImpl.this);
+                }
+                GLMediaPlayerImpl.this.newFrameAvailable(???, Platform.currentTimeMillis());
+                ??? = null;
+
+              }
+              else if ((Integer.MAX_VALUE == i) || ((duration > 0) && (duration < i))) {
+                j = 1;
+              } else {
+                nullFrameCount = 0;
+              }
+            }
+            else if (null == ???)
+            {
+              j = maxNullFrameCountUntilEOS <= nullFrameCount ? 1 : 0;
+              if ((null == audioSink) || (0 == audioSink.getEnqueuedFrameCount())) {
+                GLMediaPlayerImpl.access$708(GLMediaPlayerImpl.this);
+              }
+            }
+            if (j != 0)
+            {
+              synchronized (this) {
+                shallPause = true;
+                isActive = false;
+                notifyAll();
+              }
+              if (GLMediaPlayer.DEBUG) {
+                System.err.println("AV-EOS (StreamWorker): EOS_PTS " + (Integer.MAX_VALUE == i) + ", " + GLMediaPlayerImpl.this);
+              }
+              GLMediaPlayerImpl.this.pauseImpl(true, 16);
+            }
+          }
+        } catch (InterruptedException localObject1) {
+          if (!isBlocked) {
+            streamErr = new GLMediaPlayer.StreamException("InterruptedException while decoding: " + toString(), 
+              SourcedInterruptedException.wrap((InterruptedException)???));
+          }
+          isBlocked = false;
+        } catch (Throwable localObject1) {
+          streamErr = new GLMediaPlayer.StreamException(???.getClass().getSimpleName() + " while decoding: " + toString(), (Throwable)???);
+        } finally {
+          if (null != ???) {
+            videoFramesFree.put(???);
+          }
+          if (null != streamErr) {
+            if (GLMediaPlayer.DEBUG) {
+              ExceptionUtils.dumpThrowable("handled", streamErr);
+            }
+            
+            synchronized (this) {
+              shallPause = true;
+              isActive = false;
+              notifyAll();
+            }
+            GLMediaPlayerImpl.this.pauseImpl(true, 32);
+          }
+        }
+      }
+      synchronized (this) {
+        if (sharedGLCtxCurrent) {
+          postNextTextureImpl(sharedGLCtx.getGL());
+        }
+        destroySharedGL();
+        isRunning = false;
+        isActive = false;
+        notifyAll();
+      }
+    } }
+  
+  static int StreamWorkerInstanceId = 0;
+  private volatile StreamWorker streamWorker = null;
+  private volatile GLMediaPlayer.StreamException streamErr = null;
+  
+  protected final int addStateEventMask(int paramInt, GLMediaPlayer.State paramState) {
+    if (state != paramState) {
+      switch (2.$SwitchMap$com$jogamp$opengl$util$av$GLMediaPlayer$State[paramState.ordinal()]) {
+      case 3: 
+        paramInt |= 0x2;
+        break;
+      case 4: 
+        paramInt |= 0x1;
+        break;
+      case 2: 
+        paramInt |= 0x4;
+        break;
+      case 1: 
+        paramInt |= 0x8;
+      }
+      
+    }
+    return paramInt;
+  }
+  
+  protected final void attributesUpdated(int paramInt) {
+    if (0 != paramInt) {
+      long l = Platform.currentTimeMillis();
+      Iterator localIterator; synchronized (eventListenersLock) {
+        for (localIterator = eventListeners.iterator(); localIterator.hasNext();) {
+          ((GLMediaPlayer.GLMediaEventListener)localIterator.next()).attributesChanged(this, paramInt, l);
+        }
+      }
+    }
+  }
+  
+  protected final void changeState(int paramInt, GLMediaPlayer.State paramState) {
+    paramInt = addStateEventMask(paramInt, paramState);
+    if (0 != paramInt) {
+      setState(paramState);
+      if (!isTextureAvailable()) {
+        textureFragmentShaderHashCode = 0;
+      }
+      attributesUpdated(paramInt);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  protected final void updateAttributes(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, float paramFloat, int paramInt8, int paramInt9, int paramInt10, String paramString1, String paramString2)
+  {
+    int i = 0;
+    int j = state == GLMediaPlayer.State.Uninitialized ? 1 : 0;
+    
+    if (j != 0) {
+      i |= 0x1;
+      setState(GLMediaPlayer.State.Initialized);
+    }
+    if (-1 == paramInt1) {
+      paramInt1 = -2;
+    }
+    if (vid != paramInt1) {
+      i |= 0x10000;
+      vid = paramInt1;
+    }
+    if (-1 == paramInt1) {
+      paramInt1 = -2;
+    }
+    if (aid != paramInt2) {
+      i |= 0x20000;
+      aid = paramInt2;
+    }
+    if ((width != paramInt3) || (height != paramInt4)) {
+      i |= 0x40000;
+      width = paramInt3;
+      height = paramInt4;
+    }
+    if (fps != paramFloat) {
+      i |= 0x80000;
+      fps = paramFloat;
+      if (0.0F != paramFloat) {
+        frame_duration = (1000.0F / paramFloat);
+        int k = (int)frame_duration;
+        if (0 < k) {
+          maxNullFrameCountUntilEOS = (5000 / k);
+        } else {
+          maxNullFrameCountUntilEOS = 166;
+        }
+      } else {
+        frame_duration = 0.0F;
+        maxNullFrameCountUntilEOS = 166;
+      }
+    }
+    if ((bps_stream != paramInt5) || (bps_video != paramInt6) || (bps_audio != paramInt7)) {
+      i |= 0x100000;
+      bps_stream = paramInt5;
+      bps_video = paramInt6;
+      bps_audio = paramInt7;
+    }
+    if ((videoFrames != paramInt8) || (audioFrames != paramInt9) || (duration != paramInt10)) {
+      i |= 0x200000;
+      videoFrames = paramInt8;
+      audioFrames = paramInt9;
+      duration = paramInt10;
+    }
+    if ((null != paramString2) && (paramString2.length() > 0) && (!acodec.equals(paramString2))) {
+      i |= 0x400000;
+      acodec = paramString2;
+    }
+    if ((null != paramString1) && (paramString1.length() > 0) && (!vcodec.equals(paramString1))) {
+      i |= 0x400000;
+      vcodec = paramString1;
+    }
+    if (0 == i) {
+      return;
+    }
+    if (j != 0) {
+      if (null != streamWorker) {
+        throw new InternalError("XXX: StreamWorker not null - " + this);
+      }
+      if ((1 < textureCount) || (-2 == paramInt1)) {
+        streamWorker = new StreamWorker();
+      }
+      if (DEBUG) {
+        System.err.println("XXX Initialize @ updateAttributes: " + this);
+      }
+    }
+    attributesUpdated(i);
+  }
+  
+  protected void setIsGLOriented(boolean paramBoolean) {
+    if (isInGLOrientation != paramBoolean) {
+      if (DEBUG) {
+        System.err.println("XXX gl-orient " + isInGLOrientation + " -> " + paramBoolean);
+      }
+      isInGLOrientation = paramBoolean;
+      if (null != videoFramesOrig) {
+        for (int i = 0; i < videoFramesOrig.length; i++) {
+          videoFramesOrig[i].getTexture().setMustFlipVertically(!paramBoolean);
+        }
+        attributesUpdated(262144);
+      }
+    }
+  }
+  
+  public final Uri getUri() {
+    return streamLoc;
+  }
+  
+  public final int getVID() { return vid; }
+  
+  public final int getAID() {
+    return aid;
+  }
+  
+  public final String getVideoCodec() { return vcodec; }
+  
+  public final String getAudioCodec() {
+    return acodec;
+  }
+  
+  public final int getVideoFrames() { return videoFrames; }
+  
+  public final int getAudioFrames() {
+    return audioFrames;
+  }
+  
+  public final int getDuration() { return duration; }
+  
+  public final long getStreamBitrate() {
+    return bps_stream;
+  }
+  
+  public final int getVideoBitrate() { return bps_video; }
+  
+  public final int getAudioBitrate() {
+    return bps_audio;
+  }
+  
+  public final float getFramerate() { return fps; }
+  
+  public final boolean isGLOriented() {
+    return isInGLOrientation;
+  }
+  
+  public final int getWidth() { return width; }
+  
+  public final int getHeight() {
+    return height;
+  }
+  
+  public final String toString() {
+    float f = getDuration() / 1000.0F;
+    String str1 = null != streamLoc ? streamLoc.toString() : "<undefined stream>";
+    int i = null != videoFramesFree ? videoFramesFree.size() : 0;
+    int j = null != videoFramesDecoded ? videoFramesDecoded.size() : 0;
+    int k = video_scr_pts + (int)((float)(Platform.currentTimeMillis() - video_scr_t0) * playSpeed);
+    String str2 = null != cameraPath ? ", camera: " + cameraPath : "";
+    
+
+    return getClass().getSimpleName() + "[" + state + ", vSCR " + k + ", frames[p " + presentedFrameCount + ", d " + decodedFrameCount + ", t " + videoFrames + " (" + f + " s), z " + nullFrameCount + " / " + maxNullFrameCountUntilEOS + "], " + "speed " + playSpeed + ", " + bps_stream + " bps, hasSW " + (null != streamWorker) + ", Texture[count " + textureCount + ", free " + i + ", dec " + j + ", tagt " + toHexString(textureTarget) + ", ifmt " + toHexString(textureInternalFormat) + ", fmt " + toHexString(textureFormat) + ", type " + toHexString(textureType) + "], " + "Video[id " + vid + ", <" + vcodec + ">, " + width + "x" + height + ", glOrient " + isInGLOrientation + ", " + fps + " fps, " + frame_duration + " fdur, " + bps_video + " bps], " + "Audio[id " + aid + ", <" + acodec + ">, " + bps_audio + " bps, " + audioFrames + " frames], uri " + str1 + str2 + "]";
+  }
+  
+
+
+  public final String getPerfString()
+  {
+    long l = Platform.currentTimeMillis();
+    int i = video_scr_pts + (int)((float)(l - video_scr_t0) * playSpeed);
+    int j = video_pts_last - i;
+    int k = (int)((float)(l - audio_scr_t0) * playSpeed);
+    int m = getAudioPTSImpl();
+    int n = m - k;
+    return getPerfStringImpl(i, video_pts_last, j, k, m, n, getVideoDPTSAvg());
+  }
+  
+  private final String getPerfStringImpl(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7)
+  {
+    float f = getDuration() / 1000.0F;
+    
+    AudioSink localAudioSink = getAudioSink();
+    String str; if (null != localAudioSink) {
+      str = "AudioSink[frames [p " + localAudioSink.getEnqueuedFrameCount() + ", q " + localAudioSink.getQueuedFrameCount() + ", f " + localAudioSink.getFreeFrameCount() + ", c " + localAudioSink.getFrameCount() + "], time " + localAudioSink.getQueuedTime() + ", bytes " + localAudioSink.getQueuedByteCount() + "]";
+    } else
+      str = "";
+    int i;
+    int j;
+    if (null != videoFramesFree) {
+      i = videoFramesFree.size();
+      j = videoFramesDecoded.size();
+    } else {
+      i = 0;
+      j = 0;
+    }
+    return state + ", frames[(p " + presentedFrameCount + ", d " + decodedFrameCount + ") / " + videoFrames + ", " + f + " s, z " + nullFrameCount + " / " + maxNullFrameCountUntilEOS + "], " + "speed " + playSpeed + ", dAV " + (paramInt3 - paramInt6) + ", vSCR " + paramInt1 + ", vpts " + paramInt2 + ", dSCR[" + paramInt3 + ", avrg " + paramInt7 + "], " + "aSCR " + paramInt4 + ", apts " + paramInt5 + " ( " + paramInt6 + " ), " + str + ", Texture[count " + textureCount + ", free " + i + ", dec " + j + "]";
+  }
+  
+
+
+
+  public final void addEventListener(GLMediaPlayer.GLMediaEventListener paramGLMediaEventListener)
+  {
+    if (paramGLMediaEventListener == null) {
+      return;
+    }
+    synchronized (eventListenersLock) {
+      eventListeners.add(paramGLMediaEventListener);
+    }
+  }
+  
+  public final void removeEventListener(GLMediaPlayer.GLMediaEventListener paramGLMediaEventListener)
+  {
+    if (paramGLMediaEventListener == null) {
+      return;
+    }
+    synchronized (eventListenersLock) {
+      eventListeners.remove(paramGLMediaEventListener);
+    }
+  }
+  
+  public final GLMediaPlayer.GLMediaEventListener[] getEventListeners()
+  {
+    synchronized (eventListenersLock) {
+      return (GLMediaPlayer.GLMediaEventListener[])eventListeners.toArray(new GLMediaPlayer.GLMediaEventListener[eventListeners.size()]);
+    }
+  }
+  
+  private final Object eventListenersLock = new Object();
+  
+  public final Object getAttachedObject(String paramString)
+  {
+    return attachedObjects.get(paramString);
+  }
+  
+  public final Object attachObject(String paramString, Object paramObject)
+  {
+    return attachedObjects.put(paramString, paramObject);
+  }
+  
+  public final Object detachObject(String paramString)
+  {
+    return attachedObjects.remove(paramString);
+  }
+  
+  private final HashMap<String, Object> attachedObjects = new HashMap();
+  
+  protected static final String toHexString(long paramLong) {
+    return "0x" + Long.toHexString(paramLong);
+  }
+  
+  protected static final String toHexString(int paramInt) { return "0x" + Integer.toHexString(paramInt); }
+  
+  protected static final int getPropIntVal(Map<String, String> paramMap, String paramString) {
+    String str = (String)paramMap.get(paramString);
+    try {
+      return Integer.parseInt(str);
+    } catch (NumberFormatException localNumberFormatException) {
+      if (DEBUG) {
+        System.err.println("Not a valid integer for <" + paramString + ">: <" + str + ">");
+      }
+    }
+    return 0;
+  }
+}

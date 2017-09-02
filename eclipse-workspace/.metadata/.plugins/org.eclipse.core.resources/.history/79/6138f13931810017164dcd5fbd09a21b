@@ -1,0 +1,269 @@
+package com.jogamp.opengl.util;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.nativewindow.util.PixelFormat;
+import com.jogamp.nativewindow.util.PixelFormat.CType;
+import com.jogamp.nativewindow.util.PixelFormat.Composition;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2ES3;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawable;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.util.texture.Texture;
+import com.jogamp.opengl.util.texture.TextureData;
+import com.jogamp.opengl.util.texture.TextureIO;
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLReadBufferUtil
+{
+  protected final GLPixelBuffer.GLPixelBufferProvider pixelBufferProvider;
+  protected final Texture readTexture;
+  protected final GLPixelStorageModes psm;
+  protected boolean hasAlpha;
+  protected GLPixelBuffer readPixelBuffer = null;
+  protected TextureData readTextureData = null;
+  
+
+
+
+  public GLReadBufferUtil(boolean paramBoolean1, boolean paramBoolean2)
+  {
+    this(GLPixelBuffer.defaultProviderNoRowStride, paramBoolean1, paramBoolean2);
+  }
+  
+  public GLReadBufferUtil(GLPixelBuffer.GLPixelBufferProvider paramGLPixelBufferProvider, boolean paramBoolean1, boolean paramBoolean2) {
+    pixelBufferProvider = paramGLPixelBufferProvider;
+    readTexture = (paramBoolean2 ? new Texture(3553) : null);
+    psm = new GLPixelStorageModes();
+    hasAlpha = paramBoolean1;
+  }
+  
+  public GLPixelBuffer.GLPixelBufferProvider getPixelBufferProvider() {
+    return pixelBufferProvider;
+  }
+  
+  public boolean isValid() { return (null != readTextureData) && (null != readPixelBuffer) && (readPixelBuffer.isValid()); }
+  
+
+  public boolean hasAlpha() { return hasAlpha; }
+  
+  public GLPixelStorageModes getGLPixelStorageModes() { return psm; }
+  
+
+  public GLPixelBuffer getPixelBuffer()
+  {
+    return readPixelBuffer;
+  }
+  
+  public void rewindPixelBuffer()
+  {
+    if (null != readPixelBuffer) readPixelBuffer.rewind();
+  }
+  
+  public TextureData getTextureData()
+  {
+    return readTextureData;
+  }
+  
+
+
+  public Texture getTexture()
+  {
+    return readTexture;
+  }
+  
+  public void write(File paramFile)
+  {
+    try
+    {
+      TextureIO.write(readTextureData, paramFile);
+      rewindPixelBuffer();
+    } catch (IOException localIOException) {
+      throw new RuntimeException("can not write to file: " + paramFile.getAbsolutePath(), localIOException);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public boolean readPixels(GL paramGL, boolean paramBoolean)
+  {
+    return readPixels(paramGL, 0, 0, 0, 0, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean readPixels(GL paramGL, int paramInt1, int paramInt2, int paramInt3, int paramInt4, boolean paramBoolean)
+  {
+    GLDrawable localGLDrawable = paramGL.getContext().getGLReadDrawable();
+    int i;
+    if ((0 >= paramInt3) || (localGLDrawable.getSurfaceWidth() < paramInt3)) {
+      i = localGLDrawable.getSurfaceWidth();
+    } else
+      i = paramInt3;
+    int j;
+    if ((0 >= paramInt4) || (localGLDrawable.getSurfaceHeight() < paramInt4)) {
+      j = localGLDrawable.getSurfaceHeight();
+    } else {
+      j = paramInt4;
+    }
+    return readPixelsImpl(localGLDrawable, paramGL, paramInt1, paramInt2, i, j, paramBoolean);
+  }
+  
+
+  protected boolean readPixelsImpl(GLDrawable paramGLDrawable, GL paramGL, int paramInt1, int paramInt2, int paramInt3, int paramInt4, boolean paramBoolean)
+  {
+    int i = paramGL.glGetError();
+    if (0 != i) {
+      System.err.println("Info: GLReadBufferUtil.readPixels: pre-exisiting GL error 0x" + Integer.toHexString(i));
+    }
+    int j = hasAlpha ? 4 : 3;
+    PixelFormat.Composition localComposition = pixelBufferProvider.getHostPixelComp(paramGL.getGLProfile(), j);
+    GLPixelBuffer.GLPixelAttributes localGLPixelAttributes = pixelBufferProvider.getAttributes(paramGL, j, true);
+    int k = pfmt.comp.componentCount();
+    hasAlpha = (0 <= pfmt.comp.find(PixelFormat.CType.A));
+    int m = 4 == k ? 4 : 1;
+    int n = 4 == k ? 6408 : 6407;
+    
+    boolean bool1;
+    if (paramGLDrawable.isGLOriented()) {
+      bool1 = paramBoolean;
+    } else {
+      bool1 = !paramBoolean;
+    }
+    
+    int[] arrayOfInt = new int[1];
+    int i1 = GLBuffers.sizeof(paramGL, arrayOfInt, pfmt.comp.bytesPerPixel(), paramInt3, paramInt4, 1, true);
+    
+    int i2 = 0;
+    if ((null == readPixelBuffer) || (readPixelBuffer.requiresNewBuffer(paramGL, paramInt3, paramInt4, i1))) {
+      readPixelBuffer = pixelBufferProvider.allocate(paramGL, localComposition, localGLPixelAttributes, true, paramInt3, paramInt4, 1, i1);
+      Buffers.rangeCheckBytes(readPixelBuffer.buffer, i1);
+      try
+      {
+        readTextureData = new TextureData(paramGL.getGLProfile(), n, paramInt3, paramInt4, 0, localGLPixelAttributes, false, false, bool1, readPixelBuffer.buffer, null);
+        
+
+
+
+
+
+
+
+        i2 = 1;
+      } catch (Exception localException) {
+        readTextureData = null;
+        readPixelBuffer = null;
+        throw new RuntimeException("can not fetch offscreen texture", localException);
+      }
+    } else {
+      readTextureData.setInternalFormat(n);
+      readTextureData.setWidth(paramInt3);
+      readTextureData.setHeight(paramInt4);
+      readTextureData.setPixelAttributes(localGLPixelAttributes);
+    }
+    boolean bool2 = (null != readPixelBuffer) && (readPixelBuffer.isValid());
+    if (bool2) {
+      psm.setPackAlignment(paramGL, m);
+      if (paramGL.isGL2ES3()) {
+        GL2ES3 localGL2ES3 = paramGL.getGL2ES3();
+        psm.setPackRowLength(localGL2ES3, paramInt3);
+        localGL2ES3.glReadBuffer(localGL2ES3.getDefaultReadBuffer());
+      }
+      readPixelBuffer.clear();
+      try {
+        paramGL.glReadPixels(paramInt1, paramInt2, paramInt3, paramInt4, format, type, readPixelBuffer.buffer);
+      } catch (GLException localGLException) { bool2 = false;localGLException.printStackTrace(); }
+      readPixelBuffer.position(i1);
+      readPixelBuffer.flip();
+      int i3 = paramGL.glGetError();
+      if (0 != i3) {
+        System.err.println("GLReadBufferUtil.readPixels: readPixels error 0x" + Integer.toHexString(i3) + " " + paramInt3 + "x" + paramInt4 + ", " + localGLPixelAttributes + ", " + readPixelBuffer + ", sz " + i1);
+        
+
+
+        bool2 = false;
+      }
+      if ((bool2) && (null != readTexture)) {
+        if (i2 != 0) {
+          readTexture.updateImage(paramGL, readTextureData);
+        } else {
+          readTexture.updateSubImage(paramGL, readTextureData, 0, paramInt1, paramInt2, 0, 0, paramInt3, paramInt4);
+        }
+        
+
+
+        readPixelBuffer.rewind();
+      }
+      psm.restore(paramGL);
+    }
+    return bool2;
+  }
+  
+  public void dispose(GL paramGL) {
+    if (null != readTexture) {
+      readTexture.destroy(paramGL);
+      readTextureData = null;
+    }
+    if (null != readPixelBuffer) {
+      readPixelBuffer.dispose();
+      readPixelBuffer = null;
+    }
+  }
+}

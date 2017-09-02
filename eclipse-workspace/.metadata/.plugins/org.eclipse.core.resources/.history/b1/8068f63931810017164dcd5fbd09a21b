@@ -1,0 +1,1446 @@
+package com.jogamp.opengl.util.texture;
+
+import com.jogamp.common.util.IOUtil;
+import com.jogamp.nativewindow.util.Dimension;
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.PixelFormat;
+import com.jogamp.nativewindow.util.PixelFormat.Composition;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2GL3;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.util.GLPixelBuffer.GLPixelAttributes;
+import com.jogamp.opengl.util.GLPixelStorageModes;
+import com.jogamp.opengl.util.PNGPixelRect;
+import com.jogamp.opengl.util.texture.spi.DDSImage;
+import com.jogamp.opengl.util.texture.spi.DDSImage.ImageInfo;
+import com.jogamp.opengl.util.texture.spi.JPEGImage;
+import com.jogamp.opengl.util.texture.spi.NetPbmTextureWriter;
+import com.jogamp.opengl.util.texture.spi.SGIImage;
+import com.jogamp.opengl.util.texture.spi.TGAImage;
+import com.jogamp.opengl.util.texture.spi.TextureProvider;
+import com.jogamp.opengl.util.texture.spi.TextureProvider.SupportsImageTypes;
+import com.jogamp.opengl.util.texture.spi.TextureWriter;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.net.URL;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class TextureIO
+{
+  public static final String DDS = "dds";
+  public static final String SGI = "sgi";
+  public static final String SGI_RGB = "rgb";
+  public static final String GIF = "gif";
+  public static final String JPG = "jpg";
+  public static final String PNG = "png";
+  public static final String TGA = "tga";
+  public static final String TIFF = "tiff";
+  public static final String PAM = "pam";
+  public static final String PPM = "ppm";
+  private static final boolean DEBUG = Debug.debug("TextureIO");
+  
+
+
+
+
+  private static boolean texRectEnabled = true;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static TextureData newTextureData(GLProfile paramGLProfile, File paramFile, boolean paramBoolean, String paramString)
+    throws IOException
+  {
+    if (paramString == null) {
+      paramString = IOUtil.getFileSuffix(paramFile);
+    }
+    return newTextureDataImpl(paramGLProfile, paramFile, 0, 0, paramBoolean, paramString);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static TextureData newTextureData(GLProfile paramGLProfile, InputStream paramInputStream, boolean paramBoolean, String paramString)
+    throws IOException
+  {
+    return newTextureDataImpl(paramGLProfile, paramInputStream, 0, 0, paramBoolean, paramString);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static TextureData newTextureData(GLProfile paramGLProfile, URL paramURL, boolean paramBoolean, String paramString)
+    throws IOException
+  {
+    if (paramString == null) {
+      paramString = IOUtil.getFileSuffix(paramURL.getPath());
+    }
+    return newTextureDataImpl(paramGLProfile, paramURL, 0, 0, paramBoolean, paramString);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static TextureData newTextureData(GLProfile paramGLProfile, File paramFile, int paramInt1, int paramInt2, boolean paramBoolean, String paramString)
+    throws IOException, IllegalArgumentException
+  {
+    if ((paramInt1 == 0) || (paramInt2 == 0)) {
+      throw new IllegalArgumentException("internalFormat and pixelFormat must be non-zero");
+    }
+    
+    if (paramString == null) {
+      paramString = IOUtil.getFileSuffix(paramFile);
+    }
+    
+    return newTextureDataImpl(paramGLProfile, paramFile, paramInt1, paramInt2, paramBoolean, paramString);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static TextureData newTextureData(GLProfile paramGLProfile, InputStream paramInputStream, int paramInt1, int paramInt2, boolean paramBoolean, String paramString)
+    throws IOException, IllegalArgumentException
+  {
+    if ((paramInt1 == 0) || (paramInt2 == 0)) {
+      throw new IllegalArgumentException("internalFormat and pixelFormat must be non-zero");
+    }
+    
+    return newTextureDataImpl(paramGLProfile, paramInputStream, paramInt1, paramInt2, paramBoolean, paramString);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static TextureData newTextureData(GLProfile paramGLProfile, URL paramURL, int paramInt1, int paramInt2, boolean paramBoolean, String paramString)
+    throws IOException, IllegalArgumentException
+  {
+    if ((paramInt1 == 0) || (paramInt2 == 0)) {
+      throw new IllegalArgumentException("internalFormat and pixelFormat must be non-zero");
+    }
+    
+    if (paramString == null) {
+      paramString = IOUtil.getFileSuffix(paramURL.getPath());
+    }
+    
+    return newTextureDataImpl(paramGLProfile, paramURL, paramInt1, paramInt2, paramBoolean, paramString);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static Texture newTexture(TextureData paramTextureData)
+    throws GLException, IllegalArgumentException
+  {
+    return newTexture(GLContext.getCurrentGL(), paramTextureData);
+  }
+  
+
+
+
+
+
+
+
+  public static Texture newTexture(GL paramGL, TextureData paramTextureData)
+    throws GLException, IllegalArgumentException
+  {
+    if (paramTextureData == null) {
+      throw new IllegalArgumentException("Null TextureData");
+    }
+    return new Texture(paramGL, paramTextureData);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Texture newTexture(File paramFile, boolean paramBoolean)
+    throws IOException, GLException
+  {
+    GL localGL = GLContext.getCurrentGL();
+    GLProfile localGLProfile = localGL.getGLProfile();
+    TextureData localTextureData = newTextureData(localGLProfile, paramFile, paramBoolean, IOUtil.getFileSuffix(paramFile));
+    Texture localTexture = newTexture(localGL, localTextureData);
+    localTextureData.flush();
+    return localTexture;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Texture newTexture(InputStream paramInputStream, boolean paramBoolean, String paramString)
+    throws IOException, GLException
+  {
+    GL localGL = GLContext.getCurrentGL();
+    GLProfile localGLProfile = localGL.getGLProfile();
+    TextureData localTextureData = newTextureData(localGLProfile, paramInputStream, paramBoolean, paramString);
+    Texture localTexture = newTexture(localGL, localTextureData);
+    localTextureData.flush();
+    return localTexture;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Texture newTexture(URL paramURL, boolean paramBoolean, String paramString)
+    throws IOException, GLException
+  {
+    if (paramString == null) {
+      paramString = IOUtil.getFileSuffix(paramURL.getPath());
+    }
+    GL localGL = GLContext.getCurrentGL();
+    GLProfile localGLProfile = localGL.getGLProfile();
+    TextureData localTextureData = newTextureData(localGLProfile, paramURL, paramBoolean, paramString);
+    Texture localTexture = newTexture(localGL, localTextureData);
+    localTextureData.flush();
+    return localTexture;
+  }
+  
+
+
+
+
+
+
+
+
+  public static Texture newTexture(int paramInt)
+  {
+    return new Texture(paramInt);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static void write(Texture paramTexture, File paramFile)
+    throws IOException, GLException
+  {
+    if (paramTexture.getTarget() != 3553) {
+      throw new GLException("Only GL_TEXTURE_2D textures are supported");
+    }
+    
+
+    GL localGL = GLContext.getCurrentGL();
+    if (!localGL.isGL2GL3()) {
+      throw new GLException("Implementation only supports GL2GL3 (Use GLReadBufferUtil and the TextureData variant), have: " + localGL);
+    }
+    GL2GL3 localGL2GL3 = localGL.getGL2GL3();
+    
+    paramTexture.bind(localGL2GL3);
+    int i = glGetTexLevelParameteri(localGL2GL3, 3553, 0, 4099);
+    int j = glGetTexLevelParameteri(localGL2GL3, 3553, 0, 4096);
+    int k = glGetTexLevelParameteri(localGL2GL3, 3553, 0, 4097);
+    int m = glGetTexLevelParameteri(localGL2GL3, 3553, 0, 4101);
+    TextureData localTextureData = null;
+    int n; if ((i == 33776) || (i == 33777) || (i == 33778) || (i == 33779))
+    {
+
+
+
+      n = glGetTexLevelParameteri(localGL2GL3, 3553, 0, 34464);
+      ByteBuffer localByteBuffer1 = ByteBuffer.allocate(n);
+      localGL2GL3.glGetCompressedTexImage(3553, 0, localByteBuffer1);
+      localTextureData = new TextureData(localGL2GL3.getGLProfile(), i, j, k, m, i, 5121, false, true, true, localByteBuffer1, null);
+    }
+    else {
+      n = 0;
+      int i1 = 0;
+      switch (i) {
+      case 6407: 
+      case 32849: 
+      case 32992: 
+        n = 3;
+        i1 = 6407;
+        break;
+      case 6408: 
+      case 32768: 
+      case 32856: 
+      case 32993: 
+        n = 4;
+        i1 = 6408;
+        break;
+      default: 
+        throw new IOException("Unsupported texture internal format 0x" + Integer.toHexString(i));
+      }
+      
+      
+      GLPixelStorageModes localGLPixelStorageModes = new GLPixelStorageModes();
+      localGLPixelStorageModes.setPackAlignment(localGL2GL3, 1);
+      
+      ByteBuffer localByteBuffer2 = ByteBuffer.allocate((j + 2 * m) * (k + 2 * m) * n);
+      
+
+      if (DEBUG) {
+        System.out.println("Allocated buffer of size " + localByteBuffer2.remaining() + " for fetched image (" + (i1 == 6407 ? "GL_RGB" : "GL_RGBA") + ")");
+      }
+      
+      localGL2GL3.glGetTexImage(3553, 0, i1, 5121, localByteBuffer2);
+      
+      localGLPixelStorageModes.restore(localGL2GL3);
+      
+      localTextureData = new TextureData(localGL2GL3.getGLProfile(), i, j, k, m, i1, 5121, false, false, false, localByteBuffer2, null);
+      
+
+      if (DEBUG) {
+        System.out.println("data.getPixelFormat() = " + (localTextureData
+          .getPixelFormat() == 6407 ? "GL_RGB" : "GL_RGBA"));
+      }
+    }
+    
+    write(localTextureData, paramFile);
+  }
+  
+  public static void write(TextureData paramTextureData, File paramFile) throws IOException, GLException {
+    for (Iterator localIterator = textureWriters.iterator(); localIterator.hasNext();) {
+      TextureWriter localTextureWriter = (TextureWriter)localIterator.next();
+      if (localTextureWriter.write(paramFile, paramTextureData)) {
+        return;
+      }
+    }
+    
+    throw new IOException("No suitable texture writer found for " + paramFile.getAbsolutePath());
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static void addTextureProvider(TextureProvider paramTextureProvider)
+  {
+    textureProviders.add(0, paramTextureProvider);
+    
+    if ((paramTextureProvider instanceof TextureProvider.SupportsImageTypes)) {
+      ImageType[] arrayOfImageType = ((TextureProvider.SupportsImageTypes)paramTextureProvider).getImageTypes();
+      if (null != arrayOfImageType) {
+        for (int i = 0; i < arrayOfImageType.length; i++) {
+          imageType2TextureProvider.put(arrayOfImageType[i], paramTextureProvider);
+        }
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public static void addTextureWriter(TextureWriter paramTextureWriter)
+  {
+    textureWriters.add(0, paramTextureWriter);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static void setTexRectEnabled(boolean paramBoolean)
+  {
+    texRectEnabled = paramBoolean;
+  }
+  
+
+
+  public static boolean isTexRectEnabled()
+  {
+    return texRectEnabled;
+  }
+  
+
+
+
+
+  private static List<TextureProvider> textureProviders = new ArrayList();
+  private static Map<ImageType, TextureProvider> imageType2TextureProvider = new HashMap();
+  private static List<TextureWriter> textureWriters = new ArrayList();
+  
+  static
+  {
+    if (GLProfile.isAWTAvailable())
+    {
+      try
+      {
+        TextureProvider localTextureProvider = (TextureProvider)Class.forName("com.jogamp.opengl.util.texture.spi.awt.IIOTextureProvider").newInstance();
+        addTextureProvider(localTextureProvider);
+      } catch (Exception localException1) {
+        if (DEBUG) {
+          localException1.printStackTrace();
+        }
+      }
+    }
+    
+
+    addTextureProvider(new DDSTextureProvider());
+    addTextureProvider(new SGITextureProvider());
+    addTextureProvider(new TGATextureProvider());
+    addTextureProvider(new JPGTextureProvider());
+    addTextureProvider(new PNGTextureProvider());
+    
+
+    if (GLProfile.isAWTAvailable())
+    {
+      try
+      {
+        TextureWriter localTextureWriter = (TextureWriter)Class.forName("com.jogamp.opengl.util.texture.spi.awt.IIOTextureWriter").newInstance();
+        addTextureWriter(localTextureWriter);
+      } catch (Exception localException2) {
+        if (DEBUG) {
+          localException2.printStackTrace();
+        }
+      } catch (Error localError) {
+        if (DEBUG) {
+          localError.printStackTrace();
+        }
+      }
+    }
+    
+
+    addTextureWriter(new DDSTextureWriter());
+    addTextureWriter(new SGITextureWriter());
+    addTextureWriter(new TGATextureWriter());
+    addTextureWriter(new NetPbmTextureWriter());
+    addTextureWriter(new PNGTextureWriter());
+  }
+  
+
+
+
+  private static TextureData newTextureDataImpl(GLProfile paramGLProfile, InputStream paramInputStream, int paramInt1, int paramInt2, boolean paramBoolean, String paramString)
+    throws IOException
+  {
+    if (paramInputStream == null) {
+      throw new IOException("Stream was null");
+    }
+    
+
+    if (!(paramInputStream instanceof BufferedInputStream)) {
+      paramInputStream = new BufferedInputStream(paramInputStream);
+    }
+    TextureProvider localTextureProvider;
+    TextureData localTextureData;
+    try
+    {
+      ImageType localImageType = new ImageType(paramInputStream);
+      if (localImageType.isDefined()) {
+        localTextureProvider = (TextureProvider)imageType2TextureProvider.get(localImageType);
+        if (null != localTextureProvider) {
+          localTextureData = localTextureProvider.newTextureData(paramGLProfile, paramInputStream, paramInt1, paramInt2, paramBoolean, type);
+          
+
+
+
+          if (localTextureData != null) {
+            srcImageType = localImageType;
+            return localTextureData;
+          }
+        }
+      }
+    } catch (IOException localIOException) {
+      if (DEBUG) {
+        System.err.println("Caught " + localIOException.getMessage());
+        localIOException.printStackTrace();
+      }
+    }
+    
+    paramString = toLowerCase(paramString);
+    
+    for (Iterator localIterator = textureProviders.iterator(); localIterator.hasNext();) {
+      localTextureProvider = (TextureProvider)localIterator.next();
+      localTextureData = localTextureProvider.newTextureData(paramGLProfile, paramInputStream, paramInt1, paramInt2, paramBoolean, paramString);
+      
+
+
+
+      if (localTextureData != null) {
+        if ((localTextureProvider instanceof TextureProvider.SupportsImageTypes)) {
+          srcImageType = ((TextureProvider.SupportsImageTypes)localTextureProvider).getImageTypes()[0];
+        }
+        return localTextureData;
+      }
+    }
+    
+    throw new IOException("No suitable reader for given stream");
+  }
+  
+
+  private static TextureData newTextureDataImpl(GLProfile paramGLProfile, File paramFile, int paramInt1, int paramInt2, boolean paramBoolean, String paramString)
+    throws IOException
+  {
+    if (paramFile == null) {
+      throw new IOException("File was null");
+    }
+    BufferedInputStream localBufferedInputStream = new BufferedInputStream(new FileInputStream(paramFile));
+    try {
+      return newTextureDataImpl(paramGLProfile, localBufferedInputStream, paramInt1, paramInt2, paramBoolean, paramString != null ? paramString : 
+        IOUtil.getFileSuffix(paramFile));
+    } catch (IOException localIOException) {
+      throw new IOException(localIOException.getMessage() + ", given file " + paramFile.getAbsolutePath(), localIOException);
+    } finally {
+      localBufferedInputStream.close();
+    }
+  }
+  
+
+  private static TextureData newTextureDataImpl(GLProfile paramGLProfile, URL paramURL, int paramInt1, int paramInt2, boolean paramBoolean, String paramString)
+    throws IOException
+  {
+    if (paramURL == null) {
+      throw new IOException("URL was null");
+    }
+    BufferedInputStream localBufferedInputStream = new BufferedInputStream(paramURL.openStream());
+    try {
+      return newTextureDataImpl(paramGLProfile, localBufferedInputStream, paramInt1, paramInt2, paramBoolean, paramString);
+    } catch (IOException localIOException) {
+      throw new IOException(localIOException.getMessage() + ", given URL " + paramURL, localIOException);
+    } finally {
+      localBufferedInputStream.close();
+    }
+  }
+  
+
+  static abstract class StreamBasedTextureProvider
+    implements TextureProvider, TextureProvider.SupportsImageTypes
+  {
+    StreamBasedTextureProvider() {}
+    
+    public final TextureData newTextureData(GLProfile paramGLProfile, File paramFile, int paramInt1, int paramInt2, boolean paramBoolean, String paramString)
+      throws IOException
+    {
+      throw new UnsupportedOperationException("Only stream is supported");
+    }
+    
+
+
+
+    public final TextureData newTextureData(GLProfile paramGLProfile, URL paramURL, int paramInt1, int paramInt2, boolean paramBoolean, String paramString)
+      throws IOException
+    {
+      throw new UnsupportedOperationException("Only stream is supported");
+    }
+  }
+  
+  static class DDSTextureProvider extends TextureIO.StreamBasedTextureProvider {
+    DDSTextureProvider() {}
+    
+    private static final ImageType[] imageTypes = { new ImageType("dds") };
+    
+    public final ImageType[] getImageTypes() {
+      return imageTypes;
+    }
+    
+
+
+
+    public TextureData newTextureData(GLProfile paramGLProfile, InputStream paramInputStream, int paramInt1, int paramInt2, boolean paramBoolean, String paramString)
+      throws IOException
+    {
+      if (("dds".equals(paramString)) || 
+        ("dds".equals(ImageType.Util.getFileSuffix(paramInputStream)))) {
+        byte[] arrayOfByte = IOUtil.copyStream2ByteArray(paramInputStream);
+        ByteBuffer localByteBuffer = ByteBuffer.wrap(arrayOfByte);
+        DDSImage localDDSImage = DDSImage.read(localByteBuffer);
+        return newTextureData(paramGLProfile, localDDSImage, paramInt1, paramInt2, paramBoolean);
+      }
+      
+      return null;
+    }
+    
+
+
+    private TextureData newTextureData(GLProfile paramGLProfile, final DDSImage paramDDSImage, int paramInt1, int paramInt2, boolean paramBoolean)
+    {
+      DDSImage.ImageInfo localImageInfo = paramDDSImage.getMipMap(0);
+      if (paramInt2 == 0) {
+        switch (paramDDSImage.getPixelFormat()) {
+        case 20: 
+          paramInt2 = 6407;
+          break;
+        default: 
+          paramInt2 = 6408;
+        }
+        
+      }
+      if (localImageInfo.isCompressed()) {
+        switch (localImageInfo.getCompressionFormat()) {
+        case 827611204: 
+          paramInt1 = 33776;
+          break;
+        case 861165636: 
+          paramInt1 = 33778;
+          break;
+        case 894720068: 
+          paramInt1 = 33779;
+          break;
+        
+        default: 
+          throw new RuntimeException("Unsupported DDS compression format \"" + DDSImage.getCompressionFormatName(localImageInfo.getCompressionFormat()) + "\"");
+        }
+      }
+      if (paramInt1 == 0) {
+        switch (paramDDSImage.getPixelFormat()) {
+        case 20: 
+          paramInt2 = 6407;
+          break;
+        default: 
+          paramInt2 = 6408;
+        }
+        
+      }
+      TextureData.Flusher local1 = new TextureData.Flusher()
+      {
+        public void flush() {
+          paramDDSImage.close();
+        }
+      };
+      TextureData localTextureData;
+      if ((paramBoolean) && (paramDDSImage.getNumMipMaps() > 0)) {
+        Buffer[] arrayOfBuffer = new Buffer[paramDDSImage.getNumMipMaps()];
+        for (int i = 0; i < paramDDSImage.getNumMipMaps(); i++) {
+          arrayOfBuffer[i] = paramDDSImage.getMipMap(i).getData();
+        }
+        
+
+
+
+
+
+        localTextureData = new TextureData(paramGLProfile, paramInt1, localImageInfo.getWidth(), localImageInfo.getHeight(), 0, paramInt2, 5121, localImageInfo.isCompressed(), true, arrayOfBuffer, local1);
+
+
+      }
+      else
+      {
+
+        paramBoolean = false;
+        
+
+
+
+
+
+
+
+
+        localTextureData = new TextureData(paramGLProfile, paramInt1, localImageInfo.getWidth(), localImageInfo.getHeight(), 0, paramInt2, 5121, paramBoolean, localImageInfo.isCompressed(), true, localImageInfo.getData(), local1);
+      }
+      
+      return localTextureData;
+    }
+  }
+  
+  static class SGITextureProvider extends TextureIO.StreamBasedTextureProvider {
+    SGITextureProvider() {}
+    
+    private static final ImageType[] imageTypes = { new ImageType("rgb") };
+    
+    public final ImageType[] getImageTypes() {
+      return imageTypes;
+    }
+    
+
+
+
+    public TextureData newTextureData(GLProfile paramGLProfile, InputStream paramInputStream, int paramInt1, int paramInt2, boolean paramBoolean, String paramString)
+      throws IOException
+    {
+      if (("sgi".equals(paramString)) || 
+        ("rgb".equals(paramString)) || 
+        ("sgi".equals(ImageType.Util.getFileSuffix(paramInputStream))) || 
+        ("rgb".equals(ImageType.Util.getFileSuffix(paramInputStream)))) {
+        SGIImage localSGIImage = SGIImage.read(paramInputStream);
+        if (paramInt2 == 0) {
+          paramInt2 = localSGIImage.getFormat();
+        }
+        if (paramInt1 == 0) {
+          paramInt1 = localSGIImage.getFormat();
+        }
+        
+
+
+
+
+
+
+
+
+        return new TextureData(paramGLProfile, paramInt1, localSGIImage.getWidth(), localSGIImage.getHeight(), 0, paramInt2, 5121, paramBoolean, false, false, ByteBuffer.wrap(localSGIImage.getData()), null);
+      }
+      
+
+      return null;
+    }
+  }
+  
+  static class TGATextureProvider extends TextureIO.StreamBasedTextureProvider {
+    TGATextureProvider() {}
+    
+    private static final ImageType[] imageTypes = { new ImageType("tga") };
+    
+    public final ImageType[] getImageTypes() {
+      return imageTypes;
+    }
+    
+
+
+
+    public TextureData newTextureData(GLProfile paramGLProfile, InputStream paramInputStream, int paramInt1, int paramInt2, boolean paramBoolean, String paramString)
+      throws IOException
+    {
+      if ("tga".equals(paramString)) {
+        TGAImage localTGAImage = TGAImage.read(paramGLProfile, paramInputStream);
+        if (paramInt2 == 0) {
+          paramInt2 = localTGAImage.getGLFormat();
+        }
+        if (paramInt1 == 0) {
+          if (paramGLProfile.isGL2ES3()) {
+            paramInt1 = localTGAImage.getBytesPerPixel() == 4 ? 32856 : 32849;
+          } else {
+            paramInt1 = localTGAImage.getBytesPerPixel() == 4 ? 6408 : 6407;
+          }
+        }
+        
+
+
+
+
+
+
+
+
+        return new TextureData(paramGLProfile, paramInt1, localTGAImage.getWidth(), localTGAImage.getHeight(), 0, paramInt2, 5121, paramBoolean, false, false, localTGAImage.getData(), null);
+      }
+      
+
+      return null;
+    }
+  }
+  
+  static class PNGTextureProvider extends TextureIO.StreamBasedTextureProvider {
+    PNGTextureProvider() {}
+    
+    private static final ImageType[] imageTypes = { new ImageType("png") };
+    
+    public final ImageType[] getImageTypes() {
+      return imageTypes;
+    }
+    
+
+
+
+    public TextureData newTextureData(GLProfile paramGLProfile, InputStream paramInputStream, int paramInt1, int paramInt2, boolean paramBoolean, String paramString)
+      throws IOException
+    {
+      if (("png".equals(paramString)) || 
+        ("png".equals(ImageType.Util.getFileSuffix(paramInputStream)))) {
+        PNGPixelRect localPNGPixelRect = PNGPixelRect.read(paramInputStream, null, true, 0, true);
+        GLPixelBuffer.GLPixelAttributes localGLPixelAttributes = new GLPixelBuffer.GLPixelAttributes(paramGLProfile, localPNGPixelRect.getPixelformat(), false);
+        if (0 == paramInt2) {
+          paramInt2 = format;
+        }
+        if (0 == paramInt1) {
+          int i = 4 == pfmt.comp.bytesPerPixel() ? 1 : 0;
+          if (paramGLProfile.isGL2ES3()) {
+            paramInt1 = i != 0 ? 32856 : 32849;
+          } else {
+            paramInt1 = i != 0 ? 6408 : 6407;
+          }
+        }
+        
+
+
+
+
+
+
+
+
+        return new TextureData(paramGLProfile, paramInt1, localPNGPixelRect.getSize().getWidth(), localPNGPixelRect.getSize().getHeight(), 0, paramInt2, type, paramBoolean, false, false, localPNGPixelRect.getPixels(), null);
+      }
+      
+
+      return null;
+    }
+  }
+  
+  static class JPGTextureProvider extends TextureIO.StreamBasedTextureProvider {
+    JPGTextureProvider() {}
+    
+    private static final ImageType[] imageTypes = { new ImageType("jpg") };
+    
+    public final ImageType[] getImageTypes() {
+      return imageTypes;
+    }
+    
+
+
+
+    public TextureData newTextureData(GLProfile paramGLProfile, InputStream paramInputStream, int paramInt1, int paramInt2, boolean paramBoolean, String paramString)
+      throws IOException
+    {
+      if (("jpg".equals(paramString)) || 
+        ("jpg".equals(ImageType.Util.getFileSuffix(paramInputStream)))) {
+        JPEGImage localJPEGImage = JPEGImage.read(paramInputStream);
+        if (paramInt2 == 0) {
+          paramInt2 = localJPEGImage.getGLFormat();
+        }
+        if (paramInt1 == 0) {
+          if (paramGLProfile.isGL2ES3()) {
+            paramInt1 = localJPEGImage.getBytesPerPixel() == 4 ? 32856 : 32849;
+          } else {
+            paramInt1 = localJPEGImage.getBytesPerPixel() == 4 ? 6408 : 6407;
+          }
+        }
+        
+
+
+
+
+
+
+
+
+        return new TextureData(paramGLProfile, paramInt1, localJPEGImage.getWidth(), localJPEGImage.getHeight(), 0, paramInt2, localJPEGImage.getGLType(), paramBoolean, false, false, localJPEGImage.getData(), null);
+      }
+      
+
+      return null;
+    }
+  }
+  
+  static class DDSTextureWriter
+    implements TextureWriter
+  {
+    DDSTextureWriter() {}
+    
+    public boolean write(File paramFile, TextureData paramTextureData) throws IOException
+    {
+      if ("dds".equals(IOUtil.getFileSuffix(paramFile)))
+      {
+        GLPixelBuffer.GLPixelAttributes localGLPixelAttributes = paramTextureData.getPixelAttributes();
+        int i = format;
+        int j = type;
+        if ((j != 5120) && (j != 5121))
+        {
+          throw new IOException("DDS writer only supports byte / unsigned byte textures");
+        }
+        
+        int k = 0;
+        
+        switch (i) {
+        case 6407:  k = 20; break;
+        case 6408:  k = 21; break;
+        case 33776:  k = 827611204; break;
+        case 33777:  throw new IOException("RGBA DXT1 not yet supported");
+        case 33778:  k = 861165636; break;
+        case 33779:  k = 894720068; break;
+        default:  throw new IOException("Unsupported pixel format 0x" + Integer.toHexString(i) + " by DDS writer");
+        }
+        
+        ByteBuffer[] arrayOfByteBuffer = null;
+        if (paramTextureData.getMipmapData() != null) {
+          arrayOfByteBuffer = new ByteBuffer[paramTextureData.getMipmapData().length];
+          for (int m = 0; m < arrayOfByteBuffer.length; m++) {
+            arrayOfByteBuffer[m] = ((ByteBuffer)paramTextureData.getMipmapData()[m]);
+          }
+        } else {
+          arrayOfByteBuffer = new ByteBuffer[] { (ByteBuffer)paramTextureData.getBuffer() };
+        }
+        
+        DDSImage localDDSImage = DDSImage.createFromData(k, paramTextureData
+          .getWidth(), paramTextureData
+          .getHeight(), arrayOfByteBuffer);
+        
+        localDDSImage.write(paramFile);
+        return true;
+      }
+      
+      return false;
+    }
+  }
+  
+  static class SGITextureWriter
+    implements TextureWriter
+  {
+    SGITextureWriter() {}
+    
+    public boolean write(File paramFile, TextureData paramTextureData) throws IOException
+    {
+      String str = IOUtil.getFileSuffix(paramFile);
+      if (("sgi".equals(str)) || 
+        ("rgb".equals(str)))
+      {
+        GLPixelBuffer.GLPixelAttributes localGLPixelAttributes = paramTextureData.getPixelAttributes();
+        int i = format;
+        int j = type;
+        if (((i == 6407) || (i == 6408)) && ((j == 5120) || (j == 5121)))
+        {
+
+
+
+
+          ByteBuffer localByteBuffer = paramTextureData.getBuffer() != null ? (ByteBuffer)paramTextureData.getBuffer() : (ByteBuffer)paramTextureData.getMipmapData()[0];
+          byte[] arrayOfByte;
+          if (localByteBuffer.hasArray()) {
+            arrayOfByte = localByteBuffer.array();
+          } else {
+            localByteBuffer.rewind();
+            arrayOfByte = new byte[localByteBuffer.remaining()];
+            localByteBuffer.get(arrayOfByte);
+            localByteBuffer.rewind();
+          }
+          
+          SGIImage localSGIImage = SGIImage.createFromData(paramTextureData.getWidth(), paramTextureData
+            .getHeight(), i == 6408, arrayOfByte);
+          
+
+          localSGIImage.write(paramFile, false);
+          return true;
+        }
+        
+        throw new IOException("SGI writer doesn't support this pixel format / type (only GL_RGB/A + bytes)");
+      }
+      
+      return false;
+    }
+  }
+  
+  static class TGATextureWriter
+    implements TextureWriter
+  {
+    TGATextureWriter() {}
+    
+    public boolean write(File paramFile, TextureData paramTextureData) throws IOException
+    {
+      if ("tga".equals(IOUtil.getFileSuffix(paramFile)))
+      {
+        GLPixelBuffer.GLPixelAttributes localGLPixelAttributes = paramTextureData.getPixelAttributes();
+        int i = format;
+        int j = type;
+        if (((i == 6407) || (i == 6408) || (i == 32992) || (i == 32993)) && ((j == 5120) || (j == 5121)))
+        {
+
+
+
+
+
+          ByteBuffer localByteBuffer = (ByteBuffer)paramTextureData.getBuffer();
+          if (null == localByteBuffer) {
+            localByteBuffer = (ByteBuffer)paramTextureData.getMipmapData()[0];
+          }
+          localByteBuffer.rewind();
+          
+          if ((i == 6407) || (i == 6408))
+          {
+            int k = i == 6407 ? 3 : 4;
+            for (int m = 0; m < localByteBuffer.remaining(); m += k) {
+              byte b1 = localByteBuffer.get(m + 0);
+              byte b2 = localByteBuffer.get(m + 2);
+              localByteBuffer.put(m + 0, b2);
+              localByteBuffer.put(m + 2, b1);
+            }
+          }
+          
+          TGAImage localTGAImage = TGAImage.createFromData(paramTextureData.getWidth(), paramTextureData
+            .getHeight(), (i == 6408) || (i == 32993), false, localByteBuffer);
+          
+
+          localTGAImage.write(paramFile);
+          return true;
+        }
+        
+        throw new IOException("TGA writer doesn't support this pixel format 0x" + Integer.toHexString(i) + " / type 0x" + Integer.toHexString(i) + " (only GL_RGB/A, GL_BGR/A + bytes)");
+      }
+      
+      return false;
+    }
+  }
+  
+  static class PNGTextureWriter implements TextureWriter
+  {
+    PNGTextureWriter() {}
+    
+    public boolean write(File paramFile, TextureData paramTextureData) throws IOException
+    {
+      if ("png".equals(IOUtil.getFileSuffix(paramFile)))
+      {
+        GLPixelBuffer.GLPixelAttributes localGLPixelAttributes = paramTextureData.getPixelAttributes();
+        int i = format;
+        int j = type;
+        int k = pfmt.comp.bytesPerPixel();
+        PixelFormat localPixelFormat = pfmt;
+        if (((1 == k) || (3 == k) || (4 == k)) && ((j == 5120) || (j == 5121)))
+        {
+          Buffer localBuffer = paramTextureData.getBuffer();
+          if (null == localBuffer) {
+            localBuffer = paramTextureData.getMipmapData()[0];
+          }
+          if (null == localBuffer) {
+            throw new IOException("Pixel storage buffer is null");
+          }
+          Dimension localDimension = new Dimension(paramTextureData.getWidth(), paramTextureData.getHeight());
+          Object localObject1; Object localObject2; if ((localBuffer instanceof ByteBuffer)) {
+            localObject1 = (ByteBuffer)localBuffer;
+            ((ByteBuffer)localObject1).rewind();
+            
+            localObject2 = new PNGPixelRect(localPixelFormat, localDimension, 0, !paramTextureData.getMustFlipVertically(), (ByteBuffer)localObject1, -1.0D, -1.0D);
+            
+            BufferedOutputStream localBufferedOutputStream = new BufferedOutputStream(IOUtil.getFileOutputStream(paramFile, true));
+            ((PNGPixelRect)localObject2).write(localBufferedOutputStream, true);
+            return true; }
+          if ((localBuffer instanceof IntBuffer)) {
+            localObject1 = (IntBuffer)localBuffer;
+            ((IntBuffer)localObject1).rewind();
+            localObject2 = new BufferedOutputStream(IOUtil.getFileOutputStream(paramFile, true));
+            PNGPixelRect.write(localPixelFormat, localDimension, 0, 
+              !paramTextureData.getMustFlipVertically(), (IntBuffer)localObject1, -1.0D, -1.0D, (OutputStream)localObject2, true);
+            
+            return true;
+          }
+          throw new IOException("PNG writer doesn't support pixel storage buffer of type " + localBuffer.getClass().getName());
+        }
+        
+
+        throw new IOException("PNG writer doesn't support this pixel format 0x" + Integer.toHexString(i) + " / type 0x" + Integer.toHexString(i) + " (only GL_RGB/A, GL_BGR/A + bytes)");
+      }
+      return false;
+    }
+  }
+  
+
+
+
+  private static int glGetTexLevelParameteri(GL2GL3 paramGL2GL3, int paramInt1, int paramInt2, int paramInt3)
+  {
+    int[] arrayOfInt = new int[1];
+    paramGL2GL3.glGetTexLevelParameteriv(paramInt1, 0, paramInt3, arrayOfInt, 0);
+    return arrayOfInt[0];
+  }
+  
+  private static String toLowerCase(String paramString) {
+    if (paramString == null) {
+      return null;
+    }
+    
+    return paramString.toLowerCase();
+  }
+  
+  public TextureIO() {}
+}

@@ -1,0 +1,512 @@
+package com.jogamp.opengl;
+
+import com.jogamp.nativewindow.Capabilities;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLCapabilities
+  extends Capabilities
+  implements Cloneable, GLCapabilitiesImmutable
+{
+  private GLProfile glProfile = null;
+  private boolean isPBuffer = false;
+  private boolean isFBO = false;
+  private boolean doubleBuffered = true;
+  private boolean stereo = false;
+  private boolean hardwareAccelerated = true;
+  private int depthBits = 16;
+  private int stencilBits = 0;
+  private int accumRedBits = 0;
+  private int accumGreenBits = 0;
+  private int accumBlueBits = 0;
+  private int accumAlphaBits = 0;
+  
+
+
+
+  private String sampleExtension = "default";
+  private boolean sampleBuffers = false;
+  private int numSamples = 2;
+  
+
+
+  public GLCapabilities(GLProfile paramGLProfile)
+    throws GLException
+  {
+    glProfile = (null != paramGLProfile ? paramGLProfile : GLProfile.getDefault(GLProfile.getDefaultDevice()));
+  }
+  
+  public Object cloneMutable()
+  {
+    return clone();
+  }
+  
+  public Object clone()
+  {
+    try {
+      return super.clone();
+    } catch (RuntimeException localRuntimeException) {
+      throw new GLException(localRuntimeException);
+    }
+  }
+  
+
+
+
+
+  public GLCapabilities copyFrom(GLCapabilitiesImmutable paramGLCapabilitiesImmutable)
+  {
+    super.copyFrom(paramGLCapabilitiesImmutable);
+    glProfile = paramGLCapabilitiesImmutable.getGLProfile();
+    isPBuffer = paramGLCapabilitiesImmutable.isPBuffer();
+    isFBO = paramGLCapabilitiesImmutable.isFBO();
+    doubleBuffered = paramGLCapabilitiesImmutable.getDoubleBuffered();
+    stereo = paramGLCapabilitiesImmutable.getStereo();
+    hardwareAccelerated = paramGLCapabilitiesImmutable.getHardwareAccelerated();
+    depthBits = paramGLCapabilitiesImmutable.getDepthBits();
+    stencilBits = paramGLCapabilitiesImmutable.getStencilBits();
+    accumRedBits = paramGLCapabilitiesImmutable.getAccumRedBits();
+    accumGreenBits = paramGLCapabilitiesImmutable.getAccumGreenBits();
+    accumBlueBits = paramGLCapabilitiesImmutable.getAccumBlueBits();
+    accumAlphaBits = paramGLCapabilitiesImmutable.getAccumAlphaBits();
+    sampleBuffers = paramGLCapabilitiesImmutable.getSampleBuffers();
+    numSamples = paramGLCapabilitiesImmutable.getNumSamples();
+    sampleExtension = paramGLCapabilitiesImmutable.getSampleExtension();
+    return this;
+  }
+  
+
+  public int hashCode()
+  {
+    int i = super.hashCode();
+    i = (i << 5) - i + glProfile.hashCode();
+    i = (i << 5) - i + (hardwareAccelerated ? 1 : 0);
+    i = (i << 5) - i + (stereo ? 1 : 0);
+    i = (i << 5) - i + (isFBO ? 1 : 0);
+    i = (i << 5) - i + (isPBuffer ? 1 : 0);
+    i = (i << 5) - i + (sampleBuffers ? 1 : 0);
+    i = (i << 5) - i + getNumSamples();
+    i = (i << 5) - i + sampleExtension.hashCode();
+    i = (i << 5) - i + depthBits;
+    i = (i << 5) - i + stencilBits;
+    i = (i << 5) - i + accumRedBits;
+    i = (i << 5) - i + accumGreenBits;
+    i = (i << 5) - i + accumBlueBits;
+    i = (i << 5) - i + accumAlphaBits;
+    return i;
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    if (this == paramObject) return true;
+    if (!(paramObject instanceof GLCapabilitiesImmutable)) {
+      return false;
+    }
+    GLCapabilitiesImmutable localGLCapabilitiesImmutable = (GLCapabilitiesImmutable)paramObject;
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    boolean bool = (super.equals(paramObject)) && (localGLCapabilitiesImmutable.getGLProfile() == glProfile) && (localGLCapabilitiesImmutable.isPBuffer() == isPBuffer) && (localGLCapabilitiesImmutable.isFBO() == isFBO) && (localGLCapabilitiesImmutable.getDoubleBuffered() == doubleBuffered) && (localGLCapabilitiesImmutable.getStereo() == stereo) && (localGLCapabilitiesImmutable.getHardwareAccelerated() == hardwareAccelerated) && (localGLCapabilitiesImmutable.getDepthBits() == depthBits) && (localGLCapabilitiesImmutable.getStencilBits() == stencilBits) && (localGLCapabilitiesImmutable.getAccumRedBits() == accumRedBits) && (localGLCapabilitiesImmutable.getAccumGreenBits() == accumGreenBits) && (localGLCapabilitiesImmutable.getAccumBlueBits() == accumBlueBits) && (localGLCapabilitiesImmutable.getAccumAlphaBits() == accumAlphaBits) && (localGLCapabilitiesImmutable.getSampleBuffers() == sampleBuffers);
+    if ((bool) && (sampleBuffers))
+    {
+      bool = (localGLCapabilitiesImmutable.getNumSamples() == getNumSamples()) && (localGLCapabilitiesImmutable.getSampleExtension().equals(sampleExtension));
+    }
+    return bool;
+  }
+  
+
+  public int compareTo(CapabilitiesImmutable paramCapabilitiesImmutable)
+  {
+    if (!(paramCapabilitiesImmutable instanceof GLCapabilitiesImmutable)) {
+      localObject = null != paramCapabilitiesImmutable ? paramCapabilitiesImmutable.getClass() : null;
+      throw new ClassCastException("Not a GLCapabilitiesImmutable object, but " + localObject);
+    }
+    Object localObject = (GLCapabilitiesImmutable)paramCapabilitiesImmutable;
+    
+    if ((hardwareAccelerated) && (!((GLCapabilitiesImmutable)localObject).getHardwareAccelerated()))
+      return 1;
+    if ((!hardwareAccelerated) && (((GLCapabilitiesImmutable)localObject).getHardwareAccelerated())) {
+      return -1;
+    }
+    
+    if ((stereo) && (!((GLCapabilitiesImmutable)localObject).getStereo()))
+      return 1;
+    if ((!stereo) && (((GLCapabilitiesImmutable)localObject).getStereo())) {
+      return -1;
+    }
+    
+    if ((doubleBuffered) && (!((GLCapabilitiesImmutable)localObject).getDoubleBuffered()))
+      return 1;
+    if ((!doubleBuffered) && (((GLCapabilitiesImmutable)localObject).getDoubleBuffered())) {
+      return -1;
+    }
+    
+    int i = getNumSamples();
+    int j = ((GLCapabilitiesImmutable)localObject).getNumSamples();
+    
+    if (i > j)
+      return 1;
+    if (i < j) {
+      return -1;
+    }
+    
+
+    if (stencilBits > ((GLCapabilitiesImmutable)localObject).getStencilBits())
+      return 1;
+    if (stencilBits < ((GLCapabilitiesImmutable)localObject).getStencilBits()) {
+      return -1;
+    }
+    
+    int k = super.compareTo((CapabilitiesImmutable)localObject);
+    if (0 != k) {
+      return k;
+    }
+    
+    if (depthBits > ((GLCapabilitiesImmutable)localObject).getDepthBits())
+      return 1;
+    if (depthBits < ((GLCapabilitiesImmutable)localObject).getDepthBits()) {
+      return -1;
+    }
+    
+    return 0;
+  }
+  
+  public final GLProfile getGLProfile()
+  {
+    return glProfile;
+  }
+  
+  public void setGLProfile(GLProfile paramGLProfile)
+  {
+    glProfile = paramGLProfile;
+  }
+  
+  public final boolean isPBuffer()
+  {
+    return isPBuffer;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public void setPBuffer(boolean paramBoolean)
+  {
+    if (paramBoolean) {
+      setOnscreen(false);
+    }
+    isPBuffer = paramBoolean;
+  }
+  
+  public final boolean isFBO()
+  {
+    return isFBO;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public void setFBO(boolean paramBoolean)
+  {
+    if (paramBoolean) {
+      setOnscreen(false);
+    }
+    isFBO = paramBoolean;
+  }
+  
+  public final boolean getDoubleBuffered()
+  {
+    return doubleBuffered;
+  }
+  
+  public void setDoubleBuffered(boolean paramBoolean)
+  {
+    doubleBuffered = paramBoolean;
+  }
+  
+  public final boolean getStereo()
+  {
+    return stereo;
+  }
+  
+  public void setStereo(boolean paramBoolean)
+  {
+    stereo = paramBoolean;
+  }
+  
+  public final boolean getHardwareAccelerated()
+  {
+    return hardwareAccelerated;
+  }
+  
+  public void setHardwareAccelerated(boolean paramBoolean)
+  {
+    hardwareAccelerated = paramBoolean;
+  }
+  
+  public final int getDepthBits()
+  {
+    return depthBits;
+  }
+  
+  public void setDepthBits(int paramInt)
+  {
+    depthBits = paramInt;
+  }
+  
+  public final int getStencilBits()
+  {
+    return stencilBits;
+  }
+  
+  public void setStencilBits(int paramInt)
+  {
+    stencilBits = paramInt;
+  }
+  
+  public final int getAccumRedBits()
+  {
+    return accumRedBits;
+  }
+  
+
+
+
+  public void setAccumRedBits(int paramInt)
+  {
+    accumRedBits = paramInt;
+  }
+  
+  public final int getAccumGreenBits()
+  {
+    return accumGreenBits;
+  }
+  
+
+
+
+  public void setAccumGreenBits(int paramInt)
+  {
+    accumGreenBits = paramInt;
+  }
+  
+  public final int getAccumBlueBits()
+  {
+    return accumBlueBits;
+  }
+  
+
+
+
+  public void setAccumBlueBits(int paramInt)
+  {
+    accumBlueBits = paramInt;
+  }
+  
+  public final int getAccumAlphaBits()
+  {
+    return accumAlphaBits;
+  }
+  
+
+
+
+  public void setAccumAlphaBits(int paramInt)
+  {
+    accumAlphaBits = paramInt;
+  }
+  
+
+
+
+  public void setSampleExtension(String paramString)
+  {
+    sampleExtension = paramString;
+  }
+  
+  public final String getSampleExtension()
+  {
+    return sampleExtension;
+  }
+  
+
+
+
+
+
+
+
+  public void setSampleBuffers(boolean paramBoolean)
+  {
+    sampleBuffers = paramBoolean;
+    if ((sampleBuffers) && (getAlphaBits() == 0)) {
+      setAlphaBits(1);
+    }
+  }
+  
+  public final boolean getSampleBuffers()
+  {
+    return sampleBuffers;
+  }
+  
+
+
+
+
+  public void setNumSamples(int paramInt)
+  {
+    numSamples = paramInt;
+  }
+  
+  public final int getNumSamples()
+  {
+    return sampleBuffers ? numSamples : 0;
+  }
+  
+  public StringBuilder toString(StringBuilder paramStringBuilder)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    
+    int i = sampleBuffers ? numSamples : 0;
+    
+    super.toString(paramStringBuilder, false);
+    
+    paramStringBuilder.append(", accum-rgba ").append(accumRedBits).append("/").append(accumGreenBits).append("/").append(accumBlueBits).append("/").append(accumAlphaBits);
+    paramStringBuilder.append(", dp/st/ms ").append(depthBits).append("/").append(stencilBits).append("/").append(i);
+    if (i > 0) {
+      paramStringBuilder.append(", sample-ext ").append(sampleExtension);
+    }
+    if (doubleBuffered) {
+      paramStringBuilder.append(", dbl");
+    } else {
+      paramStringBuilder.append(", one");
+    }
+    if (stereo) {
+      paramStringBuilder.append(", stereo");
+    } else {
+      paramStringBuilder.append(", mono  ");
+    }
+    if (hardwareAccelerated) {
+      paramStringBuilder.append(", hw, ");
+    } else {
+      paramStringBuilder.append(", sw, ");
+    }
+    paramStringBuilder.append(glProfile);
+    if (isOnscreen()) {
+      paramStringBuilder.append(", on-scr[");
+    } else {
+      paramStringBuilder.append(", offscr[");
+    }
+    int j = 0;
+    if (isFBO()) {
+      paramStringBuilder.append("fbo");
+      j = 1;
+    }
+    if (isPBuffer()) {
+      if (j != 0) paramStringBuilder.append(", ");
+      paramStringBuilder.append("pbuffer");
+      j = 1;
+    }
+    if (isBitmap()) {
+      if (j != 0) paramStringBuilder.append(", ");
+      paramStringBuilder.append("bitmap");
+      j = 1;
+    }
+    if (j == 0) {
+      if (isOnscreen()) {
+        paramStringBuilder.append(".");
+      } else {
+        paramStringBuilder.append("auto-cfg");
+      }
+    }
+    paramStringBuilder.append("]");
+    
+    return paramStringBuilder;
+  }
+  
+
+
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    localStringBuilder.append("GLCaps[");
+    toString(localStringBuilder);
+    localStringBuilder.append("]");
+    return localStringBuilder.toString();
+  }
+}

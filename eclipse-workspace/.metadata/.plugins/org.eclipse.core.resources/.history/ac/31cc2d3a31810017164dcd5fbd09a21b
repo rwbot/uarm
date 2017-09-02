@@ -1,0 +1,78 @@
+package jogamp.opengl.util.pngj;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+
+
+
+abstract class ProgressiveOutputStream
+  extends ByteArrayOutputStream
+{
+  private final int size;
+  private long countFlushed = 0L;
+  
+  public ProgressiveOutputStream(int paramInt) {
+    size = paramInt;
+  }
+  
+  public final void close() throws IOException
+  {
+    flush();
+    super.close();
+  }
+  
+  public final void flush() throws IOException
+  {
+    super.flush();
+    checkFlushBuffer(true);
+  }
+  
+  public final void write(byte[] paramArrayOfByte, int paramInt1, int paramInt2)
+  {
+    super.write(paramArrayOfByte, paramInt1, paramInt2);
+    checkFlushBuffer(false);
+  }
+  
+  public final void write(byte[] paramArrayOfByte) throws IOException
+  {
+    super.write(paramArrayOfByte);
+    checkFlushBuffer(false);
+  }
+  
+  public final void write(int paramInt)
+  {
+    super.write(paramInt);
+    checkFlushBuffer(false);
+  }
+  
+  public final synchronized void reset()
+  {
+    super.reset();
+  }
+  
+
+
+
+  private final void checkFlushBuffer(boolean paramBoolean)
+  {
+    while ((paramBoolean) || (count >= size)) {
+      int i = size;
+      if (i > count)
+        i = count;
+      if (i == 0)
+        return;
+      flushBuffer(buf, i);
+      countFlushed += i;
+      int j = count - i;
+      count = j;
+      if (j > 0)
+        System.arraycopy(buf, i, buf, 0, j);
+    }
+  }
+  
+  protected abstract void flushBuffer(byte[] paramArrayOfByte, int paramInt);
+  
+  public long getCountFlushed() {
+    return countFlushed;
+  }
+}

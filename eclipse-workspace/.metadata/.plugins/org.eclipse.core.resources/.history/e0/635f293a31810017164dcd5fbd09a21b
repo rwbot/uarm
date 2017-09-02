@@ -1,0 +1,161 @@
+package jogamp.opengl.macosx.cgl;
+
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.DefaultGraphicsScreen;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import java.io.PrintStream;
+import jogamp.nativewindow.WrappedSurface;
+import jogamp.opengl.GLContextShareSet;
+import jogamp.opengl.GLStateTracker;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class MacOSXExternalCGLContext
+  extends MacOSXCGLContext
+{
+  private MacOSXExternalCGLContext(Drawable paramDrawable, boolean paramBoolean, long paramLong)
+  {
+    super(paramDrawable, null);
+    setOpenGLMode(paramBoolean ? MacOSXCGLDrawable.GLBackendType.NSOPENGL : MacOSXCGLDrawable.GLBackendType.CGL);
+    contextHandle = paramLong;
+    GLContextShareSet.contextCreated(this);
+    if (!setGLFunctionAvailability(false, 0, 0, 2, false, false)) {
+      throw new InternalError("setGLFunctionAvailability !strictMatch failed");
+    }
+    getGLStateTracker().setEnabled(false);
+  }
+  
+  protected static MacOSXExternalCGLContext create(GLDrawableFactory paramGLDrawableFactory) {
+    long l1 = 0L;
+    long l2 = 0L;
+    long l3 = CGL.getCurrentContext();
+    boolean bool = 0L != l3;
+    if (bool) {
+      long l4 = CGL.getCGLContext(l3);
+      if (l4 == 0L) {
+        throw new GLException("Error: NULL Context (CGL) of Context (NS) 0x" + Long.toHexString(l3));
+      }
+      l1 = CGL.CGLGetPixelFormat(l4);
+      l2 = CGL.getNSView(l3);
+      if (DEBUG) {
+        System.err.println("MacOSXExternalCGLContext Create Context (NS) 0x" + Long.toHexString(l3) + ", Context (CGL) 0x" + 
+          Long.toHexString(l4) + ", pixelFormat 0x" + 
+          Long.toHexString(l1) + ", drawable 0x" + 
+          Long.toHexString(l2));
+      }
+    } else {
+      l3 = CGL.CGLGetCurrentContext();
+      if (l3 == 0L) {
+        throw new GLException("Error: current Context (CGL) null, no Context (NS)");
+      }
+      l1 = CGL.CGLGetPixelFormat(l3);
+      if (DEBUG) {
+        System.err.println("MacOSXExternalCGLContext Create Context (CGL) 0x" + Long.toHexString(l3) + ", pixelFormat 0x" + 
+          Long.toHexString(l1));
+      }
+    }
+    
+    if (0L == l1) {
+      throw new GLException("Error: current pixelformat of current Context 0x" + Long.toHexString(l3) + " is null");
+    }
+    GLCapabilities localGLCapabilities = MacOSXCGLGraphicsConfiguration.CGLPixelFormat2GLCapabilities(l1);
+    if (DEBUG) {
+      System.err.println("MacOSXExternalCGLContext Create " + localGLCapabilities);
+    }
+    
+    AbstractGraphicsScreen localAbstractGraphicsScreen = DefaultGraphicsScreen.createDefault(NativeWindowFactory.TYPE_MACOSX);
+    MacOSXCGLGraphicsConfiguration localMacOSXCGLGraphicsConfiguration = new MacOSXCGLGraphicsConfiguration(localAbstractGraphicsScreen, localGLCapabilities, localGLCapabilities);
+    
+    if (0L == l2)
+    {
+      l2 = 1L;
+    }
+    WrappedSurface localWrappedSurface = new WrappedSurface(localMacOSXCGLGraphicsConfiguration, l2, 64, 64, true);
+    return new MacOSXExternalCGLContext(new Drawable(paramGLDrawableFactory, localWrappedSurface), bool, l3);
+  }
+  
+  protected boolean createImpl(long paramLong) throws GLException
+  {
+    return true;
+  }
+  
+  protected void makeCurrentImpl()
+    throws GLException
+  {}
+  
+  protected void releaseImpl() throws GLException
+  {}
+  
+  protected void destroyImpl() throws GLException
+  {}
+  
+  static class Drawable
+    extends MacOSXCGLDrawable
+  {
+    Drawable(GLDrawableFactory paramGLDrawableFactory, NativeSurface paramNativeSurface)
+    {
+      super(paramNativeSurface, true);
+    }
+    
+    public GLContext createContext(GLContext paramGLContext)
+    {
+      throw new GLException("Should not call this");
+    }
+    
+    public int getSurfaceWidth()
+    {
+      throw new GLException("Should not call this");
+    }
+    
+    public int getSurfaceHeight()
+    {
+      throw new GLException("Should not call this");
+    }
+    
+    public void setSize(int paramInt1, int paramInt2) {
+      throw new GLException("Should not call this");
+    }
+  }
+}

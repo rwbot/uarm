@@ -1,0 +1,1311 @@
+package jssc;
+
+import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Method;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class SerialPort
+{
+  private SerialNativeInterface serialInterface;
+  private SerialPortEventListener eventListener;
+  private long portHandle;
+  private String portName;
+  private boolean portOpened = false;
+  private boolean maskAssigned = false;
+  private boolean eventListenerAdded = false;
+  
+
+  private Method methodErrorOccurred = null;
+  
+  public static final int BAUDRATE_110 = 110;
+  
+  public static final int BAUDRATE_300 = 300;
+  
+  public static final int BAUDRATE_600 = 600;
+  
+  public static final int BAUDRATE_1200 = 1200;
+  
+  public static final int BAUDRATE_4800 = 4800;
+  
+  public static final int BAUDRATE_9600 = 9600;
+  
+  public static final int BAUDRATE_14400 = 14400;
+  
+  public static final int BAUDRATE_19200 = 19200;
+  
+  public static final int BAUDRATE_38400 = 38400;
+  
+  public static final int BAUDRATE_57600 = 57600;
+  
+  public static final int BAUDRATE_115200 = 115200;
+  
+  public static final int BAUDRATE_128000 = 128000;
+  
+  public static final int BAUDRATE_256000 = 256000;
+  
+  public static final int DATABITS_5 = 5;
+  
+  public static final int DATABITS_6 = 6;
+  
+  public static final int DATABITS_7 = 7;
+  
+  public static final int DATABITS_8 = 8;
+  
+  public static final int STOPBITS_1 = 1;
+  
+  public static final int STOPBITS_2 = 2;
+  public static final int STOPBITS_1_5 = 3;
+  public static final int PARITY_NONE = 0;
+  public static final int PARITY_ODD = 1;
+  public static final int PARITY_EVEN = 2;
+  public static final int PARITY_MARK = 3;
+  public static final int PARITY_SPACE = 4;
+  public static final int PURGE_RXABORT = 2;
+  public static final int PURGE_RXCLEAR = 8;
+  public static final int PURGE_TXABORT = 1;
+  public static final int PURGE_TXCLEAR = 4;
+  public static final int MASK_RXCHAR = 1;
+  public static final int MASK_RXFLAG = 2;
+  public static final int MASK_TXEMPTY = 4;
+  public static final int MASK_CTS = 8;
+  public static final int MASK_DSR = 16;
+  public static final int MASK_RLSD = 32;
+  public static final int MASK_BREAK = 64;
+  public static final int MASK_ERR = 128;
+  public static final int MASK_RING = 256;
+  public static final int FLOWCONTROL_NONE = 0;
+  public static final int FLOWCONTROL_RTSCTS_IN = 1;
+  public static final int FLOWCONTROL_RTSCTS_OUT = 2;
+  public static final int FLOWCONTROL_XONXOFF_IN = 4;
+  public static final int FLOWCONTROL_XONXOFF_OUT = 8;
+  public static final int ERROR_FRAME = 8;
+  public static final int ERROR_OVERRUN = 2;
+  public static final int ERROR_PARITY = 4;
+  private static final int PARAMS_FLAG_IGNPAR = 1;
+  private static final int PARAMS_FLAG_PARMRK = 2;
+  private int linuxMask;
+  private EventThread eventThread;
+  
+  public SerialPort(String paramString)
+  {
+    portName = paramString;
+    serialInterface = new SerialNativeInterface();
+  }
+  
+
+
+
+
+  public String getPortName()
+  {
+    return portName;
+  }
+  
+
+
+
+
+  public boolean isOpened()
+  {
+    return portOpened;
+  }
+  
+
+
+
+
+
+
+
+
+  public boolean openPort()
+    throws SerialPortException
+  {
+    if (portOpened) {
+      throw new SerialPortException(portName, "openPort()", "Port already opened");
+    }
+    if (portName != null) {
+      boolean bool = (System.getProperty("JSSC_NO_TIOCEXCL") == null) && (System.getProperty("JSSC_NO_TIOCEXCL".toLowerCase()) == null);
+      
+      portHandle = serialInterface.openPort(portName, bool);
+    }
+    else {
+      throw new SerialPortException(portName, "openPort()", "Null not permitted");
+    }
+    if (portHandle == -1L) {
+      throw new SerialPortException(portName, "openPort()", "Port busy");
+    }
+    if (portHandle == -2L) {
+      throw new SerialPortException(portName, "openPort()", "Port not found");
+    }
+    if (portHandle == -3L) {
+      throw new SerialPortException(portName, "openPort()", "Permission denied");
+    }
+    if (portHandle == -4L) {
+      throw new SerialPortException(portName, "openPort()", "Incorrect serial port");
+    }
+    portOpened = true;
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public boolean setParams(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+    throws SerialPortException
+  {
+    return setParams(paramInt1, paramInt2, paramInt3, paramInt4, true, true);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean setParams(int paramInt1, int paramInt2, int paramInt3, int paramInt4, boolean paramBoolean1, boolean paramBoolean2)
+    throws SerialPortException
+  {
+    checkPortOpened("setParams()");
+    if (paramInt3 == 1) {
+      paramInt3 = 0;
+    }
+    else if (paramInt3 == 3) {
+      paramInt3 = 1;
+    }
+    int i = 0;
+    if ((System.getProperty("JSSC_IGNPAR") != null) || (System.getProperty("JSSC_IGNPAR".toLowerCase()) != null)) {
+      i |= 0x1;
+    }
+    if ((System.getProperty("JSSC_PARMRK") != null) || (System.getProperty("JSSC_PARMRK".toLowerCase()) != null)) {
+      i |= 0x2;
+    }
+    return serialInterface.setParams(portHandle, paramInt1, paramInt2, paramInt3, paramInt4, paramBoolean1, paramBoolean2, i);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public boolean purgePort(int paramInt)
+    throws SerialPortException
+  {
+    checkPortOpened("purgePort()");
+    return serialInterface.purgePort(portHandle, paramInt);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public boolean setEventsMask(int paramInt)
+    throws SerialPortException
+  {
+    checkPortOpened("setEventsMask()");
+    if ((SerialNativeInterface.getOsType() == 0) || (SerialNativeInterface.getOsType() == 2) || (SerialNativeInterface.getOsType() == 3))
+    {
+
+      linuxMask = paramInt;
+      if (paramInt > 0) {
+        maskAssigned = true;
+      }
+      else {
+        maskAssigned = false;
+      }
+      return true;
+    }
+    boolean bool = serialInterface.setEventsMask(portHandle, paramInt);
+    if (!bool) {
+      throw new SerialPortException(portName, "setEventsMask()", "Can't set mask");
+    }
+    if (paramInt > 0) {
+      maskAssigned = true;
+    }
+    else {
+      maskAssigned = false;
+    }
+    return bool;
+  }
+  
+
+
+
+
+
+  public int getEventsMask()
+    throws SerialPortException
+  {
+    checkPortOpened("getEventsMask()");
+    if ((SerialNativeInterface.getOsType() == 0) || (SerialNativeInterface.getOsType() == 2) || (SerialNativeInterface.getOsType() == 3))
+    {
+
+      return linuxMask;
+    }
+    return serialInterface.getEventsMask(portHandle);
+  }
+  
+
+
+
+
+  private int getLinuxMask()
+  {
+    return linuxMask;
+  }
+  
+
+
+
+
+
+  public boolean setRTS(boolean paramBoolean)
+    throws SerialPortException
+  {
+    checkPortOpened("setRTS()");
+    return serialInterface.setRTS(portHandle, paramBoolean);
+  }
+  
+
+
+
+
+
+  public boolean setDTR(boolean paramBoolean)
+    throws SerialPortException
+  {
+    checkPortOpened("setDTR()");
+    return serialInterface.setDTR(portHandle, paramBoolean);
+  }
+  
+
+
+
+
+
+  public boolean writeBytes(byte[] paramArrayOfByte)
+    throws SerialPortException
+  {
+    checkPortOpened("writeBytes()");
+    return serialInterface.writeBytes(portHandle, paramArrayOfByte);
+  }
+  
+
+
+
+
+
+
+
+  public boolean writeByte(byte paramByte)
+    throws SerialPortException
+  {
+    checkPortOpened("writeByte()");
+    return writeBytes(new byte[] { paramByte });
+  }
+  
+
+
+
+
+
+
+
+  public boolean writeString(String paramString)
+    throws SerialPortException
+  {
+    checkPortOpened("writeString()");
+    return writeBytes(paramString.getBytes());
+  }
+  
+
+
+
+
+
+
+
+  public boolean writeString(String paramString1, String paramString2)
+    throws SerialPortException, UnsupportedEncodingException
+  {
+    checkPortOpened("writeString()");
+    return writeBytes(paramString1.getBytes(paramString2));
+  }
+  
+
+
+
+
+
+
+
+  public boolean writeInt(int paramInt)
+    throws SerialPortException
+  {
+    checkPortOpened("writeInt()");
+    return writeBytes(new byte[] { (byte)paramInt });
+  }
+  
+
+
+
+
+
+
+
+  public boolean writeIntArray(int[] paramArrayOfInt)
+    throws SerialPortException
+  {
+    checkPortOpened("writeIntArray()");
+    byte[] arrayOfByte = new byte[paramArrayOfInt.length];
+    for (int i = 0; i < paramArrayOfInt.length; i++) {
+      arrayOfByte[i] = ((byte)paramArrayOfInt[i]);
+    }
+    return writeBytes(arrayOfByte);
+  }
+  
+
+
+
+
+
+
+
+  public byte[] readBytes(int paramInt)
+    throws SerialPortException
+  {
+    checkPortOpened("readBytes()");
+    return serialInterface.readBytes(portHandle, paramInt);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public String readString(int paramInt)
+    throws SerialPortException
+  {
+    checkPortOpened("readString()");
+    return new String(readBytes(paramInt));
+  }
+  
+
+
+
+
+
+
+
+
+
+  public String readHexString(int paramInt)
+    throws SerialPortException
+  {
+    checkPortOpened("readHexString()");
+    return readHexString(paramInt, " ");
+  }
+  
+
+
+
+
+
+
+
+
+
+  public String readHexString(int paramInt, String paramString)
+    throws SerialPortException
+  {
+    checkPortOpened("readHexString()");
+    String[] arrayOfString1 = readHexStringArray(paramInt);
+    String str1 = "";
+    int i = 0;
+    for (String str2 : arrayOfString1) {
+      if (i != 0) {
+        str1 = str1 + paramString;
+      }
+      str1 = str1 + str2;
+      i = 1;
+    }
+    return str1;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public String[] readHexStringArray(int paramInt)
+    throws SerialPortException
+  {
+    checkPortOpened("readHexStringArray()");
+    int[] arrayOfInt = readIntArray(paramInt);
+    String[] arrayOfString = new String[arrayOfInt.length];
+    for (int i = 0; i < arrayOfInt.length; i++) {
+      String str = Integer.toHexString(arrayOfInt[i]).toUpperCase();
+      if (str.length() == 1) {
+        str = "0" + str;
+      }
+      arrayOfString[i] = str;
+    }
+    return arrayOfString;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public int[] readIntArray(int paramInt)
+    throws SerialPortException
+  {
+    checkPortOpened("readIntArray()");
+    byte[] arrayOfByte = readBytes(paramInt);
+    int[] arrayOfInt = new int[arrayOfByte.length];
+    for (int i = 0; i < arrayOfByte.length; i++) {
+      if (arrayOfByte[i] < 0) {
+        arrayOfInt[i] = (256 + arrayOfByte[i]);
+      }
+      else {
+        arrayOfInt[i] = arrayOfByte[i];
+      }
+    }
+    return arrayOfInt;
+  }
+  
+  private void waitBytesWithTimeout(String paramString, int paramInt1, int paramInt2) throws SerialPortException, SerialPortTimeoutException {
+    checkPortOpened("waitBytesWithTimeout()");
+    int i = 1;
+    long l = System.currentTimeMillis();
+    while (System.currentTimeMillis() - l < paramInt2) {
+      if (getInputBufferBytesCount() >= paramInt1) {
+        i = 0;
+        break;
+      }
+      try {
+        Thread.sleep(0L, 100);
+      }
+      catch (InterruptedException localInterruptedException) {}
+    }
+    
+
+    if (i != 0) {
+      throw new SerialPortTimeoutException(portName, paramString, paramInt2);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public byte[] readBytes(int paramInt1, int paramInt2)
+    throws SerialPortException, SerialPortTimeoutException
+  {
+    checkPortOpened("readBytes()");
+    waitBytesWithTimeout("readBytes()", paramInt1, paramInt2);
+    return readBytes(paramInt1);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public String readString(int paramInt1, int paramInt2)
+    throws SerialPortException, SerialPortTimeoutException
+  {
+    checkPortOpened("readString()");
+    waitBytesWithTimeout("readString()", paramInt1, paramInt2);
+    return readString(paramInt1);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public String readHexString(int paramInt1, int paramInt2)
+    throws SerialPortException, SerialPortTimeoutException
+  {
+    checkPortOpened("readHexString()");
+    waitBytesWithTimeout("readHexString()", paramInt1, paramInt2);
+    return readHexString(paramInt1);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public String readHexString(int paramInt1, String paramString, int paramInt2)
+    throws SerialPortException, SerialPortTimeoutException
+  {
+    checkPortOpened("readHexString()");
+    waitBytesWithTimeout("readHexString()", paramInt1, paramInt2);
+    return readHexString(paramInt1, paramString);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public String[] readHexStringArray(int paramInt1, int paramInt2)
+    throws SerialPortException, SerialPortTimeoutException
+  {
+    checkPortOpened("readHexStringArray()");
+    waitBytesWithTimeout("readHexStringArray()", paramInt1, paramInt2);
+    return readHexStringArray(paramInt1);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public int[] readIntArray(int paramInt1, int paramInt2)
+    throws SerialPortException, SerialPortTimeoutException
+  {
+    checkPortOpened("readIntArray()");
+    waitBytesWithTimeout("readIntArray()", paramInt1, paramInt2);
+    return readIntArray(paramInt1);
+  }
+  
+
+
+
+
+
+
+
+  public byte[] readBytes()
+    throws SerialPortException
+  {
+    checkPortOpened("readBytes()");
+    int i = getInputBufferBytesCount();
+    if (i <= 0) {
+      return null;
+    }
+    return readBytes(i);
+  }
+  
+
+
+
+
+
+
+
+  public String readString()
+    throws SerialPortException
+  {
+    checkPortOpened("readString()");
+    int i = getInputBufferBytesCount();
+    if (i <= 0) {
+      return null;
+    }
+    return readString(i);
+  }
+  
+
+
+
+
+
+
+
+  public String readHexString()
+    throws SerialPortException
+  {
+    checkPortOpened("readHexString()");
+    int i = getInputBufferBytesCount();
+    if (i <= 0) {
+      return null;
+    }
+    return readHexString(i);
+  }
+  
+
+
+
+
+
+
+
+  public String readHexString(String paramString)
+    throws SerialPortException
+  {
+    checkPortOpened("readHexString()");
+    int i = getInputBufferBytesCount();
+    if (i <= 0) {
+      return null;
+    }
+    return readHexString(i, paramString);
+  }
+  
+
+
+
+
+
+
+
+  public String[] readHexStringArray()
+    throws SerialPortException
+  {
+    checkPortOpened("readHexStringArray()");
+    int i = getInputBufferBytesCount();
+    if (i <= 0) {
+      return null;
+    }
+    return readHexStringArray(i);
+  }
+  
+
+
+
+
+
+
+
+  public int[] readIntArray()
+    throws SerialPortException
+  {
+    checkPortOpened("readIntArray()");
+    int i = getInputBufferBytesCount();
+    if (i <= 0) {
+      return null;
+    }
+    return readIntArray(i);
+  }
+  
+
+
+
+
+
+
+
+  public int getInputBufferBytesCount()
+    throws SerialPortException
+  {
+    checkPortOpened("getInputBufferBytesCount()");
+    return serialInterface.getBuffersBytesCount(portHandle)[0];
+  }
+  
+
+
+
+
+
+
+
+  public int getOutputBufferBytesCount()
+    throws SerialPortException
+  {
+    checkPortOpened("getOutputBufferBytesCount()");
+    return serialInterface.getBuffersBytesCount(portHandle)[1];
+  }
+  
+
+
+
+
+
+
+
+
+  public boolean setFlowControlMode(int paramInt)
+    throws SerialPortException
+  {
+    checkPortOpened("setFlowControlMode()");
+    return serialInterface.setFlowControlMode(portHandle, paramInt);
+  }
+  
+
+
+
+
+
+
+
+  public int getFlowControlMode()
+    throws SerialPortException
+  {
+    checkPortOpened("getFlowControlMode()");
+    return serialInterface.getFlowControlMode(portHandle);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public boolean sendBreak(int paramInt)
+    throws SerialPortException
+  {
+    checkPortOpened("sendBreak()");
+    return serialInterface.sendBreak(portHandle, paramInt);
+  }
+  
+  private int[][] waitEvents() {
+    return serialInterface.waitEvents(portHandle);
+  }
+  
+
+
+
+
+
+  private void checkPortOpened(String paramString)
+    throws SerialPortException
+  {
+    if (!portOpened) {
+      throw new SerialPortException(portName, paramString, "Port not opened");
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+  public int[] getLinesStatus()
+    throws SerialPortException
+  {
+    checkPortOpened("getLinesStatus()");
+    return serialInterface.getLinesStatus(portHandle);
+  }
+  
+
+
+
+
+
+  public boolean isCTS()
+    throws SerialPortException
+  {
+    checkPortOpened("isCTS()");
+    if (serialInterface.getLinesStatus(portHandle)[0] == 1) {
+      return true;
+    }
+    
+    return false;
+  }
+  
+
+
+
+
+
+
+  public boolean isDSR()
+    throws SerialPortException
+  {
+    checkPortOpened("isDSR()");
+    if (serialInterface.getLinesStatus(portHandle)[1] == 1) {
+      return true;
+    }
+    
+    return false;
+  }
+  
+
+
+
+
+
+
+  public boolean isRING()
+    throws SerialPortException
+  {
+    checkPortOpened("isRING()");
+    if (serialInterface.getLinesStatus(portHandle)[2] == 1) {
+      return true;
+    }
+    
+    return false;
+  }
+  
+
+
+
+
+
+
+  public boolean isRLSD()
+    throws SerialPortException
+  {
+    checkPortOpened("isRLSD()");
+    if (serialInterface.getLinesStatus(portHandle)[3] == 1) {
+      return true;
+    }
+    
+    return false;
+  }
+  
+
+
+
+
+
+
+
+  public void addEventListener(SerialPortEventListener paramSerialPortEventListener)
+    throws SerialPortException
+  {
+    addEventListener(paramSerialPortEventListener, 1, false);
+  }
+  
+
+
+
+
+
+
+
+
+  public void addEventListener(SerialPortEventListener paramSerialPortEventListener, int paramInt)
+    throws SerialPortException
+  {
+    addEventListener(paramSerialPortEventListener, paramInt, true);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  private void addEventListener(SerialPortEventListener paramSerialPortEventListener, int paramInt, boolean paramBoolean)
+    throws SerialPortException
+  {
+    checkPortOpened("addEventListener()");
+    if (!eventListenerAdded) {
+      if (((maskAssigned) && (paramBoolean)) || (!maskAssigned)) {
+        setEventsMask(paramInt);
+      }
+      eventListener = paramSerialPortEventListener;
+      eventThread = getNewEventThread();
+      eventThread.setName("EventThread " + portName);
+      try
+      {
+        Method localMethod = eventListener.getClass().getMethod("errorOccurred", new Class[] { SerialPortException.class });
+        localMethod.setAccessible(true);
+        methodErrorOccurred = localMethod;
+      }
+      catch (SecurityException localSecurityException) {}catch (NoSuchMethodException localNoSuchMethodException) {}
+      
+
+
+
+
+
+      eventThread.start();
+      eventListenerAdded = true;
+    }
+    else {
+      throw new SerialPortException(portName, "addEventListener()", "Event listener already added");
+    }
+  }
+  
+
+
+
+
+  private EventThread getNewEventThread()
+  {
+    if ((SerialNativeInterface.getOsType() == 0) || (SerialNativeInterface.getOsType() == 2) || (SerialNativeInterface.getOsType() == 3))
+    {
+
+      return new LinuxEventThread();
+    }
+    return new EventThread(null);
+  }
+  
+
+
+
+
+
+
+  public boolean removeEventListener()
+    throws SerialPortException
+  {
+    checkPortOpened("removeEventListener()");
+    if (!eventListenerAdded) {
+      throw new SerialPortException(portName, "removeEventListener()", "Can't remove event listener, because listener not added");
+    }
+    eventThread.terminateThread();
+    setEventsMask(0);
+    if ((Thread.currentThread().getId() != eventThread.getId()) && 
+      (eventThread.isAlive())) {
+      try {
+        eventThread.join(5000L);
+      }
+      catch (InterruptedException localInterruptedException) {
+        throw new SerialPortException(portName, "removeEventListener()", "Event listener thread interrupted");
+      }
+    }
+    
+    methodErrorOccurred = null;
+    eventListenerAdded = false;
+    return true;
+  }
+  
+
+
+
+
+
+  public boolean closePort()
+    throws SerialPortException
+  {
+    checkPortOpened("closePort()");
+    if (eventListenerAdded) {
+      removeEventListener();
+    }
+    boolean bool = serialInterface.closePort(portHandle);
+    if (bool) {
+      maskAssigned = false;
+      portOpened = false;
+    }
+    return bool;
+  }
+  
+
+  private class EventThread
+    extends Thread
+  {
+    private boolean threadTerminated = false;
+    
+    private EventThread() {}
+    
+    public void run() { while (!threadTerminated) {
+        int[][] arrayOfInt = SerialPort.this.waitEvents();
+        for (int i = 0; i < arrayOfInt.length; i++) {
+          if ((arrayOfInt[i][0] > 0) && (!threadTerminated)) {
+            eventListener.serialEvent(new SerialPortEvent(portName, arrayOfInt[i][0], arrayOfInt[i][1]));
+          }
+        }
+      }
+    }
+    
+
+
+
+
+
+
+
+
+    private void terminateThread()
+    {
+      threadTerminated = true;
+    }
+  }
+  
+
+
+
+
+
+  private class LinuxEventThread
+    extends SerialPort.EventThread
+  {
+    private final int INTERRUPT_BREAK = 512;
+    private final int INTERRUPT_TX = 1024;
+    private final int INTERRUPT_FRAME = 2048;
+    private final int INTERRUPT_OVERRUN = 4096;
+    private final int INTERRUPT_PARITY = 8192;
+    
+    private int interruptBreak;
+    
+    private int interruptTX;
+    
+    private int interruptFrame;
+    private int interruptOverrun;
+    private int interruptParity;
+    private int preCTS;
+    private int preDSR;
+    private int preRLSD;
+    private int preRING;
+    
+    public LinuxEventThread()
+    {
+      super(null);
+      int[][] arrayOfInt = SerialPort.this.waitEvents();
+      for (int i = 0; i < arrayOfInt.length; i++) {
+        int j = arrayOfInt[i][0];
+        int k = arrayOfInt[i][1];
+        switch (j) {
+        case 512: 
+          interruptBreak = k;
+          break;
+        case 1024: 
+          interruptTX = k;
+          break;
+        case 2048: 
+          interruptFrame = k;
+          break;
+        case 4096: 
+          interruptOverrun = k;
+          break;
+        case 8192: 
+          interruptParity = k;
+          break;
+        case 8: 
+          preCTS = k;
+          break;
+        case 16: 
+          preDSR = k;
+          break;
+        case 256: 
+          preRING = k;
+          break;
+        case 32: 
+          preRLSD = k;
+        }
+        
+      }
+    }
+    
+    public void run()
+    {
+      while (!SerialPort.EventThread.access$500(this)) {
+        int[][] arrayOfInt = SerialPort.this.waitEvents();
+        int i = SerialPort.this.getLinuxMask();
+        int j = 0;
+        int k = 0;
+        for (int m = 0; m < arrayOfInt.length; m++) {
+          int n = 0;
+          int i1 = arrayOfInt[m][0];
+          int i2 = arrayOfInt[m][1];
+          if ((i1 > 0) && (!SerialPort.EventThread.access$500(this))) {
+            switch (i1) {
+            case 512: 
+              if (i2 != interruptBreak) {
+                interruptBreak = i2;
+                if ((i & 0x40) == 64) {
+                  i1 = 64;
+                  i2 = 0;
+                  n = 1;
+                }
+              }
+              break;
+            case 1024: 
+              if (i2 != interruptTX) {
+                interruptTX = i2;
+                j = 1;
+              }
+              break;
+            case 2048: 
+              if (i2 != interruptFrame) {
+                interruptFrame = i2;
+                k |= 0x8;
+              }
+              break;
+            case 4096: 
+              if (i2 != interruptOverrun) {
+                interruptOverrun = i2;
+                k |= 0x2;
+              }
+              break;
+            case 8192: 
+              if (i2 != interruptParity) {
+                interruptParity = i2;
+                k |= 0x4;
+              }
+              if (((i & 0x80) == 128) && (k != 0)) {
+                i1 = 128;
+                i2 = k;
+                n = 1;
+              }
+              break;
+            case 8: 
+              if (i2 != preCTS) {
+                preCTS = i2;
+                if ((i & 0x8) == 8) {
+                  n = 1;
+                }
+              }
+              break;
+            case 16: 
+              if (i2 != preDSR) {
+                preDSR = i2;
+                if ((i & 0x10) == 16) {
+                  n = 1;
+                }
+              }
+              break;
+            case 256: 
+              if (i2 != preRING) {
+                preRING = i2;
+                if ((i & 0x100) == 256) {
+                  n = 1;
+                }
+              }
+              break;
+            case 32: 
+              if (i2 != preRLSD) {
+                preRLSD = i2;
+                if ((i & 0x20) == 32) {
+                  n = 1;
+                }
+              }
+              break;
+            case 1: 
+              if (((i & 0x1) == 1) && (i2 > 0)) {
+                n = 1;
+              }
+              
+
+
+
+
+
+              break;
+            case 4: 
+              if (((i & 0x4) == 4) && (i2 == 0) && (j != 0)) {
+                n = 1;
+              }
+              break;
+            }
+            if (n != 0) {
+              eventListener.serialEvent(new SerialPortEvent(portName, i1, i2));
+            }
+          }
+        }
+        try
+        {
+          Thread.sleep(0L, 100);
+        }
+        catch (Exception localException) {}
+      }
+    }
+  }
+}

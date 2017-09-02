@@ -1,0 +1,82 @@
+package jogamp.graph.font.typecast.ot.mac;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ResourceType
+{
+  private final int type;
+  private final int count;
+  private final int offset;
+  private final ResourceReference[] references;
+  
+  protected ResourceType(DataInput paramDataInput)
+    throws IOException
+  {
+    type = paramDataInput.readInt();
+    count = (paramDataInput.readUnsignedShort() + 1);
+    offset = paramDataInput.readUnsignedShort();
+    references = new ResourceReference[count];
+  }
+  
+  protected void readRefs(DataInput paramDataInput) throws IOException {
+    for (int i = 0; i < count; i++) {
+      references[i] = new ResourceReference(paramDataInput);
+    }
+  }
+  
+  protected void readNames(DataInput paramDataInput) throws IOException {
+    for (int i = 0; i < count; i++) {
+      references[i].readName(paramDataInput);
+    }
+  }
+  
+  public int getType() {
+    return type;
+  }
+  
+
+
+
+
+  public String getTypeAsString()
+  {
+    return (char)(type >> 24 & 0xFF) + (char)(type >> 16 & 0xFF) + (char)(type >> 8 & 0xFF) + (char)(type & 0xFF);
+  }
+  
+  public int getCount() {
+    return count;
+  }
+  
+  public int getOffset() {
+    return offset;
+  }
+  
+  public ResourceReference getReference(int paramInt) {
+    return references[paramInt];
+  }
+}

@@ -1,0 +1,64 @@
+package jogamp.nativewindow;
+
+import com.jogamp.common.jvm.JNILibLoaderBase;
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.util.cache.TempJarCache;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class NWJNILibLoader
+  extends JNILibLoaderBase
+{
+  public NWJNILibLoader() {}
+  
+  public static boolean loadNativeWindow(String paramString)
+  {
+    ((Boolean)AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public Boolean run()
+      {
+        Platform.initSingleton();
+        String str = "nativewindow_" + val$ossuffix;
+        if ((TempJarCache.isInitialized()) && (null == TempJarCache.findLibrary(str))) {
+          JNILibLoaderBase.addNativeJarLibsJoglCfg(new Class[] { Debug.class });
+        }
+        return Boolean.valueOf(NWJNILibLoader.loadLibrary(str, false, NWJNILibLoader.class.getClassLoader()));
+      }
+    })).booleanValue();
+  }
+}

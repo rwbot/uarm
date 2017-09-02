@@ -1,0 +1,1209 @@
+package com.jogamp.opengl.math;
+
+
+
+
+
+
+
+
+
+public class Quaternion
+{
+  private float x;
+  
+
+
+
+
+
+
+
+  private float y;
+  
+
+
+
+
+
+
+  private float z;
+  
+
+
+
+
+
+
+  private float w;
+  
+
+
+
+
+
+
+  public static final float ALLOWED_DEVIANCE = 1.0E-6F;
+  
+
+
+
+
+
+
+
+  public Quaternion()
+  {
+    x = (this.y = this.z = 0.0F);w = 1.0F;
+  }
+  
+  public Quaternion(Quaternion paramQuaternion) {
+    set(paramQuaternion);
+  }
+  
+  public Quaternion(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4) {
+    set(paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+  }
+  
+
+
+
+
+  public final float magnitudeSquared()
+  {
+    return w * w + x * x + y * y + z * z;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final float magnitude()
+  {
+    float f = magnitudeSquared();
+    if (FloatUtil.isZero(f, 1.1920929E-7F)) {
+      return 0.0F;
+    }
+    if (FloatUtil.isEqual(1.0F, f, 1.1920929E-7F)) {
+      return 1.0F;
+    }
+    return FloatUtil.sqrt(f);
+  }
+  
+  public final float getW() {
+    return w;
+  }
+  
+  public final void setW(float paramFloat) {
+    w = paramFloat;
+  }
+  
+  public final float getX() {
+    return x;
+  }
+  
+  public final void setX(float paramFloat) {
+    x = paramFloat;
+  }
+  
+  public final float getY() {
+    return y;
+  }
+  
+  public final void setY(float paramFloat) {
+    y = paramFloat;
+  }
+  
+  public final float getZ() {
+    return z;
+  }
+  
+  public final void setZ(float paramFloat) {
+    z = paramFloat;
+  }
+  
+
+
+  public final float dot(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    return x * paramFloat1 + y * paramFloat2 + z * paramFloat3 + w * paramFloat4;
+  }
+  
+
+
+  public final float dot(Quaternion paramQuaternion)
+  {
+    return dot(paramQuaternion.getX(), paramQuaternion.getY(), paramQuaternion.getZ(), paramQuaternion.getW());
+  }
+  
+
+
+
+
+
+
+
+
+  public final boolean isIdentity()
+  {
+    return (FloatUtil.isEqual(1.0F, w, 1.1920929E-7F)) && (VectorUtil.isZero(x, y, z, 1.1920929E-7F));
+  }
+  
+
+
+
+
+  public final Quaternion setIdentity()
+  {
+    x = (this.y = this.z = 0.0F);w = 1.0F;
+    return this;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final Quaternion normalize()
+  {
+    float f1 = magnitude();
+    if (FloatUtil.isZero(f1, 1.1920929E-7F)) {
+      setIdentity();
+    } else {
+      float f2 = 1.0F / f1;
+      w *= f2;
+      x *= f2;
+      y *= f2;
+      z *= f2;
+    }
+    return this;
+  }
+  
+
+
+
+
+  public Quaternion conjugate()
+  {
+    x = (-x);
+    y = (-y);
+    z = (-z);
+    return this;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final Quaternion invert()
+  {
+    float f1 = magnitudeSquared();
+    if (FloatUtil.isEqual(1.0F, f1, 1.1920929E-7F)) {
+      conjugate();
+    } else {
+      float f2 = 1.0F / f1;
+      w *= f2;
+      x = (-x * f2);
+      y = (-y * f2);
+      z = (-z * f2);
+    }
+    return this;
+  }
+  
+
+
+
+  public final Quaternion set(Quaternion paramQuaternion)
+  {
+    x = x;
+    y = y;
+    z = z;
+    w = w;
+    return this;
+  }
+  
+
+
+
+  public final Quaternion set(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    x = paramFloat1;
+    y = paramFloat2;
+    z = paramFloat3;
+    w = paramFloat4;
+    return this;
+  }
+  
+
+
+
+
+
+
+  public final Quaternion add(Quaternion paramQuaternion)
+  {
+    x += x;
+    y += y;
+    z += z;
+    w += w;
+    return this;
+  }
+  
+
+
+
+
+
+
+  public final Quaternion subtract(Quaternion paramQuaternion)
+  {
+    x -= x;
+    y -= y;
+    z -= z;
+    w -= w;
+    return this;
+  }
+  
+
+
+
+
+
+
+
+  public final Quaternion mult(Quaternion paramQuaternion)
+  {
+    return set(w * x + x * w + y * z - z * y, w * y - x * z + y * w + z * x, w * z + x * y - y * x + z * w, w * w - x * x - y * y - z * z);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public final Quaternion scale(float paramFloat)
+  {
+    x *= paramFloat;
+    y *= paramFloat;
+    z *= paramFloat;
+    w *= paramFloat;
+    return this;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public Quaternion rotateByAngleNormalAxis(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    if (VectorUtil.isZero(paramFloat2, paramFloat3, paramFloat4, 1.1920929E-7F))
+    {
+      return this;
+    }
+    float f1 = 0.5F * paramFloat1;
+    float f2 = FloatUtil.sin(f1);
+    float f3 = FloatUtil.cos(f1);
+    float f4 = f2 * paramFloat2;
+    float f5 = f2 * paramFloat3;
+    float f6 = f2 * paramFloat4;
+    return set(x * f3 + y * f6 - z * f5 + w * f4, -x * f6 + y * f3 + z * f4 + w * f5, x * f5 - y * f4 + z * f3 + w * f6, -x * f4 - y * f5 - z * f6 + w * f3);
+  }
+  
+
+
+
+
+
+
+
+
+  public Quaternion rotateByAngleX(float paramFloat)
+  {
+    float f1 = 0.5F * paramFloat;
+    float f2 = FloatUtil.sin(f1);
+    float f3 = FloatUtil.cos(f1);
+    return set(x * f3 + w * f2, y * f3 + z * f2, -y * f2 + z * f3, -x * f2 + w * f3);
+  }
+  
+
+
+
+
+
+
+
+
+  public Quaternion rotateByAngleY(float paramFloat)
+  {
+    float f1 = 0.5F * paramFloat;
+    float f2 = FloatUtil.sin(f1);
+    float f3 = FloatUtil.cos(f1);
+    return set(x * f3 - z * f2, y * f3 + w * f2, x * f2 + z * f3, -y * f2 + w * f3);
+  }
+  
+
+
+
+
+
+
+
+
+  public Quaternion rotateByAngleZ(float paramFloat)
+  {
+    float f1 = 0.5F * paramFloat;
+    float f2 = FloatUtil.sin(f1);
+    float f3 = FloatUtil.cos(f1);
+    return set(x * f3 + y * f2, -x * f2 + y * f3, z * f3 + w * f2, -z * f2 + w * f3);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final Quaternion rotateByEuler(float[] paramArrayOfFloat)
+  {
+    return rotateByEuler(paramArrayOfFloat[0], paramArrayOfFloat[1], paramArrayOfFloat[2]);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final Quaternion rotateByEuler(float paramFloat1, float paramFloat2, float paramFloat3)
+  {
+    if (VectorUtil.isZero(paramFloat1, paramFloat2, paramFloat3, 1.1920929E-7F)) {
+      return this;
+    }
+    
+
+    return rotateByAngleY(paramFloat2).rotateByAngleZ(paramFloat3).rotateByAngleX(paramFloat1).normalize();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final float[] rotateVector(float[] paramArrayOfFloat1, int paramInt1, float[] paramArrayOfFloat2, int paramInt2)
+  {
+    if (VectorUtil.isVec3Zero(paramArrayOfFloat2, paramInt2, 1.1920929E-7F)) {
+      paramArrayOfFloat1[(0 + paramInt1)] = 0.0F;
+      paramArrayOfFloat1[(1 + paramInt1)] = 0.0F;
+      paramArrayOfFloat1[(2 + paramInt1)] = 0.0F;
+    } else {
+      float f1 = paramArrayOfFloat2[(0 + paramInt2)];
+      float f2 = paramArrayOfFloat2[(1 + paramInt2)];
+      float f3 = paramArrayOfFloat2[(2 + paramInt2)];
+      float f4 = x * x;
+      float f5 = y * y;
+      float f6 = z * z;
+      float f7 = w * w;
+      
+      paramArrayOfFloat1[(0 + paramInt1)] = (f7 * f1 + f4 * f1 - f6 * f1 - f5 * f1 + 2.0F * (y * w * f3 - z * w * f2 + y * x * f2 + z * x * f3));
+      
+
+
+
+
+
+      paramArrayOfFloat1[(1 + paramInt1)] = (f5 * f2 - f6 * f2 + f7 * f2 - f4 * f2 + 2.0F * (x * y * f1 + z * y * f3 + w * z * f1 - x * w * f3));
+      
+
+
+
+
+
+      paramArrayOfFloat1[(2 + paramInt1)] = (f6 * f3 - f5 * f3 - f4 * f3 + f7 * f3 + 2.0F * (x * z * f1 + y * z * f2 - w * y * f1 + w * x * f2));
+    }
+    
+
+
+
+
+    return paramArrayOfFloat1;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final Quaternion setSlerp(Quaternion paramQuaternion1, Quaternion paramQuaternion2, float paramFloat)
+  {
+    if (paramFloat == 0.0F) {
+      set(paramQuaternion1);
+    } else if (paramFloat == 1.0F) {
+      set(paramQuaternion2);
+    } else {
+      float f1 = x;
+      float f2 = y;
+      float f3 = z;
+      float f4 = w;
+      
+
+      float f5 = x * f1 + y * f2 + z * f3 + w * f4;
+      
+      float f6;
+      float f7;
+      if (f5 >= 0.95F)
+      {
+        f6 = 1.0F - paramFloat;
+        f7 = paramFloat;
+      }
+      else if (f5 <= -0.99F)
+      {
+
+        f6 = 0.5F;
+        f7 = 0.5F;
+      }
+      else
+      {
+        if (f5 <= -1.1920929E-7F)
+        {
+          f1 *= -1.0F;
+          f2 *= -1.0F;
+          f3 *= -1.0F;
+          f4 *= -1.0F;
+          f5 *= -1.0F;
+        }
+        
+        float f8 = FloatUtil.acos(f5);
+        float f9 = FloatUtil.sqrt(1.0F - f5 * f5);
+        
+
+        if (Math.abs(f9) < 0.001F) {
+          f6 = 0.5F;
+          f7 = 0.5F;
+
+        }
+        else
+        {
+          f6 = FloatUtil.sin((1.0F - paramFloat) * f8) / f9;
+          f7 = FloatUtil.sin(paramFloat * f8) / f9;
+        }
+      }
+      
+      x = (x * f6 + f1 * f7);
+      y = (y * f6 + f2 * f7);
+      z = (z * f6 + f3 * f7);
+      w = (w * f6 + f4 * f7);
+    }
+    
+    return this;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public Quaternion setLookAt(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2, float[] paramArrayOfFloat3, float[] paramArrayOfFloat4, float[] paramArrayOfFloat5)
+  {
+    VectorUtil.normalizeVec3(paramArrayOfFloat5, paramArrayOfFloat1);
+    
+
+
+    VectorUtil.normalizeVec3(paramArrayOfFloat4, paramArrayOfFloat2);
+    VectorUtil.crossVec3(paramArrayOfFloat3, paramArrayOfFloat4, paramArrayOfFloat5);
+    VectorUtil.normalizeVec3(paramArrayOfFloat3);
+    
+
+
+    VectorUtil.crossVec3(paramArrayOfFloat4, paramArrayOfFloat5, paramArrayOfFloat3);
+    VectorUtil.normalizeVec3(paramArrayOfFloat4);
+    
+
+
+
+
+
+
+
+
+
+
+
+    return setFromAxes(paramArrayOfFloat3, paramArrayOfFloat4, paramArrayOfFloat5).normalize();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final Quaternion setFromVectors(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2, float[] paramArrayOfFloat3, float[] paramArrayOfFloat4)
+  {
+    float f1 = VectorUtil.normVec3(paramArrayOfFloat1) * VectorUtil.normVec3(paramArrayOfFloat2);
+    if (FloatUtil.isZero(f1, 1.1920929E-7F)) {
+      return setIdentity();
+    }
+    float f2 = VectorUtil.dotVec3(paramArrayOfFloat1, paramArrayOfFloat2) / f1;
+    float f3 = FloatUtil.acos(Math.max(-1.0F, Math.min(f2, 1.0F)));
+    
+    VectorUtil.crossVec3(paramArrayOfFloat3, paramArrayOfFloat1, paramArrayOfFloat2);
+    
+    if ((f2 < 0.0F) && (FloatUtil.isZero(VectorUtil.normVec3(paramArrayOfFloat3), 1.1920929E-7F)))
+    {
+      int i;
+      
+
+
+      if (Math.abs(paramArrayOfFloat1[0]) > Math.abs(paramArrayOfFloat1[1])) {
+        if (Math.abs(paramArrayOfFloat1[0]) > Math.abs(paramArrayOfFloat1[2])) {
+          i = 0;
+        } else {
+          i = 2;
+        }
+      }
+      else if (Math.abs(paramArrayOfFloat1[1]) > Math.abs(paramArrayOfFloat1[2])) {
+        i = 1;
+      } else {
+        i = 2;
+      }
+      
+      paramArrayOfFloat3[i] = (-paramArrayOfFloat1[((i + 1) % 3)]);
+      paramArrayOfFloat3[((i + 1) % 3)] = paramArrayOfFloat1[i];
+      paramArrayOfFloat3[((i + 2) % 3)] = 0.0F;
+    }
+    return setFromAngleAxis(f3, paramArrayOfFloat3, paramArrayOfFloat4);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final Quaternion setFromNormalVectors(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2, float[] paramArrayOfFloat3)
+  {
+    float f1 = VectorUtil.normVec3(paramArrayOfFloat1) * VectorUtil.normVec3(paramArrayOfFloat2);
+    if (FloatUtil.isZero(f1, 1.1920929E-7F)) {
+      return setIdentity();
+    }
+    float f2 = VectorUtil.dotVec3(paramArrayOfFloat1, paramArrayOfFloat2) / f1;
+    float f3 = FloatUtil.acos(Math.max(-1.0F, Math.min(f2, 1.0F)));
+    
+    VectorUtil.crossVec3(paramArrayOfFloat3, paramArrayOfFloat1, paramArrayOfFloat2);
+    
+    if ((f2 < 0.0F) && (FloatUtil.isZero(VectorUtil.normVec3(paramArrayOfFloat3), 1.1920929E-7F)))
+    {
+      int i;
+      
+
+
+      if (Math.abs(paramArrayOfFloat1[0]) > Math.abs(paramArrayOfFloat1[1])) {
+        if (Math.abs(paramArrayOfFloat1[0]) > Math.abs(paramArrayOfFloat1[2])) {
+          i = 0;
+        } else {
+          i = 2;
+        }
+      }
+      else if (Math.abs(paramArrayOfFloat1[1]) > Math.abs(paramArrayOfFloat1[2])) {
+        i = 1;
+      } else {
+        i = 2;
+      }
+      
+      paramArrayOfFloat3[i] = (-paramArrayOfFloat1[((i + 1) % 3)]);
+      paramArrayOfFloat3[((i + 1) % 3)] = paramArrayOfFloat1[i];
+      paramArrayOfFloat3[((i + 2) % 3)] = 0.0F;
+    }
+    return setFromAngleNormalAxis(f3, paramArrayOfFloat3);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final Quaternion setFromAngleAxis(float paramFloat, float[] paramArrayOfFloat1, float[] paramArrayOfFloat2)
+  {
+    VectorUtil.normalizeVec3(paramArrayOfFloat2, paramArrayOfFloat1);
+    return setFromAngleNormalAxis(paramFloat, paramArrayOfFloat2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final Quaternion setFromAngleNormalAxis(float paramFloat, float[] paramArrayOfFloat)
+  {
+    if (VectorUtil.isVec3Zero(paramArrayOfFloat, 0, 1.1920929E-7F)) {
+      setIdentity();
+    } else {
+      float f1 = paramFloat * 0.5F;
+      float f2 = FloatUtil.sin(f1);
+      x = (paramArrayOfFloat[0] * f2);
+      y = (paramArrayOfFloat[1] * f2);
+      z = (paramArrayOfFloat[2] * f2);
+      w = FloatUtil.cos(f1);
+    }
+    return this;
+  }
+  
+
+
+
+
+
+
+  public final float toAngleAxis(float[] paramArrayOfFloat)
+  {
+    float f1 = x * x + y * y + z * z;
+    float f2;
+    if (FloatUtil.isZero(f1, 1.1920929E-7F)) {
+      f2 = 0.0F;
+      paramArrayOfFloat[0] = 1.0F;
+      paramArrayOfFloat[1] = 0.0F;
+      paramArrayOfFloat[2] = 0.0F;
+    } else {
+      f2 = FloatUtil.acos(w) * 2.0F;
+      float f3 = 1.0F / FloatUtil.sqrt(f1);
+      paramArrayOfFloat[0] = (x * f3);
+      paramArrayOfFloat[1] = (y * f3);
+      paramArrayOfFloat[2] = (z * f3);
+    }
+    return f2;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final Quaternion setFromEuler(float[] paramArrayOfFloat)
+  {
+    return setFromEuler(paramArrayOfFloat[0], paramArrayOfFloat[1], paramArrayOfFloat[2]);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final Quaternion setFromEuler(float paramFloat1, float paramFloat2, float paramFloat3)
+  {
+    if (VectorUtil.isZero(paramFloat1, paramFloat2, paramFloat3, 1.1920929E-7F)) {
+      return setIdentity();
+    }
+    float f1 = paramFloat2 * 0.5F;
+    float f2 = FloatUtil.sin(f1);
+    float f3 = FloatUtil.cos(f1);
+    f1 = paramFloat3 * 0.5F;
+    float f4 = FloatUtil.sin(f1);
+    float f5 = FloatUtil.cos(f1);
+    f1 = paramFloat1 * 0.5F;
+    float f6 = FloatUtil.sin(f1);
+    float f7 = FloatUtil.cos(f1);
+    
+
+    float f8 = f3 * f5;
+    float f9 = f2 * f4;
+    float f10 = f3 * f4;
+    float f11 = f2 * f5;
+    
+    w = (f8 * f7 - f9 * f6);
+    x = (f8 * f6 + f9 * f7);
+    y = (f11 * f7 + f10 * f6);
+    z = (f10 * f7 - f11 * f6);
+    return normalize();
+  }
+  
+
+
+
+
+
+
+
+
+  public float[] toEuler(float[] paramArrayOfFloat)
+  {
+    float f1 = w * w;
+    float f2 = x * x;
+    float f3 = y * y;
+    float f4 = z * z;
+    float f5 = f2 + f3 + f4 + f1;
+    
+    float f6 = x * y + z * w;
+    
+    if (f6 > 0.499F * f5) {
+      paramArrayOfFloat[0] = 0.0F;
+      paramArrayOfFloat[1] = (2.0F * FloatUtil.atan2(x, w));
+      paramArrayOfFloat[2] = 1.5707964F;
+    } else if (f6 < -0.499F * f5) {
+      paramArrayOfFloat[0] = 0.0F;
+      paramArrayOfFloat[1] = (-2.0F * FloatUtil.atan2(x, w));
+      paramArrayOfFloat[2] = -1.5707964F;
+    } else {
+      paramArrayOfFloat[0] = FloatUtil.atan2(2.0F * x * w - 2.0F * y * z, -f2 + f3 - f4 + f1);
+      paramArrayOfFloat[1] = FloatUtil.atan2(2.0F * y * w - 2.0F * x * z, f2 - f3 - f4 + f1);
+      paramArrayOfFloat[2] = FloatUtil.asin(2.0F * f6 / f5);
+    }
+    return paramArrayOfFloat;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final Quaternion setFromMatrix(float[] paramArrayOfFloat, int paramInt)
+  {
+    return setFromMatrix(paramArrayOfFloat[(0 + paramInt)], paramArrayOfFloat[(4 + paramInt)], paramArrayOfFloat[(8 + paramInt)], paramArrayOfFloat[(1 + paramInt)], paramArrayOfFloat[(5 + paramInt)], paramArrayOfFloat[(9 + paramInt)], paramArrayOfFloat[(2 + paramInt)], paramArrayOfFloat[(6 + paramInt)], paramArrayOfFloat[(10 + paramInt)]);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public Quaternion setFromMatrix(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6, float paramFloat7, float paramFloat8, float paramFloat9)
+  {
+    float f1 = paramFloat1 + paramFloat5 + paramFloat9 + 1.0F;
+    float f2;
+    if (f1 > 0.0F)
+    {
+      f2 = 0.5F / FloatUtil.sqrt(f1);
+      w = (0.25F / f2);
+      x = ((paramFloat8 - paramFloat6) * f2);
+      y = ((paramFloat3 - paramFloat7) * f2);
+      z = ((paramFloat4 - paramFloat2) * f2);
+    } else if ((paramFloat1 > paramFloat5) && (paramFloat1 > paramFloat9))
+    {
+      f2 = 0.5F / FloatUtil.sqrt(1.0F + paramFloat1 - paramFloat5 - paramFloat9);
+      w = ((paramFloat8 - paramFloat6) * f2);
+      x = (0.25F / f2);
+      y = ((paramFloat4 + paramFloat2) * f2);
+      z = ((paramFloat3 + paramFloat7) * f2);
+    } else if (paramFloat5 > paramFloat9)
+    {
+      f2 = 0.5F / FloatUtil.sqrt(1.0F + paramFloat5 - paramFloat1 - paramFloat9);
+      w = ((paramFloat3 - paramFloat7) * f2);
+      x = ((paramFloat7 + paramFloat2) * f2);
+      y = (0.25F / f2);
+      z = ((paramFloat8 + paramFloat6) * f2);
+    }
+    else {
+      f2 = 0.5F / FloatUtil.sqrt(1.0F + paramFloat9 - paramFloat1 - paramFloat5);
+      w = ((paramFloat4 - paramFloat2) * f2);
+      x = ((paramFloat3 + paramFloat7) * f2);
+      y = ((paramFloat8 + paramFloat6) * f2);
+      z = (0.25F / f2);
+    }
+    return this;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final float[] toMatrix(float[] paramArrayOfFloat, int paramInt)
+  {
+    float f1 = magnitudeSquared();
+    if (FloatUtil.isZero(f1, 1.1920929E-7F))
+    {
+      return FloatUtil.makeIdentity(paramArrayOfFloat, paramInt);
+    }
+    float f2;
+    if (FloatUtil.isEqual(1.0F, f1, 1.1920929E-7F)) {
+      f2 = 2.0F;
+    } else {
+      f2 = 2.0F / f1;
+    }
+    
+    float f3 = f2 * x;
+    float f4 = f2 * y;
+    float f5 = f2 * z;
+    
+    float f6 = x * f3;
+    float f7 = x * f4;
+    float f8 = x * f5;
+    float f9 = f3 * w;
+    float f10 = y * f4;
+    float f11 = y * f5;
+    float f12 = f4 * w;
+    float f13 = z * f5;
+    float f14 = f5 * w;
+    
+    paramArrayOfFloat[(0 + paramInt)] = (1.0F - (f10 + f13));
+    paramArrayOfFloat[(4 + paramInt)] = (f7 - f14);
+    paramArrayOfFloat[(8 + paramInt)] = (f8 + f12);
+    paramArrayOfFloat[(12 + paramInt)] = 0.0F;
+    
+    paramArrayOfFloat[(1 + paramInt)] = (f7 + f14);
+    paramArrayOfFloat[(5 + paramInt)] = (1.0F - (f6 + f13));
+    paramArrayOfFloat[(9 + paramInt)] = (f11 - f9);
+    paramArrayOfFloat[(13 + paramInt)] = 0.0F;
+    
+    paramArrayOfFloat[(2 + paramInt)] = (f8 - f12);
+    paramArrayOfFloat[(6 + paramInt)] = (f11 + f9);
+    paramArrayOfFloat[(10 + paramInt)] = (1.0F - (f6 + f10));
+    paramArrayOfFloat[(14 + paramInt)] = 0.0F;
+    
+    paramArrayOfFloat[(3 + paramInt)] = 0.0F;
+    paramArrayOfFloat[(7 + paramInt)] = 0.0F;
+    paramArrayOfFloat[(11 + paramInt)] = 0.0F;
+    paramArrayOfFloat[(15 + paramInt)] = 1.0F;
+    return paramArrayOfFloat;
+  }
+  
+
+
+
+
+
+  public float[] copyMatrixColumn(int paramInt1, float[] paramArrayOfFloat, int paramInt2)
+  {
+    float f1 = magnitudeSquared();
+    float f2;
+    if (FloatUtil.isZero(f1, 1.1920929E-7F)) {
+      f2 = 0.0F;
+    } else if (FloatUtil.isEqual(1.0F, f1, 1.1920929E-7F)) {
+      f2 = 2.0F;
+    } else {
+      f2 = 2.0F / f1;
+    }
+    
+
+
+    float f3 = x * f2;
+    float f4 = y * f2;
+    float f5 = z * f2;
+    float f6 = x * f3;
+    float f7 = x * f4;
+    float f8 = x * f5;
+    float f9 = w * f3;
+    float f10 = y * f4;
+    float f11 = y * f5;
+    float f12 = w * f4;
+    float f13 = z * f5;
+    float f14 = w * f5;
+    
+
+    switch (paramInt1) {
+    case 0: 
+      paramArrayOfFloat[(0 + paramInt2)] = (1.0F - (f10 + f13));
+      paramArrayOfFloat[(1 + paramInt2)] = (f7 + f14);
+      paramArrayOfFloat[(2 + paramInt2)] = (f8 - f12);
+      break;
+    case 1: 
+      paramArrayOfFloat[(0 + paramInt2)] = (f7 - f14);
+      paramArrayOfFloat[(1 + paramInt2)] = (1.0F - (f6 + f13));
+      paramArrayOfFloat[(2 + paramInt2)] = (f11 + f9);
+      break;
+    case 2: 
+      paramArrayOfFloat[(0 + paramInt2)] = (f8 + f12);
+      paramArrayOfFloat[(1 + paramInt2)] = (f11 - f9);
+      paramArrayOfFloat[(2 + paramInt2)] = (1.0F - (f6 + f10));
+      break;
+    default: 
+      throw new IllegalArgumentException("Invalid column index. " + paramInt1);
+    }
+    return paramArrayOfFloat;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final Quaternion setFromAxes(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2, float[] paramArrayOfFloat3)
+  {
+    return setFromMatrix(paramArrayOfFloat1[0], paramArrayOfFloat2[0], paramArrayOfFloat3[0], paramArrayOfFloat1[1], paramArrayOfFloat2[1], paramArrayOfFloat3[1], paramArrayOfFloat1[2], paramArrayOfFloat2[2], paramArrayOfFloat3[2]);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public void toAxes(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2, float[] paramArrayOfFloat3, float[] paramArrayOfFloat4)
+  {
+    toMatrix(paramArrayOfFloat4, 0);
+    FloatUtil.copyMatrixColumn(paramArrayOfFloat4, 0, 2, paramArrayOfFloat3, 0);
+    FloatUtil.copyMatrixColumn(paramArrayOfFloat4, 0, 1, paramArrayOfFloat2, 0);
+    FloatUtil.copyMatrixColumn(paramArrayOfFloat4, 0, 0, paramArrayOfFloat1, 0);
+  }
+  
+
+
+
+
+
+
+
+  public final boolean isRotationMatrix3f(float[] paramArrayOfFloat)
+  {
+    if (FloatUtil.abs(paramArrayOfFloat[0] * paramArrayOfFloat[3] + paramArrayOfFloat[3] * paramArrayOfFloat[4] + paramArrayOfFloat[6] * paramArrayOfFloat[7]) > 0.01F)
+      return false;
+    if (FloatUtil.abs(paramArrayOfFloat[0] * paramArrayOfFloat[2] + paramArrayOfFloat[3] * paramArrayOfFloat[5] + paramArrayOfFloat[6] * paramArrayOfFloat[8]) > 0.01F)
+      return false;
+    if (FloatUtil.abs(paramArrayOfFloat[1] * paramArrayOfFloat[2] + paramArrayOfFloat[4] * paramArrayOfFloat[5] + paramArrayOfFloat[7] * paramArrayOfFloat[8]) > 0.01F)
+      return false;
+    if (FloatUtil.abs(paramArrayOfFloat[0] * paramArrayOfFloat[0] + paramArrayOfFloat[3] * paramArrayOfFloat[3] + paramArrayOfFloat[6] * paramArrayOfFloat[6] - 1.0F) > 0.01F)
+      return false;
+    if (FloatUtil.abs(paramArrayOfFloat[1] * paramArrayOfFloat[1] + paramArrayOfFloat[4] * paramArrayOfFloat[4] + paramArrayOfFloat[7] * paramArrayOfFloat[7] - 1.0F) > 0.01F)
+      return false;
+    if (FloatUtil.abs(paramArrayOfFloat[2] * paramArrayOfFloat[2] + paramArrayOfFloat[5] * paramArrayOfFloat[5] + paramArrayOfFloat[8] * paramArrayOfFloat[8] - 1.0F) > 0.01F)
+      return false;
+    return FloatUtil.abs(determinant3f(paramArrayOfFloat) - 1.0F) < 0.01F;
+  }
+  
+  private final float determinant3f(float[] paramArrayOfFloat) {
+    return paramArrayOfFloat[0] * paramArrayOfFloat[4] * paramArrayOfFloat[8] + paramArrayOfFloat[3] * paramArrayOfFloat[7] * paramArrayOfFloat[2] + paramArrayOfFloat[6] * paramArrayOfFloat[1] * paramArrayOfFloat[5] - paramArrayOfFloat[0] * paramArrayOfFloat[7] * paramArrayOfFloat[5] - paramArrayOfFloat[3] * paramArrayOfFloat[1] * paramArrayOfFloat[8] - paramArrayOfFloat[6] * paramArrayOfFloat[4] * paramArrayOfFloat[2];
+  }
+  
+
+
+
+
+
+
+
+
+
+  public boolean equals(Object paramObject)
+  {
+    if (this == paramObject) {
+      return true;
+    }
+    if (!(paramObject instanceof Quaternion)) {
+      return false;
+    }
+    Quaternion localQuaternion = (Quaternion)paramObject;
+    
+
+
+    return (Math.abs(x - localQuaternion.getX()) <= 1.0E-6F) && (Math.abs(y - localQuaternion.getY()) <= 1.0E-6F) && (Math.abs(z - localQuaternion.getZ()) <= 1.0E-6F) && (Math.abs(w - localQuaternion.getW()) <= 1.0E-6F);
+  }
+  
+  public final int hashCode() {
+    throw new InternalError("hashCode not designed");
+  }
+  
+  public String toString() {
+    return "Quaternion[x " + x + ", y " + y + ", z " + z + ", w " + w + "]";
+  }
+}

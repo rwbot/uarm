@@ -1,0 +1,130 @@
+package jogamp.opengl.glu.nurbs;
+
+import java.util.Arrays;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Flist
+{
+  public int end;
+  public int start;
+  public float[] pts;
+  private int npts;
+  
+  public Flist() {}
+  
+  public void grow(int paramInt)
+  {
+    if (npts < paramInt)
+    {
+      npts = paramInt;
+      pts = new float[npts];
+    }
+    start = 0;
+    end = 0;
+  }
+  
+
+
+
+
+  public void filter()
+  {
+    Arrays.sort(pts);
+    
+    start = 0;
+    
+    int i = 0;
+    
+    for (int j = 1; j < end; j++) {
+      if (pts[j] == pts[(j - i - 1)])
+        i++;
+      pts[(j - i)] = pts[j];
+    }
+    
+    end -= i;
+  }
+  
+
+
+
+
+
+
+
+  public void taper(float paramFloat1, float paramFloat2)
+  {
+    while (pts[start] != paramFloat1) {
+      start += 1;
+    }
+    
+    while (pts[(end - 1)] != paramFloat2) {
+      end -= 1;
+    }
+  }
+  
+
+
+
+
+
+  public void add(float paramFloat)
+  {
+    pts[(end++)] = paramFloat;
+  }
+}

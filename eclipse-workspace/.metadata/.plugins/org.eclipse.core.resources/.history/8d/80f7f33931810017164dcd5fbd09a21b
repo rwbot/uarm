@@ -1,0 +1,403 @@
+package com.jogamp.opengl.util.glsl;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLException;
+import java.io.PrintStream;
+import java.nio.Buffer;
+import java.nio.IntBuffer;
+import java.util.HashSet;
+import java.util.Set;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ShaderUtil
+{
+  private static final String implObjectKey = "com.jogamp.opengl.util.glsl.ShaderUtil";
+  
+  public ShaderUtil() {}
+  
+  public static String getShaderInfoLog(GL paramGL, int paramInt)
+  {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    int[] arrayOfInt1 = new int[1];
+    localGL2ES2.glGetShaderiv(paramInt, 35716, arrayOfInt1, 0);
+    
+    if (arrayOfInt1[0] == 0) {
+      return "(no info log)";
+    }
+    int[] arrayOfInt2 = new int[1];
+    byte[] arrayOfByte = new byte[arrayOfInt1[0]];
+    localGL2ES2.glGetShaderInfoLog(paramInt, arrayOfInt1[0], arrayOfInt2, 0, arrayOfByte, 0);
+    
+    return new String(arrayOfByte, 0, arrayOfInt2[0]);
+  }
+  
+  public static String getProgramInfoLog(GL paramGL, int paramInt) {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    int[] arrayOfInt1 = new int[1];
+    localGL2ES2.glGetProgramiv(paramInt, 35716, arrayOfInt1, 0);
+    
+    if (arrayOfInt1[0] == 0) {
+      return "(no info log)";
+    }
+    int[] arrayOfInt2 = new int[1];
+    byte[] arrayOfByte = new byte[arrayOfInt1[0]];
+    localGL2ES2.glGetProgramInfoLog(paramInt, arrayOfInt1[0], arrayOfInt2, 0, arrayOfByte, 0);
+    
+    return new String(arrayOfByte, 0, arrayOfInt2[0]);
+  }
+  
+  public static boolean isShaderStatusValid(GL paramGL, int paramInt1, int paramInt2, PrintStream paramPrintStream) {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    int[] arrayOfInt = new int[1];
+    localGL2ES2.glGetShaderiv(paramInt1, paramInt2, arrayOfInt, 0);
+    
+    boolean bool = arrayOfInt[0] == 1;
+    if ((!bool) && (null != paramPrintStream)) {
+      paramPrintStream.println("Shader status invalid: " + getShaderInfoLog(localGL2ES2, paramInt1));
+    }
+    return bool;
+  }
+  
+  public static boolean isShaderStatusValid(GL paramGL, IntBuffer paramIntBuffer, int paramInt, PrintStream paramPrintStream) {
+    boolean bool = true;
+    for (int i = paramIntBuffer.position(); i < paramIntBuffer.limit(); i++) {
+      bool = (isShaderStatusValid(paramGL, paramIntBuffer.get(i), paramInt, paramPrintStream)) && (bool);
+    }
+    return bool;
+  }
+  
+  public static boolean isProgramStatusValid(GL paramGL, int paramInt1, int paramInt2) {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    int[] arrayOfInt = new int[1];
+    localGL2ES2.glGetProgramiv(paramInt1, paramInt2, arrayOfInt, 0);
+    
+    return arrayOfInt[0] == 1;
+  }
+  
+  public static boolean isProgramLinkStatusValid(GL paramGL, int paramInt, PrintStream paramPrintStream) {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    if (!localGL2ES2.glIsProgram(paramInt)) {
+      if (null != paramPrintStream) {
+        paramPrintStream.println("Program name invalid: " + paramInt);
+      }
+      return false;
+    }
+    if (!isProgramStatusValid(localGL2ES2, paramInt, 35714)) {
+      if (null != paramPrintStream) {
+        paramPrintStream.println("Program link failed: " + paramInt + "\n\t" + getProgramInfoLog(localGL2ES2, paramInt));
+      }
+      return false;
+    }
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static boolean isProgramExecStatusValid(GL paramGL, int paramInt, PrintStream paramPrintStream)
+  {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    localGL2ES2.glValidateProgram(paramInt);
+    if (!isProgramStatusValid(localGL2ES2, paramInt, 35715)) {
+      if (null != paramPrintStream) {
+        paramPrintStream.println("Program validation failed: " + paramInt + "\n\t" + getProgramInfoLog(localGL2ES2, paramInt));
+      }
+      return false;
+    }
+    return true;
+  }
+  
+  public static void createShader(GL paramGL, int paramInt, IntBuffer paramIntBuffer) {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    for (int i = paramIntBuffer.position(); i < paramIntBuffer.limit(); i++) {
+      paramIntBuffer.put(i, localGL2ES2.glCreateShader(paramInt));
+    }
+  }
+  
+
+
+
+
+  public static Set<Integer> getShaderBinaryFormats(GL paramGL)
+  {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    ProfileInformation localProfileInformation = getProfileInformation(localGL2ES2);
+    if (null == shaderBinaryFormats) {
+      shaderBinaryFormats = new HashSet();
+      if (localGL2ES2.isGLES2Compatible()) {
+        try {
+          int[] arrayOfInt1 = new int[1];
+          localGL2ES2.glGetIntegerv(36345, arrayOfInt1, 0);
+          int i = localGL2ES2.glGetError();
+          int j = 0 == i ? arrayOfInt1[0] : 0;
+          if (j > 0) {
+            int[] arrayOfInt2 = new int[j];
+            localGL2ES2.glGetIntegerv(36344, arrayOfInt2, 0);
+            for (int k = 0; k < j; k++) {
+              shaderBinaryFormats.add(Integer.valueOf(arrayOfInt2[k]));
+            }
+          }
+        } catch (GLException localGLException) {
+          System.err.println("Caught exception on thread " + Thread.currentThread().getName());
+          localGLException.printStackTrace();
+        }
+      }
+    }
+    return shaderBinaryFormats;
+  }
+  
+  public static boolean isShaderCompilerAvailable(GL paramGL)
+  {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    ProfileInformation localProfileInformation = getProfileInformation(localGL2ES2);
+    if (null == shaderCompilerAvailable) {
+      if (localGL2ES2.isGLES2()) {
+        int i = 0;
+        try {
+          byte[] arrayOfByte = new byte[1];
+          localGL2ES2.glGetBooleanv(36346, arrayOfByte, 0);
+          int j = localGL2ES2.glGetError();
+          boolean bool = (0 == j) && (arrayOfByte[0] != 0);
+          if (!bool) {
+            Set localSet = getShaderBinaryFormats(localGL2ES2);
+            if (localSet.size() == 0)
+            {
+              bool = true;
+            }
+          }
+          shaderCompilerAvailable = Boolean.valueOf(bool);
+          i = 1;
+        } catch (GLException localGLException) {
+          System.err.println("Caught exception on thread " + Thread.currentThread().getName());
+          localGLException.printStackTrace();
+        }
+        if (i == 0) {
+          shaderCompilerAvailable = Boolean.valueOf(true);
+        }
+      } else if (localGL2ES2.isGL2ES2()) {
+        shaderCompilerAvailable = new Boolean(true);
+      } else {
+        throw new GLException("Invalid OpenGL profile");
+      }
+    }
+    return shaderCompilerAvailable.booleanValue();
+  }
+  
+  public static boolean isGeometryShaderSupported(GL paramGL)
+  {
+    GLContext localGLContext = paramGL.getContext();
+    
+    return (localGLContext.getGLVersionNumber().compareTo(GLContext.Version3_2) >= 0) || (localGLContext.isExtensionAvailable("GL_ARB_geometry_shader4"));
+  }
+  
+  public static void shaderSource(GL paramGL, int paramInt, CharSequence[] paramArrayOfCharSequence)
+  {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    if (!isShaderCompilerAvailable(paramGL)) {
+      throw new GLException("No compiler is available");
+    }
+    
+    int i = null != paramArrayOfCharSequence ? paramArrayOfCharSequence.length : 0;
+    if (i == 0) {
+      throw new GLException("No sources specified");
+    }
+    
+    IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(i);
+    for (int j = 0; j < i; j++) {
+      localIntBuffer.put(j, paramArrayOfCharSequence[j].length());
+    }
+    if ((paramArrayOfCharSequence instanceof String[]))
+    {
+      localGL2ES2.glShaderSource(paramInt, i, (String[])paramArrayOfCharSequence, localIntBuffer);
+    } else {
+      String[] arrayOfString = new String[paramArrayOfCharSequence.length];
+      for (int k = paramArrayOfCharSequence.length - 1; k >= 0; k--) {
+        CharSequence localCharSequence = paramArrayOfCharSequence[k];
+        if ((localCharSequence instanceof String))
+        {
+          arrayOfString[k] = ((String)localCharSequence);
+        }
+        else {
+          arrayOfString[k] = paramArrayOfCharSequence[k].toString();
+        }
+      }
+      localGL2ES2.glShaderSource(paramInt, i, arrayOfString, localIntBuffer);
+    }
+  }
+  
+  public static void shaderSource(GL paramGL, IntBuffer paramIntBuffer, CharSequence[][] paramArrayOfCharSequence)
+  {
+    int i = null != paramArrayOfCharSequence ? paramArrayOfCharSequence.length : 0;
+    int j = null != paramIntBuffer ? paramIntBuffer.remaining() : 0;
+    if ((j <= 0) || (i <= 0) || (j != i)) {
+      throw new GLException("Invalid number of shaders and/or sources: shaders=" + j + ", sources=" + i);
+    }
+    
+    for (int k = 0; k < i; k++) {
+      shaderSource(paramGL, paramIntBuffer.get(paramIntBuffer.position() + k), paramArrayOfCharSequence[k]);
+    }
+  }
+  
+  public static void shaderBinary(GL paramGL, IntBuffer paramIntBuffer, int paramInt, Buffer paramBuffer)
+  {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    if (getShaderBinaryFormats(localGL2ES2).size() <= 0) {
+      throw new GLException("No binary formats are supported");
+    }
+    
+    int i = paramIntBuffer.remaining();
+    if (i <= 0) {
+      throw new GLException("No shaders specified");
+    }
+    if (null == paramBuffer) {
+      throw new GLException("Null shader binary");
+    }
+    int j = paramBuffer.remaining();
+    if (0 >= j) {
+      throw new GLException("Empty shader binary (remaining == 0)");
+    }
+    localGL2ES2.glShaderBinary(i, paramIntBuffer, paramInt, paramBuffer, j);
+  }
+  
+  public static void compileShader(GL paramGL, IntBuffer paramIntBuffer)
+  {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    for (int i = paramIntBuffer.position(); i < paramIntBuffer.limit(); i++) {
+      localGL2ES2.glCompileShader(paramIntBuffer.get(i));
+    }
+  }
+  
+  public static void attachShader(GL paramGL, int paramInt, IntBuffer paramIntBuffer)
+  {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    for (int i = paramIntBuffer.position(); i < paramIntBuffer.limit(); i++) {
+      localGL2ES2.glAttachShader(paramInt, paramIntBuffer.get(i));
+    }
+  }
+  
+  public static void detachShader(GL paramGL, int paramInt, IntBuffer paramIntBuffer)
+  {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    for (int i = paramIntBuffer.position(); i < paramIntBuffer.limit(); i++) {
+      localGL2ES2.glDetachShader(paramInt, paramIntBuffer.get(i));
+    }
+  }
+  
+  public static void deleteShader(GL paramGL, IntBuffer paramIntBuffer)
+  {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    for (int i = paramIntBuffer.position(); i < paramIntBuffer.limit(); i++) {
+      localGL2ES2.glDeleteShader(paramIntBuffer.get(i));
+    }
+  }
+  
+
+
+
+  public static boolean createAndLoadShader(GL paramGL, IntBuffer paramIntBuffer, int paramInt1, int paramInt2, Buffer paramBuffer, PrintStream paramPrintStream)
+  {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    int i = localGL2ES2.glGetError();
+    if ((i != 0) && (null != paramPrintStream)) {
+      paramPrintStream.println("createAndLoadShader: Pre GL Error: 0x" + Integer.toHexString(i));
+    }
+    
+    createShader(localGL2ES2, paramInt1, paramIntBuffer);
+    i = localGL2ES2.glGetError();
+    if (i != 0) {
+      throw new GLException("createAndLoadShader: CreateShader failed, GL Error: 0x" + Integer.toHexString(i));
+    }
+    
+    shaderBinary(localGL2ES2, paramIntBuffer, paramInt2, paramBuffer);
+    
+    i = localGL2ES2.glGetError();
+    if ((i != 0) && (null != paramPrintStream)) {
+      paramPrintStream.println("createAndLoadShader: ShaderBinary failed, GL Error: 0x" + Integer.toHexString(i));
+    }
+    return i == 0;
+  }
+  
+
+
+  public static boolean createAndCompileShader(GL paramGL, IntBuffer paramIntBuffer, int paramInt, CharSequence[][] paramArrayOfCharSequence, PrintStream paramPrintStream)
+  {
+    GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+    int i = localGL2ES2.glGetError();
+    if ((i != 0) && (null != paramPrintStream)) {
+      paramPrintStream.println("createAndCompileShader: Pre GL Error: 0x" + Integer.toHexString(i));
+    }
+    
+    createShader(localGL2ES2, paramInt, paramIntBuffer);
+    i = localGL2ES2.glGetError();
+    if (i != 0) {
+      throw new GLException("createAndCompileShader: CreateShader failed, GL Error: 0x" + Integer.toHexString(i));
+    }
+    
+    shaderSource(localGL2ES2, paramIntBuffer, paramArrayOfCharSequence);
+    i = localGL2ES2.glGetError();
+    if (i != 0) {
+      throw new GLException("createAndCompileShader: ShaderSource failed, GL Error: 0x" + Integer.toHexString(i));
+    }
+    
+    compileShader(localGL2ES2, paramIntBuffer);
+    i = localGL2ES2.glGetError();
+    if ((i != 0) && (null != paramPrintStream)) {
+      paramPrintStream.println("createAndCompileShader: CompileShader failed, GL Error: 0x" + Integer.toHexString(i));
+    }
+    
+    return (isShaderStatusValid(localGL2ES2, paramIntBuffer, 35713, paramPrintStream)) && (i == 0);
+  }
+  
+
+  private static class ProfileInformation
+  {
+    Boolean shaderCompilerAvailable = null;
+    Set<Integer> shaderBinaryFormats = null;
+    
+    private ProfileInformation() {} }
+  
+  private static ProfileInformation getProfileInformation(GL paramGL) { GLContext localGLContext = paramGL.getContext();
+    localGLContext.validateCurrent();
+    ProfileInformation localProfileInformation = (ProfileInformation)localGLContext.getAttachedObject("com.jogamp.opengl.util.glsl.ShaderUtil");
+    if (localProfileInformation == null) {
+      localProfileInformation = new ProfileInformation(null);
+      localGLContext.attachObject("com.jogamp.opengl.util.glsl.ShaderUtil", localProfileInformation);
+    }
+    return localProfileInformation;
+  }
+}

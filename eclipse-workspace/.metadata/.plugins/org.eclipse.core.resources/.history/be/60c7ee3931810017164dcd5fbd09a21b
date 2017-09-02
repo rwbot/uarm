@@ -1,0 +1,569 @@
+package com.jogamp.opengl.math;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public final class Binary16
+{
+  public static final char NEGATIVE_INFINITY = 64512;
+  public static final char POSITIVE_INFINITY = '簀';
+  public static final char POSITIVE_ZERO = '\000';
+  public static final char NEGATIVE_ZERO = 32768;
+  public static final int BIAS = 15;
+  
+
+
+
+
+
+
+  private static final int MASK_SIGN = 32768;
+  private static final int MASK_EXPONENT = 31744;
+  private static final int MASK_SIGNIFICAND = 1023;
+  
+
+
+
+
+
+
+
+  public static char exampleNaN()
+  {
+    int i = packSetExponentUnbiasedUnchecked(16) | packSetSignificandUnchecked(1);
+    char c = (char)i;
+    return c;
+  }
+  
+
+
+
+
+
+
+  public static boolean isInfinite(char paramChar)
+  {
+    if ((unpackGetExponentUnbiased(paramChar) == 16) && 
+      (unpackGetSignificand(paramChar) == 0)) {
+      return true;
+    }
+    
+    return false;
+  }
+  
+
+
+
+
+
+
+  public static boolean isNaN(char paramChar)
+  {
+    int i = unpackGetExponentUnbiased(paramChar);
+    int j = unpackGetSignificand(paramChar);
+    return (i == 16) && (j > 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static char packDouble(double paramDouble)
+  {
+    if (Double.isNaN(paramDouble)) {
+      return exampleNaN();
+    }
+    if (paramDouble == Double.POSITIVE_INFINITY) {
+      return POSITIVE_INFINITY;
+    }
+    if (paramDouble == Double.NEGATIVE_INFINITY) {
+      return NEGATIVE_INFINITY;
+    }
+    if (Double.doubleToLongBits(paramDouble) == Binary64.NEGATIVE_ZERO_BITS) {
+      return NEGATIVE_ZERO;
+    }
+    if (paramDouble == 0.0D) {
+      return POSITIVE_ZERO;
+    }
+    
+    long l1 = Binary64.unpackGetExponentUnbiased(paramDouble);
+    long l2 = Binary64.unpackGetSign(paramDouble);
+    long l3 = Binary64.unpackGetSignificand(paramDouble);
+    int i = packSetSignUnchecked((int)l2);
+    
+
+
+
+
+    int j = (int)(l1 & 0x1F);
+    int k = packSetExponentUnbiasedUnchecked(j);
+    
+
+
+
+
+    long l4 = l3 & 0xFFC0000000000;
+    long l5 = l4 >> 42;
+    int m = packSetSignificandUnchecked((int)l5);
+    
+
+
+
+
+    return (char)(i | k | m);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static char packFloat(float paramFloat)
+  {
+    if (Float.isNaN(paramFloat)) {
+      return exampleNaN();
+    }
+    if (paramFloat == Float.POSITIVE_INFINITY) {
+      return POSITIVE_INFINITY;
+    }
+    if (paramFloat == Float.NEGATIVE_INFINITY) {
+      return NEGATIVE_INFINITY;
+    }
+    if (Float.floatToIntBits(paramFloat) == Binary32.NEGATIVE_ZERO_BITS) {
+      return NEGATIVE_ZERO;
+    }
+    if (paramFloat == 0.0D) {
+      return POSITIVE_ZERO;
+    }
+    
+    long l1 = Binary32.unpackGetExponentUnbiased(paramFloat);
+    long l2 = Binary32.unpackGetSign(paramFloat);
+    long l3 = Binary32.unpackGetSignificand(paramFloat);
+    int i = packSetSignUnchecked((int)l2);
+    
+
+
+
+
+    int j = (int)(l1 & 0x1F);
+    int k = packSetExponentUnbiasedUnchecked(j);
+    
+
+
+
+
+    long l4 = l3 & 0x7FE000;
+    long l5 = l4 >> 13;
+    int m = packSetSignificandUnchecked((int)l5);
+    
+
+
+
+
+    return (char)(i | k | m);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static char packSetExponentUnbiasedUnchecked(int paramInt)
+  {
+    int i = paramInt + BIAS;
+    int j = i << 10;
+    int k = j & MASK_EXPONENT;
+    return (char)k;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static char packSetSignificandUnchecked(int paramInt)
+  {
+    int i = paramInt & MASK_SIGNIFICAND;
+    return (char)i;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static char packSetSignUnchecked(int paramInt)
+  {
+    int i = paramInt << 15;
+    int j = i & MASK_SIGN;
+    return (char)j;
+  }
+  
+
+
+
+
+
+
+  public static String toRawBinaryString(char paramChar)
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    int i = paramChar;
+    for (int j = 0; j < 16; j++) {
+      if ((i & 0x1) == 1) {
+        localStringBuilder.insert(0, "1");
+      } else {
+        localStringBuilder.insert(0, "0");
+      }
+      i >>= 1;
+    }
+    return localStringBuilder.toString();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static double unpackDouble(char paramChar)
+  {
+    if (isNaN(paramChar)) {
+      return NaN.0D;
+    }
+    if (paramChar == POSITIVE_INFINITY) {
+      return Double.POSITIVE_INFINITY;
+    }
+    if (paramChar == NEGATIVE_INFINITY) {
+      return Double.NEGATIVE_INFINITY;
+    }
+    if (paramChar == NEGATIVE_ZERO) {
+      return -0.0D;
+    }
+    if (paramChar == POSITIVE_ZERO) {
+      return 0.0D;
+    }
+    
+    long l1 = unpackGetExponentUnbiased(paramChar);
+    long l2 = unpackGetSign(paramChar);
+    long l3 = unpackGetSignificand(paramChar);
+    
+
+
+
+
+
+    long l4 = l2 << 63;
+    
+
+
+
+
+
+
+
+    long l5 = l1 + Binary64.BIAS;
+    long l6 = l5 << 52;
+    
+
+
+
+
+
+    long l7 = l3 << 42;
+    return Double.longBitsToDouble(l4 | l6 | l7);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static float unpackFloat(char paramChar)
+  {
+    if (isNaN(paramChar)) {
+      return NaN.0F;
+    }
+    if (paramChar == POSITIVE_INFINITY) {
+      return Float.POSITIVE_INFINITY;
+    }
+    if (paramChar == NEGATIVE_INFINITY) {
+      return Float.NEGATIVE_INFINITY;
+    }
+    if (paramChar == NEGATIVE_ZERO) {
+      return -0.0F;
+    }
+    if (paramChar == POSITIVE_ZERO) {
+      return 0.0F;
+    }
+    
+    int i = unpackGetExponentUnbiased(paramChar);
+    int j = unpackGetSign(paramChar);
+    int k = unpackGetSignificand(paramChar);
+    
+
+
+
+
+
+    int m = j << 31;
+    
+
+
+
+
+
+
+
+    int n = i + Binary32.BIAS;
+    int i1 = n << 23;
+    
+
+
+
+
+
+    int i2 = k << 13;
+    return Float.intBitsToFloat(m | i1 | i2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static int unpackGetExponentUnbiased(char paramChar)
+  {
+    int i = paramChar & MASK_EXPONENT;
+    int j = i >> 10;
+    return j - BIAS;
+  }
+  
+
+
+
+
+
+
+
+
+  public static int unpackGetSign(char paramChar)
+  {
+    return (paramChar & MASK_SIGN) >> '\017';
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static int unpackGetSignificand(char paramChar)
+  {
+    return paramChar & MASK_SIGNIFICAND;
+  }
+  
+  private Binary16()
+  {
+    throw new AssertionError("Unreachable code, report this bug!");
+  }
+}

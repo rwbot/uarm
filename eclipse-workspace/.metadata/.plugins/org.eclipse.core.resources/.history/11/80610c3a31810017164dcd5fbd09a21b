@@ -1,0 +1,453 @@
+package jogamp.nativewindow.jawt.macosx;
+
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.Capabilities;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.MutableSurface;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.awt.JAWTWindow;
+import com.jogamp.nativewindow.util.Rectangle;
+import java.awt.Component;
+import java.awt.GraphicsConfiguration;
+import java.awt.Insets;
+import java.io.PrintStream;
+import java.nio.Buffer;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import jogamp.nativewindow.Debug;
+import jogamp.nativewindow.awt.AWTMisc;
+import jogamp.nativewindow.jawt.JAWT;
+import jogamp.nativewindow.jawt.JAWTUtil;
+import jogamp.nativewindow.jawt.JAWT_DrawingSurface;
+import jogamp.nativewindow.jawt.JAWT_DrawingSurfaceInfo;
+import jogamp.nativewindow.macosx.OSXUtil;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class MacOSXJAWTWindow
+  extends JAWTWindow
+  implements MutableSurface
+{
+  private static final boolean DEBUG_CALAYER_POS_CRITICAL = PropertyAccess.isPropertyDefined("nativewindow.debug.JAWT.OSXCALayerPos", true);
+  private JAWT_DrawingSurface ds;
+  private boolean dsLocked;
+  
+  public MacOSXJAWTWindow(Object paramObject, AbstractGraphicsConfiguration paramAbstractGraphicsConfiguration) { super(paramObject, paramAbstractGraphicsConfiguration);
+    if (DEBUG) {
+      dumpInfo();
+    }
+  }
+  
+  protected void invalidateNative()
+  {
+    if (DEBUG) {
+      System.err.println("MacOSXJAWTWindow.invalidateNative(): osh-enabled " + isOffscreenLayerSurfaceEnabled() + ", osd-set " + offscreenSurfaceDrawableSet + ", osd " + 
+      
+        toHexString(offscreenSurfaceDrawable) + ", osl " + 
+        toHexString(getAttachedSurfaceLayer()) + ", rsl " + 
+        toHexString(rootSurfaceLayer) + ", wh " + 
+        toHexString(windowHandle) + " - " + Thread.currentThread().getName());
+    }
+    offscreenSurfaceDrawable = 0L;
+    offscreenSurfaceDrawableSet = false;
+    if (isOffscreenLayerSurfaceEnabled()) {
+      if (0L != windowHandle) {
+        OSXUtil.DestroyNSWindow(windowHandle);
+      }
+      OSXUtil.RunOnMainThread(false, true, new Runnable()
+      {
+        public void run() {
+          if (0L != jawtSurfaceLayersHandle)
+          {
+            MacOSXJAWTWindow.UnsetJAWTRootSurfaceLayer0(jawtSurfaceLayersHandle, rootSurfaceLayer);
+          }
+          jawtSurfaceLayersHandle = 0L;
+          if (0L != rootSurfaceLayer) {
+            OSXUtil.DestroyCALayer(rootSurfaceLayer);
+            rootSurfaceLayer = 0L;
+          }
+        }
+      });
+    }
+    windowHandle = 0L;
+  }
+  
+  public boolean setSurfaceScale(float[] paramArrayOfFloat)
+  {
+    super.setSurfaceScale(paramArrayOfFloat);
+    if ((0L != getWindowHandle()) && (setReqPixelScale())) {
+      if (0L != getAttachedSurfaceLayer()) {
+        OSXUtil.RunOnMainThread(false, false, new Runnable()
+        {
+          public void run() {
+            long l = getAttachedSurfaceLayer();
+            if (0L != l) {
+              OSXUtil.SetCALayerPixelScale(rootSurfaceLayer, l, getPixelScaleX());
+            }
+          }
+        });
+      }
+      return true;
+    }
+    return false;
+  }
+  
+
+  protected void attachSurfaceLayerImpl(final long paramLong)
+  {
+    OSXUtil.RunOnMainThread(false, false, new Runnable()
+    {
+
+
+      public void run()
+      {
+
+        com.jogamp.nativewindow.util.Point localPoint1 = new com.jogamp.nativewindow.util.Point();
+        Component localComponent = AWTMisc.getLocationOnScreenNonBlocking(localPoint1, component, MacOSXJAWTWindow.DEBUG);
+        Insets localInsets = AWTMisc.getInsets(localComponent, true);
+        com.jogamp.nativewindow.util.Point localPoint2 = (com.jogamp.nativewindow.util.Point)localPoint1.cloneMutable();
+        localPoint2.translate(-localComponent.getX(), -localComponent.getY());
+        if (null != localInsets) {
+          localPoint2.translate(-left, -top);
+        }
+        
+        if (MacOSXJAWTWindow.DEBUG_CALAYER_POS_CRITICAL) {
+          java.awt.Point localPoint = component.getLocationOnScreen();
+          com.jogamp.nativewindow.util.Point localPoint3 = new com.jogamp.nativewindow.util.Point(x, y);
+          localPoint3.translate(-localComponent.getX(), -localComponent.getY());
+          if (null != localInsets) {
+            localPoint3.translate(-left, -top);
+          }
+          System.err.println("JAWTWindow.attachSurfaceLayerImpl: " + MacOSXJAWTWindow.toHexString(paramLong) + ", [ins " + localInsets + "], pA " + localPoint + " -> " + localPoint3 + ", p0 " + localPoint1 + " -> " + localPoint2 + ", bounds " + 
+            bounds);
+        } else if (MacOSXJAWTWindow.DEBUG) {
+          System.err.println("JAWTWindow.attachSurfaceLayerImpl: " + MacOSXJAWTWindow.toHexString(paramLong) + ", [ins " + localInsets + "], p0 " + localPoint1 + " -> " + localPoint2 + ", bounds " + bounds);
+        }
+        
+        OSXUtil.AddCASublayer(rootSurfaceLayer, paramLong, localPoint2.getX(), localPoint2.getY(), getWidth(), getHeight(), getPixelScaleX(), JAWTUtil.getOSXCALayerQuirks());
+      }
+    });
+  }
+  
+  protected void layoutSurfaceLayerImpl(long paramLong, boolean paramBoolean) {
+    int i = JAWTUtil.getOSXCALayerQuirks();
+    
+
+
+
+    com.jogamp.nativewindow.util.Point localPoint1 = new com.jogamp.nativewindow.util.Point();
+    Component localComponent = AWTMisc.getLocationOnScreenNonBlocking(localPoint1, component, DEBUG);
+    Insets localInsets = AWTMisc.getInsets(localComponent, true);
+    com.jogamp.nativewindow.util.Point localPoint2 = (com.jogamp.nativewindow.util.Point)localPoint1.cloneMutable();
+    localPoint2.translate(-localComponent.getX(), -localComponent.getY());
+    if (null != localInsets) {
+      localPoint2.translate(-left, -top);
+    }
+    
+    if (DEBUG_CALAYER_POS_CRITICAL) {
+      java.awt.Point localPoint = component.getLocationOnScreen();
+      com.jogamp.nativewindow.util.Point localPoint3 = new com.jogamp.nativewindow.util.Point(x, y);
+      localPoint3.translate(-localComponent.getX(), -localComponent.getY());
+      if (null != localInsets) {
+        localPoint3.translate(-left, -top);
+      }
+      System.err.println("JAWTWindow.layoutSurfaceLayerImpl: " + toHexString(paramLong) + ", quirks " + i + ", visible " + paramBoolean + ", [ins " + localInsets + "], pA " + localPoint + " -> " + localPoint3 + ", p0 " + localPoint1 + " -> " + localPoint2 + ", bounds " + bounds);
+
+    }
+    else if (DEBUG) {
+      System.err.println("JAWTWindow.layoutSurfaceLayerImpl: " + toHexString(paramLong) + ", quirks " + i + ", visible " + paramBoolean + ", [ins " + localInsets + "], p0 " + localPoint1 + " -> " + localPoint2 + ", bounds " + bounds);
+    }
+    
+    OSXUtil.FixCALayerLayout(rootSurfaceLayer, paramLong, paramBoolean, localPoint2.getX(), localPoint2.getY(), getWidth(), getHeight(), i);
+  }
+  
+  protected void detachSurfaceLayerImpl(final long paramLong, final Runnable paramRunnable)
+  {
+    OSXUtil.RunOnMainThread(false, true, new Runnable()
+    {
+      public void run() {
+        paramRunnable.run();
+        OSXUtil.RemoveCASublayer(rootSurfaceLayer, paramLong);
+      }
+    });
+  }
+  
+  public final long getWindowHandle() {
+    return windowHandle;
+  }
+  
+  public final long getSurfaceHandle()
+  {
+    return offscreenSurfaceDrawableSet ? offscreenSurfaceDrawable : drawable;
+  }
+  
+  public void setSurfaceHandle(long paramLong)
+  {
+    if (!isOffscreenLayerSurfaceEnabled()) {
+      throw new UnsupportedOperationException("Not using CALAYER");
+    }
+    if (DEBUG) {
+      System.err.println("MacOSXJAWTWindow.setSurfaceHandle(): " + toHexString(paramLong));
+    }
+    offscreenSurfaceDrawable = paramLong;
+    offscreenSurfaceDrawableSet = true;
+  }
+  
+  protected JAWT fetchJAWTImpl()
+    throws NativeWindowException
+  {
+    return JAWTUtil.getJAWT((getShallUseOffscreenLayer()) || (isApplet()));
+  }
+  
+  protected int lockSurfaceImpl(GraphicsConfiguration paramGraphicsConfiguration) throws NativeWindowException
+  {
+    int i = 1;
+    ds = getJAWT().GetDrawingSurface(component);
+    if (ds == null)
+    {
+      unlockSurfaceImpl();
+      return 1;
+    }
+    int j = ds.Lock();
+    dsLocked = (0 == (j & 0x1));
+    if (!dsLocked) {
+      unlockSurfaceImpl();
+      throw new NativeWindowException("Unable to lock surface");
+    }
+    
+
+
+
+
+    if ((j & 0x8) != 0) {
+      i = 2;
+    }
+    if (firstLock) {
+      AccessController.doPrivileged(new PrivilegedAction()
+      {
+        public Object run() {
+          dsi = ds.GetDrawingSurfaceInfo();
+          return null;
+        }
+      });
+    } else {
+      dsi = ds.GetDrawingSurfaceInfo();
+    }
+    if (dsi == null) {
+      unlockSurfaceImpl();
+      return 1;
+    }
+    updateLockedData(dsi.getBounds(), paramGraphicsConfiguration);
+    if ((DEBUG) && (firstLock)) {
+      dumpInfo();
+    }
+    firstLock = false;
+    if (!isOffscreenLayerSurfaceEnabled()) {
+      macosxdsi = ((JAWT_MacOSXDrawingSurfaceInfo)dsi.platformInfo(getJAWT()));
+      if (macosxdsi == null) {
+        unlockSurfaceImpl();
+        return 1;
+      }
+      drawable = macosxdsi.getCocoaViewRef();
+      
+      if (drawable == 0L) {
+        unlockSurfaceImpl();
+        return 1;
+      }
+      windowHandle = OSXUtil.GetNSWindow(drawable);
+      i = 3;
+
+
+
+    }
+    else
+    {
+
+
+
+      String str = null;
+      if (0L == drawable) {
+        windowHandle = OSXUtil.CreateNSWindow(0, 0, 64, 64);
+        if (0L == windowHandle) {
+          str = "Unable to create dummy NSWindow (layered case)";
+        } else {
+          drawable = OSXUtil.GetNSView(windowHandle);
+          if (0L == drawable) {
+            str = "Null NSView of NSWindow " + toHexString(windowHandle);
+          }
+        }
+        if (null == str)
+        {
+          Capabilities localCapabilities = (Capabilities)getGraphicsConfiguration().getChosenCapabilities().cloneMutable();
+          localCapabilities.setOnscreen(false);
+          setChosenCapabilities(localCapabilities);
+        }
+      }
+      if (null == str) {
+        jawtSurfaceLayersHandle = GetJAWTSurfaceLayersHandle0(dsi.getBuffer());
+        OSXUtil.RunOnMainThread(false, false, new Runnable()
+        {
+          public void run() {
+            String str = null;
+            if ((0L == rootSurfaceLayer) && (0L != jawtSurfaceLayersHandle)) {
+              rootSurfaceLayer = OSXUtil.CreateCALayer(bounds.getWidth(), bounds.getHeight(), getPixelScaleX());
+              if (0L == rootSurfaceLayer) {
+                str = "Could not create root CALayer";
+              } else {
+                try {
+                  MacOSXJAWTWindow.SetJAWTRootSurfaceLayer0(jawtSurfaceLayersHandle, rootSurfaceLayer);
+                } catch (Exception localException) {
+                  str = "Could not set JAWT rootSurfaceLayerHandle " + MacOSXJAWTWindow.toHexString(rootSurfaceLayer) + ", cause: " + localException.getMessage();
+                }
+              }
+              if (null != str) {
+                if (0L != rootSurfaceLayer) {
+                  OSXUtil.DestroyCALayer(rootSurfaceLayer);
+                  rootSurfaceLayer = 0L;
+                }
+                throw new NativeWindowException(str + ": " + MacOSXJAWTWindow.this);
+              }
+            }
+          }
+        }); }
+      if (null != str) {
+        if (0L != windowHandle) {
+          OSXUtil.DestroyNSWindow(windowHandle);
+          windowHandle = 0L;
+        }
+        drawable = 0L;
+        unlockSurfaceImpl();
+        throw new NativeWindowException(str + ": " + this);
+      }
+      i = 3;
+    }
+    
+    return i;
+  }
+  
+  protected void unlockSurfaceImpl() throws NativeWindowException
+  {
+    if (null != ds) {
+      if (null != dsi) {
+        ds.FreeDrawingSurfaceInfo(dsi);
+      }
+      if (dsLocked) {
+        ds.Unlock();
+      }
+      getJAWT().FreeDrawingSurface(ds);
+    }
+    ds = null;
+    dsi = null;
+  }
+  
+  private void dumpInfo() {
+    System.err.println("MaxOSXJAWTWindow: 0x" + Integer.toHexString(hashCode()) + " - thread: " + Thread.currentThread().getName());
+    dumpJAWTInfo();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public com.jogamp.nativewindow.util.Point getLocationOnScreen(com.jogamp.nativewindow.util.Point paramPoint)
+  {
+    if (null == paramPoint) {
+      paramPoint = new com.jogamp.nativewindow.util.Point();
+    }
+    AWTMisc.getLocationOnScreenNonBlocking(paramPoint, component, DEBUG);
+    return paramPoint;
+  }
+  
+  protected com.jogamp.nativewindow.util.Point getLocationOnScreenNativeImpl(int paramInt1, int paramInt2) { return null; }
+  
+
+
+
+
+
+  private JAWT_DrawingSurfaceInfo dsi;
+  
+
+
+
+
+  private long jawtSurfaceLayersHandle;
+  
+
+
+
+  private JAWT_MacOSXDrawingSurfaceInfo macosxdsi;
+  
+
+
+
+  private volatile long rootSurfaceLayer = 0L;
+  
+  private long windowHandle = 0L;
+  private long offscreenSurfaceDrawable = 0L;
+  private boolean offscreenSurfaceDrawableSet = false;
+  
+
+  private boolean firstLock = true;
+  
+  private static native long GetJAWTSurfaceLayersHandle0(Buffer paramBuffer);
+  
+  private static native void SetJAWTRootSurfaceLayer0(long paramLong1, long paramLong2);
+  
+  private static native void UnsetJAWTRootSurfaceLayer0(long paramLong1, long paramLong2);
+  
+  static {}
+}

@@ -1,0 +1,96 @@
+package jogamp.opengl;
+
+import com.jogamp.nativewindow.CapabilitiesChooser;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.GraphicsConfigurationFactory;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.opengl.DefaultGLCapabilitiesChooser;
+import java.io.PrintStream;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class GLGraphicsConfigurationFactory
+  extends GraphicsConfigurationFactory
+{
+  public GLGraphicsConfigurationFactory() {}
+  
+  protected static int chooseCapabilities(CapabilitiesChooser paramCapabilitiesChooser, CapabilitiesImmutable paramCapabilitiesImmutable, List<? extends CapabilitiesImmutable> paramList, int paramInt)
+  {
+    if (null == paramCapabilitiesImmutable) {
+      throw new NativeWindowException("Null requested capabilities");
+    }
+    if (0 == paramList.size()) {
+      if (DEBUG) {
+        System.err.println("Empty available capabilities");
+      }
+      return -1;
+    }
+    
+    if ((null == paramCapabilitiesChooser) && (0 <= paramInt) && (paramCapabilitiesImmutable.isBackgroundOpaque())) {
+      if (DEBUG) {
+        System.err.println("chooseCapabilities: Using recommendedIndex (opaque): idx " + paramInt);
+      }
+      return paramInt;
+    }
+    int i = paramInt;
+    
+    if (null == paramCapabilitiesChooser) {
+      paramCapabilitiesChooser = new DefaultGLCapabilitiesChooser();
+    }
+    try
+    {
+      i = paramCapabilitiesChooser.chooseCapabilities(paramCapabilitiesImmutable, paramList, paramInt);
+      if (0 <= i) {
+        if (DEBUG) {
+          System.err.println("chooseCapabilities: Chosen idx " + i);
+        }
+        return i;
+      }
+    } catch (NativeWindowException localNativeWindowException) {
+      if (DEBUG) {
+        localNativeWindowException.printStackTrace();
+      }
+    }
+    
+
+
+    for (i = 0; (i < paramList.size()) && (paramList.get(i) == null); i++) {}
+    
+
+    if (i == paramList.size())
+    {
+      if (DEBUG) {
+        System.err.println("chooseCapabilities: Failed .. nothing available, bail out");
+      }
+      return -1;
+    }
+    if (DEBUG) {
+      System.err.println("chooseCapabilities: Fall back to 1st available idx " + i);
+    }
+    
+    return i;
+  }
+}

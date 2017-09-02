@@ -1,0 +1,271 @@
+package jogamp.opengl.glu.tessellator;
+
+
+
+
+
+
+
+
+class PriorityQHeap
+  extends PriorityQ
+{
+  PriorityQ.PQnode[] nodes;
+  
+
+
+
+
+
+  PriorityQ.PQhandleElem[] handles;
+  
+
+
+
+
+
+  int size;
+  
+
+
+
+
+
+  int max;
+  
+
+
+
+
+
+  int freeList;
+  
+
+
+
+
+
+  boolean initialized;
+  
+
+
+
+
+
+  PriorityQ.Leq leq;
+  
+
+
+
+
+
+
+  public PriorityQHeap(PriorityQ.Leq paramLeq)
+  {
+    size = 0;
+    max = 32;
+    nodes = new PriorityQ.PQnode[33];
+    for (int i = 0; i < nodes.length; i++) {
+      nodes[i] = new PriorityQ.PQnode();
+    }
+    handles = new PriorityQ.PQhandleElem[33];
+    for (i = 0; i < handles.length; i++) {
+      handles[i] = new PriorityQ.PQhandleElem();
+    }
+    initialized = false;
+    freeList = 0;
+    leq = paramLeq;
+    
+    nodes[1].handle = 1;
+    handles[1].key = null;
+  }
+  
+
+  void pqDeletePriorityQ()
+  {
+    handles = null;
+    nodes = null;
+  }
+  
+  void FloatDown(int paramInt) {
+    PriorityQ.PQnode[] arrayOfPQnode = nodes;
+    PriorityQ.PQhandleElem[] arrayOfPQhandleElem = handles;
+    
+
+
+    int i = handle;
+    for (;;) {
+      int k = paramInt << 1;
+      if ((k < size) && (LEQ(leq, 1handle].key, handle].key)))
+      {
+        k++;
+      }
+      
+      assert (k <= max);
+      
+      int j = handle;
+      if ((k > size) || (LEQ(leq, key, key))) {
+        handle = i;
+        node = paramInt;
+        break;
+      }
+      handle = j;
+      node = paramInt;
+      paramInt = k;
+    }
+  }
+  
+  void FloatUp(int paramInt)
+  {
+    PriorityQ.PQnode[] arrayOfPQnode = nodes;
+    PriorityQ.PQhandleElem[] arrayOfPQhandleElem = handles;
+    
+
+
+    int i = handle;
+    for (;;) {
+      int k = paramInt >> 1;
+      int j = handle;
+      if ((k == 0) || (LEQ(leq, key, key))) {
+        handle = i;
+        node = paramInt;
+        break;
+      }
+      handle = j;
+      node = paramInt;
+      paramInt = k;
+    }
+  }
+  
+
+
+
+
+
+  boolean pqInit()
+  {
+    for (int i = size; i >= 1; i--) {
+      FloatDown(i);
+    }
+    initialized = true;
+    
+    return true;
+  }
+  
+
+
+
+
+
+  int pqInsert(Object paramObject)
+  {
+    int i = ++size;
+    if (i * 2 > max) {
+      PriorityQ.PQnode[] arrayOfPQnode1 = nodes;
+      PriorityQ.PQhandleElem[] arrayOfPQhandleElem1 = handles;
+      
+
+      max <<= 1;
+      
+      PriorityQ.PQnode[] arrayOfPQnode2 = new PriorityQ.PQnode[max + 1];
+      System.arraycopy(nodes, 0, arrayOfPQnode2, 0, nodes.length);
+      for (int k = nodes.length; k < arrayOfPQnode2.length; k++) {
+        arrayOfPQnode2[k] = new PriorityQ.PQnode();
+      }
+      nodes = arrayOfPQnode2;
+      
+
+
+
+
+
+
+      PriorityQ.PQhandleElem[] arrayOfPQhandleElem2 = new PriorityQ.PQhandleElem[max + 1];
+      System.arraycopy(handles, 0, arrayOfPQhandleElem2, 0, handles.length);
+      for (int m = handles.length; m < arrayOfPQhandleElem2.length; m++) {
+        arrayOfPQhandleElem2[m] = new PriorityQ.PQhandleElem();
+      }
+      handles = arrayOfPQhandleElem2;
+    }
+    
+
+
+    int j;
+    
+
+    if (freeList == 0) {
+      j = i;
+    } else {
+      j = freeList;
+      freeList = handles[j].node;
+    }
+    
+    nodes[i].handle = j;
+    handles[j].node = i;
+    handles[j].key = paramObject;
+    
+    if (initialized) {
+      FloatUp(i);
+    }
+    assert (j != Integer.MAX_VALUE);
+    return j;
+  }
+  
+
+  Object pqExtractMin()
+  {
+    PriorityQ.PQnode[] arrayOfPQnode = nodes;
+    PriorityQ.PQhandleElem[] arrayOfPQhandleElem = handles;
+    int i = 1handle;
+    Object localObject = key;
+    
+    if (size > 0) {
+      1handle = size].handle;
+      1handle].node = 1;
+      
+      key = null;
+      node = freeList;
+      freeList = i;
+      
+      if (--size > 0) {
+        FloatDown(1);
+      }
+    }
+    return localObject;
+  }
+  
+
+  void pqDelete(int paramInt)
+  {
+    PriorityQ.PQnode[] arrayOfPQnode = nodes;
+    PriorityQ.PQhandleElem[] arrayOfPQhandleElem = handles;
+    
+
+    assert ((paramInt >= 1) && (paramInt <= max) && (key != null));
+    
+    int i = node;
+    handle = size].handle;
+    handle].node = i;
+    
+    if (i <= --size) {
+      if ((i <= 1) || (LEQ(leq, 1handle].key, handle].key))) {
+        FloatDown(i);
+      } else {
+        FloatUp(i);
+      }
+    }
+    key = null;
+    node = freeList;
+    freeList = paramInt;
+  }
+  
+  Object pqMinimum()
+  {
+    return handles[nodes[1].handle].key;
+  }
+  
+  boolean pqIsEmpty()
+  {
+    return size == 0;
+  }
+}

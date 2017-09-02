@@ -1,0 +1,77 @@
+package jogamp.nativewindow.windows;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.StructAccessor;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import java.nio.ByteBuffer;
+import jogamp.common.os.MachineDataInfoRuntime;
+
+
+
+
+
+
+
+
+
+
+public class BITMAPINFO
+{
+  StructAccessor accessor;
+  private static final int mdIdx = MachineDataInfoRuntime.getStatic().ordinal();
+  
+  private final MachineDataInfo md;
+  private static final int[] BITMAPINFO_size = { 44, 44, 44, 44, 44, 44, 44, 44 };
+  private static final int[] bmiHeader_offset = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  private static final int[] bmiHeader_size = { 40, 40, 40, 40, 40, 40, 40, 40 };
+  private static final int[] bmiColors_offset = { 40, 40, 40, 40, 40, 40, 40, 40 };
+  private static final int[] bmiColors_size = { 4, 4, 4, 4, 4, 4, 4, 4 };
+  
+  public static int size() {
+    return BITMAPINFO_size[mdIdx];
+  }
+  
+  public static BITMAPINFO create() {
+    return create(Buffers.newDirectByteBuffer(size()));
+  }
+  
+  public static BITMAPINFO create(ByteBuffer paramByteBuffer) {
+    return new BITMAPINFO(paramByteBuffer);
+  }
+  
+  BITMAPINFO(ByteBuffer paramByteBuffer) {
+    md = valuesmdIdxmd;
+    accessor = new StructAccessor(paramByteBuffer);
+  }
+  
+  public ByteBuffer getBuffer() {
+    return accessor.getBuffer();
+  }
+  
+  public BITMAPINFOHEADER getBmiHeader()
+  {
+    return BITMAPINFOHEADER.create(accessor.slice(bmiHeader_offset[mdIdx], bmiHeader_size[mdIdx]));
+  }
+  
+  public BITMAPINFO setBmiColors(RGBQUAD paramRGBQUAD)
+  {
+    int i = RGBQUAD.size();
+    ByteBuffer localByteBuffer1 = getBuffer();
+    if (i > bmiColors_size[mdIdx]) throw new IndexOutOfBoundsException("elemSize " + i + " > size " + bmiColors_size[mdIdx]);
+    int j = bmiColors_offset[mdIdx];
+    int k = j + i;
+    if (k > localByteBuffer1.limit()) throw new IndexOutOfBoundsException("bLimes " + k + " > buffer.limit " + localByteBuffer1.limit() + ", elemOff " + j + ", elemSize " + i);
+    ByteBuffer localByteBuffer2 = paramRGBQUAD.getBuffer();
+    for (int m = 0; m < i; m++) {
+      if (j >= k) throw new IndexOutOfBoundsException("elem-byte[0][" + m + "]: bOffset " + j + " >= bLimes " + k + ", elemSize " + i);
+      localByteBuffer1.put(j++, localByteBuffer2.get(m));
+    }
+    return this;
+  }
+  
+  public RGBQUAD getBmiColors()
+  {
+    return RGBQUAD.create(accessor.slice(bmiColors_offset[mdIdx], RGBQUAD.size()));
+  }
+}

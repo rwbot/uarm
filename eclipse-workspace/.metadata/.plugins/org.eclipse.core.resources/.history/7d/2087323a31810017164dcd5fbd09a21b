@@ -1,0 +1,201 @@
+package jogamp.opengl.windows.wgl;
+
+import com.jogamp.common.nio.PointerBuffer;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.MutableSurface;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import java.io.PrintStream;
+import jogamp.nativewindow.windows.BITMAPINFO;
+import jogamp.nativewindow.windows.BITMAPINFOHEADER;
+import jogamp.nativewindow.windows.GDI;
+import jogamp.opengl.GLGraphicsConfigurationUtil;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class WindowsBitmapWGLDrawable
+  extends WindowsWGLDrawable
+{
+  private long origbitmap;
+  private long hbitmap;
+  
+  private WindowsBitmapWGLDrawable(GLDrawableFactory paramGLDrawableFactory, NativeSurface paramNativeSurface)
+  {
+    super(paramGLDrawableFactory, paramNativeSurface, false);
+  }
+  
+  protected static WindowsBitmapWGLDrawable create(GLDrawableFactory paramGLDrawableFactory, NativeSurface paramNativeSurface) {
+    WindowsWGLGraphicsConfiguration localWindowsWGLGraphicsConfiguration = (WindowsWGLGraphicsConfiguration)paramNativeSurface.getGraphicsConfiguration();
+    AbstractGraphicsDevice localAbstractGraphicsDevice = localWindowsWGLGraphicsConfiguration.getScreen().getDevice();
+    if (!GLProfile.isAvailable(localAbstractGraphicsDevice, "GL2")) {
+      throw new GLException("GLProfile GL2 n/a on " + localAbstractGraphicsDevice + " but required for Windows BITMAP");
+    }
+    GLProfile localGLProfile = GLProfile.get("GL2");
+    GLCapabilitiesImmutable localGLCapabilitiesImmutable1 = (GLCapabilitiesImmutable)localWindowsWGLGraphicsConfiguration.getChosenCapabilities();
+    
+    GLCapabilitiesImmutable localGLCapabilitiesImmutable2 = GLGraphicsConfigurationUtil.clipRGBAGLCapabilities(localGLCapabilitiesImmutable1, false, false);
+    GLCapabilitiesImmutable localGLCapabilitiesImmutable3 = GLGraphicsConfigurationUtil.fixGLProfile(localGLCapabilitiesImmutable2, localGLProfile);
+    if (localGLCapabilitiesImmutable1 != localGLCapabilitiesImmutable3) {
+      localWindowsWGLGraphicsConfiguration.setChosenCapabilities(localGLCapabilitiesImmutable3);
+      if (DEBUG) {
+        System.err.println("WindowsBitmapWGLDrawable: " + localGLCapabilitiesImmutable1 + " -> " + localGLCapabilitiesImmutable3);
+      }
+    }
+    return new WindowsBitmapWGLDrawable(paramGLDrawableFactory, paramNativeSurface);
+  }
+  
+  protected void setRealizedImpl()
+  {
+    if (realized) {
+      createBitmap();
+    } else {
+      destroyBitmap();
+    }
+  }
+  
+  public GLContext createContext(GLContext paramGLContext)
+  {
+    return new WindowsWGLContext(this, paramGLContext);
+  }
+  
+  public boolean isGLOriented()
+  {
+    return false;
+  }
+  
+  private void createBitmap()
+  {
+    NativeSurface localNativeSurface = getNativeSurface();
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": WindowsBitmapWGLDrawable (1): " + localNativeSurface);
+    }
+    WindowsWGLGraphicsConfiguration localWindowsWGLGraphicsConfiguration = (WindowsWGLGraphicsConfiguration)localNativeSurface.getGraphicsConfiguration();
+    GLCapabilitiesImmutable localGLCapabilitiesImmutable = (GLCapabilitiesImmutable)localWindowsWGLGraphicsConfiguration.getChosenCapabilities();
+    int j = getSurfaceWidth();
+    int k = getSurfaceHeight();
+    
+
+
+
+    BITMAPINFO localBITMAPINFO = BITMAPINFO.create();
+    BITMAPINFOHEADER localBITMAPINFOHEADER = localBITMAPINFO.getBmiHeader();
+    
+
+    int m = localGLCapabilitiesImmutable.getRedBits() + localGLCapabilitiesImmutable.getGreenBits() + localGLCapabilitiesImmutable.getBlueBits();
+    
+
+
+    int n = 24;
+    localBITMAPINFOHEADER.setBiSize(BITMAPINFOHEADER.size());
+    localBITMAPINFOHEADER.setBiWidth(j);
+    
+
+
+    localBITMAPINFOHEADER.setBiHeight(-1 * k);
+    localBITMAPINFOHEADER.setBiPlanes((short)1);
+    localBITMAPINFOHEADER.setBiBitCount((short)n);
+    localBITMAPINFOHEADER.setBiXPelsPerMeter(0);
+    localBITMAPINFOHEADER.setBiYPelsPerMeter(0);
+    localBITMAPINFOHEADER.setBiClrUsed(0);
+    localBITMAPINFOHEADER.setBiClrImportant(0);
+    localBITMAPINFOHEADER.setBiCompression(0);
+    int i1 = j * k * (n >> 3);
+    localBITMAPINFOHEADER.setBiSizeImage(i1);
+    
+    PointerBuffer localPointerBuffer = PointerBuffer.allocateDirect(1);
+    hbitmap = GDI.CreateDIBSection(0L, localBITMAPINFO, 0, localPointerBuffer, 0L, 0);
+    int i = GDI.GetLastError();
+    if (DEBUG) {
+      l = localPointerBuffer.capacity() > 0 ? localPointerBuffer.get(0) : 0L;
+      System.err.println("WindowsBitmapWGLDrawable: pb sz/ptr " + localPointerBuffer.capacity() + ", " + toHexString(l));
+      System.err.println("WindowsBitmapWGLDrawable: " + j + "x" + k + ", bpp " + m + " -> " + n + ", bytes " + i1 + ", header sz " + 
+      
+
+        BITMAPINFOHEADER.size() + ", DIB ptr num " + localPointerBuffer
+        .capacity() + ", " + localGLCapabilitiesImmutable + ", werr " + i);
+    }
+    
+
+    if (hbitmap == 0L) {
+      throw new GLException("Error creating offscreen bitmap of " + localNativeSurface + ", werr " + i);
+    }
+    
+
+
+
+    long l = GDI.CreateCompatibleDC(0L);
+    i = GDI.GetLastError();
+    if (l == 0L) {
+      GDI.DeleteObject(hbitmap);
+      hbitmap = 0L;
+      throw new GLException("Error creating device context for offscreen OpenGL context, werr " + i);
+    }
+    ((MutableSurface)localNativeSurface).setSurfaceHandle(l);
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": WindowsBitmapWGLDrawable (2): " + localNativeSurface);
+    }
+    
+    if ((this.origbitmap = GDI.SelectObject(l, hbitmap)) == 0L) {
+      GDI.DeleteObject(hbitmap);
+      hbitmap = 0L;
+      GDI.DeleteDC(l);
+      l = 0L;
+      throw new GLException("Error selecting bitmap into new device context");
+    }
+    
+    localWindowsWGLGraphicsConfiguration.updateGraphicsConfiguration(getFactory(), localNativeSurface, null);
+  }
+  
+  protected void destroyBitmap() {
+    NativeSurface localNativeSurface = getNativeSurface();
+    if (localNativeSurface.getSurfaceHandle() != 0L)
+    {
+      GDI.SelectObject(localNativeSurface.getSurfaceHandle(), origbitmap);
+      GDI.DeleteObject(hbitmap);
+      GDI.DeleteDC(localNativeSurface.getSurfaceHandle());
+      origbitmap = 0L;
+      hbitmap = 0L;
+      ((MutableSurface)localNativeSurface).setSurfaceHandle(0L);
+    }
+  }
+}

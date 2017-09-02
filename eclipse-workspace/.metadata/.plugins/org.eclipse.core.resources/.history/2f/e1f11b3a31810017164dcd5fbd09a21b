@@ -1,0 +1,78 @@
+package jogamp.newt.driver.awt;
+
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.awt.AWTGraphicsDevice;
+import com.jogamp.newt.NewtFactory;
+import com.jogamp.newt.util.EDTUtil;
+import java.io.PrintStream;
+import jogamp.newt.DisplayImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class DisplayDriver
+  extends DisplayImpl
+{
+  public DisplayDriver() {}
+  
+  protected void createNativeImpl()
+  {
+    aDevice = AWTGraphicsDevice.createDefault();
+  }
+  
+  protected void setAWTGraphicsDevice(AWTGraphicsDevice paramAWTGraphicsDevice) {
+    aDevice = paramAWTGraphicsDevice;
+  }
+  
+  protected EDTUtil createEDTUtil()
+  {
+    AWTEDTUtil localAWTEDTUtil;
+    if (NewtFactory.useEDT()) {
+      localAWTEDTUtil = new AWTEDTUtil(Thread.currentThread().getThreadGroup(), "AWTDisplay-" + getFQName(), dispatchMessagesRunnable);
+      if (DEBUG) {
+        System.err.println("Display.createNative(" + getFQName() + ") Create EDTUtil: " + localAWTEDTUtil.getClass().getName());
+      }
+    } else {
+      localAWTEDTUtil = null;
+    }
+    return localAWTEDTUtil;
+  }
+  
+  protected void closeNativeImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    paramAbstractGraphicsDevice.close();
+  }
+  
+  protected void dispatchMessagesNative() {}
+}

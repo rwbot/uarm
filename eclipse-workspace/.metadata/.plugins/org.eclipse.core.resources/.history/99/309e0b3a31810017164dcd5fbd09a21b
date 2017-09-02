@@ -1,0 +1,120 @@
+package jogamp.nativewindow;
+
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindow;
+import com.jogamp.nativewindow.UpstreamWindowHookMutableSizePos;
+import com.jogamp.nativewindow.util.Insets;
+import com.jogamp.nativewindow.util.InsetsImmutable;
+import com.jogamp.nativewindow.util.Point;
+
+
+public class WrappedWindow
+  extends WrappedSurface
+  implements NativeWindow
+{
+  private final InsetsImmutable insets = new Insets(0, 0, 0, 0);
+  
+
+
+
+
+
+
+
+
+  private long windowHandle;
+  
+
+
+
+
+
+
+
+
+
+  public WrappedWindow(AbstractGraphicsConfiguration paramAbstractGraphicsConfiguration, long paramLong1, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, boolean paramBoolean, long paramLong2)
+  {
+    this(paramAbstractGraphicsConfiguration, paramLong1, new UpstreamWindowHookMutableSizePos(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6), paramBoolean, paramLong2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public WrappedWindow(AbstractGraphicsConfiguration paramAbstractGraphicsConfiguration, long paramLong1, UpstreamWindowHookMutableSizePos paramUpstreamWindowHookMutableSizePos, boolean paramBoolean, long paramLong2)
+  {
+    super(paramAbstractGraphicsConfiguration, paramLong1, paramUpstreamWindowHookMutableSizePos, paramBoolean);
+    windowHandle = paramLong2;
+  }
+  
+  protected void invalidateImpl()
+  {
+    super.invalidateImpl();
+    windowHandle = 0L;
+  }
+  
+  public void destroy()
+  {
+    destroyNotify();
+  }
+  
+  public final NativeSurface getNativeSurface() {
+    return this;
+  }
+  
+  public NativeWindow getParent() {
+    return null;
+  }
+  
+  public long getWindowHandle()
+  {
+    return windowHandle;
+  }
+  
+  public InsetsImmutable getInsets()
+  {
+    return insets;
+  }
+  
+  public int getX()
+  {
+    return ((UpstreamWindowHookMutableSizePos)getUpstreamSurfaceHook()).getX();
+  }
+  
+  public int getY()
+  {
+    return ((UpstreamWindowHookMutableSizePos)getUpstreamSurfaceHook()).getY();
+  }
+  
+  public int getWidth()
+  {
+    return ((UpstreamWindowHookMutableSizePos)getUpstreamSurfaceHook()).getWidth();
+  }
+  
+  public int getHeight()
+  {
+    return ((UpstreamWindowHookMutableSizePos)getUpstreamSurfaceHook()).getHeight();
+  }
+  
+  public Point getLocationOnScreen(Point paramPoint)
+  {
+    if (null != paramPoint) {
+      return paramPoint;
+    }
+    return new Point(0, 0);
+  }
+  
+
+  public boolean hasFocus()
+  {
+    return false;
+  }
+}

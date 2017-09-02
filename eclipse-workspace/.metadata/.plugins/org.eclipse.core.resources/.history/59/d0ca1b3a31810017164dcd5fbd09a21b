@@ -1,0 +1,82 @@
+package jogamp.newt.driver;
+
+import com.jogamp.common.util.IOUtil.ClassResources;
+import com.jogamp.common.util.ReflectionUtil;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.nio.ByteBuffer;
+import jogamp.newt.Debug;
+import jogamp.newt.DisplayImpl;
+import jogamp.newt.driver.opengl.JoglUtilPNGIcon;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class PNGIcon
+{
+  private static final String err0 = "PNG decoder not implemented.";
+  private static final boolean avail;
+  
+  static
+  {
+    Debug.initSingleton();
+    
+    ClassLoader localClassLoader = PNGIcon.class.getClassLoader();
+    avail = (DisplayImpl.isPNGUtilAvailable()) && (ReflectionUtil.isClassAvailable("jogamp.newt.driver.opengl.JoglUtilPNGIcon", localClassLoader));
+  }
+  
+  public static boolean isAvailable()
+  {
+    return avail;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static ByteBuffer arrayToX11BGRAImages(IOUtil.ClassResources paramClassResources, int[] paramArrayOfInt1, int[] paramArrayOfInt2)
+    throws UnsupportedOperationException, InterruptedException, IOException, MalformedURLException
+  {
+    if (avail) {
+      return JoglUtilPNGIcon.arrayToX11BGRAImages(paramClassResources, paramArrayOfInt1, paramArrayOfInt2);
+    }
+    throw new UnsupportedOperationException("PNG decoder not implemented.");
+  }
+  
+  public PNGIcon() {}
+}

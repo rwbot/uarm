@@ -1,0 +1,536 @@
+package g4p_controls;
+
+import java.awt.Color;
+import java.awt.FileDialog;
+import java.awt.Font;
+import java.awt.Frame;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import javax.swing.JColorChooser;
+import javax.swing.JDialog;
+import javax.swing.JFileChooser;
+import javax.swing.JOptionPane;
+import javax.swing.colorchooser.AbstractColorChooserPanel;
+import javax.swing.colorchooser.ColorSelectionModel;
+import javax.swing.filechooser.FileFilter;
+import processing.awt.PSurfaceAWT.SmoothCanvas;
+import processing.core.PApplet;
+import processing.core.PConstants;
+import processing.core.PSurface;
+
+public class G4P
+  implements GConstants, PConstants
+{
+  static PApplet sketchWindow = null;
+  static GWindowImpl sketchWindowImpl = null;
+  static List<GWindow> allWindows = new LinkedList();
+  static List<GWindow> windowsForClosing = new LinkedList();
+  static boolean announced = false;
+  static int globalColorScheme = 6;
+  static int globalAlpha = 255;
+  static Font globalFont = FontManager.getPriorityFont(null, 0, 12);
+  static Font numericLabelFont = FontManager.getPriorityFont(null, 1, 11);
+  static GAbstractControl.Z_Order zorder = new GAbstractControl.Z_Order();
+  static boolean cursorChangeEnabled = true;
+  static int mouseOff = 0;
+  static boolean showMessages = true;
+  static GControlMode control_mode = GControlMode.CORNER;
+  static LinkedList<G4Pstyle> styles = new LinkedList();
+  static JColorChooser chooser = null;
+  static Color lastColor = Color.white;
+  static int wheelForSlider = 1;
+  static int wheelForScrollbar = 1;
+  private static String PANE_TEXT_STYLE_MACOS = "<html> <head> <style type=\"text/css\">b { font: 13pt \"Lucida Grande\" } p { font: 11pt \"Lucida Grande\"; margin-top: 8px }</style> </head> <b>@@TITLE@@</b> <p>@@MESSAGE@@</p>";
+  private static String PANE_TEXT_STYLE_OTHER = "<html> <head> <style type=\"text/css\">b { font: 12pt \"Lucida Grande\" } p { font: 11pt \"Lucida Grande\"; margin-top: 8px }</style> </head> <b>@@MESSAGE@@ </b>";
+  
+  public G4P() {}
+  
+  public static String getPrettyVersion()
+  {
+    return "4.1";
+  }
+  
+  public static String getVersion()
+  {
+    return "29";
+  }
+  
+  static void registerWindow(GWindow paramGWindow)
+  {
+    if (!allWindows.contains(paramGWindow)) {
+      allWindows.add(paramGWindow);
+    }
+  }
+  
+  static void deregisterWindow(GWindow paramGWindow)
+  {
+    allWindows.remove(paramGWindow);
+  }
+  
+  static void registerControl(GAbstractControl paramGAbstractControl)
+  {
+    PApplet localPApplet = paramGAbstractControl.getPApplet();
+    if (localPApplet == sketchWindow) {
+      sketchWindowImpl.addToWindow(paramGAbstractControl);
+    } else if ((localPApplet instanceof GWindow)) {
+      ((GWindow)localPApplet).addToWindow(paramGAbstractControl);
+    }
+  }
+  
+  public static void registerSketch(PApplet paramPApplet)
+  {
+    if ((sketchWindow == null) && (paramPApplet != null))
+    {
+      sketchWindow = paramPApplet;
+      sketchWindowImpl = new GWindowImpl(sketchWindow);
+      announceG4P();
+    }
+  }
+  
+  static void invalidateBuffers()
+  {
+    Iterator localIterator = allWindows.iterator();
+    while (localIterator.hasNext())
+    {
+      GWindow localGWindow = (GWindow)localIterator.next();
+      localGWindow.invalidateBuffers();
+    }
+    if (sketchWindowImpl != null) {
+      sketchWindowImpl.invalidateBuffers();
+    }
+  }
+  
+  public static void setGlobalColorScheme(int paramInt)
+  {
+    paramInt = Math.abs(paramInt) % 16;
+    if (globalColorScheme != paramInt)
+    {
+      globalColorScheme = paramInt;
+      Iterator localIterator = allWindows.iterator();
+      while (localIterator.hasNext())
+      {
+        GWindow localGWindow = (GWindow)localIterator.next();
+        localGWindow.setColorScheme(globalColorScheme);
+      }
+      if (sketchWindowImpl != null) {
+        sketchWindowImpl.setColorScheme(globalColorScheme);
+      }
+    }
+  }
+  
+  public static void usePre35Fonts()
+  {
+    globalFont = new Font("Dialog", 0, 10);
+    numericLabelFont = new Font("DialogInput", 1, 12);
+  }
+  
+  public static void setWindowColorScheme(PApplet paramPApplet, int paramInt)
+  {
+    paramInt = Math.abs(paramInt) % 16;
+    if (paramPApplet == sketchWindow)
+    {
+      if (sketchWindowImpl != null) {
+        sketchWindowImpl.setColorScheme(paramInt);
+      }
+    }
+    else if ((paramPApplet instanceof GWindow)) {
+      ((GWindow)paramPApplet).setColorScheme(paramInt);
+    }
+  }
+  
+  public static void setGlobalAlpha(int paramInt)
+  {
+    paramInt = Math.abs(paramInt) % 256;
+    if (globalAlpha != paramInt)
+    {
+      globalAlpha = paramInt;
+      Iterator localIterator = allWindows.iterator();
+      while (localIterator.hasNext())
+      {
+        GWindow localGWindow = (GWindow)localIterator.next();
+        localGWindow.setAlpha(globalAlpha);
+      }
+      if (sketchWindowImpl != null) {
+        sketchWindowImpl.setAlpha(globalAlpha);
+      }
+    }
+  }
+  
+  public static void setWindowAlpha(PApplet paramPApplet, int paramInt)
+  {
+    paramInt = Math.abs(paramInt) % 256;
+    if (paramPApplet == sketchWindow)
+    {
+      if (sketchWindowImpl != null) {
+        sketchWindowImpl.setAlpha(paramInt);
+      }
+    }
+    else if ((paramPApplet instanceof GWindow)) {
+      ((GWindow)paramPApplet).setAlpha(paramInt);
+    }
+  }
+  
+  static void announceG4P()
+  {
+    if (!announced)
+    {
+      System.out.println("===================================================");
+      System.out.println("   G4P V4.1 created by Peter Lager");
+      System.out.println("===================================================");
+      announced = true;
+    }
+  }
+  
+  static boolean removeControl(GAbstractControl paramGAbstractControl)
+  {
+    PApplet localPApplet = paramGAbstractControl.getPApplet();
+    if (localPApplet == sketchWindow)
+    {
+      if (sketchWindowImpl != null)
+      {
+        sketchWindowImpl.removeFromWindow(paramGAbstractControl);
+        return true;
+      }
+      return false;
+    }
+    if ((localPApplet instanceof GWindow))
+    {
+      ((GWindow)localPApplet).removeFromWindow(paramGAbstractControl);
+      return true;
+    }
+    return false;
+  }
+  
+  public static void setCtrlMode(GControlMode paramGControlMode)
+  {
+    if (paramGControlMode != null) {
+      control_mode = paramGControlMode;
+    }
+  }
+  
+  public static GControlMode getCtrlMode()
+  {
+    return control_mode;
+  }
+  
+  public static void messagesEnabled(boolean paramBoolean)
+  {
+    showMessages = paramBoolean;
+  }
+  
+  public static void setMouseOverEnabled(boolean paramBoolean)
+  {
+    cursorChangeEnabled = paramBoolean;
+  }
+  
+  public static void mouseWheelDirection(int paramInt)
+  {
+    if ((paramInt == 1) || (paramInt == -1)) {
+      wheelForSlider = paramInt;
+    }
+  }
+  
+  public static void mouseWheelScrollbarDirection(int paramInt)
+  {
+    if ((paramInt == 1) || (paramInt == -1)) {
+      wheelForScrollbar = paramInt;
+    }
+  }
+  
+  @Deprecated
+  public static void setCursorOff(int paramInt)
+  {
+    mouseOff = paramInt;
+  }
+  
+  public static void setCursor(int paramInt)
+  {
+    mouseOff = paramInt;
+    Iterator localIterator = allWindows.iterator();
+    while (localIterator.hasNext())
+    {
+      GWindow localGWindow = (GWindow)localIterator.next();
+      localGWindow.cursor(paramInt);
+    }
+    if (sketchWindow != null) {
+      sketchWindow.cursor(paramInt);
+    }
+  }
+  
+  public static int getCursor()
+  {
+    return mouseOff;
+  }
+  
+  @Deprecated
+  public static int getCursorOff()
+  {
+    return mouseOff;
+  }
+  
+  static void pushStyle()
+  {
+    G4Pstyle localG4Pstyle = new G4Pstyle();
+    ctrlMode = control_mode;
+    showMessages = showMessages;
+    styles.addLast(localG4Pstyle);
+  }
+  
+  static void popStyle()
+  {
+    G4Pstyle localG4Pstyle = (G4Pstyle)styles.removeLast();
+    control_mode = ctrlMode;
+    showMessages = showMessages;
+  }
+  
+  public static ArrayList<GWindow> getOpenWindowsAsList(ArrayList<GWindow> paramArrayList)
+  {
+    if (paramArrayList == null) {
+      paramArrayList = new ArrayList();
+    } else {
+      paramArrayList.clear();
+    }
+    Iterator localIterator = allWindows.iterator();
+    while (localIterator.hasNext())
+    {
+      GWindow localGWindow = (GWindow)localIterator.next();
+      paramArrayList.add(localGWindow);
+    }
+    return paramArrayList;
+  }
+  
+  public static GWindow[] getOpenWindowsAsArray()
+  {
+    ArrayList localArrayList = getOpenWindowsAsList(null);
+    return (GWindow[])localArrayList.toArray(new GWindow[localArrayList.size()]);
+  }
+  
+  public static boolean isWindowOpen(GWindow paramGWindow)
+  {
+    return (paramGWindow != null) && (allWindows.contains(paramGWindow));
+  }
+  
+  public static int selectColor()
+  {
+    Frame localFrame = getFrame(sketchWindow);
+    if (chooser == null)
+    {
+      chooser = new JColorChooser();
+      localObject1 = chooser.getChooserPanels();
+      LinkedList localLinkedList = new LinkedList();
+      for (Object localObject3 : localObject1)
+      {
+        String str = localObject3.getDisplayName().toLowerCase();
+        if (str.equals("swatches")) {
+          localLinkedList.addLast(localObject3);
+        } else if (str.equals("rgb")) {
+          localLinkedList.addFirst(localObject3);
+        } else if (str.startsWith("hs")) {
+          localLinkedList.addFirst(localObject3);
+        }
+      }
+      ??? = (AbstractColorChooserPanel[])localLinkedList.toArray(new AbstractColorChooserPanel[localLinkedList.size()]);
+      chooser.setChooserPanels((AbstractColorChooserPanel[])???);
+      ColorPreviewPanel localColorPreviewPanel = new ColorPreviewPanel(lastColor);
+      chooser.getSelectionModel().addChangeListener(localColorPreviewPanel);
+      chooser.setPreviewPanel(localColorPreviewPanel);
+    }
+    ((ColorPreviewPanel)chooser.getPreviewPanel()).setPrevColor(lastColor);
+    chooser.setColor(lastColor);
+    Object localObject1 = JColorChooser.createDialog(localFrame, "Color picker", true, chooser, new ActionListener()
+    {
+      public void actionPerformed(ActionEvent paramAnonymousActionEvent)
+      {
+        G4P.lastColor = G4P.chooser.getColor();
+      }
+    }, null);
+    ((JDialog)localObject1).setVisible(true);
+    return lastColor.getRGB();
+  }
+  
+  public static String selectFolder(String paramString)
+  {
+    String str1 = null;
+    Frame localFrame = getFrame(sketchWindow);
+    Object localObject;
+    if ((PApplet.platform == 2) && (PApplet.useNativeSelect))
+    {
+      localObject = new FileDialog(localFrame, paramString, 0);
+      System.setProperty("apple.awt.fileDialogForDirectories", "true");
+      ((FileDialog)localObject).setVisible(true);
+      System.setProperty("apple.awt.fileDialogForDirectories", "false");
+      String str2 = ((FileDialog)localObject).getFile();
+      if (str2 != null) {
+        try
+        {
+          str1 = new File(((FileDialog)localObject).getDirectory(), ((FileDialog)localObject).getFile()).getCanonicalPath();
+        }
+        catch (IOException localIOException1)
+        {
+          str1 = null;
+        }
+      }
+    }
+    else
+    {
+      localObject = new JFileChooser();
+      ((JFileChooser)localObject).setDialogTitle(paramString);
+      ((JFileChooser)localObject).setFileSelectionMode(1);
+      int i = ((JFileChooser)localObject).showOpenDialog(localFrame);
+      if (i == 0) {
+        try
+        {
+          str1 = ((JFileChooser)localObject).getSelectedFile().getCanonicalPath();
+        }
+        catch (IOException localIOException2)
+        {
+          str1 = null;
+        }
+      }
+    }
+    return str1;
+  }
+  
+  public static String selectInput(String paramString)
+  {
+    return selectInput(paramString, null, null);
+  }
+  
+  public static String selectInput(String paramString1, String paramString2, String paramString3)
+  {
+    return selectImpl(paramString1, 0, paramString2, paramString3);
+  }
+  
+  public static String selectOutput(String paramString)
+  {
+    return selectOutput(paramString, null, null);
+  }
+  
+  public static String selectOutput(String paramString1, String paramString2, String paramString3)
+  {
+    return selectImpl(paramString1, 1, paramString2, paramString3);
+  }
+  
+  private static String selectImpl(String paramString1, int paramInt, String paramString2, String paramString3)
+  {
+    String str1 = null;
+    Frame localFrame = getFrame(sketchWindow);
+    Object localObject1;
+    Object localObject2;
+    if (PApplet.useNativeSelect)
+    {
+      localObject1 = new FileDialog(localFrame, paramString1, paramInt);
+      localObject2 = null;
+      if ((paramString2 != null) && (paramString2.length() > 0))
+      {
+        localObject2 = new FilenameChooserFilter(paramString2);
+        ((FileDialog)localObject1).setFilenameFilter((FilenameFilter)localObject2);
+      }
+      ((FileDialog)localObject1).setVisible(true);
+      String str2 = ((FileDialog)localObject1).getDirectory();
+      if (str2 != null)
+      {
+        str1 = ((FileDialog)localObject1).getFile();
+        if (str1 != null) {
+          try
+          {
+            str1 = new File(str2, str1).getCanonicalPath();
+          }
+          catch (IOException localIOException1)
+          {
+            str1 = null;
+          }
+        }
+      }
+    }
+    else
+    {
+      localObject1 = new JFileChooser();
+      ((JFileChooser)localObject1).setDialogTitle(paramString1);
+      localObject2 = null;
+      if ((paramString2 != null) && (paramString2.length() > 0))
+      {
+        localObject2 = new FileChooserFilter(paramString2, paramString3);
+        ((JFileChooser)localObject1).setFileFilter((FileFilter)localObject2);
+      }
+      int i = -1;
+      if (paramInt == 1) {
+        i = ((JFileChooser)localObject1).showSaveDialog(localFrame);
+      } else if (paramInt == 0) {
+        i = ((JFileChooser)localObject1).showOpenDialog(localFrame);
+      }
+      if (i == 0) {
+        try
+        {
+          str1 = ((JFileChooser)localObject1).getSelectedFile().getCanonicalPath();
+        }
+        catch (IOException localIOException2)
+        {
+          str1 = null;
+        }
+      }
+    }
+    return str1;
+  }
+  
+  public static void showMessage(PApplet paramPApplet, String paramString1, String paramString2, int paramInt)
+  {
+    Frame localFrame = getFrame(paramPApplet);
+    String str;
+    if (PApplet.platform == 2)
+    {
+      str = PANE_TEXT_STYLE_MACOS.replaceAll("@@TITLE@@", paramString2);
+      paramString2 = "";
+      str = str.replaceAll("@@MESSAGE@@", paramString1);
+    }
+    else
+    {
+      str = PANE_TEXT_STYLE_OTHER.replaceAll("@@MESSAGE@@", paramString1);
+    }
+    JOptionPane.showMessageDialog(localFrame, str, paramString2, paramInt);
+  }
+  
+  public static int selectOption(PApplet paramPApplet, String paramString1, String paramString2, int paramInt1, int paramInt2)
+  {
+    Frame localFrame = getFrame(paramPApplet);
+    String str;
+    if (PApplet.platform == 2)
+    {
+      str = PANE_TEXT_STYLE_MACOS.replaceAll("@@TITLE@@", paramString2);
+      paramString2 = "";
+      str = str.replaceAll("@@MESSAGE@@", paramString1);
+    }
+    else
+    {
+      str = PANE_TEXT_STYLE_OTHER.replaceAll("@@MESSAGE@@", paramString1);
+    }
+    return JOptionPane.showOptionDialog(localFrame, str, paramString2, paramInt2, paramInt1, null, null, null);
+  }
+  
+  private static Frame getFrame(PApplet paramPApplet)
+  {
+    Frame localFrame = null;
+    try
+    {
+      localFrame = ((PSurfaceAWT.SmoothCanvas)paramPApplet.getSurface().getNative()).getFrame();
+    }
+    catch (Exception localException) {}
+    return localFrame;
+  }
+  
+  static class G4Pstyle
+  {
+    GControlMode ctrlMode;
+    boolean showMessages;
+    
+    G4Pstyle() {}
+  }
+}

@@ -1,0 +1,167 @@
+package jogamp.graph.font.typecast.ot;
+
+import com.jogamp.opengl.math.geom.AABBox;
+import jogamp.graph.font.typecast.ot.table.Charstring;
+import jogamp.graph.font.typecast.ot.table.CharstringType2;
+import jogamp.graph.font.typecast.ot.table.GlyphDescription;
+import jogamp.graph.font.typecast.t2.T2Interpreter;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public final class OTGlyph
+{
+  private final short _leftSideBearing;
+  private final int _advanceWidth;
+  private Point[] _points;
+  AABBox _bbox;
+  
+  public OTGlyph(GlyphDescription paramGlyphDescription, short paramShort, int paramInt)
+  {
+    _leftSideBearing = paramShort;
+    _advanceWidth = paramInt;
+    describe(paramGlyphDescription);
+  }
+  
+
+
+
+
+
+  public OTGlyph(Charstring paramCharstring, short paramShort, int paramInt)
+  {
+    _leftSideBearing = paramShort;
+    _advanceWidth = paramInt;
+    if ((paramCharstring instanceof CharstringType2)) {
+      T2Interpreter localT2Interpreter = new T2Interpreter();
+      _points = localT2Interpreter.execute((CharstringType2)paramCharstring);
+    }
+  }
+  
+
+  public final void clearPointData()
+  {
+    _points = null;
+  }
+  
+  public final AABBox getBBox() {
+    return _bbox;
+  }
+  
+  public final int getAdvanceWidth() {
+    return _advanceWidth;
+  }
+  
+  public final short getLeftSideBearing() {
+    return _leftSideBearing;
+  }
+  
+  public final Point getPoint(int paramInt) {
+    return _points[paramInt];
+  }
+  
+  public final int getPointCount() {
+    return null != _points ? _points.length : 0;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private final void describe(GlyphDescription paramGlyphDescription)
+  {
+    int i = 0;
+    _points = new Point[paramGlyphDescription.getPointCount()];
+    for (int j = 0; j < paramGlyphDescription.getPointCount(); j++) {
+      boolean bool = paramGlyphDescription.getEndPtOfContours(i) == j;
+      if (bool) {
+        i++;
+      }
+      
+
+
+      _points[j] = new Point(paramGlyphDescription.getXCoordinate(j), paramGlyphDescription.getYCoordinate(j), (paramGlyphDescription.getFlags(j) & 0x1) != 0, bool);
+    }
+    
+
+
+
+
+
+    _bbox = new AABBox(paramGlyphDescription.getXMinimum(), paramGlyphDescription.getYMinimum(), 0.0F, paramGlyphDescription.getXMaximum(), paramGlyphDescription.getYMaximum(), 0.0F);
+  }
+}

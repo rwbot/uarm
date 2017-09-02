@@ -1,0 +1,371 @@
+package com.jogamp.common.os;
+
+import java.io.PrintStream;
+import jogamp.common.os.PlatformPropsImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class MachineDataInfo
+{
+  private static final int[] size_arm_mips_32 = { 4, 4, 4, 8, 8, 4, 4096 };
+  private static final int[] size_x86_32_unix = { 4, 4, 4, 8, 12, 4, 4096 };
+  private static final int[] size_x86_32_macos = { 4, 4, 4, 8, 16, 4, 4096 };
+  private static final int[] size_ppc_32_unix = { 4, 4, 4, 8, 16, 4, 4096 };
+  private static final int[] size_sparc_32_sunos = { 4, 4, 4, 8, 16, 4, 8192 };
+  private static final int[] size_x86_32_windows = { 4, 4, 4, 8, 12, 4, 4096 };
+  private static final int[] size_lp64_unix = { 4, 8, 4, 8, 16, 8, 4096 };
+  private static final int[] size_x86_64_windows = { 4, 4, 4, 8, 16, 8, 4096 };
+  
+
+  private static final int[] align_arm_mips_32 = { 1, 2, 4, 8, 4, 4, 4, 8, 8, 4 };
+  private static final int[] align_x86_32_unix = { 1, 2, 4, 4, 4, 4, 4, 4, 4, 4 };
+  private static final int[] align_x86_32_macos = { 1, 2, 4, 4, 4, 4, 4, 4, 16, 4 };
+  private static final int[] align_ppc_32_unix = { 1, 2, 4, 8, 4, 4, 4, 8, 16, 4 };
+  private static final int[] align_sparc_32_sunos = { 1, 2, 4, 8, 4, 4, 4, 8, 8, 4 };
+  private static final int[] align_x86_32_windows = { 1, 2, 4, 8, 4, 4, 4, 8, 4, 4 };
+  private static final int[] align_lp64_unix = { 1, 2, 4, 8, 4, 8, 4, 8, 16, 8 };
+  private static final int[] align_x86_64_windows = { 1, 2, 4, 8, 4, 4, 4, 8, 16, 8 };
+  
+
+
+
+
+
+
+
+
+  private final boolean runtimeValidated;
+  
+
+
+
+
+
+
+
+
+  public static enum StaticConfig
+  {
+    ARM_MIPS_32(MachineDataInfo.size_arm_mips_32, MachineDataInfo.align_arm_mips_32), 
+    
+    X86_32_UNIX(MachineDataInfo.size_x86_32_unix, MachineDataInfo.align_x86_32_unix), 
+    
+    X86_32_MACOS(MachineDataInfo.size_x86_32_macos, MachineDataInfo.align_x86_32_macos), 
+    
+    PPC_32_UNIX(MachineDataInfo.size_ppc_32_unix, MachineDataInfo.align_ppc_32_unix), 
+    
+    SPARC_32_SUNOS(MachineDataInfo.size_sparc_32_sunos, MachineDataInfo.align_sparc_32_sunos), 
+    
+    X86_32_WINDOWS(MachineDataInfo.size_x86_32_windows, MachineDataInfo.align_x86_32_windows), 
+    
+    LP64_UNIX(MachineDataInfo.size_lp64_unix, MachineDataInfo.align_lp64_unix), 
+    
+    X86_64_WINDOWS(MachineDataInfo.size_x86_64_windows, MachineDataInfo.align_x86_64_windows);
+    
+    public final MachineDataInfo md;
+    
+    private StaticConfig(int[] paramArrayOfInt1, int[] paramArrayOfInt2)
+    {
+      int i = 0;int j = 0;
+      md = new MachineDataInfo(false, paramArrayOfInt1[(i++)], paramArrayOfInt1[(i++)], paramArrayOfInt1[(i++)], paramArrayOfInt1[(i++)], paramArrayOfInt1[(i++)], paramArrayOfInt1[(i++)], paramArrayOfInt1[(i++)], paramArrayOfInt2[(j++)], paramArrayOfInt2[(j++)], paramArrayOfInt2[(j++)], paramArrayOfInt2[(j++)], paramArrayOfInt2[(j++)], paramArrayOfInt2[(j++)], paramArrayOfInt2[(j++)], paramArrayOfInt2[(j++)], paramArrayOfInt2[(j++)], paramArrayOfInt2[(j++)]);
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public final StringBuilder toString(StringBuilder paramStringBuilder)
+    {
+      if (null == paramStringBuilder) {
+        paramStringBuilder = new StringBuilder();
+      }
+      paramStringBuilder.append("MachineDataInfoStatic: ").append(name()).append("(").append(ordinal()).append("): ");
+      md.toString(paramStringBuilder);
+      return paramStringBuilder;
+    }
+    
+    public final String toShortString() { return name() + "(" + ordinal() + ")"; }
+    
+    public String toString()
+    {
+      return toString(null).toString();
+    }
+    
+
+
+
+    public static final void validateUniqueMachineDataInfo()
+    {
+      StaticConfig[] arrayOfStaticConfig = values();
+      for (int i = arrayOfStaticConfig.length - 1; i >= 0; i--) {
+        StaticConfig localStaticConfig1 = arrayOfStaticConfig[i];
+        for (int j = arrayOfStaticConfig.length - 1; j >= 0; j--)
+          if (i != j) {
+            StaticConfig localStaticConfig2 = arrayOfStaticConfig[j];
+            if (md.compatible(md))
+            {
+              String str = "Duplicate/Compatible MachineDataInfo in StaticConfigs: Elements [" + i + ": " + localStaticConfig1.toShortString() + "] and [" + j + ": " + localStaticConfig2.toShortString() + "]";
+              System.err.println(str);
+              System.err.println(localStaticConfig1);
+              System.err.println(localStaticConfig2);
+              throw new InternalError(str);
+            }
+          }
+      }
+    }
+    
+    public static final StaticConfig findCompatible(MachineDataInfo paramMachineDataInfo) {
+      StaticConfig[] arrayOfStaticConfig = values();
+      for (int i = arrayOfStaticConfig.length - 1; i >= 0; i--) {
+        StaticConfig localStaticConfig = arrayOfStaticConfig[i];
+        if (md.compatible(paramMachineDataInfo)) {
+          return localStaticConfig;
+        }
+      }
+      return null;
+    }
+  }
+  
+
+
+  private final int int8SizeInBytes = 1;
+  private final int int16SizeInBytes = 2;
+  private final int int32SizeInBytes = 4;
+  private final int int64SizeInBytes = 8;
+  
+
+  private final int intSizeInBytes;
+  
+
+  private final int longSizeInBytes;
+  
+  private final int floatSizeInBytes;
+  
+  private final int doubleSizeInBytes;
+  
+  private final int ldoubleSizeInBytes;
+  
+  private final int pointerSizeInBytes;
+  
+  private final int pageSizeInBytes;
+  
+  private final int int8AlignmentInBytes;
+  
+  private final int int16AlignmentInBytes;
+  
+  private final int int32AlignmentInBytes;
+  
+  private final int int64AlignmentInBytes;
+  
+  private final int intAlignmentInBytes;
+  
+  private final int longAlignmentInBytes;
+  
+  private final int floatAlignmentInBytes;
+  
+  private final int doubleAlignmentInBytes;
+  
+  private final int ldoubleAlignmentInBytes;
+  
+  private final int pointerAlignmentInBytes;
+  
+
+  public MachineDataInfo(boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, int paramInt10, int paramInt11, int paramInt12, int paramInt13, int paramInt14, int paramInt15, int paramInt16, int paramInt17)
+  {
+    runtimeValidated = paramBoolean;
+    
+    intSizeInBytes = paramInt1;
+    longSizeInBytes = paramInt2;
+    floatSizeInBytes = paramInt3;
+    doubleSizeInBytes = paramInt4;
+    ldoubleSizeInBytes = paramInt5;
+    pointerSizeInBytes = paramInt6;
+    pageSizeInBytes = paramInt7;
+    
+    int8AlignmentInBytes = paramInt8;
+    int16AlignmentInBytes = paramInt9;
+    int32AlignmentInBytes = paramInt10;
+    int64AlignmentInBytes = paramInt11;
+    intAlignmentInBytes = paramInt12;
+    longAlignmentInBytes = paramInt13;
+    floatAlignmentInBytes = paramInt14;
+    doubleAlignmentInBytes = paramInt15;
+    ldoubleAlignmentInBytes = paramInt16;
+    pointerAlignmentInBytes = paramInt17;
+  }
+  
+
+
+  public final boolean isRuntimeValidated()
+  {
+    return runtimeValidated;
+  }
+  
+  public final int intSizeInBytes() { return intSizeInBytes; }
+  public final int longSizeInBytes() { return longSizeInBytes; }
+  public final int int8SizeInBytes() { return 1; }
+  public final int int16SizeInBytes() { return 2; }
+  public final int int32SizeInBytes() { return 4; }
+  public final int int64SizeInBytes() { return 8; }
+  public final int floatSizeInBytes() { return floatSizeInBytes; }
+  public final int doubleSizeInBytes() { return doubleSizeInBytes; }
+  public final int ldoubleSizeInBytes() { return ldoubleSizeInBytes; }
+  public final int pointerSizeInBytes() { return pointerSizeInBytes; }
+  public final int pageSizeInBytes() { return pageSizeInBytes; }
+  
+  public final int intAlignmentInBytes() { return intAlignmentInBytes; }
+  public final int longAlignmentInBytes() { return longAlignmentInBytes; }
+  public final int int8AlignmentInBytes() { return int8AlignmentInBytes; }
+  public final int int16AlignmentInBytes() { return int16AlignmentInBytes; }
+  public final int int32AlignmentInBytes() { return int32AlignmentInBytes; }
+  public final int int64AlignmentInBytes() { return int64AlignmentInBytes; }
+  public final int floatAlignmentInBytes() { return floatAlignmentInBytes; }
+  public final int doubleAlignmentInBytes() { return doubleAlignmentInBytes; }
+  public final int ldoubleAlignmentInBytes() { return ldoubleAlignmentInBytes; }
+  public final int pointerAlignmentInBytes() { return pointerAlignmentInBytes; }
+  
+
+
+  public int pageCount(int paramInt)
+  {
+    return (paramInt + (pageSizeInBytes - 1)) / pageSizeInBytes;
+  }
+  
+
+
+  public int pageAlignedSize(int paramInt)
+  {
+    return pageCount(paramInt) * pageSizeInBytes;
+  }
+  
+
+
+
+
+
+
+
+  public final boolean equals(Object paramObject)
+  {
+    if (this == paramObject) return true;
+    if (!(paramObject instanceof MachineDataInfo)) return false;
+    MachineDataInfo localMachineDataInfo = (MachineDataInfo)paramObject;
+    
+
+    return (pageSizeInBytes == pageSizeInBytes) && (compatible(localMachineDataInfo));
+  }
+  
+
+
+
+
+
+
+
+
+  public final boolean compatible(MachineDataInfo paramMachineDataInfo)
+  {
+    return (intSizeInBytes == intSizeInBytes) && (longSizeInBytes == longSizeInBytes) && (floatSizeInBytes == floatSizeInBytes) && (doubleSizeInBytes == doubleSizeInBytes) && (ldoubleSizeInBytes == ldoubleSizeInBytes) && (pointerSizeInBytes == pointerSizeInBytes) && (int8AlignmentInBytes == int8AlignmentInBytes) && (int16AlignmentInBytes == int16AlignmentInBytes) && (int32AlignmentInBytes == int32AlignmentInBytes) && (int64AlignmentInBytes == int64AlignmentInBytes) && (intAlignmentInBytes == intAlignmentInBytes) && (longAlignmentInBytes == longAlignmentInBytes) && (floatAlignmentInBytes == floatAlignmentInBytes) && (doubleAlignmentInBytes == doubleAlignmentInBytes) && (ldoubleAlignmentInBytes == ldoubleAlignmentInBytes) && (pointerAlignmentInBytes == pointerAlignmentInBytes);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public StringBuilder toString(StringBuilder paramStringBuilder)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    paramStringBuilder.append("MachineDataInfo: runtimeValidated ").append(isRuntimeValidated()).append(", 32Bit ").append(4 == pointerAlignmentInBytes).append(", primitive size / alignment:").append(PlatformPropsImpl.NEWLINE);
+    paramStringBuilder.append("  int8    ").append(1).append(" / ").append(int8AlignmentInBytes);
+    paramStringBuilder.append(", int16   ").append(2).append(" / ").append(int16AlignmentInBytes).append(Platform.getNewline());
+    paramStringBuilder.append("  int     ").append(intSizeInBytes).append(" / ").append(intAlignmentInBytes);
+    paramStringBuilder.append(", long    ").append(longSizeInBytes).append(" / ").append(longAlignmentInBytes).append(Platform.getNewline());
+    paramStringBuilder.append("  int32   ").append(4).append(" / ").append(int32AlignmentInBytes);
+    paramStringBuilder.append(", int64   ").append(8).append(" / ").append(int64AlignmentInBytes).append(Platform.getNewline());
+    paramStringBuilder.append("  float   ").append(floatSizeInBytes).append(" / ").append(floatAlignmentInBytes);
+    paramStringBuilder.append(", double  ").append(doubleSizeInBytes).append(" / ").append(doubleAlignmentInBytes);
+    paramStringBuilder.append(", ldouble ").append(ldoubleSizeInBytes).append(" / ").append(ldoubleAlignmentInBytes).append(Platform.getNewline());
+    paramStringBuilder.append("  pointer ").append(pointerSizeInBytes).append(" / ").append(pointerAlignmentInBytes);
+    paramStringBuilder.append(", page    ").append(pageSizeInBytes);
+    return paramStringBuilder;
+  }
+  
+  public String toString()
+  {
+    return toString(null).toString();
+  }
+}

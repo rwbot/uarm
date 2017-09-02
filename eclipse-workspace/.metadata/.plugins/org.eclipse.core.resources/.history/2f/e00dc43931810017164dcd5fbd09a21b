@@ -1,0 +1,449 @@
+package g4p_controls;
+
+import java.awt.Color;
+import processing.awt.PGraphicsJava2D;
+import processing.core.PApplet;
+import processing.event.MouseEvent;
+
+public class GSlider2D
+  extends GValueControl2D
+{
+  static int DBORDER = 1;
+  static int LBORDER = 3;
+  static int BACK = 6;
+  static int TBORDER = 15;
+  static int TOFF = 3;
+  static int TOVER = 11;
+  static int TDOWN = 14;
+  static int TDRAG = 15;
+  static final float THUMB_SIZE = 10.0F;
+  static final float HALF_THUMB_SIZE = 5.0F;
+  static final float BORDER_WIDTH = 2.0F;
+  protected float dragWidth;
+  protected float dragHeight;
+  protected float dragD;
+  protected int downHotSpot = -1;
+  protected int status = 0;
+  protected float startXlimit = 0.0F;
+  protected float endXlimit = 1.0F;
+  protected float startYlimit = 0.0F;
+  protected float endYlimit = 1.0F;
+  
+  public GSlider2D(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    super(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+    if ((width < 40.0F) || (height < 40.0F)) {
+      resize(PApplet.max(Math.round(width), 40), PApplet.max(Math.round(height), 40));
+    }
+    dragWidth = (width - 10.0F - 4.0F);
+    dragHeight = (height - 10.0F - 4.0F);
+    dragD = 7.0F;
+    hotspots = new HotSpot[] { new HotSpot.HSrect(THUMB_SPOT, dragD - 5.0F + parametricPosX * dragWidth, dragD - 5.0F + parametricPosY * dragHeight, 10.0F, 10.0F), new HotSpot.HSrect(TRACK_SPOT, dragD, dragD, dragWidth, dragHeight) };
+    z = 24;
+    epsilon = 0.98F / PApplet.max(dragWidth, dragHeight);
+    opaque = true;
+    createEventHandler(G4P.sketchWindow, "handleSlider2DEvents", new Class[] { GSlider2D.class, GEvent.class }, new String[] { "slider2d", "event" });
+    registeredMethods = 7;
+    cursorOver = 12;
+    G4P.registerControl(this);
+  }
+  
+  protected void updateDueToValueChanging()
+  {
+    hotspots[0].x = (dragD - 5.0F + parametricPosX * dragWidth);
+    hotspots[0].y = (dragD - 5.0F + parametricPosY * dragHeight);
+  }
+  
+  public void setEasing(float paramFloat)
+  {
+    easing = (paramFloat < 1.0F ? 1.0F : paramFloat);
+  }
+  
+  public void setXlimits(int paramInt1, int paramInt2)
+  {
+    startXlimit = paramInt1;
+    endXlimit = paramInt2;
+    setEpsilon();
+    valueType = 0;
+    bufferInvalid = true;
+  }
+  
+  public void setLimitsX(int paramInt1, int paramInt2, int paramInt3)
+  {
+    startXlimit = paramInt2;
+    endXlimit = paramInt3;
+    valueType = 0;
+    setEpsilon();
+    bufferInvalid = true;
+    setValueX(paramInt1);
+    updateDueToValueChanging();
+  }
+  
+  public void setLimitsX(float paramFloat1, float paramFloat2)
+  {
+    startXlimit = paramFloat1;
+    endXlimit = paramFloat2;
+    if (valueType == 0)
+    {
+      valueType = 1;
+      setPrecision(1);
+    }
+    setEpsilon();
+    bufferInvalid = true;
+  }
+  
+  public void setLimitsX(float paramFloat1, float paramFloat2, float paramFloat3)
+  {
+    startXlimit = paramFloat2;
+    endXlimit = paramFloat3;
+    paramFloat1 = PApplet.constrain(paramFloat1, paramFloat2, paramFloat3);
+    if (valueType == 0)
+    {
+      valueType = 1;
+      setPrecision(1);
+    }
+    setEpsilon();
+    bufferInvalid = true;
+    setValueX(paramFloat1);
+    updateDueToValueChanging();
+  }
+  
+  public void setLimitsY(int paramInt1, int paramInt2)
+  {
+    startYlimit = paramInt1;
+    endYlimit = paramInt2;
+    setEpsilon();
+    valueType = 0;
+    bufferInvalid = true;
+  }
+  
+  public void setLimitsY(int paramInt1, int paramInt2, int paramInt3)
+  {
+    startYlimit = paramInt2;
+    endYlimit = paramInt3;
+    valueType = 0;
+    setEpsilon();
+    bufferInvalid = true;
+    setValueY(paramInt1);
+    updateDueToValueChanging();
+  }
+  
+  public void setLimitsY(float paramFloat1, float paramFloat2)
+  {
+    startYlimit = paramFloat1;
+    endYlimit = paramFloat2;
+    if (valueType == 0)
+    {
+      valueType = 1;
+      setPrecision(1);
+    }
+    setEpsilon();
+    bufferInvalid = true;
+  }
+  
+  public void setLimitsY(float paramFloat1, float paramFloat2, float paramFloat3)
+  {
+    startYlimit = paramFloat2;
+    endYlimit = paramFloat3;
+    paramFloat1 = PApplet.constrain(paramFloat1, paramFloat2, paramFloat3);
+    if (valueType == 0)
+    {
+      valueType = 1;
+      setPrecision(1);
+    }
+    setEpsilon();
+    bufferInvalid = true;
+    setValueY(paramFloat1);
+    updateDueToValueChanging();
+  }
+  
+  public void setValueX(float paramFloat)
+  {
+    if (valueType == 0) {
+      paramFloat = Math.round(paramFloat);
+    }
+    float f = (paramFloat - startXlimit) / (endXlimit - startXlimit);
+    f = PApplet.constrain(f, 0.0F, 1.0F);
+    parametricTargetX = f;
+  }
+  
+  public void setValueY(float paramFloat)
+  {
+    if (valueType == 0) {
+      paramFloat = Math.round(paramFloat);
+    }
+    float f = (paramFloat - startYlimit) / (endYlimit - startYlimit);
+    f = PApplet.constrain(f, 0.0F, 1.0F);
+    parametricTargetY = f;
+  }
+  
+  public void setValueXY(float paramFloat1, float paramFloat2)
+  {
+    setValueX(paramFloat1);
+    setValueY(paramFloat2);
+  }
+  
+  public float getValueXF()
+  {
+    return startXlimit + (endXlimit - startXlimit) * parametricPosX;
+  }
+  
+  public int getValueXI()
+  {
+    return Math.round(getValueXF());
+  }
+  
+  public String getValueXS()
+  {
+    return getNumericDisplayString(getValueXF());
+  }
+  
+  public float getValueYF()
+  {
+    return startYlimit + (endYlimit - startYlimit) * parametricPosY;
+  }
+  
+  public int getValueYI()
+  {
+    return Math.round(getValueYF());
+  }
+  
+  public String getValueYS()
+  {
+    return getNumericDisplayString(getValueYF());
+  }
+  
+  protected String getNumericDisplayString(float paramFloat)
+  {
+    String str = "";
+    switch (valueType)
+    {
+    case 0: 
+      str = String.format("%d", new Object[] { Integer.valueOf(Math.round(paramFloat)) });
+      break;
+    case 1: 
+      str = String.format("%." + precision + "f", new Object[] { Float.valueOf(paramFloat) });
+      break;
+    case 2: 
+      str = String.format("%." + precision + "e", new Object[] { Float.valueOf(paramFloat) });
+    }
+    return str.trim();
+  }
+  
+  public void setPrecision(int paramInt)
+  {
+    paramInt = PApplet.constrain(paramInt, 1, 5);
+    if (paramInt < 1) {
+      paramInt = 1;
+    }
+    if (paramInt != precision)
+    {
+      precision = paramInt;
+      setEpsilon();
+      bufferInvalid = true;
+    }
+  }
+  
+  public void setNumberFormat(int paramInt1, int paramInt2)
+  {
+    switch (paramInt1)
+    {
+    case 0: 
+    case 1: 
+    case 2: 
+      valueType = paramInt1;
+      break;
+    default: 
+      valueType = 1;
+    }
+    setPrecision(paramInt2);
+    bufferInvalid = true;
+  }
+  
+  public void setNumberFormat(int paramInt)
+  {
+    switch (paramInt)
+    {
+    case 0: 
+    case 1: 
+    case 2: 
+      valueType = paramInt;
+      break;
+    default: 
+      valueType = 1;
+    }
+    bufferInvalid = true;
+  }
+  
+  public void mouseEvent(MouseEvent paramMouseEvent)
+  {
+    if ((!visible) || (!enabled) || (!available)) {
+      return;
+    }
+    calcTransformedOrigin(winApp.mouseX, winApp.mouseY);
+    currSpot = whichHotSpot(ox, oy);
+    ox -= dragD;
+    oy -= dragD;
+    if ((currSpot >= 0) || (focusIsWith == this)) {
+      cursorIsOver = this;
+    } else if (cursorIsOver == this) {
+      cursorIsOver = null;
+    }
+    switch (paramMouseEvent.getAction())
+    {
+    case 1: 
+      if ((focusIsWith != this) && (currSpot > -1) && (z >= focusObjectZ()))
+      {
+        downHotSpot = currSpot;
+        status = (downHotSpot == THUMB_SPOT ? 2 : 0);
+        offsetH = (ox - parametricPosX * dragWidth);
+        offsetV = (oy - parametricPosY * dragHeight);
+        takeFocus();
+        bufferInvalid = true;
+      }
+      break;
+    case 3: 
+      if (focusIsWith == this)
+      {
+        parametricTargetX = (ox / dragWidth);
+        parametricTargetY = (oy / dragHeight);
+        dragging = false;
+        status = 0;
+        loseFocus(null);
+        bufferInvalid = true;
+      }
+      break;
+    case 2: 
+      if ((focusIsWith == this) && (dragging))
+      {
+        if (downHotSpot == THUMB_SPOT) {
+          mouseUpdateTargets();
+        }
+        status = 0;
+        bufferInvalid = true;
+        loseFocus(null);
+      }
+      dragging = false;
+      break;
+    case 4: 
+      if (focusIsWith == this)
+      {
+        status = 3;
+        dragging = true;
+        if (downHotSpot == THUMB_SPOT)
+        {
+          mouseUpdateTargets();
+          bufferInvalid = true;
+        }
+      }
+      break;
+    case 5: 
+      int i = status;
+      if (currSpot == THUMB_SPOT) {
+        status = 1;
+      } else {
+        status = 0;
+      }
+      if (i != status) {
+        bufferInvalid = true;
+      }
+      break;
+    }
+  }
+  
+  private void mouseUpdateTargets()
+  {
+    parametricTargetX = (ox / dragWidth);
+    if (parametricTargetX < 0.0F)
+    {
+      parametricTargetX = 0.0F;
+      offsetH = 0.0F;
+    }
+    else if (parametricTargetX > 1.0F)
+    {
+      parametricTargetX = 1.0F;
+      offsetH = 0.0F;
+    }
+    parametricTargetY = (oy / dragHeight);
+    if (parametricTargetY < 0.0F)
+    {
+      parametricTargetY = 0.0F;
+      offsetV = 0.0F;
+    }
+    else if (parametricTargetY > 1.0F)
+    {
+      parametricTargetY = 1.0F;
+      offsetV = 0.0F;
+    }
+  }
+  
+  public void draw()
+  {
+    if (!visible) {
+      return;
+    }
+    updateBuffer();
+    winApp.pushStyle();
+    winApp.pushMatrix();
+    winApp.translate(cx, cy);
+    winApp.rotate(rotAngle);
+    winApp.pushMatrix();
+    winApp.translate(-halfWidth, -halfHeight);
+    winApp.imageMode(0);
+    if (alphaLevel < 255) {
+      winApp.tint(255, alphaLevel);
+    }
+    winApp.image(buffer, 0.0F, 0.0F);
+    winApp.popMatrix();
+    winApp.popMatrix();
+    winApp.popStyle();
+  }
+  
+  protected void updateBuffer()
+  {
+    if (bufferInvalid)
+    {
+      bufferInvalid = false;
+      buffer.beginDraw();
+      buffer.ellipseMode(3);
+      buffer.rectMode(3);
+      if (opaque == true) {
+        buffer.background(palette[BACK].getRGB());
+      } else {
+        buffer.background(buffer.color(255, 0));
+      }
+      buffer.pushMatrix();
+      float f1 = dragD + parametricPosX * dragWidth;
+      float f2 = dragD + parametricPosY * dragHeight;
+      buffer.stroke(palette[TBORDER].getRGB());
+      buffer.strokeWeight(1.0F);
+      buffer.line(0.0F, f2, width, f2);
+      buffer.line(f1, 0.0F, f1, height);
+      switch (status)
+      {
+      case 0: 
+        buffer.fill(palette[TOFF].getRGB());
+        break;
+      case 1: 
+        buffer.fill(palette[TOVER].getRGB());
+        break;
+      case 2: 
+        buffer.fill(palette[TDOWN].getRGB());
+        break;
+      case 3: 
+        buffer.fill(palette[TDRAG].getRGB());
+      }
+      buffer.rect(f1, f2, 10.0F, 10.0F);
+      buffer.rectMode(1);
+      buffer.noFill();
+      buffer.stroke(palette[LBORDER].getRGB());
+      buffer.strokeWeight(2.0F);
+      buffer.rect(0.0F, 0.0F, width - 1.0F, height - 1.0F);
+      buffer.stroke(palette[DBORDER].getRGB());
+      buffer.strokeWeight(1.0F);
+      buffer.rect(1.0F, 1.0F, width - 1.0F, height - 1.0F);
+      buffer.popMatrix();
+      buffer.endDraw();
+    }
+  }
+}

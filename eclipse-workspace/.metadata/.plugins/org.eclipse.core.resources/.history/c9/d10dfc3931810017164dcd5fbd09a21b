@@ -1,0 +1,117 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInputStream;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class FeatureList
+{
+  private final int _featureCount;
+  private final FeatureRecord[] _featureRecords;
+  private final Feature[] _features;
+  
+  public FeatureList(DataInputStream paramDataInputStream, int paramInt)
+    throws IOException
+  {
+    paramDataInputStream.reset();
+    paramDataInputStream.skipBytes(paramInt);
+    
+
+    _featureCount = paramDataInputStream.readUnsignedShort();
+    _featureRecords = new FeatureRecord[_featureCount];
+    _features = new Feature[_featureCount];
+    for (int i = 0; i < _featureCount; i++) {
+      _featureRecords[i] = new FeatureRecord(paramDataInputStream);
+    }
+    for (i = 0; i < _featureCount; i++) {
+      paramDataInputStream.reset();
+      paramDataInputStream.skipBytes(paramInt + _featureRecords[i].getOffset());
+      _features[i] = new Feature(paramDataInputStream);
+    }
+  }
+  
+  public int getFeatureCount() {
+    return _featureCount;
+  }
+  
+  public FeatureRecord getFeatureRecord(int paramInt) {
+    return _featureRecords[paramInt];
+  }
+  
+  public Feature getFeature(int paramInt) {
+    return _features[paramInt];
+  }
+  
+  public Feature findFeature(LangSys paramLangSys, String paramString) {
+    if (paramString.length() != 4) {
+      return null;
+    }
+    
+
+
+    int i = paramString.charAt(0) << '\030' | paramString.charAt(1) << '\020' | paramString.charAt(2) << '\b' | paramString.charAt(3);
+    for (int j = 0; j < _featureCount; j++) {
+      if ((_featureRecords[j].getTag() == i) && 
+        (paramLangSys.isFeatureIndexed(j))) {
+        return _features[j];
+      }
+    }
+    
+    return null;
+  }
+}

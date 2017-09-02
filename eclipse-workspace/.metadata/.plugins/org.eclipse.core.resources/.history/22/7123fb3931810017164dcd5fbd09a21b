@@ -1,0 +1,135 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class CmapFormat
+{
+  protected int _format;
+  protected int _length;
+  protected int _language;
+  
+  public static class Range
+  {
+    private final int _startCode;
+    private final int _endCode;
+    
+    protected Range(int paramInt1, int paramInt2)
+    {
+      _startCode = paramInt1;
+      _endCode = paramInt2;
+    }
+    
+    public int getStartCode() {
+      return _startCode;
+    }
+    
+    public int getEndCode() {
+      return _endCode;
+    }
+  }
+  
+
+
+  protected CmapFormat(DataInput paramDataInput)
+    throws IOException
+  {
+    _length = paramDataInput.readUnsignedShort();
+    _language = paramDataInput.readUnsignedShort();
+  }
+  
+  protected static CmapFormat create(int paramInt, DataInput paramDataInput) throws IOException
+  {
+    switch (paramInt) {
+    case 0: 
+      return new CmapFormat0(paramDataInput);
+    case 2: 
+      return new CmapFormat2(paramDataInput);
+    case 4: 
+      return new CmapFormat4(paramDataInput);
+    case 6: 
+      return new CmapFormat6(paramDataInput);
+    }
+    return new CmapFormatUnknown(paramInt, paramDataInput);
+  }
+  
+  public int getFormat()
+  {
+    return _format;
+  }
+  
+  public int getLength() {
+    return _length;
+  }
+  
+  public int getLanguage() {
+    return _language;
+  }
+  
+
+
+  public abstract int getRangeCount();
+  
+
+
+  public abstract Range getRange(int paramInt)
+    throws ArrayIndexOutOfBoundsException;
+  
+
+  public abstract int mapCharCode(int paramInt);
+  
+
+  public String toString()
+  {
+    return "format: " + _format + ", length: " + _length + ", language: " + _language;
+  }
+}

@@ -1,0 +1,96 @@
+package com.jogamp.opengl.util.glsl.fixedfunc;
+
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2ES1;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.fixedfunc.GLPointerFuncUtil;
+import com.jogamp.opengl.util.PMVMatrix;
+import jogamp.opengl.util.glsl.fixedfunc.FixedFuncHook;
+import jogamp.opengl.util.glsl.fixedfunc.FixedFuncImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class FixedFuncUtil
+{
+  public static final String mgl_Vertex = "mgl_Vertex";
+  public static final String mgl_Normal = "mgl_Normal";
+  public static final String mgl_Color = "mgl_Color";
+  public static final String mgl_MultiTexCoord = "mgl_MultiTexCoord";
+  
+  public FixedFuncUtil() {}
+  
+  public static final GL2ES1 wrapFixedFuncEmul(GL paramGL, ShaderSelectionMode paramShaderSelectionMode, PMVMatrix paramPMVMatrix, boolean paramBoolean1, boolean paramBoolean2)
+  {
+    if ((paramGL.isGL2ES2()) && ((!paramGL.isGL2ES1()) || (paramBoolean1))) {
+      GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+      FixedFuncHook localFixedFuncHook = new FixedFuncHook(localGL2ES2, paramShaderSelectionMode, paramPMVMatrix);
+      localFixedFuncHook.setVerbose(paramBoolean2);
+      FixedFuncImpl localFixedFuncImpl = new FixedFuncImpl(localGL2ES2, localFixedFuncHook);
+      paramGL.getContext().setGL(localFixedFuncImpl);
+      return localFixedFuncImpl; }
+    if (paramGL.isGL2ES1()) {
+      return paramGL.getGL2ES1();
+    }
+    throw new GLException("GL Object is neither GL2ES1 nor GL2ES2: " + paramGL.getContext());
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final GL2ES1 wrapFixedFuncEmul(GL paramGL, ShaderSelectionMode paramShaderSelectionMode, PMVMatrix paramPMVMatrix)
+  {
+    return wrapFixedFuncEmul(paramGL, paramShaderSelectionMode, null, false, false);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static String getPredefinedArrayIndexName(int paramInt)
+  {
+    return GLPointerFuncUtil.getPredefinedArrayIndexName(paramInt);
+  }
+}

@@ -1,0 +1,63 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+public class KernTable
+  implements Table
+{
+  private final DirectoryEntry de;
+  private final int version;
+  private final int nTables;
+  private final KernSubtable[] tables;
+  
+  protected KernTable(DirectoryEntry paramDirectoryEntry, DataInput paramDataInput)
+    throws IOException
+  {
+    de = ((DirectoryEntry)paramDirectoryEntry.clone());
+    version = paramDataInput.readUnsignedShort();
+    nTables = paramDataInput.readUnsignedShort();
+    tables = new KernSubtable[nTables];
+    for (int i = 0; i < nTables; i++) {
+      tables[i] = KernSubtable.read(paramDataInput);
+    }
+  }
+  
+  public int getSubtableCount() {
+    return nTables;
+  }
+  
+  public KernSubtable getSubtable(int paramInt) {
+    return tables[paramInt];
+  }
+  
+
+
+
+  public int getType()
+  {
+    return 1801810542;
+  }
+  
+
+
+
+
+
+
+  public DirectoryEntry getDirectoryEntry()
+  {
+    return de;
+  }
+}

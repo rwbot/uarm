@@ -1,0 +1,131 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+import jogamp.graph.font.typecast.ot.Fixed;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class TableDirectory
+{
+  private int _version = 0;
+  private short _numTables = 0;
+  private short _searchRange = 0;
+  private short _entrySelector = 0;
+  private short _rangeShift = 0;
+  private final DirectoryEntry[] _entries;
+  
+  public TableDirectory(DataInput paramDataInput) throws IOException {
+    _version = paramDataInput.readInt();
+    _numTables = paramDataInput.readShort();
+    _searchRange = paramDataInput.readShort();
+    _entrySelector = paramDataInput.readShort();
+    _rangeShift = paramDataInput.readShort();
+    _entries = new DirectoryEntry[_numTables];
+    for (int i = 0; i < _numTables; i++) {
+      _entries[i] = new DirectoryEntry(paramDataInput);
+    }
+  }
+  
+  public DirectoryEntry getEntry(int paramInt) {
+    return _entries[paramInt];
+  }
+  
+  public DirectoryEntry getEntryByTag(int paramInt) {
+    for (int i = 0; i < _numTables; i++) {
+      if (_entries[i].getTag() == paramInt) {
+        return _entries[i];
+      }
+    }
+    return null;
+  }
+  
+  public short getEntrySelector() {
+    return _entrySelector;
+  }
+  
+  public short getNumTables() {
+    return _numTables;
+  }
+  
+  public short getRangeShift() {
+    return _rangeShift;
+  }
+  
+  public short getSearchRange() {
+    return _searchRange;
+  }
+  
+  public int getVersion() {
+    return _version;
+  }
+  
+
+
+
+
+
+
+
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder().append("Offset Table\n------ -----").append("\n  sfnt version:     ").append(Fixed.floatValue(_version)).append("\n  numTables =       ").append(_numTables).append("\n  searchRange =     ").append(_searchRange).append("\n  entrySelector =   ").append(_entrySelector).append("\n  rangeShift =      ").append(_rangeShift).append("\n\n");
+    for (int i = 0; i < _numTables; i++) {
+      localStringBuilder.append(i).append(". ").append(_entries[i].toString()).append("\n");
+    }
+    return localStringBuilder.toString();
+  }
+}

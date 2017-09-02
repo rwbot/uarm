@@ -1,0 +1,107 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class PcltTable
+  implements Table
+{
+  private final DirectoryEntry de;
+  private final int version;
+  private final long fontNumber;
+  private final int pitch;
+  private final int xHeight;
+  private final int style;
+  private final int typeFamily;
+  private final int capHeight;
+  private final int symbolSet;
+  private final char[] typeface = new char[16];
+  private final short[] characterComplement = new short[8];
+  private final char[] fileName = new char[6];
+  private final short strokeWeight;
+  private final short widthType;
+  private final byte serifStyle;
+  private final byte reserved;
+  
+  protected PcltTable(DirectoryEntry paramDirectoryEntry, DataInput paramDataInput) throws IOException
+  {
+    de = ((DirectoryEntry)paramDirectoryEntry.clone());
+    version = paramDataInput.readInt();
+    fontNumber = paramDataInput.readInt();
+    pitch = paramDataInput.readUnsignedShort();
+    xHeight = paramDataInput.readUnsignedShort();
+    style = paramDataInput.readUnsignedShort();
+    typeFamily = paramDataInput.readUnsignedShort();
+    capHeight = paramDataInput.readUnsignedShort();
+    symbolSet = paramDataInput.readUnsignedShort();
+    for (int i = 0; i < 16; i++) {
+      typeface[i] = ((char)paramDataInput.readUnsignedByte());
+    }
+    for (i = 0; i < 8; i++) {
+      characterComplement[i] = ((short)paramDataInput.readUnsignedByte());
+    }
+    for (i = 0; i < 6; i++) {
+      fileName[i] = ((char)paramDataInput.readUnsignedByte());
+    }
+    strokeWeight = ((short)paramDataInput.readUnsignedByte());
+    widthType = ((short)paramDataInput.readUnsignedByte());
+    serifStyle = paramDataInput.readByte();
+    reserved = paramDataInput.readByte();
+  }
+  
+
+
+
+
+  public int getType()
+  {
+    return 1346587732;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public String toString()
+  {
+    return "'PCLT' Table - Printer Command Language Table\n---------------------------------------------" + "\n        version:             0x" + Integer.toHexString(version).toUpperCase() + "\n        fontNumber:          " + fontNumber + " (0x" + Long.toHexString(fontNumber).toUpperCase() + ")\n        pitch:               " + pitch + "\n        xHeight:             " + xHeight + "\n        style:               0x" + style + "\n        typeFamily:          0x" + (typeFamily >> 12) + " " + (typeFamily & 0xFFF) + "\n        capHeight:           " + capHeight + "\n        symbolSet:           " + symbolSet + "\n        typeFace:            " + new String(typeface) + "\n        characterComplement  0x" + Integer.toHexString(characterComplement[0]).toUpperCase() + "\n        fileName:            " + new String(fileName) + "\n        strokeWeight:        " + strokeWeight + "\n        widthType:           " + widthType + "\n        serifStyle:          " + serifStyle + "\n        reserved:            " + reserved;
+  }
+  
+
+
+
+
+
+
+  public DirectoryEntry getDirectoryEntry()
+  {
+    return de;
+  }
+}

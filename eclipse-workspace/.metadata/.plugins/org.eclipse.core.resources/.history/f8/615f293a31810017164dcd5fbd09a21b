@@ -1,0 +1,355 @@
+package jogamp.opengl.macosx.cgl;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.PointerBuffer;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.MutableGraphicsConfiguration;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import java.nio.IntBuffer;
+import java.util.ArrayList;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class MacOSXCGLGraphicsConfiguration
+  extends MutableGraphicsConfiguration
+  implements Cloneable
+{
+  MacOSXCGLGraphicsConfiguration(AbstractGraphicsScreen paramAbstractGraphicsScreen, GLCapabilitiesImmutable paramGLCapabilitiesImmutable1, GLCapabilitiesImmutable paramGLCapabilitiesImmutable2)
+  {
+    super(paramAbstractGraphicsScreen, paramGLCapabilitiesImmutable1, paramGLCapabilitiesImmutable2);
+  }
+  
+  public Object clone()
+  {
+    return super.clone();
+  }
+  
+  protected static List<GLCapabilitiesImmutable> getAvailableCapabilities(MacOSXCGLDrawableFactory paramMacOSXCGLDrawableFactory, AbstractGraphicsDevice paramAbstractGraphicsDevice) {
+    MacOSXCGLDrawableFactory.SharedResource localSharedResource = paramMacOSXCGLDrawableFactory.getOrCreateSharedResourceImpl(paramAbstractGraphicsDevice);
+    if (null == localSharedResource) {
+      throw new GLException("Shared resource for device n/a: " + paramAbstractGraphicsDevice);
+    }
+    
+    return new ArrayList(0);
+  }
+  
+  static final IntBuffer cglInternalAttributeToken = Buffers.newDirectIntBuffer(new int[] { 99, 73, 72, 58, 90, 5, 6, 8, 11, 12, 14, 13, 55, 56 });
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  static IntBuffer GLCapabilities2NSAttribList(AbstractGraphicsDevice paramAbstractGraphicsDevice, IntBuffer paramIntBuffer, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, int paramInt1, int paramInt2, int paramInt3)
+  {
+    int i = paramIntBuffer.remaining();
+    int j = paramIntBuffer.position();
+    IntBuffer localIntBuffer = Buffers.newDirectIntBuffer(i);
+    
+    for (int k = 0; k < i; k++) {
+      int m = paramIntBuffer.get(k + j);
+      switch (m) {
+      case 99: 
+        localIntBuffer.put(k, MacOSXCGLContext.GLProfile2CGLOGLProfileValue(paramAbstractGraphicsDevice, paramInt1, paramInt2, paramInt3));
+        break;
+      case 72: 
+        localIntBuffer.put(k, paramGLCapabilitiesImmutable.getHardwareAccelerated() ? 1 : 0);
+        break;
+      
+
+      case 58: 
+        localIntBuffer.put(k, 0);
+        break;
+      
+      case 90: 
+        localIntBuffer.put(k, (!paramGLCapabilitiesImmutable.isOnscreen()) && (paramGLCapabilitiesImmutable.isPBuffer()) ? 1 : 0);
+        break;
+      
+      case 5: 
+        localIntBuffer.put(k, paramGLCapabilitiesImmutable.getDoubleBuffered() ? 1 : 0);
+        break;
+      
+      case 6: 
+        localIntBuffer.put(k, paramGLCapabilitiesImmutable.getStereo() ? 1 : 0);
+        break;
+      
+      case 8: 
+        localIntBuffer.put(k, paramGLCapabilitiesImmutable.getRedBits() + paramGLCapabilitiesImmutable.getGreenBits() + paramGLCapabilitiesImmutable.getBlueBits());
+        break;
+      
+      case 11: 
+        localIntBuffer.put(k, paramGLCapabilitiesImmutable.getAlphaBits());
+        break;
+      
+      case 12: 
+        localIntBuffer.put(k, paramGLCapabilitiesImmutable.getDepthBits());
+        break;
+      
+      case 14: 
+        localIntBuffer.put(k, paramGLCapabilitiesImmutable.getAccumRedBits() + paramGLCapabilitiesImmutable.getAccumGreenBits() + paramGLCapabilitiesImmutable.getAccumBlueBits() + paramGLCapabilitiesImmutable.getAccumAlphaBits());
+        break;
+      
+      case 13: 
+        localIntBuffer.put(k, paramGLCapabilitiesImmutable.getStencilBits());
+        break;
+      
+      case 55: 
+        localIntBuffer.put(k, paramGLCapabilitiesImmutable.getSampleBuffers() ? 1 : 0);
+        break;
+      
+      case 56: 
+        localIntBuffer.put(k, paramGLCapabilitiesImmutable.getNumSamples());
+      }
+      
+    }
+    
+
+
+    return localIntBuffer;
+  }
+  
+  static long GLCapabilities2NSPixelFormat(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, int paramInt1, int paramInt2, int paramInt3) {
+    IntBuffer localIntBuffer1 = cglInternalAttributeToken.duplicate();
+    if (!MacOSXCGLContext.isLionOrLater)
+    {
+      localIntBuffer1.position(1);
+    }
+    IntBuffer localIntBuffer2 = GLCapabilities2NSAttribList(paramAbstractGraphicsDevice, localIntBuffer1, paramGLCapabilitiesImmutable, paramInt1, paramInt2, paramInt3);
+    return CGL.createPixelFormat(localIntBuffer1, localIntBuffer1.remaining(), localIntBuffer2);
+  }
+  
+  static GLCapabilities NSPixelFormat2GLCapabilities(GLProfile paramGLProfile, long paramLong) {
+    return PixelFormat2GLCapabilities(paramGLProfile, paramLong, true);
+  }
+  
+  static long GLCapabilities2CGLPixelFormat(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, int paramInt1, int paramInt2, int paramInt3)
+  {
+    IntBuffer localIntBuffer1 = Buffers.newDirectIntBuffer(256);
+    int i = 0;
+    if (MacOSXCGLContext.isLionOrLater) {
+      localIntBuffer1.put(i++, 99);
+      localIntBuffer1.put(i++, MacOSXCGLContext.GLProfile2CGLOGLProfileValue(paramAbstractGraphicsDevice, paramInt1, paramInt2, paramInt3));
+    }
+    
+
+
+
+
+
+
+    if (paramGLCapabilitiesImmutable.getDoubleBuffered()) {
+      localIntBuffer1.put(i++, 5);
+    }
+    if (paramGLCapabilitiesImmutable.getStereo()) {
+      localIntBuffer1.put(i++, 6);
+    }
+    localIntBuffer1.put(i++, 8);
+    localIntBuffer1.put(i++, paramGLCapabilitiesImmutable.getRedBits() + paramGLCapabilitiesImmutable
+      .getGreenBits() + paramGLCapabilitiesImmutable
+      .getBlueBits());
+    localIntBuffer1.put(i++, 11);
+    localIntBuffer1.put(i++, paramGLCapabilitiesImmutable.getAlphaBits());
+    localIntBuffer1.put(i++, 12);
+    localIntBuffer1.put(i++, paramGLCapabilitiesImmutable.getDepthBits());
+    
+    localIntBuffer1.put(i++, 13);
+    localIntBuffer1.put(i++, paramGLCapabilitiesImmutable.getStencilBits());
+    localIntBuffer1.put(i++, 14);
+    localIntBuffer1.put(i++, paramGLCapabilitiesImmutable.getAccumRedBits() + paramGLCapabilitiesImmutable
+      .getAccumGreenBits() + paramGLCapabilitiesImmutable
+      .getAccumBlueBits() + paramGLCapabilitiesImmutable
+      .getAccumAlphaBits());
+    if (paramGLCapabilitiesImmutable.getSampleBuffers()) {
+      localIntBuffer1.put(i++, 55);
+      localIntBuffer1.put(i++, 1);
+      localIntBuffer1.put(i++, 56);
+      localIntBuffer1.put(i++, paramGLCapabilitiesImmutable.getNumSamples());
+    }
+    
+
+    PointerBuffer localPointerBuffer = PointerBuffer.allocateDirect(1);
+    IntBuffer localIntBuffer2 = Buffers.newDirectIntBuffer(1);
+    int j = CGL.CGLChoosePixelFormat(localIntBuffer1, localPointerBuffer, localIntBuffer2);
+    if (j != 0) {
+      throw new GLException("Error code " + j + " while choosing pixel format");
+    }
+    return localPointerBuffer.get(0);
+  }
+  
+  static GLCapabilities CGLPixelFormat2GLCapabilities(long paramLong) {
+    return PixelFormat2GLCapabilities(null, paramLong, false);
+  }
+  
+  private static GLCapabilities PixelFormat2GLCapabilities(GLProfile paramGLProfile, long paramLong, boolean paramBoolean) {
+    IntBuffer localIntBuffer1 = cglInternalAttributeToken.duplicate();
+    int i;
+    if (!MacOSXCGLContext.isLionOrLater)
+    {
+      i = 1;
+    } else {
+      i = 0;
+    }
+    localIntBuffer1.position(i);
+    int j = localIntBuffer1.remaining();
+    IntBuffer localIntBuffer2 = Buffers.newDirectIntBuffer(j);
+    
+
+
+
+
+
+
+
+
+    if (paramBoolean) {
+      CGL.queryPixelFormat(paramLong, localIntBuffer1, j, localIntBuffer2);
+    } else {
+      CGL.CGLQueryPixelFormat(paramLong, localIntBuffer1, j, localIntBuffer2);
+    }
+    
+    if ((null == paramGLProfile) && (MacOSXCGLContext.isLionOrLater))
+    {
+      for (int k = 0; k < j; k++) {
+        m = localIntBuffer2.get(k);
+        if (99 == localIntBuffer1.get(k + i)) {
+          switch (m) {
+          case 16640: 
+            paramGLProfile = GLProfile.get("GL4");
+            break;
+          case 12800: 
+            paramGLProfile = GLProfile.get("GL3");
+            break;
+          case 4096: 
+            paramGLProfile = GLProfile.get("GL2");
+            break;
+          default: 
+            throw new RuntimeException("Unhandled OSX OpenGL Profile: 0x" + Integer.toHexString(m));
+          }
+        }
+      }
+    }
+    if (null == paramGLProfile) {
+      paramGLProfile = GLProfile.get("GL2");
+    }
+    GLCapabilities localGLCapabilities = new GLCapabilities(paramGLProfile);
+    int m = 0;
+    for (int n = 0; n < j; n++) {
+      int i1 = localIntBuffer1.get(n + i);
+      int i2 = localIntBuffer2.get(n);
+      int i3; switch (i1) {
+      case 73: 
+        localGLCapabilities.setHardwareAccelerated(i2 != 0);
+        break;
+      
+      case 58: 
+        break;
+      
+
+      case 90: 
+        localGLCapabilities.setPBuffer(i2 != 0);
+        break;
+      
+      case 5: 
+        localGLCapabilities.setDoubleBuffered(i2 != 0);
+        break;
+      
+      case 6: 
+        localGLCapabilities.setStereo(i2 != 0);
+        break;
+      
+
+      case 8: 
+        i3 = (32 == i2 ? 24 : i2) / 3;
+        localGLCapabilities.setRedBits(i3);
+        localGLCapabilities.setGreenBits(i3);
+        localGLCapabilities.setBlueBits(i3);
+        
+        break;
+      
+
+      case 11: 
+        m = i2;
+        break;
+      
+      case 12: 
+        localGLCapabilities.setDepthBits(i2);
+        break;
+      
+
+      case 14: 
+        i3 = i2 / 4;
+        localGLCapabilities.setAccumRedBits(i3);
+        localGLCapabilities.setAccumGreenBits(i3);
+        localGLCapabilities.setAccumBlueBits(i3);
+        localGLCapabilities.setAccumAlphaBits(i3);
+        
+        break;
+      
+      case 13: 
+        localGLCapabilities.setStencilBits(i2);
+        break;
+      
+      case 55: 
+        localGLCapabilities.setSampleBuffers(i2 != 0);
+        break;
+      
+      case 56: 
+        localGLCapabilities.setNumSamples(i2);
+      }
+      
+    }
+    
+
+
+    localGLCapabilities.setAlphaBits(m);
+    
+    return localGLCapabilities;
+  }
+}

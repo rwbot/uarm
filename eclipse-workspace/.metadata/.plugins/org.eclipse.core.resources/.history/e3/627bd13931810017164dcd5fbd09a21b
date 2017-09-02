@@ -1,0 +1,759 @@
+package com.jogamp.common.util;
+
+import com.jogamp.common.net.Uri;
+import com.jogamp.common.net.Uri.Encoded;
+import com.jogamp.common.os.NativeLibrary;
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.os.Platform.OSType;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.net.JarURLConnection;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.security.cert.Certificate;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+import jogamp.common.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class JarUtil
+{
+  private static final boolean DEBUG = Debug.debug("JarUtil");
+  
+
+
+
+
+
+  private static final int BUFFER_SIZE = 4096;
+  
+
+
+
+
+
+  private static Resolver resolver;
+  
+
+
+
+
+
+
+  public JarUtil() {}
+  
+
+
+
+
+
+  public static void setResolver(Resolver paramResolver)
+    throws IllegalArgumentException, IllegalStateException, SecurityException
+  {
+    if (paramResolver == null) {
+      throw new IllegalArgumentException("Null Resolver passed");
+    }
+    
+    if (resolver != null) {
+      throw new IllegalStateException("Resolver already set!");
+    }
+    
+    SecurityManager localSecurityManager = System.getSecurityManager();
+    if (localSecurityManager != null) {
+      localSecurityManager.checkSetFactory();
+    }
+    
+    resolver = paramResolver;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public static boolean hasJarUri(String paramString, ClassLoader paramClassLoader)
+  {
+    try
+    {
+      return null != getJarUri(paramString, paramClassLoader);
+    } catch (Exception localException) {}
+    return false;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Uri getJarUri(String paramString, ClassLoader paramClassLoader)
+    throws IllegalArgumentException, IOException, URISyntaxException
+  {
+    if ((null == paramString) || (null == paramClassLoader)) {
+      throw new IllegalArgumentException("null arguments: clazzBinName " + paramString + ", cl " + paramClassLoader);
+    }
+    
+
+
+    URL localURL1 = IOUtil.getClassURL(paramString, paramClassLoader);
+    String str = localURL1.getProtocol();
+    Uri localUri; if ((null != resolver) && 
+      (!str.equals("jar")) && 
+      (!str.equals("file")) && 
+      (!str.equals("http")) && 
+      (!str.equals("https")))
+    {
+      URL localURL2 = resolver.resolve(localURL1);
+      localUri = Uri.valueOf(localURL2);
+      if (DEBUG) {
+        System.err.println("getJarUri Resolver: " + localURL1 + "\n\t-> " + localURL2 + "\n\t-> " + localUri);
+      }
+    } else {
+      localUri = Uri.valueOf(localURL1);
+      if (DEBUG) {
+        System.err.println("getJarUri Default " + localURL1 + "\n\t-> " + localUri);
+      }
+    }
+    
+    if (!localUri.isJarScheme()) {
+      throw new IllegalArgumentException("Uri is not using scheme jar: <" + localUri + ">");
+    }
+    if (DEBUG) {
+      System.err.println("getJarUri res: " + paramString + " -> " + localURL1 + " -> " + localUri);
+    }
+    return localUri;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Uri.Encoded getJarBasename(Uri paramUri)
+    throws IllegalArgumentException
+  {
+    if (null == paramUri) {
+      throw new IllegalArgumentException("Uri is null");
+    }
+    if (!paramUri.isJarScheme()) {
+      throw new IllegalArgumentException("Uri is not using scheme jar: <" + paramUri + ">");
+    }
+    Uri.Encoded localEncoded = schemeSpecificPart;
+    
+
+
+
+
+    int i = localEncoded.lastIndexOf(33);
+    if (0 <= i) {
+      localEncoded = localEncoded.substring(0, i);
+    } else {
+      throw new IllegalArgumentException("Uri does not contain jar uri terminator '!', in <" + paramUri + ">");
+    }
+    
+
+
+
+
+    i = localEncoded.lastIndexOf(47);
+    if (0 > i)
+    {
+      i = localEncoded.lastIndexOf(58);
+      if (0 > i) {
+        throw new IllegalArgumentException("Uri does not contain protocol terminator ':', in <" + paramUri + ">");
+      }
+    }
+    localEncoded = localEncoded.substring(i + 1);
+    
+    if (0 >= localEncoded.lastIndexOf(".jar")) {
+      throw new IllegalArgumentException("No Jar name in <" + paramUri + ">");
+    }
+    if (DEBUG) {
+      System.err.println("getJarName res: " + localEncoded);
+    }
+    return localEncoded;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Uri.Encoded getJarBasename(String paramString, ClassLoader paramClassLoader)
+    throws IllegalArgumentException, IOException, URISyntaxException
+  {
+    return getJarBasename(getJarUri(paramString, paramClassLoader));
+  }
+  
+
+
+
+
+
+
+
+
+  public static Uri.Encoded getJarEntry(Uri paramUri)
+  {
+    if (null == paramUri) {
+      throw new IllegalArgumentException("Uri is null");
+    }
+    if (!paramUri.isJarScheme()) {
+      throw new IllegalArgumentException("Uri is not a using scheme jar: <" + paramUri + ">");
+    }
+    Uri.Encoded localEncoded1 = schemeSpecificPart;
+    
+
+
+
+
+    int i = localEncoded1.lastIndexOf(33);
+    if (0 <= i) {
+      Uri.Encoded localEncoded2 = localEncoded1.substring(i + 1);
+      
+      if (DEBUG) {
+        System.err.println("getJarEntry res: " + paramUri + " -> " + localEncoded1 + " -> " + i + " -> " + localEncoded2);
+      }
+      return localEncoded2;
+    }
+    throw new IllegalArgumentException("JAR Uri does not contain jar uri terminator '!', uri <" + paramUri + ">");
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Uri getJarFileUri(String paramString, ClassLoader paramClassLoader)
+    throws IllegalArgumentException, IOException, URISyntaxException
+  {
+    if ((null == paramString) || (null == paramClassLoader)) {
+      throw new IllegalArgumentException("null arguments: clazzBinName " + paramString + ", cl " + paramClassLoader);
+    }
+    Uri localUri1 = getJarUri(paramString, paramClassLoader).getContainedUri();
+    Uri localUri2 = Uri.cast("jar:" + localUri1.toString() + "!/");
+    if (DEBUG) {
+      System.err.println("getJarFileUri res: " + localUri2);
+    }
+    return localUri2;
+  }
+  
+
+
+
+
+
+  public static Uri getJarFileUri(Uri paramUri, Uri.Encoded paramEncoded)
+    throws IllegalArgumentException, URISyntaxException
+  {
+    if ((null == paramUri) || (null == paramEncoded)) {
+      throw new IllegalArgumentException("null arguments: baseUri " + paramUri + ", jarFileName " + paramEncoded);
+    }
+    return Uri.cast("jar:" + paramUri.toString() + paramEncoded + "!/");
+  }
+  
+
+
+
+
+  public static Uri getJarFileUri(Uri paramUri)
+    throws IllegalArgumentException, URISyntaxException
+  {
+    if (null == paramUri) {
+      throw new IllegalArgumentException("jarSubUri is null");
+    }
+    return Uri.cast("jar:" + paramUri.toString() + "!/");
+  }
+  
+
+
+
+
+  public static Uri getJarFileUri(Uri.Encoded paramEncoded)
+    throws IllegalArgumentException, URISyntaxException
+  {
+    if (null == paramEncoded) {
+      throw new IllegalArgumentException("jarSubUriS is null");
+    }
+    return Uri.cast("jar:" + paramEncoded + "!/");
+  }
+  
+
+
+
+
+
+  public static Uri getJarEntryUri(Uri paramUri, Uri.Encoded paramEncoded)
+    throws IllegalArgumentException, URISyntaxException
+  {
+    if (null == paramEncoded) {
+      throw new IllegalArgumentException("jarEntry is null");
+    }
+    return Uri.cast(paramUri.toString() + paramEncoded);
+  }
+  
+
+
+
+
+
+
+
+  public static JarFile getJarFile(String paramString, ClassLoader paramClassLoader)
+    throws IOException, IllegalArgumentException, URISyntaxException
+  {
+    return getJarFile(getJarFileUri(paramString, paramClassLoader));
+  }
+  
+
+
+
+
+
+  public static JarFile getJarFile(Uri paramUri)
+    throws IOException, IllegalArgumentException, URISyntaxException
+  {
+    if (null == paramUri) {
+      throw new IllegalArgumentException("null jarFileUri");
+    }
+    if (DEBUG) {
+      System.err.println("getJarFile.0: " + paramUri.toString());
+    }
+    URL localURL = paramUri.toURL();
+    if (DEBUG) {
+      System.err.println("getJarFile.1: " + localURL.toString());
+    }
+    URLConnection localURLConnection = localURL.openConnection();
+    if ((localURLConnection instanceof JarURLConnection)) {
+      JarURLConnection localJarURLConnection = (JarURLConnection)localURL.openConnection();
+      JarFile localJarFile = localJarURLConnection.getJarFile();
+      if (DEBUG) {
+        System.err.println("getJarFile res: " + localJarFile.getName());
+      }
+      return localJarFile;
+    }
+    if (DEBUG) {
+      System.err.println("getJarFile res: NULL");
+    }
+    return null;
+  }
+  
+
+
+
+
+
+
+  /**
+   * @deprecated
+   */
+  public static URI getRelativeOf(Class<?> paramClass, String paramString1, String paramString2)
+    throws IllegalArgumentException, IOException, URISyntaxException
+  {
+    return getRelativeOf(paramClass, Uri.Encoded.cast(paramString1), Uri.Encoded.cast(paramString2)).toURI();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Uri getRelativeOf(Class<?> paramClass, Uri.Encoded paramEncoded1, Uri.Encoded paramEncoded2)
+    throws IllegalArgumentException, IOException, URISyntaxException
+  {
+    ClassLoader localClassLoader = paramClass.getClassLoader();
+    Uri localUri1 = getJarUri(paramClass.getName(), localClassLoader);
+    if (DEBUG) {
+      System.err.println("JarUtil.getRelativeOf: (classFromJavaJar " + paramClass + ", classJarUri " + localUri1 + ", cutOffInclSubDir " + paramEncoded1 + ", relResPath " + paramEncoded2 + "): ");
+    }
+    
+
+    Uri localUri2 = localUri1.getContainedUri();
+    if (null == localUri2) {
+      throw new IllegalArgumentException("JarSubUri is null of: " + localUri1);
+    }
+    Uri.Encoded localEncoded1 = localUri2.getDirectory().getEncoded();
+    if (DEBUG) {
+      System.err.println("JarUtil.getRelativeOf: uri " + localUri2.toString() + " -> " + localEncoded1);
+    }
+    
+    Uri.Encoded localEncoded2;
+    if (localEncoded1.endsWith(paramEncoded1.get())) {
+      localEncoded2 = localEncoded1.concat(paramEncoded2);
+    } else {
+      localEncoded2 = localEncoded1.concat(paramEncoded1).concat(paramEncoded2);
+    }
+    if (DEBUG) {
+      System.err.println("JarUtil.getRelativeOf: ...  -> " + localEncoded2);
+    }
+    
+    Uri localUri3 = getJarFileUri(localEncoded2);
+    if (DEBUG) {
+      System.err.println("JarUtil.getRelativeOf: fin " + localUri3);
+    }
+    return localUri3;
+  }
+  
+
+
+  public static Map<String, String> getNativeLibNames(JarFile paramJarFile)
+  {
+    if (DEBUG) {
+      System.err.println("JarUtil: getNativeLibNames: " + paramJarFile);
+    }
+    
+    HashMap localHashMap = new HashMap();
+    Enumeration localEnumeration = paramJarFile.entries();
+    
+    while (localEnumeration.hasMoreElements()) {
+      JarEntry localJarEntry = (JarEntry)localEnumeration.nextElement();
+      String str1 = localJarEntry.getName();
+      String str2 = NativeLibrary.isValidNativeLibraryName(str1, false);
+      
+      if (null != str2) {
+        localHashMap.put(str2, str1);
+      }
+    }
+    
+    return localHashMap;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final int extract(File paramFile, Map<String, String> paramMap, JarFile paramJarFile, String paramString, boolean paramBoolean1, boolean paramBoolean2, boolean paramBoolean3)
+    throws IOException
+  {
+    if (DEBUG) {
+      System.err.println("JarUtil: extract: " + paramJarFile.getName() + " -> " + paramFile + ", extractNativeLibraries " + paramBoolean1 + " (" + paramString + ")" + ", extractClassFiles " + paramBoolean2 + ", extractOtherFiles " + paramBoolean3);
+    }
+    
+
+
+    int i = 0;
+    
+    Enumeration localEnumeration = paramJarFile.entries();
+    while (localEnumeration.hasMoreElements()) {
+      JarEntry localJarEntry = (JarEntry)localEnumeration.nextElement();
+      String str1 = localJarEntry.getName();
+      
+
+      String str2 = NativeLibrary.isValidNativeLibraryName(str1, false);
+      boolean bool1 = null != str2;
+      if (bool1) {
+        if (!paramBoolean1) {
+          if (!DEBUG) continue;
+          System.err.println("JarUtil: JarEntry : " + str1 + " native-lib skipped, skip all native libs"); continue;
+        }
+        
+
+        if (null != paramString) {
+          String str3;
+          String str4;
+          try {
+            str3 = IOUtil.slashify(paramString, false, true);
+            str4 = IOUtil.getDirname(str1);
+          } catch (URISyntaxException localURISyntaxException) {
+            throw new IOException(localURISyntaxException);
+          }
+          if (!str3.equals(str4)) {
+            if (!DEBUG) continue;
+            System.err.println("JarUtil: JarEntry : " + str1 + " native-lib skipped, not in path: " + str3); continue;
+          }
+        }
+      }
+      
+
+
+      boolean bool2 = str1.endsWith(".class");
+      if ((bool2) && (!paramBoolean2)) {
+        if (DEBUG) {
+          System.err.println("JarUtil: JarEntry : " + str1 + " class-file skipped");
+        }
+        
+
+      }
+      else if ((!bool1) && (!bool2) && (!paramBoolean3)) {
+        if (DEBUG) {
+          System.err.println("JarUtil: JarEntry : " + str1 + " other-file skipped");
+        }
+      }
+      else
+      {
+        boolean bool3 = str1.endsWith("/");
+        
+
+        boolean bool4 = (str1.indexOf('/') == -1) && (str1.indexOf(File.separatorChar) == -1);
+        
+        if (DEBUG) {
+          System.err.println("JarUtil: JarEntry : isNativeLib " + bool1 + ", isClassFile " + bool2 + ", isDir " + bool3 + ", isRootEntry " + bool4);
+        }
+        
+
+
+        File localFile1 = new File(paramFile, str1);
+        if (bool3) {
+          if (DEBUG) {
+            System.err.println("JarUtil: MKDIR: " + str1 + " -> " + localFile1);
+          }
+          localFile1.mkdirs();
+        } else {
+          File localFile2 = new File(localFile1.getParent());
+          if (!localFile2.exists()) {
+            if (DEBUG) {
+              System.err.println("JarUtil: MKDIR (parent): " + str1 + " -> " + localFile2);
+            }
+            localFile2.mkdirs();
+          }
+          BufferedInputStream localBufferedInputStream = new BufferedInputStream(paramJarFile.getInputStream(localJarEntry));
+          BufferedOutputStream localBufferedOutputStream = new BufferedOutputStream(new FileOutputStream(localFile1));
+          int j = -1;
+          try {
+            j = IOUtil.copyStream2Stream(4096, localBufferedInputStream, localBufferedOutputStream, -1);
+          } finally {
+            localBufferedInputStream.close();
+            localBufferedOutputStream.close();
+          }
+          boolean bool5 = false;
+          if (j > 0) {
+            i++;
+            if ((bool1) && ((bool4) || (!paramMap.containsKey(str2)))) {
+              paramMap.put(str2, localFile1.getAbsolutePath());
+              bool5 = true;
+              fixNativeLibAttribs(localFile1);
+            }
+          }
+          if (DEBUG)
+            System.err.println("JarUtil: EXTRACT[" + i + "]: [" + str2 + " -> ] " + str1 + " -> " + localFile1 + ": " + j + " bytes, addedAsNativeLib: " + bool5);
+        }
+      }
+    }
+    return i;
+  }
+  
+
+
+
+
+
+
+
+
+  private static final void fixNativeLibAttribs(File paramFile)
+  {
+    if (Platform.OSType.MACOS == Platform.getOSType()) {
+      String str = paramFile.getAbsolutePath();
+      try {
+        fixNativeLibAttribs(str);
+        if (DEBUG) {
+          System.err.println("JarUtil.fixNativeLibAttribs: " + str + " - OK");
+        }
+      } catch (Throwable localThrowable) {
+        if (DEBUG) {
+          System.err.println("JarUtil.fixNativeLibAttribs: " + str + " - " + localThrowable.getClass().getSimpleName() + ": " + localThrowable.getMessage());
+        }
+      }
+    }
+  }
+  
+
+
+
+
+  private static native boolean fixNativeLibAttribs(String paramString);
+  
+
+
+
+  public static final void validateCertificates(Certificate[] paramArrayOfCertificate, JarFile paramJarFile)
+    throws IOException, SecurityException
+  {
+    if (DEBUG) {
+      System.err.println("JarUtil: validateCertificates: " + paramJarFile.getName());
+    }
+    
+    if ((paramArrayOfCertificate == null) || (paramArrayOfCertificate.length == 0)) {
+      throw new IllegalArgumentException("Null certificates passed");
+    }
+    
+    byte[] arrayOfByte = new byte['Ѐ'];
+    Enumeration localEnumeration = paramJarFile.entries();
+    while (localEnumeration.hasMoreElements()) {
+      JarEntry localJarEntry = (JarEntry)localEnumeration.nextElement();
+      if ((!localJarEntry.isDirectory()) && (!localJarEntry.getName().startsWith("META-INF/")))
+      {
+        validateCertificate(paramArrayOfCertificate, paramJarFile, localJarEntry, arrayOfByte);
+      }
+    }
+  }
+  
+
+
+
+
+  private static final void validateCertificate(Certificate[] paramArrayOfCertificate, JarFile paramJarFile, JarEntry paramJarEntry, byte[] paramArrayOfByte)
+    throws IOException, SecurityException
+  {
+    if (DEBUG) {
+      System.err.println("JarUtil: validate JarEntry : " + paramJarEntry.getName());
+    }
+    
+
+
+
+    InputStream localInputStream = paramJarFile.getInputStream(paramJarEntry);
+    try {
+      while (localInputStream.read(paramArrayOfByte) > 0) {}
+    } finally {
+      localInputStream.close();
+    }
+    
+
+    Certificate[] arrayOfCertificate = paramJarEntry.getCertificates();
+    if ((arrayOfCertificate == null) || (arrayOfCertificate.length == 0)) {
+      throw new SecurityException("no certificate for " + paramJarEntry.getName() + " in " + paramJarFile.getName());
+    }
+    
+    if (!SecurityUtil.equals(paramArrayOfCertificate, arrayOfCertificate)) {
+      throw new SecurityException("certificates not equal for " + paramJarEntry.getName() + " in " + paramJarFile.getName());
+    }
+  }
+  
+  public static abstract interface Resolver
+  {
+    public abstract URL resolve(URL paramURL);
+  }
+}

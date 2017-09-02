@@ -1,0 +1,123 @@
+package jogamp.opengl.util.pngj.chunks;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import jogamp.opengl.util.pngj.ImageInfo;
+import jogamp.opengl.util.pngj.PngHelperInternal;
+import jogamp.opengl.util.pngj.PngjException;
+
+
+
+
+
+
+
+public class PngChunkITXT
+  extends PngChunkTextVar
+{
+  public static final String ID = "iTXt";
+  private boolean compressed = false;
+  private String langTag = "";
+  private String translatedTag = "";
+  
+  public PngChunkITXT(ImageInfo paramImageInfo)
+  {
+    super("iTXt", paramImageInfo);
+  }
+  
+  public ChunkRaw createRawChunk()
+  {
+    if (key.isEmpty())
+      throw new PngjException("Text chunk key must be non empty");
+    try {
+      ByteArrayOutputStream localByteArrayOutputStream = new ByteArrayOutputStream();
+      localByteArrayOutputStream.write(ChunkHelper.toBytes(key));
+      localByteArrayOutputStream.write(0);
+      localByteArrayOutputStream.write(compressed ? 1 : 0);
+      localByteArrayOutputStream.write(0);
+      localByteArrayOutputStream.write(ChunkHelper.toBytes(langTag));
+      localByteArrayOutputStream.write(0);
+      localByteArrayOutputStream.write(ChunkHelper.toBytesUTF8(translatedTag));
+      localByteArrayOutputStream.write(0);
+      byte[] arrayOfByte1 = ChunkHelper.toBytesUTF8(val);
+      if (compressed) {
+        arrayOfByte1 = ChunkHelper.compressBytes(arrayOfByte1, true);
+      }
+      localByteArrayOutputStream.write(arrayOfByte1);
+      byte[] arrayOfByte2 = localByteArrayOutputStream.toByteArray();
+      ChunkRaw localChunkRaw = createEmptyChunk(arrayOfByte2.length, false);
+      data = arrayOfByte2;
+      return localChunkRaw;
+    } catch (IOException localIOException) {
+      throw new PngjException(localIOException);
+    }
+  }
+  
+  public void parseFromRaw(ChunkRaw paramChunkRaw)
+  {
+    int i = 0;
+    int[] arrayOfInt = new int[3];
+    for (int j = 0; j < data.length; j++)
+      if (data[j] == 0)
+      {
+        arrayOfInt[i] = j;
+        i++;
+        if (i == 1)
+          j += 2;
+        if (i == 3)
+          break;
+      }
+    if (i != 3)
+      throw new PngjException("Bad formed PngChunkITXT chunk");
+    key = ChunkHelper.toString(data, 0, arrayOfInt[0]);
+    j = arrayOfInt[0] + 1;
+    compressed = (data[j] != 0);
+    j++;
+    if ((compressed) && (data[j] != 0))
+      throw new PngjException("Bad formed PngChunkITXT chunk - bad compression method ");
+    langTag = new String(data, j, arrayOfInt[1] - j, PngHelperInternal.charsetLatin1);
+    translatedTag = new String(data, arrayOfInt[1] + 1, arrayOfInt[2] - arrayOfInt[1] - 1, PngHelperInternal.charsetUTF8);
+    
+    j = arrayOfInt[2] + 1;
+    if (compressed) {
+      byte[] arrayOfByte = ChunkHelper.compressBytes(data, j, data.length - j, false);
+      val = ChunkHelper.toStringUTF8(arrayOfByte);
+    } else {
+      val = ChunkHelper.toStringUTF8(data, j, data.length - j);
+    }
+  }
+  
+  public void cloneDataFromRead(PngChunk paramPngChunk)
+  {
+    PngChunkITXT localPngChunkITXT = (PngChunkITXT)paramPngChunk;
+    key = key;
+    val = val;
+    compressed = compressed;
+    langTag = langTag;
+    translatedTag = translatedTag;
+  }
+  
+  public boolean isCompressed() {
+    return compressed;
+  }
+  
+  public void setCompressed(boolean paramBoolean) {
+    compressed = paramBoolean;
+  }
+  
+  public String getLangtag() {
+    return langTag;
+  }
+  
+  public void setLangtag(String paramString) {
+    langTag = paramString;
+  }
+  
+  public String getTranslatedTag() {
+    return translatedTag;
+  }
+  
+  public void setTranslatedTag(String paramString) {
+    translatedTag = paramString;
+  }
+}

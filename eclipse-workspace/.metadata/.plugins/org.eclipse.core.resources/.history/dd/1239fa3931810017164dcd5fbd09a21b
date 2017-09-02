@@ -1,0 +1,82 @@
+package jogamp.graph.font.typecast.ot.mac;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ResourceMap
+{
+  private final byte[] headerCopy = new byte[16];
+  
+  private final ResourceType[] types;
+  
+
+  public ResourceMap(DataInput paramDataInput)
+    throws IOException
+  {
+    paramDataInput.readFully(headerCopy);
+    paramDataInput.readInt();
+    paramDataInput.readUnsignedShort();
+    paramDataInput.readUnsignedShort();
+    paramDataInput.readUnsignedShort();
+    paramDataInput.readUnsignedShort();
+    int i = paramDataInput.readUnsignedShort() + 1;
+    
+
+    types = new ResourceType[i];
+    for (int j = 0; j < i; j++) {
+      types[j] = new ResourceType(paramDataInput);
+    }
+    
+
+    for (j = 0; j < i; j++) {
+      types[j].readRefs(paramDataInput);
+    }
+    
+
+    for (j = 0; j < i; j++) {
+      types[j].readNames(paramDataInput);
+    }
+  }
+  
+  public ResourceType getResourceType(String paramString) {
+    for (int i = 0; i < types.length; i++) {
+      if (types[i].getTypeAsString().equals(paramString)) {
+        return types[i];
+      }
+    }
+    return null;
+  }
+  
+  public ResourceType getResourceType(int paramInt) {
+    return types[paramInt];
+  }
+  
+  public int getResourceTypeCount() {
+    return types.length;
+  }
+}

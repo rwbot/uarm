@@ -1,0 +1,865 @@
+package jogamp.opengl.glu.gl2.nurbs;
+
+import com.jogamp.opengl.glu.GLUnurbs;
+import java.lang.reflect.Method;
+import jogamp.opengl.glu.nurbs.CArrayOfFloats;
+import jogamp.opengl.glu.nurbs.Knotvector;
+import jogamp.opengl.glu.nurbs.Mapdesc;
+import jogamp.opengl.glu.nurbs.Maplist;
+import jogamp.opengl.glu.nurbs.O_curve;
+import jogamp.opengl.glu.nurbs.O_nurbscurve;
+import jogamp.opengl.glu.nurbs.O_nurbssurface;
+import jogamp.opengl.glu.nurbs.O_surface;
+import jogamp.opengl.glu.nurbs.O_trim;
+import jogamp.opengl.glu.nurbs.Property;
+import jogamp.opengl.glu.nurbs.Quilt;
+import jogamp.opengl.glu.nurbs.Renderhints;
+import jogamp.opengl.glu.nurbs.Subdivider;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLUgl2nurbsImpl
+  implements GLUnurbs
+{
+  public static final int CT_NONE = 0;
+  public static final int CT_NURBSCURVE = 1;
+  public static final int CT_NPWLCURVE = 2;
+  private final boolean autoloadmode;
+  Maplist maplist;
+  private int isDataValid;
+  private int inCurve;
+  private O_curve currentCurve;
+  private boolean inTrim;
+  private boolean playBack;
+  private O_curve nextCurve;
+  private final Renderhints renderhints;
+  private final Subdivider subdivider;
+  private O_nurbscurve nextNurbscurve;
+  private int inSurface;
+  private int numTrims;
+  private O_surface currentSurface;
+  private O_trim nextTrim;
+  
+  public GLUgl2nurbsImpl()
+  {
+    maplist = new Maplist();
+    renderhints = new Renderhints();
+    subdivider = new Subdivider();
+    
+
+    redefineMaps();
+    
+    defineMap(3506, 0, 3);
+    defineMap(3474, 0, 3);
+    defineMap(3507, 0, 1);
+    defineMap(3475, 0, 1);
+    defineMap(3508, 0, 2);
+    defineMap(3476, 0, 2);
+    defineMap(3509, 0, 3);
+    defineMap(3477, 0, 3);
+    defineMap(3510, 1, 4);
+    defineMap(3478, 1, 4);
+    defineMap(3512, 1, 4);
+    defineMap(3480, 1, 4);
+    defineMap(3511, 0, 3);
+    defineMap(3479, 0, 3);
+    defineMap(3504, 0, 4);
+    defineMap(3472, 0, 4);
+    defineMap(3505, 0, 1);
+    defineMap(3473, 0, 1);
+    
+    setnurbsproperty(3479, 10, 6.0F);
+    
+    setnurbsproperty(3480, 10, 6.0F);
+    
+    setnurbsproperty(3511, 10, 6.0F);
+    
+    setnurbsproperty(3512, 10, 6.0F);
+    
+
+    setnurbsproperty(3479, 1, 50.0F);
+    
+    setnurbsproperty(3480, 1, 50.0F);
+    
+    setnurbsproperty(3511, 1, 50.0F);
+    
+    setnurbsproperty(3512, 1, 50.0F);
+    
+
+    setnurbsproperty(3479, 20, 0.5F);
+    
+    setnurbsproperty(3480, 20, 0.5F);
+    
+    setnurbsproperty(3511, 20, 0.5F);
+    
+    setnurbsproperty(3512, 20, 0.5F);
+    
+
+    setnurbsproperty(3479, 6, 100.0F);
+    
+    setnurbsproperty(3480, 6, 100.0F);
+    
+    setnurbsproperty(3511, 6, 100.0F);
+    
+    setnurbsproperty(3512, 6, 100.0F);
+    
+
+    setnurbsproperty(3479, 10, 6.0F);
+    
+
+    set_domain_distance_u_rate(100.0D);
+    set_domain_distance_v_rate(100.0D);
+    set_is_domain_distance_sampling(0);
+    
+    autoloadmode = true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  private void set_domain_distance_u_rate(double paramDouble)
+  {
+    subdivider.set_domain_distance_u_rate(paramDouble);
+  }
+  
+
+
+
+
+
+
+  private void set_domain_distance_v_rate(double paramDouble)
+  {
+    subdivider.set_domain_distance_v_rate(paramDouble);
+  }
+  
+
+
+
+  public void bgncurve()
+  {
+    O_curve localO_curve = new O_curve();
+    thread("do_bgncurve", localO_curve);
+  }
+  
+
+
+
+
+
+
+
+
+  private void thread(String paramString, Object paramObject)
+  {
+    Class[] arrayOfClass = new Class[1];
+    arrayOfClass[0] = paramObject.getClass();
+    try
+    {
+      Method localMethod = getClass().getMethod(paramString, arrayOfClass);
+      
+
+
+      localMethod.invoke(this, new Object[] { paramObject });
+    }
+    catch (Throwable localThrowable) {
+      localThrowable.printStackTrace();
+    }
+  }
+  
+
+
+
+
+
+
+  private void thread2(String paramString)
+  {
+    try
+    {
+      Method localMethod = getClass().getMethod(paramString, (Class[])null);
+      
+
+
+      localMethod.invoke(this, (Object[])null);
+    }
+    catch (Throwable localThrowable) {
+      localThrowable.printStackTrace();
+    }
+  }
+  
+
+
+
+
+
+  public void do_bgncurve(O_curve paramO_curve)
+  {
+    if (inCurve > 0) {
+      do_nurbserror(6);
+      endcurve();
+    }
+    inCurve = 1;
+    currentCurve = paramO_curve;
+    
+    currentCurve.curvetype = 0;
+    
+    if (inTrim) {
+      if (!nextCurve.equals(paramO_curve))
+      {
+        nextCurve = paramO_curve;
+      }
+    } else {
+      if (!playBack)
+        bgnrender();
+      isDataValid = 1;
+    }
+    nextCurve = next;
+    
+
+    nextNurbscurve = o_nurbscurve;
+  }
+  
+
+
+
+
+
+
+  public void do_bgnsurface(O_surface paramO_surface)
+  {
+    if (inSurface > 0) {
+      do_nurbserror(27);
+      endsurface();
+    }
+    inSurface = 1;
+    if (!playBack) {
+      bgnrender();
+    }
+    
+
+    isDataValid = 1;
+    numTrims = 0;
+    currentSurface = paramO_surface;
+    nextTrim = o_trim;
+  }
+  
+
+
+
+
+  public void endcurve()
+  {
+    thread2("do_endcurve");
+  }
+  
+
+
+
+  public void do_endsurface()
+  {
+    if (inTrim) {
+      do_nurbserror(12);
+      endtrim();
+    }
+    
+    if (inSurface <= 0) {
+      do_nurbserror(13);
+      return;
+    }
+    
+    inSurface = 0;
+    
+
+
+    if (isDataValid <= 0) {
+      return;
+    }
+    
+    if (nextTrim != null)
+    {
+      nextTrim = null;
+    }
+    
+
+    if (numTrims > 0) {}
+    
+
+
+    subdivider.beginQuilts(new GL2Backend());
+    for (O_nurbssurface localO_nurbssurface = currentSurface.o_nurbssurface; localO_nurbssurface != null; localO_nurbssurface = next) {
+      subdivider.addQuilt(bezier_patches);
+    }
+    subdivider.endQuilts();
+    subdivider.drawSurfaces();
+    if (!playBack) {
+      endrender();
+    }
+  }
+  
+
+
+
+
+  public void do_endcurve()
+  {
+    if (inCurve <= 0) {
+      do_nurbserror(7);
+      return;
+    }
+    inCurve = 0;
+    
+    nextCurve = null;
+    
+    if ((currentCurve.curvetype != 1) || 
+    
+
+
+
+
+
+      (!inTrim)) {
+      if (isDataValid <= 0) {
+        return;
+      }
+      
+      if (currentCurve.curvetype == 1) {
+        subdivider.beginQuilts(new GL2Backend());
+        
+        for (O_nurbscurve localO_nurbscurve = currentCurve.o_nurbscurve; localO_nurbscurve != null; localO_nurbscurve = next) {
+          subdivider.addQuilt(bezier_curves);
+        }
+        subdivider.endQuilts();
+        subdivider.drawCurves();
+        if (!playBack)
+          endrender();
+      } else {
+        if (!playBack)
+          endrender();
+        do_nurbserror(9);
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+  private void do_nurbserror(int paramInt) {}
+  
+
+
+
+
+
+
+  private void bgnrender()
+  {
+    if (autoloadmode) {
+      loadGLMatrices();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  private void loadGLMatrices() {}
+  
+
+
+
+
+
+
+
+
+
+  private void endrender() {}
+  
+
+
+
+
+
+
+
+
+
+  public void nurbscurve(int paramInt1, float[] paramArrayOfFloat1, int paramInt2, float[] paramArrayOfFloat2, int paramInt3, int paramInt4)
+  {
+    Mapdesc localMapdesc = maplist.locate(paramInt4);
+    if (localMapdesc == null) {
+      do_nurbserror(35);
+      isDataValid = 0;
+      return;
+    }
+    if (paramArrayOfFloat2 == null) {
+      do_nurbserror(36);
+      isDataValid = 0;
+      return;
+    }
+    if (paramInt2 < 0) {
+      do_nurbserror(34);
+      isDataValid = 0;
+      return;
+    }
+    Knotvector localKnotvector = new Knotvector(paramInt1, paramInt2, paramInt3, paramArrayOfFloat1);
+    
+    if (!do_check_knots(localKnotvector, "curve")) {
+      return;
+    }
+    O_nurbscurve localO_nurbscurve = new O_nurbscurve(paramInt4);
+    bezier_curves = new Quilt(localMapdesc);
+    CArrayOfFloats localCArrayOfFloats = new CArrayOfFloats(paramArrayOfFloat2);
+    bezier_curves.toBezier(localKnotvector, localCArrayOfFloats, localMapdesc
+      .getNCoords());
+    thread("do_nurbscurve", localO_nurbscurve);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public boolean do_check_knots(Knotvector paramKnotvector, String paramString)
+  {
+    int i = paramKnotvector.validate();
+    if (i > 0) {
+      do_nurbserror(i);
+      if (renderhints.errorchecking != 0)
+        paramKnotvector.show(paramString);
+    }
+    return i <= 0;
+  }
+  
+
+
+
+
+
+
+
+  public void do_nurbscurve(O_nurbscurve paramO_nurbscurve)
+  {
+    if (inCurve <= 0) {
+      bgncurve();
+      inCurve = 2;
+    }
+    
+    if (used) {
+      do_nurbserror(23);
+      isDataValid = 0;
+      return;
+    }
+    used = true;
+    
+    if (currentCurve.curvetype == 0) {
+      currentCurve.curvetype = 1;
+    } else if (currentCurve.curvetype != 1) {
+      do_nurbserror(24);
+      isDataValid = 0;
+      return;
+    }
+    
+
+
+
+    if (!paramO_nurbscurve.equals(currentCurve.o_nurbscurve))
+    {
+      currentCurve.o_nurbscurve = paramO_nurbscurve;
+    }
+    
+
+
+    nextNurbscurve = next;
+    
+    if (!currentCurve.equals(owner))
+    {
+      owner = currentCurve;
+    }
+    
+
+
+
+
+
+
+    if (inCurve == 2) {
+      endcurve();
+    }
+  }
+  
+
+
+
+
+
+
+  public void do_nurbssurface(O_nurbssurface paramO_nurbssurface)
+  {
+    if (inSurface <= 0) {
+      bgnsurface();
+      inSurface = 2;
+    }
+    if (used) {
+      do_nurbserror(25);
+      isDataValid = 0;
+      return;
+    }
+    used = true;
+    
+
+
+
+    currentSurface.o_nurbssurface = paramO_nurbssurface;
+    
+
+    if (!currentSurface.equals(owner))
+    {
+      owner = currentSurface;
+    }
+    
+
+
+    if (inSurface == 2) {
+      endsurface();
+    }
+  }
+  
+
+
+  public void redefineMaps()
+  {
+    maplist.initialize();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public void defineMap(int paramInt1, int paramInt2, int paramInt3)
+  {
+    maplist.define(paramInt1, paramInt2, paramInt3);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public void setnurbsproperty(int paramInt1, int paramInt2, float paramFloat)
+  {
+    Mapdesc localMapdesc = maplist.locate(paramInt1);
+    if (localMapdesc == null) {
+      do_nurbserror(35);
+      return;
+    }
+    if (!localMapdesc.isProperty(paramInt2)) {
+      do_nurbserror(26);
+      return;
+    }
+    Property localProperty = new Property(paramInt1, paramInt2, paramFloat);
+    thread("do_setnurbsproperty2", localProperty);
+  }
+  
+
+
+
+
+
+  public void do_setnurbsproperty2(Property paramProperty)
+  {
+    Mapdesc localMapdesc = maplist.find(type);
+    localMapdesc.setProperty(tag, value);
+  }
+  
+
+
+
+
+
+
+  public void do_setnurbsproperty(Property paramProperty)
+  {
+    renderhints.setProperty(paramProperty);
+  }
+  
+
+
+
+
+
+
+
+  public void set_is_domain_distance_sampling(int paramInt)
+  {
+    subdivider.set_is_domain_distance_sampling(paramInt);
+  }
+  
+
+
+
+  public void bgnsurface()
+  {
+    O_surface localO_surface = new O_surface();
+    
+
+    thread("do_bgnsurface", localO_surface);
+  }
+  
+
+
+
+  public void endsurface()
+  {
+    thread2("do_endsurface");
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private void endtrim() {}
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void nurbssurface(int paramInt1, float[] paramArrayOfFloat1, int paramInt2, float[] paramArrayOfFloat2, int paramInt3, int paramInt4, float[] paramArrayOfFloat3, int paramInt5, int paramInt6, int paramInt7)
+  {
+    Mapdesc localMapdesc = maplist.locate(paramInt7);
+    if (localMapdesc == null) {
+      do_nurbserror(35);
+      isDataValid = 0;
+      return;
+    }
+    if ((paramInt3 < 0) || (paramInt4 < 0)) {
+      do_nurbserror(34);
+      isDataValid = 0;
+      return;
+    }
+    Knotvector localKnotvector1 = new Knotvector(paramInt1, paramInt3, paramInt5, paramArrayOfFloat1);
+    
+    if (!do_check_knots(localKnotvector1, "surface"))
+      return;
+    Knotvector localKnotvector2 = new Knotvector(paramInt2, paramInt4, paramInt6, paramArrayOfFloat2);
+    
+    if (!do_check_knots(localKnotvector2, "surface")) {
+      return;
+    }
+    O_nurbssurface localO_nurbssurface = new O_nurbssurface(paramInt7);
+    bezier_patches = new Quilt(localMapdesc);
+    
+    CArrayOfFloats localCArrayOfFloats = new CArrayOfFloats(paramArrayOfFloat3);
+    bezier_patches.toBezier(localKnotvector1, localKnotvector2, localCArrayOfFloats, localMapdesc
+      .getNCoords());
+    thread("do_nurbssurface", localO_nurbssurface);
+  }
+}

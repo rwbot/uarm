@@ -1,0 +1,236 @@
+package jogamp.newt.driver.macosx;
+
+import com.jogamp.common.util.ArrayHashSet;
+import com.jogamp.nativewindow.DefaultGraphicsScreen;
+import com.jogamp.nativewindow.util.Rectangle;
+import com.jogamp.nativewindow.util.SurfaceSize;
+import com.jogamp.newt.Display;
+import com.jogamp.newt.MonitorDevice;
+import com.jogamp.newt.MonitorMode;
+import com.jogamp.opengl.math.FloatUtil;
+import jogamp.nativewindow.macosx.OSXUtil;
+import jogamp.newt.MonitorModeProps;
+import jogamp.newt.MonitorModeProps.Cache;
+import jogamp.newt.ScreenImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ScreenDriver
+  extends ScreenImpl
+{
+  public ScreenDriver() {}
+  
+  protected void createNativeImpl()
+  {
+    aScreen = new DefaultGraphicsScreen(getDisplay().getGraphicsDevice(), screen_idx);
+  }
+  
+  protected void closeNativeImpl() {}
+  
+  private MonitorMode getMonitorModeImpl(MonitorModeProps.Cache paramCache, int paramInt1, int paramInt2)
+  {
+    int[] arrayOfInt = getMonitorMode0(paramInt1, paramInt2);
+    MonitorMode localMonitorMode;
+    if ((null == arrayOfInt) || (0 >= arrayOfInt.length)) {
+      localMonitorMode = null;
+    } else {
+      localMonitorMode = MonitorModeProps.streamInMonitorMode(null, paramCache, arrayOfInt, 0);
+    }
+    return localMonitorMode;
+  }
+  
+  class CrtProps
+  {
+    final int[] crtIDs = ScreenDriver.this.getMonitorDeviceIds0();
+    final int count = crtIDs.length;
+    final float[] pixelScaleArray = new float[count];
+    final int[][] propsOrigArray = new int[count][];
+    final int[][] propsFixedArray = new int[count][];
+    
+    CrtProps()
+    {
+      int m;
+      for (int i = 0; i < count; i++) {
+        int j = crtIDs[i];
+        float f1 = (float)OSXUtil.GetPixelScaleByDisplayID(j);
+        pixelScaleArray[i] = (FloatUtil.isZero(f1, 1.1920929E-7F) ? 1.0F : f1);
+        propsOrigArray[i] = ScreenDriver.this.getMonitorProps0(j);
+        if (null == propsOrigArray[i]) {
+          throw new InternalError("Could not gather device props " + i + "/" + count + " -> " + Display.toHexString(j));
+        }
+        
+        m = propsOrigArray[i].length;
+        propsFixedArray[i] = new int[m];
+        System.arraycopy(propsOrigArray[i], 0, propsFixedArray[i], 0, m);
+      }
+      
+
+
+
+
+      for (i = 0; i < count; i++) {
+        int[] arrayOfInt = propsFixedArray[i];
+        int k = arrayOfInt[6];
+        m = arrayOfInt[7];
+        float f2 = pixelScaleArray[i]; int[] 
+          tmp260_257 = arrayOfInt;tmp260_257[8] = ((int)(tmp260_257[8] * f2)); int[] 
+          tmp271_268 = arrayOfInt;tmp271_268[9] = ((int)(tmp271_268[9] * f2));
+        int n; if (0 != k)
+        {
+          for (n = 0; n < count; n++) {
+            if ((n != i) && (k == propsOrigArray[n][8])) {
+              int[] tmp321_318 = arrayOfInt;tmp321_318[6] = ((int)(tmp321_318[6] * pixelScaleArray[n]));
+              break;
+            }
+          }
+        }
+        if (0 != m)
+        {
+          for (n = 0; n < count; n++)
+            if ((n != i) && (m == propsOrigArray[n][9])) {
+              int[] tmp385_382 = arrayOfInt;tmp385_382[7] = ((int)(tmp385_382[7] * pixelScaleArray[n]));
+              break;
+            }
+        }
+      }
+    }
+    
+    int getIndex(int paramInt) {
+      for (int i = 0; i < count; i++) {
+        if (paramInt == crtIDs[i]) {
+          return i;
+        }
+      }
+      return -1;
+    }
+  }
+  
+
+
+
+
+
+  protected final void collectNativeMonitorModesAndDevicesImpl(MonitorModeProps.Cache paramCache)
+  {
+    CrtProps localCrtProps = new CrtProps();
+    
+
+
+
+    for (int i = 0; i < count; i++) {
+      int j = crtIDs[i];
+      ArrayHashSet localArrayHashSet = new ArrayHashSet(false, 16, 0.75F);
+      
+      int k = 0;
+      
+
+      for (;;)
+      {
+        localMonitorMode = getMonitorModeImpl(paramCache, j, k);
+        if (null == localMonitorMode) break;
+        if (localMonitorMode.getSurfaceSize().getBitsPerPixel() >= 24) {
+          localArrayHashSet.getOrAdd(localMonitorMode);
+        }
+        k++;
+      }
+      
+
+
+
+      if (0 >= k) {
+        throw new InternalError("Could not gather single mode of device " + i + "/" + count + " -> " + Display.toHexString(j));
+      }
+      MonitorMode localMonitorMode = getMonitorModeImpl(paramCache, j, -1);
+      if (null == localMonitorMode) {
+        throw new InternalError("Could not gather current mode of device " + i + "/" + count + " -> " + Display.toHexString(j) + ", but gathered " + k + " modes");
+      }
+      
+      float f = pixelScaleArray[i];
+      MonitorModeProps.streamInMonitorDevice(paramCache, this, localMonitorMode, new float[] { f, f }, localArrayHashSet, propsFixedArray[i], 0, null);
+    }
+  }
+  
+
+
+  protected boolean updateNativeMonitorDeviceViewportImpl(MonitorDevice paramMonitorDevice, float[] paramArrayOfFloat, Rectangle paramRectangle1, Rectangle paramRectangle2)
+  {
+    CrtProps localCrtProps = new CrtProps();
+    int i = paramMonitorDevice.getId();
+    if (0 == i) {
+      throw new IllegalArgumentException("Invalid monitor id " + Display.toHexString(i));
+    }
+    int j = localCrtProps.getIndex(i);
+    if ((0 > j) || (j >= count)) {
+      throw new IndexOutOfBoundsException("monitor id " + j + " not within [0.." + (count - 1) + "]");
+    }
+    int[] arrayOfInt = propsFixedArray[j];
+    int k = 6;
+    paramRectangle1.set(arrayOfInt[(k++)], arrayOfInt[(k++)], arrayOfInt[(k++)], arrayOfInt[(k++)]);
+    paramRectangle2.set(arrayOfInt[(k++)], arrayOfInt[(k++)], arrayOfInt[(k++)], arrayOfInt[(k++)]);
+    float f = pixelScaleArray[j];
+    paramArrayOfFloat[0] = f;
+    paramArrayOfFloat[1] = f;
+    return true;
+  }
+  
+  protected MonitorMode queryCurrentMonitorModeImpl(MonitorDevice paramMonitorDevice)
+  {
+    return getMonitorModeImpl(null, paramMonitorDevice.getId(), -1);
+  }
+  
+  protected boolean setCurrentMonitorModeImpl(MonitorDevice paramMonitorDevice, MonitorMode paramMonitorMode)
+  {
+    return setMonitorMode0(paramMonitorDevice.getId(), paramMonitorMode.getId(), paramMonitorMode.getRotation());
+  }
+  
+  protected int validateScreenIndex(int paramInt)
+  {
+    return 0;
+  }
+  
+  private native int[] getMonitorDeviceIds0();
+  
+  private native int[] getMonitorProps0(int paramInt);
+  
+  private native int[] getMonitorMode0(int paramInt1, int paramInt2);
+  
+  private native boolean setMonitorMode0(int paramInt1, int paramInt2, int paramInt3);
+  
+  static {}
+}

@@ -1,0 +1,166 @@
+package com.jogamp.common.util;
+
+import java.nio.BufferOverflowException;
+import java.nio.BufferUnderflowException;
+import java.nio.FloatBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class FloatStack
+  implements PrimitiveStack
+{
+  private int position;
+  private float[] buffer;
+  private int growSize;
+  
+  public FloatStack(int paramInt1, int paramInt2)
+  {
+    position = 0;
+    growSize = paramInt2;
+    buffer = new float[paramInt1];
+  }
+  
+  public final int capacity() {
+    return buffer.length;
+  }
+  
+  public final int position() { return position; }
+  
+  public final void position(int paramInt) throws IndexOutOfBoundsException
+  {
+    if ((0 > position) || (position >= buffer.length)) {
+      throw new IndexOutOfBoundsException("Invalid new position " + paramInt + ", " + toString());
+    }
+    position = paramInt;
+  }
+  
+  public final int remaining() {
+    return buffer.length - position;
+  }
+  
+  public final int getGrowSize() { return growSize; }
+  
+  public final void setGrowSize(int paramInt) {
+    growSize = paramInt;
+  }
+  
+  public final String toString() {
+    return "FloatStack[0..(pos " + position + ").." + buffer.length + ", remaining " + remaining() + "]";
+  }
+  
+  public final float[] buffer() { return buffer; }
+  
+  private final void growIfNecessary(int paramInt) throws IndexOutOfBoundsException {
+    if (position + paramInt > buffer.length) {
+      if (0 >= growSize) {
+        throw new IndexOutOfBoundsException("Out of fixed stack size: " + this);
+      }
+      float[] arrayOfFloat = new float[buffer.length + growSize];
+      
+      System.arraycopy(buffer, 0, arrayOfFloat, 0, position);
+      buffer = arrayOfFloat;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public final float[] putOnTop(float[] paramArrayOfFloat, int paramInt1, int paramInt2)
+    throws IndexOutOfBoundsException
+  {
+    growIfNecessary(paramInt2);
+    System.arraycopy(paramArrayOfFloat, paramInt1, buffer, position, paramInt2);
+    position += paramInt2;
+    return paramArrayOfFloat;
+  }
+  
+
+
+
+
+
+
+
+
+  public final FloatBuffer putOnTop(FloatBuffer paramFloatBuffer, int paramInt)
+    throws IndexOutOfBoundsException, BufferUnderflowException
+  {
+    growIfNecessary(paramInt);
+    paramFloatBuffer.get(buffer, position, paramInt);
+    position += paramInt;
+    return paramFloatBuffer;
+  }
+  
+
+
+
+
+
+
+
+
+  public final float[] getFromTop(float[] paramArrayOfFloat, int paramInt1, int paramInt2)
+    throws IndexOutOfBoundsException
+  {
+    System.arraycopy(buffer, position - paramInt2, paramArrayOfFloat, paramInt1, paramInt2);
+    position -= paramInt2;
+    return paramArrayOfFloat;
+  }
+  
+
+
+
+
+
+
+
+
+  public final FloatBuffer getFromTop(FloatBuffer paramFloatBuffer, int paramInt)
+    throws IndexOutOfBoundsException, BufferOverflowException
+  {
+    paramFloatBuffer.put(buffer, position - paramInt, paramInt);
+    position -= paramInt;
+    return paramFloatBuffer;
+  }
+}

@@ -1,0 +1,269 @@
+package jogamp.opengl.util.pngj;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.Charset;
+import java.util.zip.CRC32;
+
+
+
+
+
+
+
+
+
+public class PngHelperInternal
+{
+  public static final Charset charsetLatin1 = Charset.forName("ISO-8859-1");
+  
+
+
+  public static final Charset charsetUTF8 = Charset.forName("UTF-8");
+  
+  static final boolean DEBUG = false;
+  
+  public PngHelperInternal() {}
+  
+  public static byte[] getPngIdSignature()
+  {
+    return new byte[] { -119, 80, 78, 71, 13, 10, 26, 10 };
+  }
+  
+  public static int doubleToInt100000(double paramDouble) {
+    return (int)(paramDouble * 100000.0D + 0.5D);
+  }
+  
+  public static double intToDouble100000(int paramInt) {
+    return paramInt / 100000.0D;
+  }
+  
+  public static int readByte(InputStream paramInputStream) {
+    try {
+      return paramInputStream.read();
+    } catch (IOException localIOException) {
+      throw new PngjInputException("error reading byte", localIOException);
+    }
+  }
+  
+
+
+
+  public static int readInt2(InputStream paramInputStream)
+  {
+    try
+    {
+      int i = paramInputStream.read();
+      int j = paramInputStream.read();
+      if ((i == -1) || (j == -1))
+        return -1;
+      return (i << 8) + j;
+    } catch (IOException localIOException) {
+      throw new PngjInputException("error reading readInt2", localIOException);
+    }
+  }
+  
+
+  public static int readInt4(InputStream paramInputStream)
+  {
+    try
+    {
+      int i = paramInputStream.read();
+      int j = paramInputStream.read();
+      int k = paramInputStream.read();
+      int m = paramInputStream.read();
+      if ((i == -1) || (j == -1) || (k == -1) || (m == -1))
+        return -1;
+      return (i << 24) + (j << 16) + (k << 8) + m;
+    } catch (IOException localIOException) {
+      throw new PngjInputException("error reading readInt4", localIOException);
+    }
+  }
+  
+  public static int readInt1fromByte(byte[] paramArrayOfByte, int paramInt) {
+    return paramArrayOfByte[paramInt] & 0xFF;
+  }
+  
+  public static int readInt2fromBytes(byte[] paramArrayOfByte, int paramInt) {
+    return (paramArrayOfByte[paramInt] & 0xFF) << 16 | paramArrayOfByte[(paramInt + 1)] & 0xFF;
+  }
+  
+  public static int readInt4fromBytes(byte[] paramArrayOfByte, int paramInt) {
+    return (paramArrayOfByte[paramInt] & 0xFF) << 24 | (paramArrayOfByte[(paramInt + 1)] & 0xFF) << 16 | (paramArrayOfByte[(paramInt + 2)] & 0xFF) << 8 | paramArrayOfByte[(paramInt + 3)] & 0xFF;
+  }
+  
+  public static void writeByte(OutputStream paramOutputStream, byte paramByte)
+  {
+    try {
+      paramOutputStream.write(paramByte);
+    } catch (IOException localIOException) {
+      throw new PngjOutputException(localIOException);
+    }
+  }
+  
+  public static void writeInt2(OutputStream paramOutputStream, int paramInt) {
+    byte[] arrayOfByte = { (byte)(paramInt >> 8 & 0xFF), (byte)(paramInt & 0xFF) };
+    writeBytes(paramOutputStream, arrayOfByte);
+  }
+  
+  public static void writeInt4(OutputStream paramOutputStream, int paramInt) {
+    byte[] arrayOfByte = new byte[4];
+    writeInt4tobytes(paramInt, arrayOfByte, 0);
+    writeBytes(paramOutputStream, arrayOfByte);
+  }
+  
+  public static void writeInt2tobytes(int paramInt1, byte[] paramArrayOfByte, int paramInt2) {
+    paramArrayOfByte[paramInt2] = ((byte)(paramInt1 >> 8 & 0xFF));
+    paramArrayOfByte[(paramInt2 + 1)] = ((byte)(paramInt1 & 0xFF));
+  }
+  
+  public static void writeInt4tobytes(int paramInt1, byte[] paramArrayOfByte, int paramInt2) {
+    paramArrayOfByte[paramInt2] = ((byte)(paramInt1 >> 24 & 0xFF));
+    paramArrayOfByte[(paramInt2 + 1)] = ((byte)(paramInt1 >> 16 & 0xFF));
+    paramArrayOfByte[(paramInt2 + 2)] = ((byte)(paramInt1 >> 8 & 0xFF));
+    paramArrayOfByte[(paramInt2 + 3)] = ((byte)(paramInt1 & 0xFF));
+  }
+  
+
+
+  public static void readBytes(InputStream paramInputStream, byte[] paramArrayOfByte, int paramInt1, int paramInt2)
+  {
+    if (paramInt2 == 0)
+      return;
+    try {
+      int i = 0;
+      while (i < paramInt2) {
+        int j = paramInputStream.read(paramArrayOfByte, paramInt1 + i, paramInt2 - i);
+        if (j < 1)
+          throw new PngjInputException("error reading bytes, " + j + " !=" + paramInt2);
+        i += j;
+      }
+    } catch (IOException localIOException) {
+      throw new PngjInputException("error reading", localIOException);
+    }
+  }
+  
+  public static void skipBytes(InputStream paramInputStream, long paramLong) {
+    try {
+      while (paramLong > 0L) {
+        long l = paramInputStream.skip(paramLong);
+        if (l > 0L) {
+          paramLong -= l;
+        } else if (l == 0L) {
+          if (paramInputStream.read() == -1) {
+            break;
+          }
+          paramLong -= 1L;
+        }
+        else {
+          throw new IOException("skip() returned a negative value ???");
+        }
+      }
+    } catch (IOException localIOException) { throw new PngjInputException(localIOException);
+    }
+  }
+  
+  public static void writeBytes(OutputStream paramOutputStream, byte[] paramArrayOfByte) {
+    try {
+      paramOutputStream.write(paramArrayOfByte);
+    } catch (IOException localIOException) {
+      throw new PngjOutputException(localIOException);
+    }
+  }
+  
+  public static void writeBytes(OutputStream paramOutputStream, byte[] paramArrayOfByte, int paramInt1, int paramInt2) {
+    try {
+      paramOutputStream.write(paramArrayOfByte, paramInt1, paramInt2);
+    } catch (IOException localIOException) {
+      throw new PngjOutputException(localIOException);
+    }
+  }
+  
+
+
+
+
+
+  private static final ThreadLocal<CRC32> crcProvider = new ThreadLocal()
+  {
+    protected CRC32 initialValue() {
+      return new CRC32();
+    }
+  };
+  
+  public static void logdebug(String paramString) {}
+  
+  public static CRC32 getCRC() { return (CRC32)crcProvider.get(); }
+  
+
+  public static int filterRowNone(int paramInt)
+  {
+    return paramInt & 0xFF;
+  }
+  
+  public static int filterRowSub(int paramInt1, int paramInt2) {
+    return paramInt1 - paramInt2 & 0xFF;
+  }
+  
+  public static int filterRowUp(int paramInt1, int paramInt2) {
+    return paramInt1 - paramInt2 & 0xFF;
+  }
+  
+  public static int filterRowAverage(int paramInt1, int paramInt2, int paramInt3) {
+    return paramInt1 - (paramInt2 + paramInt3) / 2 & 0xFF;
+  }
+  
+  public static int filterRowPaeth(int paramInt1, int paramInt2, int paramInt3, int paramInt4) {
+    return paramInt1 - filterPaethPredictor(paramInt2, paramInt3, paramInt4) & 0xFF;
+  }
+  
+  public static int unfilterRowNone(int paramInt) {
+    return paramInt & 0xFF;
+  }
+  
+  public static int unfilterRowSub(int paramInt1, int paramInt2) {
+    return paramInt1 + paramInt2 & 0xFF;
+  }
+  
+  public static int unfilterRowUp(int paramInt1, int paramInt2) {
+    return paramInt1 + paramInt2 & 0xFF;
+  }
+  
+  public static int unfilterRowAverage(int paramInt1, int paramInt2, int paramInt3) {
+    return paramInt1 + (paramInt2 + paramInt3) / 2 & 0xFF;
+  }
+  
+  public static int unfilterRowPaeth(int paramInt1, int paramInt2, int paramInt3, int paramInt4) {
+    return paramInt1 + filterPaethPredictor(paramInt2, paramInt3, paramInt4) & 0xFF;
+  }
+  
+
+
+  static final int filterPaethPredictor(int paramInt1, int paramInt2, int paramInt3)
+  {
+    int i = paramInt1 + paramInt2 - paramInt3;
+    int j = i >= paramInt1 ? i - paramInt1 : paramInt1 - i;
+    int k = i >= paramInt2 ? i - paramInt2 : paramInt2 - i;
+    int m = i >= paramInt3 ? i - paramInt3 : paramInt3 - i;
+    
+
+    if ((j <= k) && (j <= m))
+      return paramInt1;
+    if (k <= m) {
+      return paramInt2;
+    }
+    return paramInt3;
+  }
+  
+
+
+  public static final void initCrcForTests(PngReader paramPngReader)
+  {
+    paramPngReader.initCrctest();
+  }
+  
+  public static final long getCrctestVal(PngReader paramPngReader) {
+    return paramPngReader.getCrctestVal();
+  }
+}

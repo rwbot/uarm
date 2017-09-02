@@ -1,0 +1,1020 @@
+package com.jogamp.opengl.swt;
+
+import com.jogamp.common.GlueGenVersion;
+import com.jogamp.common.util.VersionUtil;
+import com.jogamp.common.util.locks.LockFactory;
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.GraphicsConfigurationFactory;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.ProxySurface;
+import com.jogamp.nativewindow.UpstreamSurfaceHook;
+import com.jogamp.nativewindow.VisualIDHolder.VIDType;
+import com.jogamp.nativewindow.swt.SWTAccessor;
+import com.jogamp.nativewindow.x11.X11GraphicsDevice;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLAnimatorControl;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLCapabilitiesChooser;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawable;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLEventListener;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.GLRunnable;
+import com.jogamp.opengl.GLSharedContextSetter;
+import com.jogamp.opengl.JoglVersion;
+import java.io.PrintStream;
+import java.util.List;
+import jogamp.nativewindow.x11.X11Util;
+import jogamp.opengl.Debug;
+import jogamp.opengl.GLContextImpl;
+import jogamp.opengl.GLDrawableHelper;
+import jogamp.opengl.GLDrawableImpl;
+import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.layout.FillLayout;
+import org.eclipse.swt.widgets.Canvas;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Listener;
+import org.eclipse.swt.widgets.Shell;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLCanvas
+  extends Canvas
+  implements GLAutoDrawable, GLSharedContextSetter
+{
+  private static final boolean DEBUG = Debug.debug("GLCanvas");
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  private final RecursiveLock lock = LockFactory.createRecursiveLock();
+  private final GLDrawableHelper helper = new GLDrawableHelper();
+  
+  private final GLCapabilitiesImmutable capsRequested;
+  
+  private final GLCapabilitiesChooser capsChooser;
+  
+  private volatile Rectangle clientArea;
+  
+  private volatile GLDrawableImpl drawable;
+  
+  private volatile GLContextImpl context;
+  
+  private final boolean useX11GTK;
+  private volatile long gdkWindow;
+  private volatile long x11Window;
+  private final AbstractGraphicsScreen screen;
+  private int additionalCtxCreationFlags = 0;
+  
+
+  private volatile boolean sendReshape;
+  
+
+  private static String getThreadName() { return Thread.currentThread().getName(); }
+  private static String toHexString(int paramInt) { return "0x" + Integer.toHexString(paramInt); }
+  private static String toHexString(long paramLong) { return "0x" + Long.toHexString(paramLong); }
+  
+
+
+
+  private final Runnable initAction = new Runnable()
+  {
+    public void run() {
+      helper.init(GLCanvas.this, !sendReshape);
+    }
+  };
+  
+
+
+
+
+
+  private final Runnable displayAction = new Runnable()
+  {
+    public void run() {
+      if (sendReshape) {
+        helper.reshape(GLCanvas.this, 0, 0, clientArea.width, clientArea.height);
+        sendReshape = false;
+      }
+      helper.display(GLCanvas.this);
+    }
+  };
+  
+
+  private final Runnable makeCurrentAndDisplayOnGLAction = new Runnable()
+  {
+    public void run() {
+      RecursiveLock localRecursiveLock = lock;
+      localRecursiveLock.lock();
+      try {
+        if (!isDisposed()) {
+          helper.invokeGL(drawable, context, displayAction, initAction);
+        }
+        
+        localRecursiveLock.unlock(); } finally { localRecursiveLock.unlock();
+      }
+    }
+  };
+  
+
+  private final Runnable swapBuffersOnGLAction = new Runnable()
+  {
+    public void run() {
+      RecursiveLock localRecursiveLock = lock;
+      localRecursiveLock.lock();
+      try {
+        int i = (null != drawable) && (drawable.isRealized()) ? 1 : 0;
+        if ((i != 0) && (!isDisposed())) {
+          drawable.swapBuffers();
+        }
+        
+        localRecursiveLock.unlock(); } finally { localRecursiveLock.unlock();
+      }
+    }
+  };
+  
+
+
+
+  private final Runnable disposeOnEDTGLAction = new Runnable()
+  {
+    public void run() {
+      RecursiveLock localRecursiveLock = lock;
+      localRecursiveLock.lock();
+      try {
+        GLAnimatorControl localGLAnimatorControl = getAnimator();
+        boolean bool;
+        if (null != localGLAnimatorControl)
+        {
+          bool = localGLAnimatorControl.pause();
+        } else {
+          bool = false;
+        }
+        
+        Object localObject1 = null;
+        if (null != context) {
+          if (context.isCreated()) {
+            try {
+              if (!isDisposed()) {
+                helper.disposeGL(GLCanvas.this, context, true);
+              } else {
+                context.destroy();
+              }
+            } catch (GLException localGLException) {
+              localObject1 = localGLException;
+            }
+          }
+          context = null;
+        }
+        
+        Object localObject2 = null;
+        if (null != drawable) {
+          try {
+            drawable.setRealized(false);
+          } catch (Throwable localThrowable1) {
+            localObject2 = localThrowable1;
+          }
+          drawable = null;
+        }
+        
+        Object localObject3 = null;
+        try {
+          if (0L != x11Window) {
+            SWTAccessor.destroyX11Window(screen.getDevice(), x11Window);
+            x11Window = 0L;
+          } else if (0L != gdkWindow) {
+            SWTAccessor.destroyGDKWindow(gdkWindow);
+            gdkWindow = 0L;
+          }
+          screen.getDevice().close();
+        } catch (Throwable localThrowable2) {
+          localObject3 = localThrowable2;
+        }
+        
+        if (bool) {
+          localGLAnimatorControl.resume();
+        }
+        
+
+        if (null != localObject1) {
+          throw localObject1;
+        }
+        if (null != localObject2) {
+          throw GLException.newGLException(localObject2);
+        }
+        if (null != localObject3) {
+          throw GLException.newGLException(localObject3);
+        }
+      } finally {
+        localRecursiveLock.unlock();
+      }
+    }
+  };
+  
+  private class DisposeGLEventListenerAction implements Runnable {
+    private GLEventListener listener;
+    private final boolean remove;
+    
+    private DisposeGLEventListenerAction(GLEventListener paramGLEventListener, boolean paramBoolean) { listener = paramGLEventListener;
+      remove = paramBoolean;
+    }
+    
+    public void run()
+    {
+      RecursiveLock localRecursiveLock = lock;
+      localRecursiveLock.lock();
+      try {
+        if (!isDisposed()) {
+          listener = helper.disposeGLEventListener(GLCanvas.this, drawable, context, listener, remove);
+        }
+        
+        localRecursiveLock.unlock(); } finally { localRecursiveLock.unlock();
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static GLCanvas create(final Composite paramComposite, final int paramInt, final GLCapabilitiesImmutable paramGLCapabilitiesImmutable, final GLCapabilitiesChooser paramGLCapabilitiesChooser)
+  {
+    GLCanvas[] arrayOfGLCanvas = { null };
+    paramComposite.getDisplay().syncExec(new Runnable()
+    {
+      public void run() {
+        val$res[0] = new GLCanvas(paramComposite, paramInt, paramGLCapabilitiesImmutable, paramGLCapabilitiesChooser);
+      }
+    });
+    return arrayOfGLCanvas[0];
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public GLCanvas(Composite paramComposite, int paramInt, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser)
+  {
+    super(paramComposite, paramInt | 0x40000);
+    
+    GLProfile.initSingleton();
+    
+    SWTAccessor.setRealized(this, true);
+    
+    clientArea = getClientArea();
+    
+
+
+    AbstractGraphicsDevice localAbstractGraphicsDevice = SWTAccessor.getDevice(this);
+    
+    useX11GTK = SWTAccessor.useX11GTK();
+    if (useX11GTK)
+    {
+      long l = X11Util.openDisplay(localAbstractGraphicsDevice.getConnection());
+      if (0L == l) {
+        throw new RuntimeException("Error creating display(EDT): " + localAbstractGraphicsDevice.getConnection());
+      }
+      X11GraphicsDevice localX11GraphicsDevice = new X11GraphicsDevice(l, 0, true);
+      screen = SWTAccessor.getScreen(localX11GraphicsDevice, -1);
+    } else {
+      screen = SWTAccessor.getScreen(localAbstractGraphicsDevice, -1);
+    }
+    
+
+    if (null == paramGLCapabilitiesImmutable) {
+      capsRequested = new GLCapabilities(GLProfile.getDefault(screen.getDevice()));
+    } else {
+      capsRequested = ((GLCapabilitiesImmutable)paramGLCapabilitiesImmutable.cloneMutable());
+    }
+    capsChooser = paramGLCapabilitiesChooser;
+    
+
+    gdkWindow = 0L;
+    x11Window = 0L;
+    drawable = null;
+    context = null;
+    
+    Listener local7 = new Listener()
+    {
+      public void handleEvent(Event paramAnonymousEvent) {
+        switch (type) {
+        case 9: 
+          GLCanvas.this.displayIfNoAnimatorNoCheck();
+          break;
+        case 11: 
+          updateSizeCheck();
+          break;
+        case 12: 
+          dispose();
+        }
+        
+      }
+    };
+    addListener(11, local7);
+    addListener(9, local7);
+    addListener(12, local7);
+  }
+  
+  public final void setSharedContext(GLContext paramGLContext) throws IllegalStateException
+  {
+    helper.setSharedContext(context, paramGLContext);
+  }
+  
+  public final void setSharedAutoDrawable(GLAutoDrawable paramGLAutoDrawable) throws IllegalStateException
+  {
+    helper.setSharedAutoDrawable(this, paramGLAutoDrawable);
+  }
+  
+  private final UpstreamSurfaceHook swtCanvasUpStreamHook = new UpstreamSurfaceHook()
+  {
+    public final void create(ProxySurface paramAnonymousProxySurface) {}
+    
+
+    public final void destroy(ProxySurface paramAnonymousProxySurface) {}
+    
+    public final int getSurfaceWidth(ProxySurface paramAnonymousProxySurface)
+    {
+      return clientArea.width;
+    }
+    
+    public final int getSurfaceHeight(ProxySurface paramAnonymousProxySurface)
+    {
+      return clientArea.height;
+    }
+    
+    public String toString()
+    {
+      return "SWTCanvasUpstreamSurfaceHook[upstream: " + GLCanvas.this.toString() + ", " + clientArea.width + "x" + clientArea.height + "]";
+    }
+    
+
+
+
+
+
+
+
+
+    public final NativeSurface getUpstreamSurface() { return null; }
+  };
+  private boolean isValidAndVisibleOnEDTActionResult;
+  
+  protected final void updateSizeCheck() {
+    Rectangle localRectangle1 = clientArea;
+    Rectangle localRectangle2 = getClientArea();
+    if ((localRectangle2 != null) && ((width != width) || (height != height)))
+    {
+
+      clientArea = localRectangle2;
+      
+      GLDrawableImpl localGLDrawableImpl1 = drawable;
+      int i = (null != localGLDrawableImpl1) && (localGLDrawableImpl1.isRealized()) ? 1 : 0;
+      if (DEBUG) {
+        long l = i != 0 ? localGLDrawableImpl1.getHandle() : 0L;
+        System.err.println(getThreadName() + ": GLCanvas.sizeChanged: (" + Thread.currentThread().getName() + "): " + x + "/" + y + " " + width + "x" + height + " - drawableHandle " + toHexString(l));
+      }
+      if ((i != 0) && 
+        (!localGLDrawableImpl1.getChosenGLCapabilities().isOnscreen())) {
+        RecursiveLock localRecursiveLock = lock;
+        localRecursiveLock.lock();
+        try {
+          GLDrawableImpl localGLDrawableImpl2 = GLDrawableHelper.resizeOffscreenDrawable(localGLDrawableImpl1, context, width, height);
+          if (localGLDrawableImpl1 != localGLDrawableImpl2)
+          {
+            drawable = localGLDrawableImpl2;
+          }
+        } finally {
+          localRecursiveLock.unlock();
+        }
+      }
+      
+      if (0L != x11Window) {
+        SWTAccessor.resizeX11Window(screen.getDevice(), clientArea, x11Window);
+      } else if (0L != gdkWindow) {
+        SWTAccessor.resizeGDKWindow(clientArea, gdkWindow);
+      }
+      sendReshape = true;
+    }
+  }
+  
+
+  private final Runnable isValidAndVisibleOnEDTAction = new Runnable()
+  {
+
+    public void run() { isValidAndVisibleOnEDTActionResult = ((!isDisposed()) && (isVisible())); }
+  };
+  
+  private final boolean isValidAndVisibleOnEDT() {
+    synchronized (isValidAndVisibleOnEDTAction) {
+      runOnEDTIfAvail(true, isValidAndVisibleOnEDTAction);
+      return isValidAndVisibleOnEDTActionResult;
+    }
+  }
+  
+  protected final boolean validateDrawableAndContextWithCheck()
+  {
+    if (!isValidAndVisibleOnEDT()) {
+      return false;
+    }
+    return validateDrawableAndContextPostCheck();
+  }
+  
+  private final boolean isDrawableAndContextValid()
+  {
+    return (null != drawable) && (null != context);
+  }
+  
+
+  private final boolean validateDrawableAndContextPostCheck()
+  {
+    RecursiveLock localRecursiveLock = lock;
+    localRecursiveLock.lock();
+    boolean bool;
+    try { if (null == drawable)
+      {
+        createDrawableImpl();
+      }
+      GLDrawableImpl localGLDrawableImpl = drawable;
+      if (null != localGLDrawableImpl)
+      {
+        if (null == context)
+        {
+          bool = createContextImpl(localGLDrawableImpl);
+        } else {
+          bool = true;
+        }
+        if (bool) {
+          sendReshape = true;
+        }
+      } else {
+        if (DEBUG) {
+          System.err.println(getThreadName() + ": SWT.GLCanvas.validate " + toHexString(hashCode()) + ": null drawable");
+        }
+        bool = false;
+      }
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": SWT.GLCanvas.validate.X  " + toHexString(hashCode()) + ": " + bool + ", drawable-realized " + drawable.isRealized() + ", has context " + (null != context));
+      }
+    } finally {
+      localRecursiveLock.unlock();
+    }
+    return bool;
+  }
+  
+  private final void createDrawableImpl() { Rectangle localRectangle = clientArea;
+    if ((0 >= width) || (0 >= height)) {
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": SWT.GLCanvas.validate.X " + toHexString(hashCode()) + ": drawable could not be created: size < 0x0");
+      }
+      return;
+    }
+    AbstractGraphicsDevice localAbstractGraphicsDevice = screen.getDevice();
+    localAbstractGraphicsDevice.open();
+    
+    long l;
+    if (useX11GTK) {
+      localObject1 = GraphicsConfigurationFactory.getFactory(localAbstractGraphicsDevice, capsRequested);
+      localObject2 = ((GraphicsConfigurationFactory)localObject1).chooseGraphicsConfiguration(capsRequested, capsRequested, capsChooser, screen, 0);
+      
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": SWT.GLCanvas.X11 " + toHexString(hashCode()) + ": factory: " + localObject1 + ", chosen config: " + localObject2);
+      }
+      if (null == localObject2) {
+        throw new NativeWindowException("Error choosing GraphicsConfiguration creating window: " + this);
+      }
+      int i = ((AbstractGraphicsConfiguration)localObject2).getVisualID(VisualIDHolder.VIDType.NATIVE);
+      if (0 != i)
+      {
+
+        x11Window = SWTAccessor.createCompatibleX11ChildWindow(screen, this, i, clientArea.width, clientArea.height);
+        l = x11Window;
+      } else {
+        throw new GLException("Could not choose valid visualID: " + toHexString(i) + ", " + this);
+      }
+    } else {
+      l = SWTAccessor.getWindowHandle(this);
+    }
+    Object localObject1 = GLDrawableFactory.getFactory(capsRequested.getGLProfile());
+    
+
+    Object localObject2 = ((GLDrawableFactory)localObject1).createProxySurface(localAbstractGraphicsDevice, screen.getIndex(), l, capsRequested, capsChooser, swtCanvasUpStreamHook);
+    
+
+    GLDrawableImpl localGLDrawableImpl = (GLDrawableImpl)((GLDrawableFactory)localObject1).createGLDrawable((NativeSurface)localObject2);
+    localGLDrawableImpl.setRealized(true);
+    if (!localGLDrawableImpl.isRealized())
+    {
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": SWT.GLCanvas.validate.X " + toHexString(hashCode()) + ": Drawable could not be realized: " + localGLDrawableImpl);
+      }
+    } else {
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": SWT.GLCanvas.validate " + toHexString(hashCode()) + ": Drawable created and realized");
+      }
+      drawable = localGLDrawableImpl;
+    }
+  }
+  
+  private boolean createContextImpl(GLDrawable paramGLDrawable) { GLContext[] arrayOfGLContext = { null };
+    if (!helper.isSharedGLContextPending(arrayOfGLContext)) {
+      context = ((GLContextImpl)paramGLDrawable.createContext(arrayOfGLContext[0]));
+      context.setContextCreationFlags(additionalCtxCreationFlags);
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": SWT.GLCanvas.validate " + toHexString(hashCode()) + ": Context created: has shared " + (null != arrayOfGLContext[0]));
+      }
+      return true;
+    }
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": SWT.GLCanvas.validate " + toHexString(hashCode()) + ": Context !created: pending share");
+    }
+    return false;
+  }
+  
+
+
+
+
+
+
+
+
+  public void update() {}
+  
+
+
+
+
+
+
+
+  public void dispose()
+  {
+    runInGLThread(disposeOnEDTGLAction);
+    super.dispose();
+  }
+  
+  private final void displayIfNoAnimatorNoCheck() {
+    if ((!helper.isAnimatorAnimatingOnOtherThread()) && (
+      (isDrawableAndContextValid()) || (validateDrawableAndContextPostCheck()))) {
+      runInGLThread(makeCurrentAndDisplayOnGLAction);
+    }
+  }
+  
+
+
+
+
+
+  public void display()
+  {
+    if ((isDrawableAndContextValid()) || (validateDrawableAndContextWithCheck())) {
+      runInGLThread(makeCurrentAndDisplayOnGLAction);
+    }
+  }
+  
+  public final Object getUpstreamWidget()
+  {
+    return this;
+  }
+  
+  public final RecursiveLock getUpstreamLock() {
+    return lock;
+  }
+  
+  public int getSurfaceWidth() {
+    return clientArea.width;
+  }
+  
+  public int getSurfaceHeight()
+  {
+    return clientArea.height;
+  }
+  
+  public boolean isGLOriented()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return null != localGLDrawableImpl ? localGLDrawableImpl.isGLOriented() : true;
+  }
+  
+  public void addGLEventListener(GLEventListener paramGLEventListener)
+  {
+    helper.addGLEventListener(paramGLEventListener);
+  }
+  
+  public void addGLEventListener(int paramInt, GLEventListener paramGLEventListener) throws IndexOutOfBoundsException
+  {
+    helper.addGLEventListener(paramInt, paramGLEventListener);
+  }
+  
+  public int getGLEventListenerCount()
+  {
+    return helper.getGLEventListenerCount();
+  }
+  
+  public GLEventListener getGLEventListener(int paramInt) throws IndexOutOfBoundsException
+  {
+    return helper.getGLEventListener(paramInt);
+  }
+  
+  public boolean areAllGLEventListenerInitialized()
+  {
+    return helper.areAllGLEventListenerInitialized();
+  }
+  
+  public boolean getGLEventListenerInitState(GLEventListener paramGLEventListener)
+  {
+    return helper.getGLEventListenerInitState(paramGLEventListener);
+  }
+  
+  public void setGLEventListenerInitState(GLEventListener paramGLEventListener, boolean paramBoolean)
+  {
+    helper.setGLEventListenerInitState(paramGLEventListener, paramBoolean);
+  }
+  
+  public GLEventListener disposeGLEventListener(GLEventListener paramGLEventListener, boolean paramBoolean)
+  {
+    DisposeGLEventListenerAction localDisposeGLEventListenerAction = new DisposeGLEventListenerAction(paramGLEventListener, paramBoolean, null);
+    runInGLThread(localDisposeGLEventListenerAction);
+    return listener;
+  }
+  
+  public GLEventListener removeGLEventListener(GLEventListener paramGLEventListener)
+  {
+    return helper.removeGLEventListener(paramGLEventListener);
+  }
+  
+
+
+
+
+
+
+
+
+  public void destroy()
+  {
+    dispose();
+  }
+  
+  public GLAnimatorControl getAnimator()
+  {
+    return helper.getAnimator();
+  }
+  
+  public final Thread setExclusiveContextThread(Thread paramThread) throws GLException
+  {
+    return helper.setExclusiveContextThread(paramThread, context);
+  }
+  
+  public final Thread getExclusiveContextThread()
+  {
+    return helper.getExclusiveContextThread();
+  }
+  
+  public boolean getAutoSwapBufferMode()
+  {
+    return helper.getAutoSwapBufferMode();
+  }
+  
+  public final GLDrawable getDelegatedDrawable()
+  {
+    return drawable;
+  }
+  
+  public GLContext getContext()
+  {
+    return context;
+  }
+  
+  public int getContextCreationFlags()
+  {
+    return additionalCtxCreationFlags;
+  }
+  
+  public GL getGL()
+  {
+    GLContextImpl localGLContextImpl = context;
+    return null == localGLContextImpl ? null : localGLContextImpl.getGL();
+  }
+  
+  public boolean invoke(boolean paramBoolean, GLRunnable paramGLRunnable) throws IllegalStateException
+  {
+    return helper.invoke(this, paramBoolean, paramGLRunnable);
+  }
+  
+  public boolean invoke(boolean paramBoolean, List<GLRunnable> paramList) throws IllegalStateException
+  {
+    return helper.invoke(this, paramBoolean, paramList);
+  }
+  
+  public void flushGLRunnables()
+  {
+    helper.flushGLRunnables();
+  }
+  
+  public void setAnimator(GLAnimatorControl paramGLAnimatorControl) throws GLException
+  {
+    helper.setAnimator(paramGLAnimatorControl);
+  }
+  
+  public void setAutoSwapBufferMode(boolean paramBoolean)
+  {
+    helper.setAutoSwapBufferMode(paramBoolean);
+  }
+  
+  public GLContext setContext(GLContext paramGLContext, boolean paramBoolean)
+  {
+    RecursiveLock localRecursiveLock = lock;
+    localRecursiveLock.lock();
+    try {
+      GLContextImpl localGLContextImpl1 = context;
+      GLDrawableHelper.switchContext(drawable, localGLContextImpl1, paramBoolean, paramGLContext, additionalCtxCreationFlags);
+      context = ((GLContextImpl)paramGLContext);
+      return localGLContextImpl1;
+    } finally {
+      localRecursiveLock.unlock();
+    }
+  }
+  
+  public void setContextCreationFlags(int paramInt)
+  {
+    additionalCtxCreationFlags = paramInt;
+    GLContextImpl localGLContextImpl = context;
+    if (null != localGLContextImpl) {
+      localGLContextImpl.setContextCreationFlags(additionalCtxCreationFlags);
+    }
+  }
+  
+  public GL setGL(GL paramGL)
+  {
+    GLContextImpl localGLContextImpl = context;
+    if (null != localGLContextImpl) {
+      localGLContextImpl.setGL(paramGL);
+      return paramGL;
+    }
+    return null;
+  }
+  
+  public GLContext createContext(GLContext paramGLContext)
+  {
+    RecursiveLock localRecursiveLock = lock;
+    localRecursiveLock.lock();
+    try { GLContext localGLContext1;
+      if (drawable != null) {
+        localGLContext1 = drawable.createContext(paramGLContext);
+        localGLContext1.setContextCreationFlags(additionalCtxCreationFlags);
+        return localGLContext1;
+      }
+      return null;
+    } finally {
+      localRecursiveLock.unlock();
+    }
+  }
+  
+  public GLCapabilitiesImmutable getChosenGLCapabilities()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return null != localGLDrawableImpl ? localGLDrawableImpl.getChosenGLCapabilities() : null;
+  }
+  
+  public GLCapabilitiesImmutable getRequestedGLCapabilities()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return null != localGLDrawableImpl ? localGLDrawableImpl.getRequestedGLCapabilities() : null;
+  }
+  
+  public GLDrawableFactory getFactory()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return localGLDrawableImpl != null ? localGLDrawableImpl.getFactory() : null;
+  }
+  
+  public GLProfile getGLProfile()
+  {
+    return capsRequested.getGLProfile();
+  }
+  
+  public long getHandle()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return localGLDrawableImpl != null ? localGLDrawableImpl.getHandle() : 0L;
+  }
+  
+  public NativeSurface getNativeSurface()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return localGLDrawableImpl != null ? localGLDrawableImpl.getNativeSurface() : null;
+  }
+  
+  public boolean isRealized()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return localGLDrawableImpl != null ? localGLDrawableImpl.isRealized() : false;
+  }
+  
+
+  public void setRealized(boolean paramBoolean) {}
+  
+
+  public void swapBuffers()
+    throws GLException
+  {
+    runInGLThread(swapBuffersOnGLAction);
+  }
+  
+
+
+
+
+
+  public final boolean isThreadGLCapable()
+  {
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private void runInGLThread(Runnable paramRunnable)
+  {
+    paramRunnable.run();
+  }
+  
+  private void runOnEDTIfAvail(boolean paramBoolean, Runnable paramRunnable) {
+    Display localDisplay = isDisposed() ? null : getDisplay();
+    if ((null == localDisplay) || (localDisplay.isDisposed()) || (localDisplay.getThread() == Thread.currentThread())) {
+      paramRunnable.run();
+    } else if (paramBoolean) {
+      localDisplay.syncExec(paramRunnable);
+    } else {
+      localDisplay.asyncExec(paramRunnable);
+    }
+  }
+  
+  public String toString()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    int i = null != localGLDrawableImpl ? localGLDrawableImpl.getSurfaceWidth() : -1;
+    int j = null != localGLDrawableImpl ? localGLDrawableImpl.getSurfaceHeight() : -1;
+    
+
+
+
+
+
+    return "SWT-GLCanvas[Realized " + isRealized() + ",\n\t" + (null != localGLDrawableImpl ? localGLDrawableImpl.getClass().getName() : "null-drawable") + ",\n\tFactory   " + getFactory() + ",\n\thandle    " + toHexString(getHandle()) + ",\n\tDrawable size " + i + "x" + j + ",\n\tSWT size " + getSurfaceWidth() + "x" + getSurfaceHeight() + "]";
+  }
+  
+  public static void main(String[] paramArrayOfString) {
+    System.err.println(VersionUtil.getPlatformInfo());
+    System.err.println(GlueGenVersion.getInstance());
+    
+    System.err.println(JoglVersion.getInstance());
+    
+    System.err.println(JoglVersion.getDefaultOpenGLInfo(null, null, true).toString());
+    
+    GLCapabilities localGLCapabilities = new GLCapabilities(GLProfile.getDefault(GLProfile.getDefaultDevice()));
+    Display localDisplay = new Display();
+    Shell localShell = new Shell(localDisplay);
+    localShell.setSize(128, 128);
+    localShell.setLayout(new FillLayout());
+    
+    GLCanvas localGLCanvas = new GLCanvas(localShell, 0, localGLCapabilities, null);
+    
+    localGLCanvas.addGLEventListener(new GLEventListener()
+    {
+      public void init(GLAutoDrawable paramAnonymousGLAutoDrawable) {
+        GL localGL = paramAnonymousGLAutoDrawable.getGL();
+        System.err.println(JoglVersion.getGLInfo(localGL, null));
+      }
+      
+      public void reshape(GLAutoDrawable paramAnonymousGLAutoDrawable, int paramAnonymousInt1, int paramAnonymousInt2, int paramAnonymousInt3, int paramAnonymousInt4) {}
+      
+      public void display(GLAutoDrawable paramAnonymousGLAutoDrawable) {}
+      
+      public void dispose(GLAutoDrawable paramAnonymousGLAutoDrawable) {}
+    });
+    localShell.open();
+    localGLCanvas.display();
+    localDisplay.dispose();
+  }
+}

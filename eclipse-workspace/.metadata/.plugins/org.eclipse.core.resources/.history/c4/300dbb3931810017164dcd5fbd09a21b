@@ -1,0 +1,47 @@
+package g4p_controls;
+
+import java.awt.Color;
+import java.awt.FlowLayout;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.colorchooser.ColorSelectionModel;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+
+class ColorPreviewPanel
+  extends JPanel
+  implements ChangeListener
+{
+  JLabel lblPrev;
+  JLabel lblCurr;
+  JLabel lblPrevColor;
+  JLabel lblCurrColor;
+  
+  public ColorPreviewPanel(Color paramColor)
+  {
+    setLayout(new FlowLayout());
+    lblPrev = new JLabel("Initial Color");
+    lblCurr = new JLabel("Current Color");
+    lblPrevColor = new JLabel("                   ");
+    lblPrevColor.setOpaque(true);
+    lblPrevColor.setBackground(paramColor);
+    lblCurrColor = new JLabel("                   ");
+    lblCurrColor.setOpaque(true);
+    lblCurrColor.setBackground(paramColor);
+    add(lblCurr);
+    add(lblCurrColor);
+    add(lblPrevColor);
+    add(lblPrev);
+  }
+  
+  public void stateChanged(ChangeEvent paramChangeEvent)
+  {
+    ColorSelectionModel localColorSelectionModel = (ColorSelectionModel)paramChangeEvent.getSource();
+    lblCurrColor.setBackground(localColorSelectionModel.getSelectedColor());
+  }
+  
+  public void setPrevColor(Color paramColor)
+  {
+    lblPrevColor.setBackground(paramColor);
+  }
+}

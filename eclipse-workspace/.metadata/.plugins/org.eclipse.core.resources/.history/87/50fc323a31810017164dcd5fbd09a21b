@@ -1,0 +1,839 @@
+package jogamp.opengl.windows.wgl;
+
+import com.jogamp.common.nio.PointerBuffer;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.common.util.ReflectionUtil;
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.DefaultGraphicsScreen;
+import com.jogamp.nativewindow.GenericUpstreamSurfacelessHook;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.ProxySurface;
+import com.jogamp.nativewindow.UpstreamSurfaceHook;
+import com.jogamp.nativewindow.windows.WindowsGraphicsDevice;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLCapabilitiesChooser;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawable;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.GLRendererQuirks;
+import java.io.PrintStream;
+import java.nio.Buffer;
+import java.nio.ShortBuffer;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.List;
+import jogamp.nativewindow.WrappedSurface;
+import jogamp.nativewindow.windows.GDI;
+import jogamp.nativewindow.windows.GDIDummyUpstreamSurfaceHook;
+import jogamp.nativewindow.windows.GDISurface;
+import jogamp.nativewindow.windows.RegisteredClassFactory;
+import jogamp.opengl.Debug;
+import jogamp.opengl.DesktopGLDynamicLookupHelper;
+import jogamp.opengl.GLContextImpl;
+import jogamp.opengl.GLDrawableFactoryImpl;
+import jogamp.opengl.GLDrawableFactoryImpl.DeviceScreenID;
+import jogamp.opengl.GLDrawableImpl;
+import jogamp.opengl.GLDynamicLookupHelper;
+import jogamp.opengl.GLGraphicsConfigurationUtil;
+import jogamp.opengl.SharedResourceRunner;
+import jogamp.opengl.SharedResourceRunner.AImplementation;
+import jogamp.opengl.SharedResourceRunner.Resource;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class WindowsWGLDrawableFactory
+  extends GLDrawableFactoryImpl
+{
+  private static final boolean DEBUG_SHAREDCTX = (DEBUG) || (GLContext.DEBUG);
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  static { Debug.initSingleton(); }
+  private static final int CPU_AFFINITY_MODE = PropertyAccess.getIntProperty("jogl.windows.cpu_affinity_mode", true, 1);
+  
+
+  private static DesktopGLDynamicLookupHelper windowsWGLDynamicLookupHelper = null;
+  private final CPUAffinity cpuAffinity;
+  private WindowsGraphicsDevice defaultDevice;
+  private SharedResourceImplementation sharedResourceImplementation;
+  private SharedResourceRunner sharedResourceRunner;
+  static final String WGL_ARB_pbuffer = "WGL_ARB_pbuffer";
+  
+  public WindowsWGLDrawableFactory() { switch (CPU_AFFINITY_MODE) {
+    case 0: 
+      cpuAffinity = new NopCPUAffinity();
+      break;
+    
+
+
+
+
+
+    default: 
+      cpuAffinity = new WindowsProcessAffinity();
+    }
+    
+    
+    synchronized (WindowsWGLDrawableFactory.class) {
+      if (null == windowsWGLDynamicLookupHelper) {
+        windowsWGLDynamicLookupHelper = (DesktopGLDynamicLookupHelper)AccessController.doPrivileged(new PrivilegedAction()
+        {
+          public DesktopGLDynamicLookupHelper run() {
+            DesktopGLDynamicLookupHelper localDesktopGLDynamicLookupHelper;
+            try {
+              localDesktopGLDynamicLookupHelper = new DesktopGLDynamicLookupHelper(new WindowsWGLDynamicLibraryBundleInfo());
+              if ((null != localDesktopGLDynamicLookupHelper) && (localDesktopGLDynamicLookupHelper.isLibComplete())) {
+                WGL.getWGLProcAddressTable().reset(localDesktopGLDynamicLookupHelper);
+              }
+            } catch (Exception localException) {
+              localDesktopGLDynamicLookupHelper = null;
+              if (WindowsWGLDrawableFactory.DEBUG) {
+                localException.printStackTrace();
+              }
+            }
+            return localDesktopGLDynamicLookupHelper;
+          }
+        });
+      }
+    }
+    
+    defaultDevice = new WindowsGraphicsDevice(0);
+    
+    if (null != windowsWGLDynamicLookupHelper)
+    {
+
+      WindowsWGLGraphicsConfigurationFactory.registerFactory();
+      if (GLProfile.isAWTAvailable()) {
+        try {
+          ReflectionUtil.callStaticMethod("jogamp.opengl.windows.wgl.awt.WindowsAWTWGLGraphicsConfigurationFactory", "registerFactory", null, null, 
+            getClass().getClassLoader());
+        }
+        catch (Exception localException) {}
+      }
+      
+
+      sharedResourceImplementation = new SharedResourceImplementation();
+      sharedResourceRunner = new SharedResourceRunner(sharedResourceImplementation);
+      sharedResourceRunner.start();
+    }
+  }
+  
+  protected final boolean isComplete()
+  {
+    return null != windowsWGLDynamicLookupHelper;
+  }
+  
+
+  protected final void shutdownImpl()
+  {
+    if (DEBUG) {
+      System.err.println("WindowsWGLDrawableFactory.shutdown");
+    }
+    if (null != sharedResourceRunner) {
+      sharedResourceRunner.stop();
+      sharedResourceRunner = null;
+    }
+    if (null != sharedResourceImplementation) {
+      sharedResourceImplementation.clear();
+      sharedResourceImplementation = null;
+    }
+    defaultDevice = null;
+    
+
+
+
+
+    windowsWGLDynamicLookupHelper = null;
+    
+    RegisteredClassFactory.shutdownSharedClasses();
+  }
+  
+  public final GLDynamicLookupHelper getGLDynamicLookupHelper(int paramInt1, int paramInt2)
+  {
+    return windowsWGLDynamicLookupHelper;
+  }
+  
+  static String toHexString(long paramLong) { return "0x" + Long.toHexString(paramLong); }
+  
+
+
+
+
+  protected void enterThreadCriticalZone()
+  {
+    synchronized (cpuAffinity) {
+      cpuAffinity.set(1);
+    }
+  }
+  
+  protected void leaveThreadCriticalZone()
+  {
+    synchronized (cpuAffinity) {
+      cpuAffinity.reset();
+    }
+  }
+  
+  static class SharedResource implements SharedResourceRunner.Resource
+  {
+    private final boolean hasARBPixelFormat;
+    private final boolean hasARBMultisample;
+    private final boolean hasARBPBuffer;
+    private final boolean hasARBReadDrawable;
+    private WindowsGraphicsDevice device;
+    private AbstractGraphicsScreen screen;
+    private GLDrawableImpl drawable;
+    private GLContextImpl context;
+    
+    SharedResource(WindowsGraphicsDevice paramWindowsGraphicsDevice, AbstractGraphicsScreen paramAbstractGraphicsScreen, GLDrawableImpl paramGLDrawableImpl, GLContextImpl paramGLContextImpl, boolean paramBoolean1, boolean paramBoolean2, boolean paramBoolean3, boolean paramBoolean4) {
+      device = paramWindowsGraphicsDevice;
+      screen = paramAbstractGraphicsScreen;
+      drawable = paramGLDrawableImpl;
+      context = paramGLContextImpl;
+      hasARBPixelFormat = paramBoolean1;
+      hasARBMultisample = paramBoolean2;
+      hasARBPBuffer = paramBoolean3;
+      hasARBReadDrawable = paramBoolean4;
+    }
+    
+    public final boolean isAvailable()
+    {
+      return null != context;
+    }
+    
+    public final AbstractGraphicsDevice getDevice() { return device; }
+    
+    public final AbstractGraphicsScreen getScreen() { return screen; }
+    
+    public final GLDrawableImpl getDrawable() { return drawable; }
+    
+    public final GLContextImpl getContext() { return context; }
+    
+    public GLRendererQuirks getRendererQuirks(GLProfile paramGLProfile) {
+      return null != context ? context.getRendererQuirks() : null;
+    }
+    
+    final boolean hasARBPixelFormat() { return hasARBPixelFormat; }
+    final boolean hasARBMultisample() { return hasARBMultisample; }
+    final boolean hasARBPBuffer() { return hasARBPBuffer; }
+    final boolean hasReadDrawable() { return hasARBReadDrawable; }
+  }
+  
+  class SharedResourceImplementation extends SharedResourceRunner.AImplementation {
+    SharedResourceImplementation() {}
+    
+    public boolean isDeviceSupported(AbstractGraphicsDevice paramAbstractGraphicsDevice) { return true; }
+    
+
+    public SharedResourceRunner.Resource createSharedResource(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+    {
+      WindowsGraphicsDevice localWindowsGraphicsDevice = new WindowsGraphicsDevice(paramAbstractGraphicsDevice.getConnection(), paramAbstractGraphicsDevice.getUnitID());
+      GLContextImpl localGLContextImpl = null;
+      boolean bool1 = false;
+      localWindowsGraphicsDevice.lock();
+      try {
+        DefaultGraphicsScreen localDefaultGraphicsScreen = new DefaultGraphicsScreen(localWindowsGraphicsDevice, 0);
+        GLProfile localGLProfile = GLProfile.get(localWindowsGraphicsDevice, GLProfile.GL_PROFILE_LIST_MIN_DESKTOP, false);
+        if (null == localGLProfile) {
+          throw new GLException("Couldn't get default GLProfile for device: " + localWindowsGraphicsDevice);
+        }
+        GLCapabilities localGLCapabilities = new GLCapabilities(localGLProfile);
+        GLDrawableImpl localGLDrawableImpl = createOnscreenDrawableImpl(createDummySurfaceImpl(localWindowsGraphicsDevice, false, localGLCapabilities, localGLCapabilities, null, 64, 64));
+        localGLDrawableImpl.setRealized(true);
+        
+        localGLContextImpl = (GLContextImpl)localGLDrawableImpl.createContext(null);
+        if (null == localGLContextImpl) {
+          throw new GLException("Couldn't create shared context for drawable: " + localGLDrawableImpl);
+        }
+        bool1 = 0 != localGLContextImpl.makeCurrent();
+        
+        boolean bool2;
+        boolean bool3;
+        boolean bool4;
+        boolean bool5;
+        boolean bool6;
+        if (bool1) {
+          if (localGLContextImpl.getGLVersionNumber().compareTo(GLContext.Version3_0) >= 0) {
+            bool2 = probeSurfacelessCtx(localGLContextImpl, true);
+          } else {
+            setNoSurfacelessCtxQuirk(localGLContextImpl);
+            bool2 = false;
+          }
+          bool3 = localGLContextImpl.isExtensionAvailable("WGL_ARB_pixel_format");
+          bool4 = localGLContextImpl.isExtensionAvailable("WGL_ARB_multisample");
+          bool5 = localGLContextImpl.isExtensionAvailable("GL_ARB_pbuffer");
+          
+          bool6 = (localGLContextImpl.isExtensionAvailable("WGL_ARB_make_current_read")) && (localGLContextImpl.isFunctionAvailable("wglMakeContextCurrent"));
+        } else {
+          bool2 = false;
+          bool3 = false;
+          bool4 = false;
+          bool5 = false;
+          bool6 = false;
+        }
+        if (WindowsWGLDrawableFactory.DEBUG_SHAREDCTX) {
+          System.err.println("SharedDevice:  " + localWindowsGraphicsDevice);
+          System.err.println("SharedScreen:  " + localDefaultGraphicsScreen);
+          System.err.println("SharedContext: " + localGLContextImpl + ", madeCurrent " + bool1);
+          System.err.println("  allowsSurfacelessCtx " + bool2);
+          System.err.println("pixelformat:   " + bool3);
+          System.err.println("multisample:   " + bool4);
+          System.err.println("pbuffer:       " + bool5);
+          System.err.println("readDrawable:  " + bool6);
+        }
+        return new WindowsWGLDrawableFactory.SharedResource(localWindowsGraphicsDevice, localDefaultGraphicsScreen, localGLDrawableImpl, localGLContextImpl, bool3, bool4, bool5, bool6);
+      }
+      catch (Throwable localThrowable)
+      {
+        throw new GLException("WindowsWGLDrawableFactory - Could not initialize shared resources for " + paramAbstractGraphicsDevice, localThrowable);
+      } finally {
+        if (bool1) {
+          localGLContextImpl.release();
+        }
+        localWindowsGraphicsDevice.unlock();
+      }
+    }
+    
+    public void releaseSharedResource(SharedResourceRunner.Resource paramResource)
+    {
+      WindowsWGLDrawableFactory.SharedResource localSharedResource = (WindowsWGLDrawableFactory.SharedResource)paramResource;
+      if (WindowsWGLDrawableFactory.DEBUG_SHAREDCTX) {
+        System.err.println("Shutdown Shared:");
+        System.err.println("Device  : " + WindowsWGLDrawableFactory.SharedResource.access$400(localSharedResource));
+        System.err.println("Screen  : " + WindowsWGLDrawableFactory.SharedResource.access$500(localSharedResource));
+        System.err.println("Drawable: " + WindowsWGLDrawableFactory.SharedResource.access$600(localSharedResource));
+        System.err.println("CTX     : " + WindowsWGLDrawableFactory.SharedResource.access$700(localSharedResource));
+      }
+      
+      if (null != WindowsWGLDrawableFactory.SharedResource.access$700(localSharedResource))
+      {
+        WindowsWGLDrawableFactory.SharedResource.access$700(localSharedResource).destroy();
+        WindowsWGLDrawableFactory.SharedResource.access$702(localSharedResource, null);
+      }
+      
+      if (null != WindowsWGLDrawableFactory.SharedResource.access$600(localSharedResource)) {
+        WindowsWGLDrawableFactory.SharedResource.access$600(localSharedResource).setRealized(false);
+        WindowsWGLDrawableFactory.SharedResource.access$602(localSharedResource, null);
+      }
+      
+      if (null != WindowsWGLDrawableFactory.SharedResource.access$500(localSharedResource)) {
+        WindowsWGLDrawableFactory.SharedResource.access$502(localSharedResource, null);
+      }
+      
+      if (null != WindowsWGLDrawableFactory.SharedResource.access$400(localSharedResource)) {
+        WindowsWGLDrawableFactory.SharedResource.access$400(localSharedResource).close();
+        WindowsWGLDrawableFactory.SharedResource.access$402(localSharedResource, null);
+      }
+    }
+  }
+  
+  public final AbstractGraphicsDevice getDefaultDevice()
+  {
+    return defaultDevice;
+  }
+  
+  public final boolean getIsDeviceCompatible(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    if ((null != windowsWGLDynamicLookupHelper) && ((paramAbstractGraphicsDevice instanceof WindowsGraphicsDevice))) {
+      return true;
+    }
+    return false;
+  }
+  
+
+  static final String WGL_ARB_pixel_format = "WGL_ARB_pixel_format";
+  static final String WGL_ARB_multisample = "WGL_ARB_multisample";
+  static final String WGL_NV_float_buffer = "WGL_NV_float_buffer";
+  static final String WGL_ARB_make_current_read = "WGL_ARB_make_current_read";
+  static final String wglMakeContextCurrent = "wglMakeContextCurrent";
+  private static final int GAMMA_RAMP_LENGTH = 256;
+  protected final Thread getSharedResourceThread()
+  {
+    return sharedResourceRunner.start();
+  }
+  
+  protected final SharedResource getOrCreateSharedResourceImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    return (SharedResource)sharedResourceRunner.getOrCreateShared(paramAbstractGraphicsDevice);
+  }
+  
+  protected final WindowsWGLDrawable getOrCreateSharedDrawable(AbstractGraphicsDevice paramAbstractGraphicsDevice) {
+    SharedResource localSharedResource = getOrCreateSharedResourceImpl(paramAbstractGraphicsDevice);
+    if (null != localSharedResource) {
+      return (WindowsWGLDrawable)localSharedResource.getDrawable();
+    }
+    return null;
+  }
+  
+
+
+
+
+
+  public final boolean hasOpenGLDesktopSupport()
+  {
+    return true;
+  }
+  
+
+
+
+
+  public final boolean hasOpenGLESSupport()
+  {
+    return false;
+  }
+  
+
+
+
+
+  public final boolean hasMajorMinorCreateContextARB()
+  {
+    return true;
+  }
+  
+  protected List<GLCapabilitiesImmutable> getAvailableCapabilitiesImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice) {
+    return WindowsWGLGraphicsConfigurationFactory.getAvailableCapabilities(this, paramAbstractGraphicsDevice);
+  }
+  
+  protected final GLDrawableImpl createOnscreenDrawableImpl(NativeSurface paramNativeSurface)
+  {
+    if (paramNativeSurface == null) {
+      throw new IllegalArgumentException("Null target");
+    }
+    return new WindowsOnscreenWGLDrawable(this, paramNativeSurface);
+  }
+  
+  protected final GLDrawableImpl createOffscreenDrawableImpl(NativeSurface paramNativeSurface)
+  {
+    if (paramNativeSurface == null) {
+      throw new IllegalArgumentException("Null target");
+    }
+    AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = paramNativeSurface.getGraphicsConfiguration();
+    GLCapabilitiesImmutable localGLCapabilitiesImmutable = (GLCapabilitiesImmutable)localAbstractGraphicsConfiguration.getChosenCapabilities();
+    if (!localGLCapabilitiesImmutable.isPBuffer()) {
+      return WindowsBitmapWGLDrawable.create(this, paramNativeSurface);
+    }
+    
+
+
+    AbstractGraphicsDevice localAbstractGraphicsDevice = localAbstractGraphicsConfiguration.getScreen().getDevice();
+    
+
+
+
+
+    SharedResource localSharedResource = getOrCreateSharedResourceImpl(localAbstractGraphicsDevice);
+    WindowsPbufferWGLDrawable localWindowsPbufferWGLDrawable; if (null != localSharedResource) {
+      GLContext localGLContext = GLContext.getCurrent();
+      if (localGLContext != null) {
+        localGLContext.release();
+      }
+      context.makeCurrent();
+      try {
+        localWindowsPbufferWGLDrawable = new WindowsPbufferWGLDrawable(this, paramNativeSurface);
+      } finally {
+        context.release();
+        if (localGLContext != null) {
+          localGLContext.makeCurrent();
+        }
+      }
+    } else {
+      localWindowsPbufferWGLDrawable = new WindowsPbufferWGLDrawable(this, paramNativeSurface);
+    }
+    return localWindowsPbufferWGLDrawable;
+  }
+  
+
+
+
+  public final int isReadDrawableAvailable(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    SharedResource localSharedResource = getOrCreateSharedResourceImpl(null != paramAbstractGraphicsDevice ? paramAbstractGraphicsDevice : defaultDevice);
+    if (null != localSharedResource) {
+      return localSharedResource.hasReadDrawable() ? 1 : 0;
+    }
+    return -1;
+  }
+  
+  public final boolean canCreateGLPbuffer(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLProfile paramGLProfile)
+  {
+    SharedResource localSharedResource = getOrCreateSharedResourceImpl(null != paramAbstractGraphicsDevice ? paramAbstractGraphicsDevice : defaultDevice);
+    if (null != localSharedResource) {
+      return localSharedResource.hasARBPBuffer();
+    }
+    return false;
+  }
+  
+
+  protected final ProxySurface createMutableSurfaceImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean, GLCapabilitiesImmutable paramGLCapabilitiesImmutable1, GLCapabilitiesImmutable paramGLCapabilitiesImmutable2, GLCapabilitiesChooser paramGLCapabilitiesChooser, UpstreamSurfaceHook paramUpstreamSurfaceHook)
+  {
+    WindowsGraphicsDevice localWindowsGraphicsDevice;
+    
+    if ((paramBoolean) || (!(paramAbstractGraphicsDevice instanceof WindowsGraphicsDevice))) {
+      localWindowsGraphicsDevice = new WindowsGraphicsDevice(paramAbstractGraphicsDevice.getConnection(), paramAbstractGraphicsDevice.getUnitID());
+    } else {
+      localWindowsGraphicsDevice = (WindowsGraphicsDevice)paramAbstractGraphicsDevice;
+    }
+    DefaultGraphicsScreen localDefaultGraphicsScreen = new DefaultGraphicsScreen(localWindowsGraphicsDevice, 0);
+    WindowsWGLGraphicsConfiguration localWindowsWGLGraphicsConfiguration = WindowsWGLGraphicsConfigurationFactory.chooseGraphicsConfigurationStatic(paramGLCapabilitiesImmutable1, paramGLCapabilitiesImmutable2, paramGLCapabilitiesChooser, localDefaultGraphicsScreen);
+    if (null == localWindowsWGLGraphicsConfiguration) {
+      throw new GLException("Choosing GraphicsConfiguration failed w/ " + paramGLCapabilitiesImmutable1 + " on " + localDefaultGraphicsScreen);
+    }
+    return new WrappedSurface(localWindowsWGLGraphicsConfiguration, 0L, paramUpstreamSurfaceHook, paramBoolean);
+  }
+  
+
+  public final ProxySurface createDummySurfaceImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean, GLCapabilitiesImmutable paramGLCapabilitiesImmutable1, GLCapabilitiesImmutable paramGLCapabilitiesImmutable2, GLCapabilitiesChooser paramGLCapabilitiesChooser, int paramInt1, int paramInt2)
+  {
+    WindowsGraphicsDevice localWindowsGraphicsDevice;
+    if ((paramBoolean) || (!(paramAbstractGraphicsDevice instanceof WindowsGraphicsDevice))) {
+      localWindowsGraphicsDevice = new WindowsGraphicsDevice(paramAbstractGraphicsDevice.getConnection(), paramAbstractGraphicsDevice.getUnitID());
+    } else {
+      localWindowsGraphicsDevice = (WindowsGraphicsDevice)paramAbstractGraphicsDevice;
+    }
+    DefaultGraphicsScreen localDefaultGraphicsScreen = new DefaultGraphicsScreen(localWindowsGraphicsDevice, 0);
+    paramGLCapabilitiesImmutable1 = GLGraphicsConfigurationUtil.fixOnscreenGLCapabilities(paramGLCapabilitiesImmutable1);
+    WindowsWGLGraphicsConfiguration localWindowsWGLGraphicsConfiguration = WindowsWGLGraphicsConfigurationFactory.chooseGraphicsConfigurationStatic(paramGLCapabilitiesImmutable1, paramGLCapabilitiesImmutable2, paramGLCapabilitiesChooser, localDefaultGraphicsScreen);
+    if (null == localWindowsWGLGraphicsConfiguration) {
+      throw new GLException("Choosing GraphicsConfiguration failed w/ " + paramGLCapabilitiesImmutable1 + " on " + localDefaultGraphicsScreen);
+    }
+    return new GDISurface(localWindowsWGLGraphicsConfiguration, 0L, new GDIDummyUpstreamSurfaceHook(paramInt1, paramInt2), paramBoolean);
+  }
+  
+
+  public final ProxySurface createSurfacelessImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean, GLCapabilitiesImmutable paramGLCapabilitiesImmutable1, GLCapabilitiesImmutable paramGLCapabilitiesImmutable2, GLCapabilitiesChooser paramGLCapabilitiesChooser, int paramInt1, int paramInt2)
+  {
+    paramGLCapabilitiesImmutable1 = GLGraphicsConfigurationUtil.fixOnscreenGLCapabilities(paramGLCapabilitiesImmutable1);
+    return createMutableSurfaceImpl(paramAbstractGraphicsDevice, paramBoolean, paramGLCapabilitiesImmutable1, paramGLCapabilitiesImmutable2, paramGLCapabilitiesChooser, new GenericUpstreamSurfacelessHook(paramInt1, paramInt2));
+  }
+  
+  protected final ProxySurface createProxySurfaceImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice, int paramInt, long paramLong, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser, UpstreamSurfaceHook paramUpstreamSurfaceHook)
+  {
+    WindowsGraphicsDevice localWindowsGraphicsDevice = new WindowsGraphicsDevice(paramAbstractGraphicsDevice.getConnection(), paramAbstractGraphicsDevice.getUnitID());
+    DefaultGraphicsScreen localDefaultGraphicsScreen = new DefaultGraphicsScreen(localWindowsGraphicsDevice, paramInt);
+    WindowsWGLGraphicsConfiguration localWindowsWGLGraphicsConfiguration = WindowsWGLGraphicsConfigurationFactory.chooseGraphicsConfigurationStatic(paramGLCapabilitiesImmutable, paramGLCapabilitiesImmutable, paramGLCapabilitiesChooser, localDefaultGraphicsScreen);
+    return new GDISurface(localWindowsWGLGraphicsConfiguration, paramLong, paramUpstreamSurfaceHook, true);
+  }
+  
+  protected final GLContext createExternalGLContextImpl()
+  {
+    return WindowsExternalWGLContext.create(this, null);
+  }
+  
+  public final boolean canCreateExternalGLDrawable(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    return true;
+  }
+  
+  protected final GLDrawable createExternalGLDrawableImpl()
+  {
+    return WindowsExternalWGLDrawable.create(this, null);
+  }
+  
+  static String wglGetLastError() {
+    long l = GDI.GetLastError();
+    String str = null;
+    switch ((int)l) {
+    case 0:  str = "ERROR_SUCCESS"; break;
+    case 2000:  str = "ERROR_INVALID_PIXEL_FORMAT"; break;
+    case 1450:  str = "ERROR_NO_SYSTEM_RESOURCES"; break;
+    case 13:  str = "ERROR_INVALID_DATA"; break;
+    case 127:  str = "ERROR_PROC_NOT_FOUND"; break;
+    case 1400:  str = "ERROR_INVALID_WINDOW_HANDLE"; break;
+    default:  str = "(Unknown error code " + l + ")";
+    }
+    return str;
+  }
+  
+
+
+
+
+
+
+  protected final int getGammaRampLength(NativeSurface paramNativeSurface)
+  {
+    return 256;
+  }
+  
+  protected final boolean setGammaRamp(NativeSurface paramNativeSurface, float[] paramArrayOfFloat)
+  {
+    short[] arrayOfShort = new short['̀'];
+    for (int i = 0; i < 256; i++) {
+      int j = (short)(int)(paramArrayOfFloat[i] * 65535.0F);
+      arrayOfShort[i] = j;
+      arrayOfShort[(i + 256)] = j;
+      arrayOfShort[(i + 512)] = j;
+    }
+    
+    long l = paramNativeSurface.getSurfaceHandle();
+    if (0L == l) {
+      return false;
+    }
+    
+    boolean bool = GDI.SetDeviceGammaRamp(l, ShortBuffer.wrap(arrayOfShort));
+    
+    return bool;
+  }
+  
+  protected final Buffer getGammaRamp(NativeSurface paramNativeSurface)
+  {
+    ShortBuffer localShortBuffer = ShortBuffer.wrap(new short['̀']);
+    long l = paramNativeSurface.getSurfaceHandle();
+    if (0L == l) {
+      return null;
+    }
+    
+    boolean bool = GDI.GetDeviceGammaRamp(l, localShortBuffer);
+    
+    if (!bool) {
+      return null;
+    }
+    return localShortBuffer;
+  }
+  
+  protected final void resetGammaRamp(NativeSurface paramNativeSurface, Buffer paramBuffer)
+  {
+    if (paramBuffer == null)
+    {
+      return;
+    }
+    long l = paramNativeSurface.getSurfaceHandle();
+    if (0L == l) {
+      return;
+    }
+    
+    GDI.SetDeviceGammaRamp(l, paramBuffer);
+  }
+  
+
+  protected final void resetGammaRamp(GLDrawableFactoryImpl.DeviceScreenID paramDeviceScreenID, Buffer paramBuffer)
+  {
+    if (paramBuffer == null)
+    {
+      return;
+    }
+    long l = GDI.GetDC(0L);
+    GDI.SetDeviceGammaRamp(l, paramBuffer);
+    GDI.ReleaseDC(0L, l);
+  }
+  
+  static abstract interface CPUAffinity {
+    public abstract boolean set(int paramInt);
+    
+    public abstract boolean reset();
+  }
+  
+  static final class WindowsThreadAffinity implements WindowsWGLDrawableFactory.CPUAffinity { private long threadHandle;
+    private long threadOrigAffinity;
+    private long threadNewAffinity;
+    
+    public WindowsThreadAffinity() { threadHandle = 0L;
+      threadOrigAffinity = 0L;
+      threadNewAffinity = 0L;
+    }
+    
+    public boolean set(int paramInt) {
+      long l1 = GDI.GetCurrentThread();
+      if (0L != threadHandle) {
+        throw new IllegalStateException("Affinity already set");
+      }
+      long l2 = GDI.SetThreadAffinityMask(l1, paramInt);
+      int i = GDI.GetLastError();
+      boolean bool;
+      if (0L != l2) {
+        bool = true;
+        threadHandle = l1;
+        threadNewAffinity = paramInt;
+        threadOrigAffinity = l2;
+      } else {
+        bool = false;
+      }
+      if (WindowsWGLDrawableFactory.DEBUG) {
+        System.err.println("WindowsThreadAffinity.set() - tid " + WindowsWGLDrawableFactory.toHexString(l1) + " - " + WindowsWGLDrawableFactory.access$900() + ": OK " + bool + " (werr " + i + "), Affinity: " + 
+          WindowsWGLDrawableFactory.toHexString(threadOrigAffinity) + " -> " + WindowsWGLDrawableFactory.toHexString(paramInt));
+      }
+      return bool;
+    }
+    
+    public boolean reset() {
+      if (0L == threadHandle) {
+        return true;
+      }
+      long l1 = GDI.GetCurrentThread();
+      if (l1 != threadHandle)
+      {
+        throw new IllegalStateException("TID doesn't match: set TID " + WindowsWGLDrawableFactory.toHexString(threadHandle) + " this TID " + WindowsWGLDrawableFactory.toHexString(l1));
+      }
+      long l2 = GDI.SetThreadAffinityMask(threadHandle, threadOrigAffinity);
+      boolean bool = 0L != l2;
+      if (WindowsWGLDrawableFactory.DEBUG) {
+        System.err.println("WindowsThreadAffinity.reset() - tid " + WindowsWGLDrawableFactory.toHexString(threadHandle) + " - " + WindowsWGLDrawableFactory.access$1100() + ": OK " + bool + " (werr " + 
+          GDI.GetLastError() + "), Affinity: " + WindowsWGLDrawableFactory.toHexString(threadNewAffinity) + " -> orig " + WindowsWGLDrawableFactory.toHexString(threadOrigAffinity));
+      }
+      threadHandle = 0L;
+      threadNewAffinity = threadOrigAffinity;
+      return bool;
+    }
+  }
+  
+  static final class WindowsProcessAffinity implements WindowsWGLDrawableFactory.CPUAffinity {
+    private long processHandle;
+    private long newAffinity;
+    private final PointerBuffer procMask;
+    private final PointerBuffer sysMask;
+    
+    public WindowsProcessAffinity() { processHandle = 0L;
+      newAffinity = 0L;
+      procMask = PointerBuffer.allocateDirect(1);
+      sysMask = PointerBuffer.allocateDirect(1);
+    }
+    
+    public boolean set(int paramInt) {
+      if (0L != processHandle) {
+        throw new IllegalStateException("Affinity already set");
+      }
+      long l = GDI.GetCurrentProcess();
+      boolean bool;
+      if (GDI.GetProcessAffinityMask(l, procMask, sysMask)) {
+        if (GDI.SetProcessAffinityMask(l, paramInt)) {
+          processHandle = l;
+          newAffinity = paramInt;
+          bool = true;
+        } else {
+          bool = false;
+        }
+        if (WindowsWGLDrawableFactory.DEBUG) {
+          System.err.println("WindowsProcessAffinity.set() - pid " + WindowsWGLDrawableFactory.toHexString(l) + " - " + WindowsWGLDrawableFactory.access$1300() + ": OK " + bool + " (werr " + 
+            GDI.GetLastError() + "), Affinity: procMask " + WindowsWGLDrawableFactory.toHexString(procMask.get(0)) + ", sysMask " + WindowsWGLDrawableFactory.toHexString(sysMask.get(0)) + " -> " + 
+            WindowsWGLDrawableFactory.toHexString(paramInt));
+        }
+      } else {
+        if (WindowsWGLDrawableFactory.DEBUG) {
+          System.err.println("WindowsProcessAffinity.set() - pid " + WindowsWGLDrawableFactory.toHexString(l) + " - " + WindowsWGLDrawableFactory.access$1500() + ": Error, could not GetProcessAffinityMask, werr " + 
+            GDI.GetLastError());
+        }
+        bool = false;
+      }
+      return bool;
+    }
+    
+    public boolean reset() {
+      if (0L == processHandle) {
+        return true;
+      }
+      long l1 = GDI.GetCurrentProcess();
+      if (l1 != processHandle)
+      {
+        throw new IllegalStateException("PID doesn't match: set PID " + WindowsWGLDrawableFactory.toHexString(processHandle) + " this PID " + WindowsWGLDrawableFactory.toHexString(l1));
+      }
+      long l2 = procMask.get(0);
+      boolean bool = GDI.SetProcessAffinityMask(processHandle, l2);
+      if (WindowsWGLDrawableFactory.DEBUG) {
+        int i = GDI.GetLastError();
+        System.err.println("WindowsProcessAffinity.reset() - pid " + WindowsWGLDrawableFactory.toHexString(processHandle) + " - " + WindowsWGLDrawableFactory.access$1700() + ": OK " + bool + " (werr " + i + "), Affinity: " + 
+          WindowsWGLDrawableFactory.toHexString(newAffinity) + " -> procMask " + WindowsWGLDrawableFactory.toHexString(l2));
+      }
+      processHandle = 0L;
+      newAffinity = l2;
+      return bool;
+    }
+  }
+  
+  static final class NopCPUAffinity implements WindowsWGLDrawableFactory.CPUAffinity {
+    public NopCPUAffinity() {}
+    
+    public boolean set(int paramInt) { if (WindowsWGLDrawableFactory.DEBUG) {
+        System.err.println("NopCPUAffinity.set() - " + WindowsWGLDrawableFactory.access$1900());
+      }
+      return false;
+    }
+    
+    public boolean reset() {
+      if (WindowsWGLDrawableFactory.DEBUG) {
+        System.err.println("NopCPUAffinity.reset() - " + WindowsWGLDrawableFactory.access$2100());
+      }
+      return false;
+    }
+  }
+}

@@ -1,0 +1,186 @@
+package com.jogamp.opengl.util.stereo.generic;
+
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.opengl.util.stereo.EyeParameter;
+import com.jogamp.opengl.util.stereo.StereoDeviceConfig;
+import com.jogamp.opengl.util.stereo.StereoUtil;
+import java.util.Arrays;
+import jogamp.opengl.util.stereo.DistortionMesh.Producer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GenericStereoDeviceConfig
+  extends StereoDeviceConfig
+{
+  public final String name;
+  public final ShutterType shutterType;
+  public final DimensionImmutable surfaceSizeInPixels;
+  public final float[] screenSizeInMeters;
+  public final DimensionImmutable[] eyeTextureSizes;
+  public final float pupilCenterFromScreenTopInMeters;
+  public final float interpupillaryDistanceInMeters;
+  public final float[][] pupilCenterFromTopLeft;
+  public final int[] eyeRenderOrder;
+  public final EyeParameter[] defaultEyeParam;
+  public final int supportedSensorBits;
+  public final DistortionMesh.Producer distortionMeshProducer;
+  public final int supportedDistortionBits;
+  public final int recommendedDistortionBits;
+  public final int minimumDistortionBits;
+  
+  public static enum ShutterType
+  {
+    Global,  RollingLeftToRight,  RollingRightToLeft,  RollingTopToBottom;
+    
+
+
+
+
+
+    private ShutterType() {}
+  }
+  
+
+
+
+
+
+  public GenericStereoDeviceConfig(String paramString, ShutterType paramShutterType, DimensionImmutable paramDimensionImmutable, float[] paramArrayOfFloat, DimensionImmutable[] paramArrayOfDimensionImmutable, float paramFloat1, float paramFloat2, int[] paramArrayOfInt, EyeParameter[] paramArrayOfEyeParameter, int paramInt1, DistortionMesh.Producer paramProducer, int paramInt2, int paramInt3, int paramInt4)
+  {
+    if (paramArrayOfInt.length != paramArrayOfEyeParameter.length) {
+      throw new IllegalArgumentException("eye arrays of different length");
+    }
+    name = paramString;
+    shutterType = paramShutterType;
+    surfaceSizeInPixels = paramDimensionImmutable;
+    screenSizeInMeters = paramArrayOfFloat;
+    eyeTextureSizes = paramArrayOfDimensionImmutable;
+    pupilCenterFromScreenTopInMeters = paramFloat1;
+    interpupillaryDistanceInMeters = paramFloat2;
+    eyeRenderOrder = paramArrayOfInt;
+    defaultEyeParam = paramArrayOfEyeParameter;
+    supportedSensorBits = paramInt1;
+    distortionMeshProducer = paramProducer;
+    supportedDistortionBits = paramInt2;
+    recommendedDistortionBits = paramInt3;
+    minimumDistortionBits = paramInt4;
+    pupilCenterFromTopLeft = new float[2][2];
+    calcPupilCenterFromTopLeft();
+  }
+  
+
+
+  public GenericStereoDeviceConfig(GenericStereoDeviceConfig paramGenericStereoDeviceConfig, DimensionImmutable paramDimensionImmutable, float[] paramArrayOfFloat, DimensionImmutable[] paramArrayOfDimensionImmutable)
+  {
+    name = name;
+    shutterType = shutterType;
+    surfaceSizeInPixels = paramDimensionImmutable;
+    screenSizeInMeters = paramArrayOfFloat;
+    eyeTextureSizes = paramArrayOfDimensionImmutable;
+    pupilCenterFromScreenTopInMeters = pupilCenterFromScreenTopInMeters;
+    interpupillaryDistanceInMeters = interpupillaryDistanceInMeters;
+    eyeRenderOrder = eyeRenderOrder;
+    defaultEyeParam = defaultEyeParam;
+    supportedSensorBits = supportedSensorBits;
+    distortionMeshProducer = distortionMeshProducer;
+    supportedDistortionBits = supportedDistortionBits;
+    recommendedDistortionBits = recommendedDistortionBits;
+    minimumDistortionBits = minimumDistortionBits;
+    pupilCenterFromTopLeft = new float[2][2];
+    calcPupilCenterFromTopLeft();
+  }
+  
+  private void calcPupilCenterFromTopLeft() { float f1 = 0.5F * screenSizeInMeters[0];
+    float f2 = (screenSizeInMeters[0] - interpupillaryDistanceInMeters) * 0.5F;
+    float f3 = f2 + interpupillaryDistanceInMeters - f1;
+    pupilCenterFromTopLeft[0][0] = (f2 / f1);
+    pupilCenterFromTopLeft[0][1] = (pupilCenterFromScreenTopInMeters / screenSizeInMeters[1]);
+    pupilCenterFromTopLeft[1][0] = (f3 / f1);
+    pupilCenterFromTopLeft[1][1] = pupilCenterFromTopLeft[0][1];
+  }
+  
+
+
+
+  public synchronized void init()
+  {
+    if (!isInitialized) {
+      if (null != distortionMeshProducer) {
+        float[] arrayOfFloat = new float[defaultEyeParam.length];
+        if (0 < defaultEyeParam.length) {
+          arrayOfFloat[0] = defaultEyeParam[0].eyeReliefZ;
+        }
+        if (1 < defaultEyeParam.length) {
+          arrayOfFloat[1] = defaultEyeParam[1].eyeReliefZ;
+        }
+        distortionMeshProducer.init(this, arrayOfFloat);
+      }
+      isInitialized = true;
+    }
+  }
+  
+
+  public final boolean isInitialized()
+  {
+    return isInitialized;
+  }
+  
+
+
+
+
+
+  public String toString()
+  {
+    return "StereoConfig[" + name + ", shutter " + shutterType + ", surfaceSize " + surfaceSizeInPixels + ", screenSize " + screenSizeInMeters[0] + " x " + screenSizeInMeters[0] + " [m], eyeTexSize " + Arrays.toString(eyeTextureSizes) + ", IPD " + interpupillaryDistanceInMeters + " [m], eyeParam " + Arrays.toString(defaultEyeParam) + ", distortionBits[supported [" + StereoUtil.distortionBitsToString(supportedDistortionBits) + "], recommended [" + StereoUtil.distortionBitsToString(recommendedDistortionBits) + "], minimum [" + StereoUtil.distortionBitsToString(minimumDistortionBits) + "]]" + ", sensorBits[supported [" + StereoUtil.sensorBitsToString(supportedSensorBits) + "]]]";
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private boolean isInitialized = false;
+}

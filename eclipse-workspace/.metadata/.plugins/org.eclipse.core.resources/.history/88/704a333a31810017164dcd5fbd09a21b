@@ -1,0 +1,186 @@
+package jogamp.opengl.windows.wgl.awt;
+
+import com.jogamp.common.util.ArrayHashSet;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.CapabilitiesChooser;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.DefaultGraphicsScreen;
+import com.jogamp.nativewindow.GraphicsConfigurationFactory;
+import com.jogamp.nativewindow.awt.AWTGraphicsConfiguration;
+import com.jogamp.nativewindow.awt.AWTGraphicsDevice;
+import com.jogamp.nativewindow.awt.AWTGraphicsScreen;
+import com.jogamp.nativewindow.windows.WindowsGraphicsDevice;
+import com.jogamp.opengl.GLCapabilitiesChooser;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.io.PrintStream;
+import jogamp.nativewindow.jawt.windows.Win32SunJDKReflection;
+import jogamp.opengl.GLGraphicsConfigurationFactory;
+import jogamp.opengl.windows.wgl.WindowsWGLDrawableFactory;
+import jogamp.opengl.windows.wgl.WindowsWGLGraphicsConfiguration;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class WindowsAWTWGLGraphicsConfigurationFactory
+  extends GLGraphicsConfigurationFactory
+{
+  public static void registerFactory()
+  {
+    GraphicsConfigurationFactory.registerFactory(AWTGraphicsDevice.class, GLCapabilitiesImmutable.class, new WindowsAWTWGLGraphicsConfigurationFactory());
+  }
+  
+
+  private WindowsAWTWGLGraphicsConfigurationFactory() {}
+  
+
+  protected AbstractGraphicsConfiguration chooseGraphicsConfigurationImpl(CapabilitiesImmutable paramCapabilitiesImmutable1, CapabilitiesImmutable paramCapabilitiesImmutable2, CapabilitiesChooser paramCapabilitiesChooser, AbstractGraphicsScreen paramAbstractGraphicsScreen, int paramInt)
+  {
+    GraphicsDevice localGraphicsDevice = null;
+    if ((paramAbstractGraphicsScreen != null) && (!(paramAbstractGraphicsScreen instanceof AWTGraphicsScreen)))
+    {
+      throw new IllegalArgumentException("This GraphicsConfigurationFactory accepts only AWTGraphicsScreen objects");
+    }
+    
+    if (null == paramAbstractGraphicsScreen) {
+      paramAbstractGraphicsScreen = AWTGraphicsScreen.createDefault();
+      if (DEBUG) {
+        System.err.println("WindowsAWTWGLGraphicsConfigurationFactory: creating default device: " + paramAbstractGraphicsScreen);
+      }
+    }
+    AWTGraphicsScreen localAWTGraphicsScreen = (AWTGraphicsScreen)paramAbstractGraphicsScreen;
+    localGraphicsDevice = ((AWTGraphicsDevice)localAWTGraphicsScreen.getDevice()).getGraphicsDevice();
+    
+    if (!(paramCapabilitiesImmutable1 instanceof GLCapabilitiesImmutable)) {
+      throw new IllegalArgumentException("This GraphicsConfigurationFactory accepts only GLCapabilities objects - chosen");
+    }
+    
+    if (!(paramCapabilitiesImmutable2 instanceof GLCapabilitiesImmutable)) {
+      throw new IllegalArgumentException("This GraphicsConfigurationFactory accepts only GLCapabilities objects - requested");
+    }
+    
+    if ((paramCapabilitiesChooser != null) && (!(paramCapabilitiesChooser instanceof GLCapabilitiesChooser)))
+    {
+      throw new IllegalArgumentException("This GraphicsConfigurationFactory accepts only GLCapabilitiesChooser objects");
+    }
+    
+    if (DEBUG) {
+      System.err.println("WindowsAWTWGLGraphicsConfigurationFactory: got " + paramAbstractGraphicsScreen);
+    }
+    
+    WindowsGraphicsDevice localWindowsGraphicsDevice = new WindowsGraphicsDevice(0);
+    DefaultGraphicsScreen localDefaultGraphicsScreen = new DefaultGraphicsScreen(localWindowsGraphicsDevice, localAWTGraphicsScreen.getIndex());
+    GraphicsConfigurationFactory localGraphicsConfigurationFactory = GraphicsConfigurationFactory.getFactory(localWindowsGraphicsDevice, paramCapabilitiesImmutable1);
+    
+    WindowsWGLGraphicsConfiguration localWindowsWGLGraphicsConfiguration = (WindowsWGLGraphicsConfiguration)localGraphicsConfigurationFactory.chooseGraphicsConfiguration(paramCapabilitiesImmutable1, paramCapabilitiesImmutable2, paramCapabilitiesChooser, localDefaultGraphicsScreen, paramInt);
+    
+
+    if (localWindowsWGLGraphicsConfiguration == null) {
+      throw new GLException("Unable to choose a GraphicsConfiguration: " + paramCapabilitiesImmutable1 + ",\n\t" + paramCapabilitiesChooser + "\n\t" + localDefaultGraphicsScreen);
+    }
+    
+    GLDrawableFactory localGLDrawableFactory = GLDrawableFactory.getFactory(((GLCapabilitiesImmutable)paramCapabilitiesImmutable1).getGLProfile());
+    GraphicsConfiguration localGraphicsConfiguration1 = null;
+    
+    if ((localGLDrawableFactory instanceof WindowsWGLDrawableFactory))
+    {
+
+
+      try
+      {
+
+
+        localWindowsWGLGraphicsConfiguration.preselectGraphicsConfiguration(localGLDrawableFactory, null);
+        if (1 <= localWindowsWGLGraphicsConfiguration.getPixelFormatID()) {
+          localGraphicsConfiguration1 = Win32SunJDKReflection.graphicsConfigurationGet(localGraphicsDevice, localWindowsWGLGraphicsConfiguration.getPixelFormatID());
+          if (DEBUG) {
+            System.err.println("WindowsAWTWGLGraphicsConfigurationFactory: Found new AWT PFD ID " + localWindowsWGLGraphicsConfiguration.getPixelFormatID() + " -> " + localWindowsWGLGraphicsConfiguration);
+          }
+        }
+      } catch (GLException localGLException) {
+        if (DEBUG) {
+          localGLException.printStackTrace();
+        }
+      }
+      
+
+      if (null == localGraphicsConfiguration1)
+      {
+
+
+
+
+
+
+
+
+        GraphicsConfiguration[] arrayOfGraphicsConfiguration = localGraphicsDevice.getConfigurations();
+        int[] arrayOfInt = new int[arrayOfGraphicsConfiguration.length];
+        ArrayHashSet localArrayHashSet = new ArrayHashSet(false, 16, 0.75F);
+        
+        for (int i = 0; i < arrayOfGraphicsConfiguration.length; i++) {
+          GraphicsConfiguration localGraphicsConfiguration2 = arrayOfGraphicsConfiguration[i];
+          arrayOfInt[i] = Win32SunJDKReflection.graphicsConfigurationGetPixelFormatID(localGraphicsConfiguration2);
+          localArrayHashSet.add(Integer.valueOf(arrayOfInt[i]));
+          if (DEBUG) {
+            System.err.println("AWT pfd[" + i + "] " + arrayOfInt[i]);
+          }
+        }
+        if (DEBUG) {
+          System.err.println("WindowsAWTWGLGraphicsConfigurationFactory: PFD IDs: " + arrayOfInt.length + ", unique: " + localArrayHashSet.size());
+        }
+        localWindowsWGLGraphicsConfiguration.preselectGraphicsConfiguration(localGLDrawableFactory, arrayOfInt);
+        i = localArrayHashSet.indexOf(Integer.valueOf(localWindowsWGLGraphicsConfiguration.getPixelFormatID()));
+        if (0 > i) {
+          localGraphicsConfiguration1 = arrayOfGraphicsConfiguration[i];
+          if (DEBUG) {
+            System.err.println("WindowsAWTWGLGraphicsConfigurationFactory: Found matching AWT PFD ID " + localWindowsWGLGraphicsConfiguration.getPixelFormatID() + " -> " + localWindowsWGLGraphicsConfiguration);
+          }
+        }
+      }
+    } else {
+      localGraphicsConfiguration1 = localGraphicsDevice.getDefaultConfiguration();
+    }
+    
+    if (null == localGraphicsConfiguration1) {
+      throw new GLException("Unable to determine GraphicsConfiguration: " + localWindowsWGLGraphicsConfiguration);
+    }
+    return new AWTGraphicsConfiguration(localAWTGraphicsScreen, localWindowsWGLGraphicsConfiguration.getChosenCapabilities(), localWindowsWGLGraphicsConfiguration.getRequestedCapabilities(), localGraphicsConfiguration1, localWindowsWGLGraphicsConfiguration);
+  }
+}

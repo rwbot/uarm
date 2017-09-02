@@ -1,0 +1,242 @@
+package jogamp.opengl.glu.nurbs;
+
+
+
+
+
+
+
+
+
+public class Curve
+{
+  private static final int MAXCOORDS = 5;
+  
+
+
+
+
+
+
+
+  private static final int MAXORDER = 24;
+  
+
+
+
+
+
+
+
+  public Curve next;
+  
+
+
+
+
+
+
+
+  private final Mapdesc mapdesc;
+  
+
+
+
+
+
+
+  private final boolean needsSampling;
+  
+
+
+
+
+
+
+  private final int cullval;
+  
+
+
+
+
+
+
+  private final int stride;
+  
+
+
+
+
+
+
+  private final int order;
+  
+
+
+
+
+
+
+  private final float[] range;
+  
+
+
+
+
+
+
+  public float stepsize;
+  
+
+
+
+
+
+
+  private float minstepsize;
+  
+
+
+
+
+
+
+  float[] spts;
+  
+
+
+
+
+
+
+
+  public Curve(Quilt paramQuilt, float[] paramArrayOfFloat1, float[] paramArrayOfFloat2, Curve paramCurve)
+  {
+    spts = new float[120];
+    
+    mapdesc = mapdesc;
+    
+    next = paramCurve;
+    needsSampling = (mapdesc.isRangeSampling());
+    
+    cullval = (mapdesc.isCulling() ? 1 : 0);
+    
+    order = qspec.get(0).order;
+    stride = 5;
+    
+
+    CArrayOfFloats localCArrayOfFloats = new CArrayOfFloats(cpts.getArray(), 0);
+    CArrayOfQuiltspecs localCArrayOfQuiltspecs = qspec;
+    localCArrayOfFloats.raisePointerBy(getoffset);
+    localCArrayOfFloats.raisePointerBy(getindex * getorder * getstride);
+    
+    if (needsSampling) {
+      mapdesc.xformSampling(localCArrayOfFloats, getorder, getstride, spts, stride);
+    }
+    
+    if (cullval == 1) {}
+    
+
+
+
+    range = new float[3];
+    range[0] = getbreakpoints[getindex];
+    range[1] = getbreakpoints[(getindex + 1)];
+    range[2] = (range[1] - range[0]);
+    
+    if ((range[0] == paramArrayOfFloat1[0]) || 
+    
+
+
+
+
+      (range[1] != paramArrayOfFloat2[0])) {}
+  }
+  
+
+
+
+
+
+
+  public int cullCheck()
+  {
+    if (cullval == 1) {}
+    
+
+
+
+
+    return 1;
+  }
+  
+
+
+  public void getStepSize()
+  {
+    minstepsize = 0.0F;
+    if (mapdesc.isConstantSampling()) {
+      setstepsize(mapdesc.maxrate);
+    } else if (mapdesc.isDomainSampling()) {
+      setstepsize(mapdesc.maxrate * range[2]);
+    } else {
+      assert (order <= 24);
+      
+      setstepsize(mapdesc.maxrate);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private void setstepsize(float paramFloat)
+  {
+    stepsize = (paramFloat >= 1.0F ? range[2] / paramFloat : range[2]);
+    minstepsize = stepsize;
+  }
+  
+
+
+
+  public void clamp()
+  {
+    if (stepsize < minstepsize) {
+      stepsize = (mapdesc.clampfactor * minstepsize);
+    }
+  }
+  
+
+
+
+  public boolean needsSamplingSubdivision()
+  {
+    return stepsize < minstepsize;
+  }
+}

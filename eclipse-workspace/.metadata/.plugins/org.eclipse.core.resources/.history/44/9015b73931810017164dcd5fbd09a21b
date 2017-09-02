@@ -1,0 +1,84 @@
+package com.leapmotion.leap;
+
+import java.util.Iterator;
+
+
+
+public class HandList
+  extends Interface
+  implements Iterable<Hand>
+{
+  private long swigCPtr;
+  
+  public HandList(long paramLong, boolean paramBoolean)
+  {
+    super(LeapJNI.HandList_SWIGUpcast(paramLong), paramBoolean);
+    swigCPtr = paramLong;
+  }
+  
+  public static long getCPtr(HandList paramHandList) {
+    return paramHandList == null ? 0L : swigCPtr;
+  }
+  
+  protected void finalize() {
+    delete();
+  }
+  
+  public synchronized void delete() {
+    if (swigCPtr != 0L) {
+      if (swigCMemOwn) {
+        swigCMemOwn = false;
+        LeapJNI.delete_HandList(swigCPtr);
+      }
+      swigCPtr = 0L;
+    }
+    super.delete(); }
+  
+  public class HandListIterator implements Iterator<Hand> { public HandListIterator() {}
+    
+    int index = 0;
+    
+    public boolean hasNext() { return index < count(); }
+    
+    public Hand next() {
+      return get(index++);
+    }
+    
+    public void remove() {}
+  }
+  
+  public Iterator<Hand> iterator() { return new HandListIterator(); }
+  
+  public HandList()
+  {
+    this(LeapJNI.new_HandList(), true);
+  }
+  
+  public int count() {
+    return LeapJNI.HandList_count(swigCPtr, this);
+  }
+  
+  public boolean isEmpty() {
+    return LeapJNI.HandList_isEmpty(swigCPtr, this);
+  }
+  
+  public Hand get(int paramInt) {
+    return new Hand(LeapJNI.HandList_get(swigCPtr, this, paramInt), true);
+  }
+  
+  public HandList append(HandList paramHandList) {
+    return new HandList(LeapJNI.HandList_append(swigCPtr, this, getCPtr(paramHandList), paramHandList), false);
+  }
+  
+  public Hand leftmost() {
+    return new Hand(LeapJNI.HandList_leftmost(swigCPtr, this), true);
+  }
+  
+  public Hand rightmost() {
+    return new Hand(LeapJNI.HandList_rightmost(swigCPtr, this), true);
+  }
+  
+  public Hand frontmost() {
+    return new Hand(LeapJNI.HandList_frontmost(swigCPtr, this), true);
+  }
+}

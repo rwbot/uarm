@@ -1,0 +1,364 @@
+package g4p_controls;
+
+import processing.core.PApplet;
+
+public abstract class GValueControl
+  extends GAbstractControl
+{
+  protected StyledString ssStartLimit;
+  protected StyledString ssEndLimit;
+  protected StyledString ssValue;
+  protected float startLimit = 0.0F;
+  protected float endLimit = 1.0F;
+  protected boolean showLimits = false;
+  protected int valueType = 1;
+  protected int precision = 2;
+  protected String unit = "";
+  protected boolean showValue = false;
+  protected float parametricPos = 0.5F;
+  protected float parametricTarget = 0.5F;
+  protected float easing = 1.0F;
+  protected int nbrTicks = 2;
+  protected boolean stickToTicks = false;
+  protected boolean showTicks = false;
+  protected float wheelDelta = 0.01F;
+  protected boolean limitsInvalid = true;
+  protected boolean valueInvalid = true;
+  protected float offset;
+  
+  public GValueControl(PApplet paramPApplet, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    super(paramPApplet, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+  }
+  
+  public void pre()
+  {
+    if (Math.abs(parametricTarget - parametricPos) > epsilon)
+    {
+      parametricPos += (parametricTarget - parametricPos) / easing;
+      updateDueToValueChanging();
+      bufferInvalid = true;
+      if (Math.abs(parametricTarget - parametricPos) > epsilon)
+      {
+        valueInvalid = true;
+        fireEvent(new Object[] { this, GEvent.VALUE_CHANGING });
+      }
+      else
+      {
+        parametricPos = parametricTarget;
+        fireEvent(new Object[] { this, GEvent.VALUE_STEADY });
+      }
+    }
+  }
+  
+  protected void updateDueToValueChanging() {}
+  
+  protected String getNumericDisplayString(float paramFloat)
+  {
+    String str = "";
+    switch (valueType)
+    {
+    case 0: 
+      str = String.format("%d %s", new Object[] { Integer.valueOf(Math.round(paramFloat)), unit });
+      break;
+    case 1: 
+      str = String.format("%." + precision + "f %s", new Object[] { Float.valueOf(paramFloat), unit });
+      break;
+    case 2: 
+      str = String.format("%." + precision + "e %s", new Object[] { Float.valueOf(paramFloat), unit });
+    }
+    return str.trim();
+  }
+  
+  public void setLimits(int paramInt1, int paramInt2)
+  {
+    startLimit = paramInt1;
+    endLimit = paramInt2;
+    setEpsilon();
+    valueType = 0;
+    limitsInvalid = true;
+    bufferInvalid = true;
+  }
+  
+  public void setLimits(int paramInt1, int paramInt2, int paramInt3)
+  {
+    startLimit = paramInt2;
+    endLimit = paramInt3;
+    valueType = 0;
+    setEpsilon();
+    limitsInvalid = true;
+    bufferInvalid = true;
+    setValue(paramInt1);
+    parametricPos = parametricTarget;
+    updateDueToValueChanging();
+  }
+  
+  public void setLimits(float paramFloat1, float paramFloat2)
+  {
+    startLimit = paramFloat1;
+    endLimit = paramFloat2;
+    if (valueType == 0)
+    {
+      valueType = 1;
+      setPrecision(1);
+    }
+    setEpsilon();
+    limitsInvalid = true;
+    bufferInvalid = true;
+  }
+  
+  public void setLimits(float paramFloat1, float paramFloat2, float paramFloat3)
+  {
+    startLimit = paramFloat2;
+    endLimit = paramFloat3;
+    paramFloat1 = PApplet.constrain(paramFloat1, paramFloat2, paramFloat3);
+    if (valueType == 0)
+    {
+      valueType = 1;
+      setPrecision(1);
+    }
+    setEpsilon();
+    limitsInvalid = true;
+    bufferInvalid = true;
+    setValue(paramFloat1);
+    parametricPos = parametricTarget;
+    updateDueToValueChanging();
+  }
+  
+  public void setValue(float paramFloat)
+  {
+    if (valueType == 0) {
+      paramFloat = Math.round(paramFloat);
+    }
+    float f = (paramFloat - startLimit) / (endLimit - startLimit);
+    f = PApplet.constrain(f, 0.0F, 1.0F);
+    if (stickToTicks) {
+      f = findNearestTickValueTo(f);
+    }
+    parametricTarget = f;
+  }
+  
+  public void setPrecision(int paramInt)
+  {
+    paramInt = PApplet.constrain(paramInt, 1, 5);
+    if (paramInt < 1) {
+      paramInt = 1;
+    }
+    if (paramInt != precision)
+    {
+      precision = paramInt;
+      setEpsilon();
+      limitsInvalid = true;
+      bufferInvalid = true;
+    }
+  }
+  
+  protected void setEpsilon()
+  {
+    epsilon = (float)Math.min(0.001D, Math.pow(10.0D, -precision));
+  }
+  
+  public void setUnits(String paramString)
+  {
+    if (paramString == null) {
+      paramString = "";
+    }
+    if (!unit.equals(paramString))
+    {
+      unit = paramString;
+      limitsInvalid = true;
+      bufferInvalid = true;
+    }
+  }
+  
+  public void setNumberFormat(int paramInt1, int paramInt2, String paramString)
+  {
+    unit = (paramString == null ? "" : paramString);
+    setNumberFormat(paramInt1, paramInt2);
+  }
+  
+  public void setNumberFormat(int paramInt1, int paramInt2)
+  {
+    switch (paramInt1)
+    {
+    case 0: 
+    case 1: 
+    case 2: 
+      valueType = paramInt1;
+      break;
+    default: 
+      valueType = 1;
+    }
+    setPrecision(paramInt2);
+    bufferInvalid = true;
+  }
+  
+  public void setNumberFormat(int paramInt)
+  {
+    switch (paramInt)
+    {
+    case 0: 
+    case 1: 
+    case 2: 
+      valueType = paramInt;
+      break;
+    default: 
+      valueType = 1;
+    }
+    bufferInvalid = true;
+  }
+  
+  public float getValueF()
+  {
+    return startLimit + (endLimit - startLimit) * parametricPos;
+  }
+  
+  public int getValueI()
+  {
+    return Math.round(startLimit + (endLimit - startLimit) * parametricPos);
+  }
+  
+  public String getValueS()
+  {
+    return getNumericDisplayString(getValueF());
+  }
+  
+  public float getEasing()
+  {
+    return easing;
+  }
+  
+  public void setEasing(float paramFloat)
+  {
+    easing = (paramFloat < 1.0F ? 1.0F : paramFloat);
+  }
+  
+  public int getNbrTicks()
+  {
+    return nbrTicks;
+  }
+  
+  public void setNbrTicks(int paramInt)
+  {
+    if (paramInt < 2) {
+      paramInt = 2;
+    }
+    if (nbrTicks != paramInt)
+    {
+      nbrTicks = paramInt;
+      bufferInvalid = true;
+      if (stickToTicks)
+      {
+        wheelDelta = (0.51F / (nbrTicks - 1));
+        parametricTarget = findNearestTickValueTo(parametricPos);
+      }
+    }
+  }
+  
+  public void setStickToTicks(boolean paramBoolean)
+  {
+    stickToTicks = paramBoolean;
+    if (paramBoolean)
+    {
+      setShowTicks(true);
+      wheelDelta = (0.51F / (nbrTicks - 1));
+      parametricTarget = findNearestTickValueTo(parametricPos);
+      bufferInvalid = true;
+    }
+    else
+    {
+      wheelDelta = 0.01F;
+    }
+  }
+  
+  public boolean isStickToTicks()
+  {
+    return stickToTicks;
+  }
+  
+  protected float findNearestTickValueTo(float paramFloat)
+  {
+    float f = 1.0F / (nbrTicks - 1);
+    int i = (int)(paramFloat / f + 0.5F);
+    return f * i;
+  }
+  
+  protected float calcParametricTarget(float paramFloat)
+  {
+    paramFloat = paramFloat > 1.0F ? 1.0F : paramFloat < 0.0F ? 0.0F : paramFloat;
+    if (stickToTicks) {
+      paramFloat = findNearestTickValueTo(paramFloat);
+    }
+    return paramFloat;
+  }
+  
+  public boolean isShowTicks()
+  {
+    return showTicks;
+  }
+  
+  public void setShowTicks(boolean paramBoolean)
+  {
+    if (showTicks != paramBoolean)
+    {
+      showTicks = paramBoolean;
+      bufferInvalid = true;
+    }
+  }
+  
+  public boolean isShowLimits()
+  {
+    return showLimits;
+  }
+  
+  public void setShowLimits(boolean paramBoolean)
+  {
+    showLimits = paramBoolean;
+    bufferInvalid = true;
+  }
+  
+  public boolean isShowValue()
+  {
+    return showValue;
+  }
+  
+  public void setShowValue(boolean paramBoolean)
+  {
+    showValue = paramBoolean;
+    bufferInvalid = true;
+  }
+  
+  public void setShowDecor(boolean paramBoolean1, boolean paramBoolean2, boolean paramBoolean3, boolean paramBoolean4)
+  {
+    setShowValue(paramBoolean3);
+    bufferInvalid = true;
+    setOpaque(paramBoolean1);
+    setShowTicks(paramBoolean2);
+    setShowLimits(paramBoolean4);
+  }
+  
+  public float getStartLimit()
+  {
+    return startLimit;
+  }
+  
+  public float getEndLimit()
+  {
+    return endLimit;
+  }
+  
+  public int getValueType()
+  {
+    return valueType;
+  }
+  
+  public int getPrecision()
+  {
+    return precision;
+  }
+  
+  public String getUnit()
+  {
+    return unit;
+  }
+}

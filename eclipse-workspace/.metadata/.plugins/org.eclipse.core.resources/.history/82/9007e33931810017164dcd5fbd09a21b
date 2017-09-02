@@ -1,0 +1,198 @@
+package com.jogamp.nativewindow.awt;
+
+import com.jogamp.common.util.RunnableTask;
+import java.io.PrintStream;
+import java.lang.ref.WeakReference;
+import java.lang.reflect.Method;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import jogamp.nativewindow.jawt.JAWTUtil;
+
+
+
+
+
+
+
+
+
+
+public class AppContextInfo
+{
+  private static final Object mainThreadAppContextLock = new Object();
+  private volatile WeakReference<Object> mainThreadAppContextWR = null;
+  private volatile WeakReference<ThreadGroup> mainThreadGroupWR = null;
+  
+  static {
+    DEBUG = JAWTUtil.DEBUG;
+    Method[] arrayOfMethod = { null };
+    AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public Object run() {
+        try {
+          Class localClass = Class.forName("sun.awt.AppContext");
+          val$_getAppContextMethod[0] = localClass.getMethod("getAppContext", new Class[0]);
+        } catch (Throwable localThrowable) {
+          System.err.println("Bug 1004: Caught @ static: " + localThrowable.getMessage());
+          localThrowable.printStackTrace();
+        }
+        return null; } }); }
+  
+  private static final Method getAppContextMethod = arrayOfMethod[0];
+  private static final boolean DEBUG;
+  
+  public AppContextInfo(String paramString) {
+    update(paramString);
+  }
+  
+
+
+
+  public final boolean isValid()
+  {
+    return null != getCachedThreadGroup();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final ThreadGroup getCachedThreadGroup()
+  {
+    WeakReference localWeakReference = mainThreadGroupWR;
+    return null != localWeakReference ? (ThreadGroup)localWeakReference.get() : null;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public Thread invokeOnAppContextThread(boolean paramBoolean, Runnable paramRunnable, String paramString)
+  {
+    Thread localThread;
+    
+
+
+
+
+
+
+
+
+
+    if (update("invoke")) {
+      localThread = Thread.currentThread();
+      if (DEBUG) {
+        System.err.println("Bug 1004: Invoke.0 on current AppContext thread: " + localThread + " " + toHexString(localThread.hashCode()));
+      }
+      paramRunnable.run();
+    } else {
+      ThreadGroup localThreadGroup = getCachedThreadGroup();
+      String str = paramString + (null != localThreadGroup ? "-OnAppContextTG" : "-OnSystemTG");
+      localThread = RunnableTask.invokeOnNewThread(localThreadGroup, paramBoolean, paramRunnable, str);
+      if (DEBUG) {
+        int i = null != localThreadGroup ? localThreadGroup.hashCode() : 0;
+        System.err.println("Bug 1004: Invoke.1 on new AppContext thread: " + localThread + " " + toHexString(localThread.hashCode()) + ", tg " + localThreadGroup + " " + toHexString(i));
+      }
+    }
+    return localThread;
+  }
+  
+
+
+
+
+
+
+
+  public final boolean update(String paramString)
+  {
+    if (null != getAppContextMethod)
+    {
+      Object localObject1 = fetchAppContext();
+      boolean bool = null != localObject1;
+      
+      Thread localThread = Thread.currentThread();
+      ThreadGroup localThreadGroup = localThread.getThreadGroup();
+      
+
+      WeakReference localWeakReference = mainThreadAppContextWR;
+      Object localObject2 = null != localWeakReference ? localWeakReference.get() : null;
+      int i;
+      int j;
+      if (bool)
+      {
+        if ((null == localObject2) || (localObject2 != localObject1))
+        {
+
+          i = null != localObject2 ? localObject2.hashCode() : 0;
+          
+          synchronized (mainThreadAppContextLock) {
+            mainThreadGroupWR = new WeakReference(localThreadGroup);
+            mainThreadAppContextWR = new WeakReference(localObject1);
+            j = localObject1.hashCode();
+          }
+          if (DEBUG) {
+            System.err.println("Bug 1004[TGMapped " + bool + "]: Init AppContext @ " + paramString + " on thread " + localThread.getName() + " " + toHexString(localThread.hashCode()) + ": tg " + localThreadGroup
+              .getName() + " " + toHexString(localThreadGroup.hashCode()) + " -> appCtx [ main " + localObject2 + " " + 
+              toHexString(i) + " -> this " + localObject1 + " " + 
+              toHexString(j) + " ] ");
+          }
+          
+        }
+        else if (DEBUG) {
+          i = localObject2.hashCode();
+          j = localObject1.hashCode();
+          System.err.println("Bug 1004[TGMapped " + bool + "]: OK AppContext @ " + paramString + " on thread " + localThread.getName() + " " + toHexString(localThread.hashCode()) + ": tg " + localThreadGroup
+            .getName() + " " + toHexString(localThreadGroup.hashCode()) + "  : appCtx [ this " + localObject1 + " " + 
+            toHexString(j) + "  , main " + localObject2 + " " + 
+            toHexString(i) + " ] ");
+        }
+        
+        return true;
+      }
+      if (DEBUG) {
+        i = null != localObject2 ? localObject2.hashCode() : 0;
+        j = null != localObject1 ? localObject1.hashCode() : 0;
+        System.err.println("Bug 1004[TGMapped " + bool + "]: No AppContext @ " + paramString + " on thread " + localThread.getName() + " " + toHexString(localThread.hashCode()) + ": tg " + localThreadGroup
+          .getName() + " " + toHexString(localThreadGroup.hashCode()) + " -> appCtx [ this " + localObject1 + " " + 
+          toHexString(j) + " -> main " + localObject2 + " " + 
+          toHexString(i) + " ] ");
+      }
+    }
+    
+    return false;
+  }
+  
+  private static Object fetchAppContext() {
+    try { return getAppContextMethod.invoke(null, new Object[0]);
+    } catch (Exception localException) {
+      System.err.println("Bug 1004: Caught: " + localException.getMessage());
+      localException.printStackTrace(); }
+    return null;
+  }
+  
+  private static String toHexString(int paramInt)
+  {
+    return "0x" + Integer.toHexString(paramInt);
+  }
+}

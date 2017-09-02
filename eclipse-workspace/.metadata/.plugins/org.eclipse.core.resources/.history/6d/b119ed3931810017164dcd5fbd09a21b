@@ -1,0 +1,1651 @@
+package com.jogamp.opengl.awt;
+
+import com.jogamp.common.GlueGenVersion;
+import com.jogamp.common.util.VersionUtil;
+import com.jogamp.common.util.awt.AWTEDTExecutor;
+import com.jogamp.common.util.locks.LockFactory;
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.GraphicsConfigurationFactory;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.OffscreenLayerOption;
+import com.jogamp.nativewindow.ScalableSurface;
+import com.jogamp.nativewindow.WindowClosingProtocol;
+import com.jogamp.nativewindow.WindowClosingProtocol.WindowClosingMode;
+import com.jogamp.nativewindow.awt.AWTGraphicsConfiguration;
+import com.jogamp.nativewindow.awt.AWTGraphicsDevice;
+import com.jogamp.nativewindow.awt.AWTGraphicsScreen;
+import com.jogamp.nativewindow.awt.AWTPrintLifecycle;
+import com.jogamp.nativewindow.awt.AWTWindowClosingProtocol;
+import com.jogamp.nativewindow.awt.JAWTWindow;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLAnimatorControl;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLCapabilitiesChooser;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawable;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLEventListener;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLOffscreenAutoDrawable;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.GLRunnable;
+import com.jogamp.opengl.GLSharedContextSetter;
+import com.jogamp.opengl.JoglVersion;
+import com.jogamp.opengl.Threading;
+import com.jogamp.opengl.util.GLDrawableUtil;
+import com.jogamp.opengl.util.TileRenderer;
+import java.awt.Canvas;
+import java.awt.Color;
+import java.awt.EventQueue;
+import java.awt.FontMetrics;
+import java.awt.Frame;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.awt.event.HierarchyEvent;
+import java.awt.event.HierarchyListener;
+import java.awt.geom.NoninvertibleTransformException;
+import java.awt.geom.Rectangle2D;
+import java.beans.Beans;
+import java.io.PrintStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.ArrayList;
+import java.util.List;
+import javax.swing.SwingUtilities;
+import jogamp.nativewindow.SurfaceScaleUtils;
+import jogamp.opengl.Debug;
+import jogamp.opengl.GLContextImpl;
+import jogamp.opengl.GLDrawableHelper;
+import jogamp.opengl.GLDrawableImpl;
+import jogamp.opengl.awt.AWTTilePainter;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLCanvas
+  extends Canvas
+  implements AWTGLAutoDrawable, WindowClosingProtocol, OffscreenLayerOption, AWTPrintLifecycle, GLSharedContextSetter, ScalableSurface
+{
+  private static final boolean DEBUG = Debug.debug("GLCanvas");
+  
+  private final RecursiveLock lock = LockFactory.createRecursiveLock();
+  private final GLDrawableHelper helper = new GLDrawableHelper();
+  private volatile GLDrawableImpl drawable;
+  private volatile JAWTWindow jawtWindow;
+  private volatile GLContextImpl context;
+  private volatile boolean sendReshape = false;
+  private final float[] minPixelScale = { 1.0F, 1.0F };
+  private final float[] maxPixelScale = { 1.0F, 1.0F };
+  private final float[] hasPixelScale = { 1.0F, 1.0F };
+  final float[] reqPixelScale = { 0.0F, 0.0F };
+  
+  private final GLCapabilitiesImmutable capsReqUser;
+  
+  private final GLCapabilitiesChooser chooser;
+  private int additionalCtxCreationFlags = 0;
+  private boolean shallUseOffscreenLayer = false;
+  
+  private volatile GraphicsDevice awtDeviceReq;
+  private volatile AWTGraphicsConfiguration awtConfig;
+  private volatile boolean isShowing;
+  private final HierarchyListener hierarchyListener = new HierarchyListener()
+  {
+    public void hierarchyChanged(HierarchyEvent paramAnonymousHierarchyEvent) {
+      isShowing = isShowing();
+    }
+  };
+  
+  private final AWTWindowClosingProtocol awtWindowClosingProtocol = new AWTWindowClosingProtocol(this, new Runnable()
+  {
+    public void run()
+    {
+      destroyImpl(true);
+    }
+  }, null);
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public GLCanvas()
+    throws GLException
+  {
+    this(null);
+  }
+  
+
+
+
+
+
+
+
+  public GLCanvas(GLCapabilitiesImmutable paramGLCapabilitiesImmutable)
+    throws GLException
+  {
+    this(paramGLCapabilitiesImmutable, null, null);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public GLCanvas(GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser, GraphicsDevice paramGraphicsDevice)
+    throws GLException
+  {
+    if (null == paramGLCapabilitiesImmutable) {
+      capsReqUser = new GLCapabilities(GLProfile.getDefault(GLProfile.getDefaultDevice()));
+    }
+    else {
+      capsReqUser = ((GLCapabilitiesImmutable)paramGLCapabilitiesImmutable.cloneMutable());
+    }
+    if (!capsReqUser.isOnscreen()) {
+      setShallUseOffscreenLayer(true);
+    }
+    
+
+    awtDeviceReq = paramGraphicsDevice;
+    
+
+    chooser = paramGLCapabilitiesChooser;
+    
+    addHierarchyListener(hierarchyListener);
+    isShowing = isShowing();
+  }
+  
+  public final void setSharedContext(GLContext paramGLContext) throws IllegalStateException
+  {
+    helper.setSharedContext(context, paramGLContext);
+  }
+  
+  public final void setSharedAutoDrawable(GLAutoDrawable paramGLAutoDrawable) throws IllegalStateException
+  {
+    helper.setSharedAutoDrawable(this, paramGLAutoDrawable);
+  }
+  
+  public final Object getUpstreamWidget()
+  {
+    return this;
+  }
+  
+  public final RecursiveLock getUpstreamLock() {
+    return lock;
+  }
+  
+  public final boolean isThreadGLCapable() { return Threading.isOpenGLThread(); }
+  
+  public void setShallUseOffscreenLayer(boolean paramBoolean)
+  {
+    shallUseOffscreenLayer = paramBoolean;
+  }
+  
+  public final boolean getShallUseOffscreenLayer()
+  {
+    return shallUseOffscreenLayer;
+  }
+  
+  public final boolean isOffscreenLayerSurfaceEnabled()
+  {
+    JAWTWindow localJAWTWindow = jawtWindow;
+    if (null != localJAWTWindow) {
+      return localJAWTWindow.isOffscreenLayerSurfaceEnabled();
+    }
+    return false;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public GraphicsConfiguration getGraphicsConfiguration()
+  {
+    GraphicsConfiguration localGraphicsConfiguration1 = super.getGraphicsConfiguration();
+    
+    if (Beans.isDesignTime()) {
+      return localGraphicsConfiguration1;
+    }
+    Object localObject = null != awtConfig ? awtConfig.getAWTGraphicsConfiguration() : null;
+    
+    if ((null != localGraphicsConfiguration1) && (null != localObject) && (!localObject.equals(localGraphicsConfiguration1)))
+    {
+
+      if (!localObject.getDevice().getIDstring().equals(localGraphicsConfiguration1.getDevice().getIDstring()))
+      {
+
+
+
+
+
+
+        AWTGraphicsConfiguration localAWTGraphicsConfiguration = chooseGraphicsConfiguration((GLCapabilitiesImmutable)awtConfig.getChosenCapabilities(), 
+          (GLCapabilitiesImmutable)awtConfig.getRequestedCapabilities(), chooser, localGraphicsConfiguration1
+          .getDevice());
+        GraphicsConfiguration localGraphicsConfiguration2 = localAWTGraphicsConfiguration.getAWTGraphicsConfiguration();
+        boolean bool = localAWTGraphicsConfiguration.getChosenCapabilities().equals(awtConfig.getChosenCapabilities());
+        if (DEBUG) {
+          System.err.println(getThreadName() + ": getGraphicsConfiguration() Info: Changed GC and GD");
+          System.err.println("Created Config (n): Old     GC " + localObject);
+          System.err.println("Created Config (n): Old     GD " + localObject.getDevice().getIDstring());
+          System.err.println("Created Config (n): Parent  GC " + localGraphicsConfiguration1);
+          System.err.println("Created Config (n): Parent  GD " + localGraphicsConfiguration1.getDevice().getIDstring());
+          System.err.println("Created Config (n): New     GC " + localGraphicsConfiguration2);
+          System.err.println("Created Config (n): New     GD " + localGraphicsConfiguration2.getDevice().getIDstring());
+          System.err.println("Created Config (n): Old     CF " + awtConfig);
+          System.err.println("Created Config (n): New     CF " + localAWTGraphicsConfiguration);
+          System.err.println("Created Config (n): EQUALS CAPS " + bool);
+        }
+        
+        if (null != localGraphicsConfiguration2) {
+          if ((!bool) && (GLAutoDrawable.SCREEN_CHANGE_ACTION_ENABLED))
+          {
+            destroyImpl(true);
+            
+            setAWTGraphicsConfiguration(localAWTGraphicsConfiguration);
+            createJAWTDrawableAndContext();
+            validateGLDrawable();
+          } else {
+            setAWTGraphicsConfiguration(localAWTGraphicsConfiguration);
+          }
+          
+
+
+
+          if (DEBUG) {
+            System.err.println(getThreadName() + ": Info: getGraphicsConfiguration - end.01: newGC " + localGraphicsConfiguration2);
+          }
+          return localGraphicsConfiguration2;
+        }
+        if (DEBUG) {
+          System.err.println(getThreadName() + ": Info: getGraphicsConfiguration - end.00: oldGC " + localObject);
+        }
+      }
+      
+
+
+
+
+
+
+      return localObject; }
+    if (null == localGraphicsConfiguration1)
+    {
+
+
+
+
+
+      return localObject;
+    }
+    
+
+
+
+    return localGraphicsConfiguration1;
+  }
+  
+
+  public GLContext createContext(GLContext paramGLContext)
+  {
+    RecursiveLock localRecursiveLock = lock;
+    localRecursiveLock.lock();
+    try { GLContext localGLContext1;
+      if (drawable != null) {
+        localGLContext1 = drawable.createContext(paramGLContext);
+        localGLContext1.setContextCreationFlags(additionalCtxCreationFlags);
+        return localGLContext1;
+      }
+      return null;
+    } finally {
+      localRecursiveLock.unlock();
+    }
+  }
+  
+  private final void setRealizedImpl(boolean paramBoolean) {
+    RecursiveLock localRecursiveLock = lock;
+    localRecursiveLock.lock();
+    try {
+      GLDrawableImpl localGLDrawableImpl = drawable;
+      if ((null == localGLDrawableImpl) || (paramBoolean == localGLDrawableImpl.isRealized()) || ((paramBoolean) && (
+        (0 >= localGLDrawableImpl.getSurfaceWidth()) || (0 >= localGLDrawableImpl.getSurfaceHeight())))) {
+        return;
+      }
+      localGLDrawableImpl.setRealized(paramBoolean);
+      if ((paramBoolean) && (localGLDrawableImpl.isRealized())) {
+        sendReshape = true;
+      }
+    } finally {
+      localRecursiveLock.unlock();
+    } }
+  
+  private final Runnable realizeOnEDTAction = new Runnable()
+  {
+    public void run() { GLCanvas.this.setRealizedImpl(true); }
+  };
+  private final Runnable unrealizeOnEDTAction = new Runnable() {
+    public void run() {
+      GLCanvas.this.setRealizedImpl(false);
+    }
+  };
+  
+  public final void setRealized(boolean paramBoolean)
+  {
+    AWTEDTExecutor.singleton.invoke(getTreeLock(), false, true, paramBoolean ? realizeOnEDTAction : unrealizeOnEDTAction);
+  }
+  
+  public boolean isRealized()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return null != localGLDrawableImpl ? localGLDrawableImpl.isRealized() : false;
+  }
+  
+  public WindowClosingProtocol.WindowClosingMode getDefaultCloseOperation()
+  {
+    return awtWindowClosingProtocol.getDefaultCloseOperation();
+  }
+  
+  public WindowClosingProtocol.WindowClosingMode setDefaultCloseOperation(WindowClosingProtocol.WindowClosingMode paramWindowClosingMode)
+  {
+    return awtWindowClosingProtocol.setDefaultCloseOperation(paramWindowClosingMode);
+  }
+  
+  public void display()
+  {
+    if (!validateGLDrawable()) {
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": Info: GLCanvas display - skipped GL render, drawable not valid yet");
+      }
+      return;
+    }
+    if ((isShowing) && (!printActive)) {
+      Threading.invoke(true, displayOnEDTAction, getTreeLock());
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public void destroy()
+  {
+    destroyImpl(false);
+  }
+  
+  protected void destroyImpl(boolean paramBoolean) {
+    Threading.invoke(true, destroyOnEDTAction, getTreeLock());
+    if (paramBoolean) {
+      AWTEDTExecutor.singleton.invoke(getTreeLock(), true, true, disposeJAWTWindowAndAWTDeviceOnEDT);
+    }
+  }
+  
+
+
+
+
+
+  public void paint(Graphics paramGraphics)
+  {
+    if (Beans.isDesignTime())
+    {
+      paramGraphics.setColor(Color.BLACK);
+      paramGraphics.fillRect(0, 0, getWidth(), getHeight());
+      FontMetrics localFontMetrics = paramGraphics.getFontMetrics();
+      String str = getName();
+      if (str == null) {
+        str = getClass().getName();
+        int i = str.lastIndexOf('.');
+        if (i >= 0) {
+          str = str.substring(i + 1);
+        }
+      }
+      Rectangle2D localRectangle2D = localFontMetrics.getStringBounds(str, paramGraphics);
+      paramGraphics.setColor(Color.WHITE);
+      paramGraphics.drawString(str, 
+        (int)((getWidth() - localRectangle2D.getWidth()) / 2.0D), 
+        (int)((getHeight() + localRectangle2D.getHeight()) / 2.0D));
+    } else if (!helper.isAnimatorAnimatingOnOtherThread()) {
+      display();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public void addNotify()
+  {
+    RecursiveLock localRecursiveLock = lock;
+    localRecursiveLock.lock();
+    try {
+      boolean bool = Beans.isDesignTime();
+      
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": Info: addNotify - start, bounds: " + getBounds() + ", isBeansDesignTime " + bool);
+      }
+      
+
+      if (bool) {
+        super.addNotify();
+
+
+
+
+      }
+      else
+      {
+
+
+
+
+        disableBackgroundErase();
+        
+        GraphicsDevice localGraphicsDevice;
+        if (null == awtDeviceReq)
+        {
+          localObject1 = super.getGraphicsConfiguration();
+          if (null == localObject1) {
+            throw new GLException("Error: NULL AWT GraphicsConfiguration");
+          }
+          localGraphicsDevice = ((GraphicsConfiguration)localObject1).getDevice();
+        }
+        else {
+          localGraphicsDevice = awtDeviceReq;
+          awtDeviceReq = null;
+        }
+        Object localObject1 = chooseGraphicsConfiguration(capsReqUser, capsReqUser, chooser, localGraphicsDevice);
+        if (null == localObject1) {
+          throw new GLException("Error: NULL AWTGraphicsConfiguration");
+        }
+        setAWTGraphicsConfiguration((AWTGraphicsConfiguration)localObject1);
+        
+
+        super.addNotify();
+        
+
+        disableBackgroundErase();
+        
+        createJAWTDrawableAndContext();
+      }
+      
+
+
+
+      awtWindowClosingProtocol.addClosingListener();
+      
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": Info: addNotify - end: peer: " + getPeer());
+      }
+    } finally {
+      localRecursiveLock.unlock();
+    }
+  }
+  
+  public final boolean setSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(paramArrayOfFloat, 0, reqPixelScale, 0, 2);
+    if ((isRealized()) && (isShowing)) {
+      Threading.invoke(true, setSurfaceScaleOnEDTAction, getTreeLock());
+      return true;
+    }
+    return false;
+  }
+  
+  private final Runnable setSurfaceScaleOnEDTAction = new Runnable()
+  {
+    public void run() {
+      RecursiveLock localRecursiveLock = lock;
+      localRecursiveLock.lock();
+      try {
+        if ((null != drawable) && (drawable.isRealized()) && 
+          (GLCanvas.this.setSurfaceScaleImpl(jawtWindow))) {
+          GLCanvas.this.reshapeImpl(getWidth(), getHeight());
+          if (!helper.isAnimatorAnimatingOnOtherThread()) {
+            helper.invokeGL(drawable, context, displayAction, initAction);
+          }
+        }
+        
+
+        localRecursiveLock.unlock(); } finally { localRecursiveLock.unlock();
+      }
+    } };
+  
+  private final boolean setSurfaceScaleImpl(ScalableSurface paramScalableSurface) { if (paramScalableSurface.setSurfaceScale(reqPixelScale)) {
+      paramScalableSurface.getCurrentSurfaceScale(hasPixelScale);
+      return true;
+    }
+    return false;
+  }
+  
+  private final boolean updatePixelScale()
+  {
+    if (jawtWindow.hasPixelScaleChanged()) {
+      jawtWindow.getMaximumSurfaceScale(maxPixelScale);
+      jawtWindow.getMinimumSurfaceScale(minPixelScale);
+      return setSurfaceScaleImpl(jawtWindow);
+    }
+    return false;
+  }
+  
+
+  public final float[] getRequestedSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(reqPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+  public final float[] getCurrentSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(hasPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+  public float[] getMinimumSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(minPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+  public float[] getMaximumSurfaceScale(float[] paramArrayOfFloat)
+  {
+    System.arraycopy(maxPixelScale, 0, paramArrayOfFloat, 0, 2);
+    return paramArrayOfFloat;
+  }
+  
+  private void createJAWTDrawableAndContext() {
+    if (!Beans.isDesignTime()) {
+      jawtWindow = ((JAWTWindow)NativeWindowFactory.getNativeWindow(this, awtConfig));
+      jawtWindow.setShallUseOffscreenLayer(shallUseOffscreenLayer);
+      jawtWindow.lockSurface();
+      try {
+        jawtWindow.setSurfaceScale(reqPixelScale);
+        drawable = ((GLDrawableImpl)GLDrawableFactory.getFactory(capsReqUser.getGLProfile()).createGLDrawable(jawtWindow));
+        createContextImpl(drawable);
+        jawtWindow.getCurrentSurfaceScale(hasPixelScale);
+        jawtWindow.getMinimumSurfaceScale(minPixelScale);
+        jawtWindow.getMaximumSurfaceScale(maxPixelScale);
+        
+        jawtWindow.unlockSurface(); } finally { jawtWindow.unlockSurface();
+      }
+    }
+  }
+  
+  private boolean createContextImpl(GLDrawable paramGLDrawable) { GLContext[] arrayOfGLContext = { null };
+    if (!helper.isSharedGLContextPending(arrayOfGLContext)) {
+      context = ((GLContextImpl)paramGLDrawable.createContext(arrayOfGLContext[0]));
+      context.setContextCreationFlags(additionalCtxCreationFlags);
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": Context created: has shared " + (null != arrayOfGLContext[0]));
+      }
+      return true;
+    }
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": Context !created: pending share");
+    }
+    return false;
+  }
+  
+  private boolean validateGLDrawable()
+  {
+    if ((Beans.isDesignTime()) || (!isDisplayable())) {
+      return false;
+    }
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    if (null != localGLDrawableImpl) {
+      boolean bool = localGLDrawableImpl.isRealized();
+      if (!bool)
+      {
+        if ((0 >= localGLDrawableImpl.getSurfaceWidth()) || (0 >= localGLDrawableImpl.getSurfaceHeight())) {
+          return false;
+        }
+        setRealized(true);
+        bool = localGLDrawableImpl.isRealized();
+        if (DEBUG) {
+          System.err.println(getThreadName() + ": Realized Drawable: isRealized " + bool + ", " + localGLDrawableImpl.toString());
+        }
+      }
+      
+      if ((bool) && (null == context))
+      {
+        bool = createContextImpl(localGLDrawableImpl);
+      }
+      return bool;
+    }
+    return false;
+  }
+  
+  private void setAWTGraphicsConfiguration(AWTGraphicsConfiguration paramAWTGraphicsConfiguration)
+  {
+    awtConfig = paramAWTGraphicsConfiguration;
+    if (null != jawtWindow)
+    {
+      jawtWindow.setAWTGraphicsConfiguration(paramAWTGraphicsConfiguration);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+  public void removeNotify()
+  {
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": Info: removeNotify - start");
+    }
+    
+
+    awtWindowClosingProtocol.removeClosingListener();
+    
+    if (Beans.isDesignTime()) {
+      super.removeNotify();
+    }
+    try {
+      destroyImpl(true);
+      
+      super.removeNotify(); } finally { super.removeNotify();
+    }
+    
+
+    System.err.println(getThreadName() + ": Info: removeNotify - end, peer: " + getPeer());
+  }
+  
+
+
+
+
+
+
+
+
+
+  public void reshape(int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+  {
+    synchronized (getTreeLock()) {
+      super.reshape(paramInt1, paramInt2, paramInt3, paramInt4);
+      reshapeImpl(paramInt3, paramInt4);
+    }
+  }
+  
+  private void reshapeImpl(int paramInt1, int paramInt2) { int i = SurfaceScaleUtils.scale(paramInt1, hasPixelScale[0]);
+    int j = SurfaceScaleUtils.scale(paramInt2, hasPixelScale[1]);
+    Object localObject1;
+    if (DEBUG) {
+      localObject1 = getNativeSurface();
+      long l = null != localObject1 ? ((NativeSurface)localObject1).getSurfaceHandle() : 0L;
+      System.err.println(getThreadName() + ": GLCanvas.reshape.0 " + getName() + " resize" + (printActive ? "WithinPrint" : "") + " [ this " + 
+        getWidth() + "x" + getHeight() + ", pixelScale " + getPixelScaleStr() + "] -> " + (printActive ? "[skipped] " : "") + paramInt1 + "x" + paramInt2 + " * " + 
+        getPixelScaleStr() + " -> " + i + "x" + j + " - surfaceHandle 0x" + 
+        Long.toHexString(l));
+    }
+    
+    if ((validateGLDrawable()) && (!printActive)) {
+      localObject1 = drawable;
+      if (!((GLDrawableImpl)localObject1).getChosenGLCapabilities().isOnscreen()) {
+        RecursiveLock localRecursiveLock = lock;
+        localRecursiveLock.lock();
+        try {
+          GLDrawableImpl localGLDrawableImpl = GLDrawableHelper.resizeOffscreenDrawable((GLDrawableImpl)localObject1, context, i, j);
+          if (localObject1 != localGLDrawableImpl)
+          {
+            drawable = localGLDrawableImpl;
+          }
+        } finally {
+          localRecursiveLock.unlock();
+        }
+      }
+      sendReshape = true;
+    }
+  }
+  
+
+
+
+
+  public void update(Graphics paramGraphics)
+  {
+    paint(paramGraphics);
+  }
+  
+  private volatile boolean printActive = false;
+  private GLAnimatorControl printAnimator = null;
+  private GLAutoDrawable printGLAD = null;
+  private AWTTilePainter printAWTTiles = null;
+  
+  public void setupPrint(double paramDouble1, double paramDouble2, int paramInt1, int paramInt2, int paramInt3)
+  {
+    printActive = true;
+    int i = isOpaque() ? 3 : 4;
+    TileRenderer localTileRenderer = new TileRenderer();
+    printAWTTiles = new AWTTilePainter(localTileRenderer, i, paramDouble1, paramDouble2, paramInt1, paramInt2, paramInt3, DEBUG);
+    AWTEDTExecutor.singleton.invoke(getTreeLock(), true, true, setupPrintOnEDT); }
+  
+  private final Runnable setupPrintOnEDT = new Runnable()
+  {
+    public void run() {
+      RecursiveLock localRecursiveLock = lock;
+      localRecursiveLock.lock();
+      try {
+        if (!GLCanvas.this.validateGLDrawable()) {
+          if (GLCanvas.DEBUG) {
+            System.err.println(GLCanvas.getThreadName() + ": Info: GLCanvas setupPrint - skipped GL render, drawable not valid yet");
+          }
+          printActive = false;
+          return;
+        }
+        if (!isVisible()) {
+          if (GLCanvas.DEBUG) {
+            System.err.println(GLCanvas.getThreadName() + ": Info: GLCanvas setupPrint - skipped GL render, canvas not visible");
+          }
+          printActive = false;
+          return;
+        }
+        sendReshape = false;
+        printAnimator = helper.getAnimator();
+        if (null != printAnimator) {
+          printAnimator.remove(GLCanvas.this);
+        }
+        printGLAD = GLCanvas.this;
+        GLCapabilitiesImmutable localGLCapabilitiesImmutable = getChosenGLCapabilities();
+        int i = printAWTTiles.getNumSamples(localGLCapabilitiesImmutable);
+        GLDrawable localGLDrawable = printGLAD.getDelegatedDrawable();
+        boolean bool1 = i != localGLCapabilitiesImmutable.getNumSamples();
+        
+        boolean bool2 = ((printAWTTiles.customTileWidth != -1) && (printAWTTiles.customTileWidth != localGLDrawable.getSurfaceWidth())) || ((printAWTTiles.customTileHeight != -1) && (printAWTTiles.customTileHeight != localGLDrawable.getSurfaceHeight()));
+        boolean bool3 = localGLCapabilitiesImmutable.isOnscreen();
+        
+        GLCapabilities localGLCapabilities = (GLCapabilities)localGLCapabilitiesImmutable.cloneMutable();
+        localGLCapabilities.setDoubleBuffered(false);
+        localGLCapabilities.setOnscreen(false);
+        if (i != localGLCapabilities.getNumSamples()) {
+          localGLCapabilities.setSampleBuffers(0 < i);
+          localGLCapabilities.setNumSamples(i);
+        }
+        boolean bool4 = GLDrawableUtil.isSwapGLContextSafe(getRequestedGLCapabilities(), localGLCapabilitiesImmutable, localGLCapabilities);
+        
+        boolean bool5 = ((bool3) || (bool1) || (bool2)) && (bool4);
+        
+        if (GLCanvas.DEBUG) {
+          System.err.println("AWT print.setup: reqNewGLAD " + bool5 + "[ onscreen " + bool3 + ", samples " + bool1 + ", size " + bool2 + ", safe " + bool4 + "], " + ", drawableSize " + localGLDrawable
+            .getSurfaceWidth() + "x" + localGLDrawable.getSurfaceHeight() + ", customTileSize " + 
+            printAWTTiles.customTileWidth + "x" + printAWTTiles.customTileHeight + ", scaleMat " + 
+            printAWTTiles.scaleMatX + " x " + printAWTTiles.scaleMatY + ", numSamples " + 
+            printAWTTiles.customNumSamples + " -> " + i + ", printAnimator " + printAnimator);
+        }
+        if (bool5) {
+          GLDrawableFactory localGLDrawableFactory = GLDrawableFactory.getFactory(localGLCapabilities.getGLProfile());
+          GLOffscreenAutoDrawable localGLOffscreenAutoDrawable = null;
+          try {
+            localGLOffscreenAutoDrawable = localGLDrawableFactory.createOffscreenAutoDrawable(null, localGLCapabilities, null, 
+              printAWTTiles.customTileWidth != -1 ? printAWTTiles.customTileWidth : 1024, 
+              printAWTTiles.customTileHeight != -1 ? printAWTTiles.customTileHeight : 1024);
+          } catch (GLException localGLException) {
+            if (GLCanvas.DEBUG) {
+              System.err.println("Caught: " + localGLException.getMessage());
+              localGLException.printStackTrace();
+            }
+          }
+          if (null != localGLOffscreenAutoDrawable) {
+            printGLAD = localGLOffscreenAutoDrawable;
+            GLDrawableUtil.swapGLContextAndAllGLEventListener(GLCanvas.this, printGLAD);
+            localGLDrawable = printGLAD.getDelegatedDrawable();
+          }
+        }
+        printAWTTiles.setGLOrientation(printGLAD.isGLOriented(), printGLAD.isGLOriented());
+        printAWTTiles.renderer.setTileSize(localGLDrawable.getSurfaceWidth(), localGLDrawable.getSurfaceHeight(), 0);
+        printAWTTiles.renderer.attachAutoDrawable(printGLAD);
+        if (GLCanvas.DEBUG) {
+          System.err.println("AWT print.setup " + printAWTTiles);
+          System.err.println("AWT print.setup AA " + i + ", " + localGLCapabilities);
+          System.err.println("AWT print.setup printGLAD: " + printGLAD.getSurfaceWidth() + "x" + printGLAD.getSurfaceHeight() + ", " + printGLAD);
+          System.err.println("AWT print.setup printDraw: " + localGLDrawable.getSurfaceWidth() + "x" + localGLDrawable.getSurfaceHeight() + ", " + localGLDrawable);
+        }
+      } finally {
+        localRecursiveLock.unlock();
+      }
+    }
+  };
+  
+  public void releasePrint()
+  {
+    if ((!printActive) || (null == printGLAD)) {
+      throw new IllegalStateException("setupPrint() not called");
+    }
+    sendReshape = false;
+    AWTEDTExecutor.singleton.invoke(getTreeLock(), true, true, releasePrintOnEDT); }
+  
+  private final Runnable releasePrintOnEDT = new Runnable()
+  {
+    public void run() {
+      RecursiveLock localRecursiveLock = lock;
+      localRecursiveLock.lock();
+      try {
+        if (GLCanvas.DEBUG) {
+          System.err.println("AWT print.release " + printAWTTiles);
+        }
+        printAWTTiles.dispose();
+        printAWTTiles = null;
+        if (printGLAD != GLCanvas.this) {
+          GLDrawableUtil.swapGLContextAndAllGLEventListener(printGLAD, GLCanvas.this);
+          printGLAD.destroy();
+        }
+        printGLAD = null;
+        if (null != printAnimator) {
+          printAnimator.add(GLCanvas.this);
+          printAnimator = null;
+        }
+        sendReshape = true;
+        printActive = false;
+        display();
+        
+        localRecursiveLock.unlock(); } finally { localRecursiveLock.unlock();
+      }
+    }
+  };
+  
+  public void print(Graphics paramGraphics)
+  {
+    if ((!printActive) || (null == printGLAD)) {
+      throw new IllegalStateException("setupPrint() not called");
+    }
+    if ((DEBUG) && (!EventQueue.isDispatchThread())) {
+      System.err.println(getThreadName() + ": Warning: GLCanvas print - not called from AWT-EDT");
+    }
+    
+    sendReshape = false;
+    
+    Graphics2D localGraphics2D = (Graphics2D)paramGraphics;
+    try {
+      printAWTTiles.setupGraphics2DAndClipBounds(localGraphics2D, getWidth(), getHeight());
+      TileRenderer localTileRenderer = printAWTTiles.renderer;
+      if (DEBUG) {
+        System.err.println("AWT print.0: " + localTileRenderer);
+      }
+      if (!localTileRenderer.eot()) {
+        try {
+          do {
+            if (printGLAD != this) {
+              localTileRenderer.display();
+            } else {
+              Threading.invoke(true, displayOnEDTAction, getTreeLock());
+            }
+          } while (!localTileRenderer.eot());
+          if (DEBUG) {
+            System.err.println("AWT print.1: " + printAWTTiles);
+          }
+        } finally {
+          localTileRenderer.reset();
+          printAWTTiles.resetGraphics2D();
+        }
+      }
+    } catch (NoninvertibleTransformException localNoninvertibleTransformException) {
+      System.err.println("Caught: Inversion failed of: " + localGraphics2D.getTransform());
+      localNoninvertibleTransformException.printStackTrace();
+    }
+    if (DEBUG) {
+      System.err.println("AWT print.X: " + printAWTTiles);
+    }
+  }
+  
+  public void addGLEventListener(GLEventListener paramGLEventListener)
+  {
+    helper.addGLEventListener(paramGLEventListener);
+  }
+  
+  public void addGLEventListener(int paramInt, GLEventListener paramGLEventListener) throws IndexOutOfBoundsException
+  {
+    helper.addGLEventListener(paramInt, paramGLEventListener);
+  }
+  
+  public int getGLEventListenerCount()
+  {
+    return helper.getGLEventListenerCount();
+  }
+  
+  public GLEventListener getGLEventListener(int paramInt) throws IndexOutOfBoundsException
+  {
+    return helper.getGLEventListener(paramInt);
+  }
+  
+  public boolean areAllGLEventListenerInitialized()
+  {
+    return helper.areAllGLEventListenerInitialized();
+  }
+  
+  public boolean getGLEventListenerInitState(GLEventListener paramGLEventListener)
+  {
+    return helper.getGLEventListenerInitState(paramGLEventListener);
+  }
+  
+  public void setGLEventListenerInitState(GLEventListener paramGLEventListener, boolean paramBoolean)
+  {
+    helper.setGLEventListenerInitState(paramGLEventListener, paramBoolean);
+  }
+  
+  public GLEventListener disposeGLEventListener(GLEventListener paramGLEventListener, boolean paramBoolean)
+  {
+    DisposeGLEventListenerAction localDisposeGLEventListenerAction = new DisposeGLEventListenerAction(paramGLEventListener, paramBoolean, null);
+    Threading.invoke(true, localDisposeGLEventListenerAction, getTreeLock());
+    return listener;
+  }
+  
+  public GLEventListener removeGLEventListener(GLEventListener paramGLEventListener)
+  {
+    return helper.removeGLEventListener(paramGLEventListener);
+  }
+  
+  public void setAnimator(GLAnimatorControl paramGLAnimatorControl)
+  {
+    helper.setAnimator(paramGLAnimatorControl);
+  }
+  
+  public GLAnimatorControl getAnimator()
+  {
+    return helper.getAnimator();
+  }
+  
+  public final Thread setExclusiveContextThread(Thread paramThread) throws GLException
+  {
+    return helper.setExclusiveContextThread(paramThread, context);
+  }
+  
+  public final Thread getExclusiveContextThread()
+  {
+    return helper.getExclusiveContextThread();
+  }
+  
+  public boolean invoke(boolean paramBoolean, GLRunnable paramGLRunnable) throws IllegalStateException
+  {
+    return helper.invoke(this, paramBoolean, paramGLRunnable);
+  }
+  
+  public boolean invoke(boolean paramBoolean, List<GLRunnable> paramList) throws IllegalStateException
+  {
+    return helper.invoke(this, paramBoolean, paramList);
+  }
+  
+  public void flushGLRunnables()
+  {
+    helper.flushGLRunnables();
+  }
+  
+  public GLContext setContext(GLContext paramGLContext, boolean paramBoolean)
+  {
+    RecursiveLock localRecursiveLock = lock;
+    localRecursiveLock.lock();
+    try {
+      GLContextImpl localGLContextImpl1 = context;
+      GLDrawableHelper.switchContext(drawable, localGLContextImpl1, paramBoolean, paramGLContext, additionalCtxCreationFlags);
+      context = ((GLContextImpl)paramGLContext);
+      return localGLContextImpl1;
+    } finally {
+      localRecursiveLock.unlock();
+    }
+  }
+  
+  public final GLDrawable getDelegatedDrawable()
+  {
+    return drawable;
+  }
+  
+  public GLContext getContext()
+  {
+    return context;
+  }
+  
+  public GL getGL()
+  {
+    if (Beans.isDesignTime()) {
+      return null;
+    }
+    GLContextImpl localGLContextImpl = context;
+    return localGLContextImpl == null ? null : localGLContextImpl.getGL();
+  }
+  
+  public GL setGL(GL paramGL)
+  {
+    GLContextImpl localGLContextImpl = context;
+    if (localGLContextImpl != null) {
+      localGLContextImpl.setGL(paramGL);
+      return paramGL;
+    }
+    return null;
+  }
+  
+
+  public void setAutoSwapBufferMode(boolean paramBoolean)
+  {
+    helper.setAutoSwapBufferMode(paramBoolean);
+  }
+  
+  public boolean getAutoSwapBufferMode()
+  {
+    return helper.getAutoSwapBufferMode();
+  }
+  
+  public void swapBuffers()
+  {
+    Threading.invoke(true, swapBuffersOnEDTAction, getTreeLock());
+  }
+  
+  public void setContextCreationFlags(int paramInt)
+  {
+    additionalCtxCreationFlags = paramInt;
+    GLContextImpl localGLContextImpl = context;
+    if (null != localGLContextImpl) {
+      localGLContextImpl.setContextCreationFlags(additionalCtxCreationFlags);
+    }
+  }
+  
+  public int getContextCreationFlags()
+  {
+    return additionalCtxCreationFlags;
+  }
+  
+  public GLProfile getGLProfile()
+  {
+    return capsReqUser.getGLProfile();
+  }
+  
+  public GLCapabilitiesImmutable getChosenGLCapabilities()
+  {
+    if (Beans.isDesignTime())
+      return capsReqUser;
+    if (null == awtConfig) {
+      throw new GLException("No AWTGraphicsConfiguration: " + this);
+    }
+    return (GLCapabilitiesImmutable)awtConfig.getChosenCapabilities();
+  }
+  
+  public GLCapabilitiesImmutable getRequestedGLCapabilities()
+  {
+    if (null == awtConfig) {
+      return capsReqUser;
+    }
+    return (GLCapabilitiesImmutable)awtConfig.getRequestedCapabilities();
+  }
+  
+  public int getSurfaceWidth()
+  {
+    return SurfaceScaleUtils.scale(getWidth(), hasPixelScale[0]);
+  }
+  
+  public int getSurfaceHeight()
+  {
+    return SurfaceScaleUtils.scale(getHeight(), hasPixelScale[1]);
+  }
+  
+  public boolean isGLOriented()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return null != localGLDrawableImpl ? localGLDrawableImpl.isGLOriented() : true;
+  }
+  
+  public NativeSurface getNativeSurface()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return null != localGLDrawableImpl ? localGLDrawableImpl.getNativeSurface() : null;
+  }
+  
+  public long getHandle()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return null != localGLDrawableImpl ? localGLDrawableImpl.getHandle() : 0L;
+  }
+  
+  public GLDrawableFactory getFactory()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    return null != localGLDrawableImpl ? localGLDrawableImpl.getFactory() : null;
+  }
+  
+  public String toString()
+  {
+    GLDrawableImpl localGLDrawableImpl = drawable;
+    int i = null != localGLDrawableImpl ? localGLDrawableImpl.getSurfaceWidth() : -1;
+    int j = null != localGLDrawableImpl ? localGLDrawableImpl.getSurfaceHeight() : -1;
+    
+
+
+
+
+
+
+    return "AWT-GLCanvas[Realized " + isRealized() + ",\n\t" + (null != localGLDrawableImpl ? localGLDrawableImpl.getClass().getName() : "null-drawable") + ",\n\tFactory   " + getFactory() + ",\n\thandle    0x" + Long.toHexString(getHandle()) + ",\n\tDrawable size " + i + "x" + j + " surface[" + getSurfaceWidth() + "x" + getSurfaceHeight() + "]" + ",\n\tAWT[pos " + getX() + "/" + getY() + ", size " + getWidth() + "x" + getHeight() + ",\n\tvisible " + isVisible() + ", displayable " + isDisplayable() + ", showing " + isShowing + ",\n\t" + awtConfig + "]]";
+  }
+  
+
+
+
+
+
+  private final String getPixelScaleStr() { return "[" + hasPixelScale[0] + ", " + hasPixelScale[1] + "]"; }
+  
+  private final Runnable destroyOnEDTAction = new Runnable()
+  {
+    public void run() {
+      RecursiveLock localRecursiveLock = lock;
+      localRecursiveLock.lock();
+      try {
+        GLAnimatorControl localGLAnimatorControl = getAnimator();
+        
+        if (GLCanvas.DEBUG) {
+          System.err.println(GLCanvas.getThreadName() + ": Info: destroyOnEDTAction() - START, hasContext " + (null != 
+            context) + ", hasDrawable " + (null != drawable) + ", " + localGLAnimatorControl);
+        }
+        
+        boolean bool;
+        
+        if (null != localGLAnimatorControl)
+        {
+          bool = localGLAnimatorControl.pause();
+        } else {
+          bool = false;
+        }
+        
+        Object localObject1 = null;
+        
+
+        if (null != context) {
+          if (context.isCreated()) {
+            try {
+              helper.disposeGL(GLCanvas.this, context, true);
+              if (GLCanvas.DEBUG) {
+                System.err.println(GLCanvas.getThreadName() + ": destroyOnEDTAction() - post ctx: " + context);
+              }
+            } catch (GLException localGLException) {
+              localObject1 = localGLException;
+            }
+          }
+          context = null;
+        }
+        
+        Object localObject2 = null;
+        if (null != drawable) {
+          try {
+            drawable.setRealized(false);
+            if (GLCanvas.DEBUG) {
+              System.err.println(GLCanvas.getThreadName() + ": destroyOnEDTAction() - post drawable: " + drawable);
+            }
+          } catch (Throwable localThrowable) {
+            localObject2 = localThrowable;
+          }
+          drawable = null;
+        }
+        
+        if (bool) {
+          localGLAnimatorControl.resume();
+        }
+        
+
+        if (null != localObject1) {
+          throw localObject1;
+        }
+        if (null != localObject2) {
+          throw GLException.newGLException(localObject2);
+        }
+        
+        if (GLCanvas.DEBUG) {
+          System.err.println(GLCanvas.getThreadName() + ": dispose() - END, animator " + localGLAnimatorControl);
+        }
+      }
+      finally {
+        localRecursiveLock.unlock();
+      }
+    }
+  };
+  
+
+
+
+
+
+
+
+
+
+  private final Runnable disposeJAWTWindowAndAWTDeviceOnEDT = new Runnable()
+  {
+    public void run() {
+      context = null;
+      drawable = null;
+      
+      if (null != jawtWindow) {
+        jawtWindow.destroy();
+        if (GLCanvas.DEBUG) {
+          System.err.println(GLCanvas.getThreadName() + ": GLCanvas.disposeJAWTWindowAndAWTDeviceOnEDT(): post JAWTWindow: " + jawtWindow);
+        }
+        jawtWindow = null;
+      }
+      hasPixelScale[0] = 1.0F;
+      hasPixelScale[1] = 1.0F;
+      minPixelScale[0] = 1.0F;
+      minPixelScale[1] = 1.0F;
+      maxPixelScale[0] = 1.0F;
+      maxPixelScale[1] = 1.0F;
+      
+      if (null != awtConfig) {
+        AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = awtConfig.getNativeGraphicsConfiguration();
+        AbstractGraphicsDevice localAbstractGraphicsDevice = localAbstractGraphicsConfiguration.getScreen().getDevice();
+        String str;
+        if (GLCanvas.DEBUG) {
+          str = localAbstractGraphicsDevice.toString();
+        } else {
+          str = null;
+        }
+        boolean bool = localAbstractGraphicsDevice.close();
+        if (GLCanvas.DEBUG) {
+          System.err.println(GLCanvas.getThreadName() + ": GLCanvas.disposeJAWTWindowAndAWTDeviceOnEDT(): post GraphicsDevice: " + str + ", result: " + bool);
+        }
+      }
+      awtConfig = null;
+    }
+  };
+  
+  private final Runnable initAction = new Runnable()
+  {
+    public void run() {
+      helper.init(GLCanvas.this, !sendReshape);
+    }
+  };
+  
+  private final Runnable displayAction = new Runnable()
+  {
+    public void run() {
+      if (sendReshape) {
+        if (GLCanvas.DEBUG) {
+          System.err.println(GLCanvas.getThreadName() + ": Reshape: " + getSurfaceWidth() + "x" + getSurfaceHeight());
+        }
+        
+
+        helper.reshape(GLCanvas.this, 0, 0, getSurfaceWidth(), getSurfaceHeight());
+        sendReshape = false;
+      }
+      
+      helper.display(GLCanvas.this);
+    }
+  };
+  
+  private final Runnable displayOnEDTAction = new Runnable()
+  {
+    public void run() {
+      RecursiveLock localRecursiveLock = lock;
+      localRecursiveLock.lock();
+      try {
+        if ((null != drawable) && (drawable.isRealized())) {
+          if (GLCanvas.this.updatePixelScale()) {
+            GLCanvas.this.reshapeImpl(getWidth(), getHeight());
+          }
+          helper.invokeGL(drawable, context, displayAction, initAction);
+        }
+        
+        localRecursiveLock.unlock(); } finally { localRecursiveLock.unlock();
+      }
+    }
+  };
+  
+  private final Runnable swapBuffersOnEDTAction = new Runnable()
+  {
+    public void run() {
+      RecursiveLock localRecursiveLock = lock;
+      localRecursiveLock.lock();
+      try {
+        if ((null != drawable) && (drawable.isRealized())) {
+          drawable.swapBuffers();
+        }
+        
+        localRecursiveLock.unlock(); } finally { localRecursiveLock.unlock();
+      }
+    } };
+  private static boolean disableBackgroundEraseInitialized;
+  private static Method disableBackgroundEraseMethod;
+  
+  private class DisposeGLEventListenerAction implements Runnable { GLEventListener listener;
+    private final boolean remove;
+    
+    private DisposeGLEventListenerAction(GLEventListener paramGLEventListener, boolean paramBoolean) { listener = paramGLEventListener;
+      remove = paramBoolean;
+    }
+    
+    public void run()
+    {
+      RecursiveLock localRecursiveLock = lock;
+      localRecursiveLock.lock();
+      try {
+        listener = helper.disposeGLEventListener(GLCanvas.this, drawable, context, listener, remove);
+        
+        localRecursiveLock.unlock(); } finally { localRecursiveLock.unlock();
+      }
+    }
+  }
+  
+
+
+
+
+
+
+  private void disableBackgroundErase()
+  {
+    if (!disableBackgroundEraseInitialized) {
+      try {
+        AccessController.doPrivileged(new PrivilegedAction()
+        {
+          public Object run() {
+            try {
+              Class localClass = getToolkit().getClass();
+              while ((localClass != null) && (GLCanvas.disableBackgroundEraseMethod == null)) {
+                try {
+                  GLCanvas.access$2402(localClass
+                    .getDeclaredMethod("disableBackgroundErase", new Class[] { Canvas.class }));
+                  
+                  GLCanvas.disableBackgroundEraseMethod.setAccessible(true);
+                } catch (Exception localException2) {
+                  localClass = localClass.getSuperclass();
+                }
+              }
+            }
+            catch (Exception localException1) {}
+            return null;
+          }
+        });
+      }
+      catch (Exception localException1) {}
+      disableBackgroundEraseInitialized = true;
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": GLCanvas: TK disableBackgroundErase method found: " + (null != disableBackgroundEraseMethod));
+      }
+    }
+    
+    if (disableBackgroundEraseMethod != null) {
+      Object localObject = null;
+      try {
+        disableBackgroundEraseMethod.invoke(getToolkit(), new Object[] { this });
+      } catch (Exception localException2) {
+        localObject = localException2;
+      }
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": GLCanvas: TK disableBackgroundErase error: " + localObject);
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private AWTGraphicsConfiguration chooseGraphicsConfiguration(final GLCapabilitiesImmutable paramGLCapabilitiesImmutable1, final GLCapabilitiesImmutable paramGLCapabilitiesImmutable2, final GLCapabilitiesChooser paramGLCapabilitiesChooser, GraphicsDevice paramGraphicsDevice)
+  {
+    if (Beans.isDesignTime()) {
+      return null;
+    }
+    if (null == paramGraphicsDevice) {
+      throw new GLException("Error: NULL AWT GraphicsDevice");
+    }
+    final AbstractGraphicsScreen localAbstractGraphicsScreen = AWTGraphicsScreen.createScreenDevice(paramGraphicsDevice, 0);
+    AWTGraphicsConfiguration localAWTGraphicsConfiguration = null;
+    
+    if ((EventQueue.isDispatchThread()) || (Thread.holdsLock(getTreeLock())))
+    {
+      localAWTGraphicsConfiguration = (AWTGraphicsConfiguration)GraphicsConfigurationFactory.getFactory(AWTGraphicsDevice.class, GLCapabilitiesImmutable.class).chooseGraphicsConfiguration(paramGLCapabilitiesImmutable1, paramGLCapabilitiesImmutable2, paramGLCapabilitiesChooser, localAbstractGraphicsScreen, 0);
+    }
+    else {
+      try
+      {
+        final ArrayList localArrayList = new ArrayList(1);
+        EventQueue.invokeAndWait(new Runnable()
+        {
+          public void run()
+          {
+            AWTGraphicsConfiguration localAWTGraphicsConfiguration = (AWTGraphicsConfiguration)GraphicsConfigurationFactory.getFactory(AWTGraphicsDevice.class, GLCapabilitiesImmutable.class).chooseGraphicsConfiguration(paramGLCapabilitiesImmutable1, paramGLCapabilitiesImmutable2, paramGLCapabilitiesChooser, localAbstractGraphicsScreen, 0);
+            
+
+            localArrayList.add(localAWTGraphicsConfiguration);
+          }
+        });
+        localAWTGraphicsConfiguration = localArrayList.size() > 0 ? (AWTGraphicsConfiguration)localArrayList.get(0) : null;
+      } catch (InvocationTargetException localInvocationTargetException) {
+        throw new GLException(localInvocationTargetException.getTargetException());
+      } catch (InterruptedException localInterruptedException) {
+        throw new GLException(localInterruptedException);
+      }
+    }
+    
+    if (null == localAWTGraphicsConfiguration) {
+      throw new GLException("Error: Couldn't fetch AWTGraphicsConfiguration");
+    }
+    
+    return localAWTGraphicsConfiguration;
+  }
+  
+  protected static String getThreadName() { return Thread.currentThread().getName(); }
+  
+
+
+  public static void main(String[] paramArrayOfString)
+  {
+    System.err.println(VersionUtil.getPlatformInfo());
+    System.err.println(GlueGenVersion.getInstance());
+    
+    System.err.println(JoglVersion.getInstance());
+    
+    System.err.println(JoglVersion.getDefaultOpenGLInfo(null, null, true).toString());
+    
+    GLCapabilities localGLCapabilities = new GLCapabilities(GLProfile.getDefault(GLProfile.getDefaultDevice()));
+    Frame localFrame = new Frame("JOGL AWT Test");
+    
+    GLCanvas localGLCanvas = new GLCanvas(localGLCapabilities);
+    localFrame.add(localGLCanvas);
+    localFrame.setSize(128, 128);
+    
+    localGLCanvas.addGLEventListener(new GLEventListener()
+    {
+      public void init(GLAutoDrawable paramAnonymousGLAutoDrawable) {
+        GL localGL = paramAnonymousGLAutoDrawable.getGL();
+        System.err.println(JoglVersion.getGLInfo(localGL, null));
+      }
+      
+      public void reshape(GLAutoDrawable paramAnonymousGLAutoDrawable, int paramAnonymousInt1, int paramAnonymousInt2, int paramAnonymousInt3, int paramAnonymousInt4) {}
+      
+      public void display(GLAutoDrawable paramAnonymousGLAutoDrawable) {}
+      
+      public void dispose(GLAutoDrawable paramAnonymousGLAutoDrawable) {}
+    });
+    try
+    {
+      SwingUtilities.invokeAndWait(new Runnable()
+      {
+
+        public void run() { val$frame.setVisible(true); }
+      });
+    } catch (Throwable localThrowable1) {
+      localThrowable1.printStackTrace();
+    }
+    localGLCanvas.display();
+    try {
+      SwingUtilities.invokeAndWait(new Runnable()
+      {
+
+        public void run() { val$frame.dispose(); }
+      });
+    } catch (Throwable localThrowable2) {
+      localThrowable2.printStackTrace();
+    }
+  }
+}

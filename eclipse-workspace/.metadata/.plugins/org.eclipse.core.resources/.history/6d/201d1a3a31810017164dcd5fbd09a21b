@@ -1,0 +1,153 @@
+package jogamp.newt;
+
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.GraphicsConfigurationFactory;
+import com.jogamp.nativewindow.MutableSurface;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.util.Point;
+import com.jogamp.newt.MonitorDevice;
+import com.jogamp.newt.Screen;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class OffscreenWindow
+  extends WindowImpl
+  implements MutableSurface
+{
+  long surfaceHandle;
+  
+  public OffscreenWindow()
+  {
+    surfaceHandle = 0L;
+  }
+  
+  static long nextWindowHandle = 256L;
+  
+  protected void createNativeImpl()
+  {
+    if (capsRequested.isOnscreen()) {
+      throw new NativeWindowException("Capabilities is onscreen");
+    }
+    AbstractGraphicsScreen localAbstractGraphicsScreen = getScreen().getGraphicsScreen();
+    AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = GraphicsConfigurationFactory.getFactory(localAbstractGraphicsScreen.getDevice(), capsRequested).chooseGraphicsConfiguration(capsRequested, capsRequested, capabilitiesChooser, localAbstractGraphicsScreen, 0);
+    
+    if (null == localAbstractGraphicsConfiguration) {
+      throw new NativeWindowException("Error choosing GraphicsConfiguration creating window: " + this);
+    }
+    setGraphicsConfiguration(localAbstractGraphicsConfiguration);
+    
+    synchronized (OffscreenWindow.class) {
+      setWindowHandle(nextWindowHandle++);
+    }
+    visibleChanged(false, true);
+  }
+  
+
+
+  protected void closeNativeImpl() {}
+  
+
+  public synchronized void destroy()
+  {
+    super.destroy();
+    surfaceHandle = 0L;
+  }
+  
+  public void setSurfaceHandle(long paramLong)
+  {
+    surfaceHandle = paramLong;
+  }
+  
+  public long getSurfaceHandle()
+  {
+    return surfaceHandle;
+  }
+  
+
+
+  protected void requestFocusImpl(boolean paramBoolean) {}
+  
+
+
+  public void setPosition(int paramInt1, int paramInt2) {}
+  
+
+  public boolean setFullscreen(boolean paramBoolean)
+  {
+    return false;
+  }
+  
+  public boolean setFullscreen(List<MonitorDevice> paramList)
+  {
+    return false;
+  }
+  
+  protected final int getSupportedReconfigMaskImpl()
+  {
+    return 2057;
+  }
+  
+  protected boolean reconfigureWindowImpl(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5)
+  {
+    sizeChanged(false, paramInt3, paramInt4, false);
+    if (0 != (0x80000000 & paramInt5)) {
+      visibleChanged(false, 0 != (0x1 & paramInt5));
+    }
+    
+
+
+
+
+
+
+
+    return true;
+  }
+  
+  public Point getLocationOnScreen(Point paramPoint)
+  {
+    if (null != paramPoint) {
+      paramPoint.set(0, 0);
+      return paramPoint;
+    }
+    return new Point(0, 0);
+  }
+  
+  protected Point getLocationOnScreenImpl(int paramInt1, int paramInt2)
+  {
+    return new Point(paramInt1, paramInt2);
+  }
+}

@@ -1,0 +1,2909 @@
+package jogamp.opengl;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.os.DynamicLookupHelper;
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.os.Platform.OSType;
+import com.jogamp.common.util.ReflectionUtil;
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.common.util.VersionNumberString;
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.gluegen.runtime.ProcAddressTable;
+import com.jogamp.gluegen.runtime.opengl.GLNameResolver;
+import com.jogamp.gluegen.runtime.opengl.GLProcAddressResolver;
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.ProxySurface;
+import com.jogamp.nativewindow.egl.EGLGraphicsDevice;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.GL2ES3;
+import com.jogamp.opengl.GL2GL3;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDebugListener;
+import com.jogamp.opengl.GLDebugMessage;
+import com.jogamp.opengl.GLDrawable;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLPipelineFactory;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.GLRendererQuirks;
+import java.io.PrintStream;
+import java.lang.reflect.Method;
+import java.nio.IntBuffer;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+import jogamp.common.os.PlatformPropsImpl.OSXVersion;
+import jogamp.nativewindow.x11.X11Util;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class GLContextImpl
+  extends GLContext
+{
+  private String contextFQN;
+  private int additionalCtxCreationFlags;
+  protected ExtensionAvailabilityCache extensionAvailability;
+  private ProcAddressTable glProcAddressTable;
+  private String glVendor;
+  private String glRenderer;
+  private String glRendererLowerCase;
+  private String glVersion;
+  private boolean glGetPtrInit = false;
+  private long glGetStringPtr = 0L;
+  private long glGetIntegervPtr = 0L;
+  
+  private final GLBufferObjectTracker bufferObjectTracker;
+  
+  private final GLBufferStateTracker bufferStateTracker;
+  
+  private final GLStateTracker glStateTracker = new GLStateTracker();
+  private GLDebugMessageHandler glDebugHandler = null;
+  private final int[] boundFBOTarget = { 0, 0 };
+  private int defaultVAO = 0;
+  
+
+
+
+
+  protected GLDrawableImpl drawable;
+  
+
+
+
+  protected GLDrawableImpl drawableRead;
+  
+
+
+
+  private boolean isSurfaceless = false;
+  
+
+  private boolean pixelDataEvaluated;
+  
+
+  private int pixelDataFormat;
+  
+
+  private int pixelDataType;
+  
+  private int currentSwapInterval;
+  
+  protected GL gl;
+  
+  protected static final Object mappedContextTypeObjectLock = new Object();
+  protected static final HashMap<String, ExtensionAvailabilityCache> mappedExtensionAvailabilityCache = new HashMap();
+  protected static final HashMap<String, ProcAddressTable> mappedGLProcAddress = new HashMap();
+  protected static final HashMap<String, ProcAddressTable> mappedGLXProcAddress = new HashMap();
+  
+  public static void shutdownImpl()
+  {
+    mappedExtensionAvailabilityCache.clear();
+    mappedGLProcAddress.clear();
+    mappedGLXProcAddress.clear();
+  }
+  
+
+  public GLContextImpl(GLDrawableImpl paramGLDrawableImpl, GLContext paramGLContext)
+  {
+    if (null == paramGLDrawableImpl) {
+      throw new IllegalArgumentException("Null drawable");
+    }
+    bufferStateTracker = new GLBufferStateTracker();
+    if (null != paramGLContext) {
+      GLContextShareSet.registerSharing(this, paramGLContext);
+      bufferObjectTracker = ((GLContextImpl)paramGLContext).getBufferObjectTracker();
+      if (null == bufferObjectTracker) {
+        throw new InternalError("shared-master context hash null GLBufferObjectTracker: " + toHexString(paramGLContext.hashCode()));
+      }
+    } else {
+      bufferObjectTracker = new GLBufferObjectTracker();
+    }
+    
+    drawable = paramGLDrawableImpl;
+    drawableRead = paramGLDrawableImpl;
+    
+    glDebugHandler = new GLDebugMessageHandler(this);
+  }
+  
+  private final void clearStates() {
+    if (!GLContextShareSet.hasCreatedSharedLeft(this)) {
+      bufferObjectTracker.clear();
+    }
+    bufferStateTracker.clear();
+    glStateTracker.setEnabled(false);
+    glStateTracker.clearStates();
+  }
+  
+  protected void resetStates(boolean paramBoolean)
+  {
+    if (!paramBoolean) {
+      clearStates();
+    }
+    extensionAvailability = null;
+    glProcAddressTable = null;
+    gl = null;
+    contextFQN = null;
+    additionalCtxCreationFlags = 0;
+    
+    glVendor = "";
+    glRenderer = glVendor;
+    glRendererLowerCase = glRenderer;
+    glVersion = glVendor;
+    glGetPtrInit = false;
+    glGetStringPtr = 0L;
+    glGetIntegervPtr = 0L;
+    
+    if ((!paramBoolean) && (null != boundFBOTarget)) {
+      boundFBOTarget[0] = 0;
+      boundFBOTarget[1] = 0;
+    }
+    
+    isSurfaceless = false;
+    pixelDataEvaluated = false;
+    currentSwapInterval = 0;
+    
+    super.resetStates(paramBoolean);
+  }
+  
+
+  public final GLDrawable setGLReadDrawable(GLDrawable paramGLDrawable)
+  {
+    if (!isGLReadDrawableAvailable()) {
+      throw new GLException("Setting read drawable feature not available");
+    }
+    Thread localThread = Thread.currentThread();
+    if (lock.isLockedByOtherThread()) {
+      throw new GLException("GLContext current by other thread " + lock.getOwner().getName() + ", operation not allowed on this thread " + localThread.getName());
+    }
+    boolean bool = lock.isOwner(localThread);
+    if ((bool) && (lock.getHoldCount() > 1))
+    {
+      throw new GLException("GLContext is recursively locked - unsupported for setGLDrawable(..)");
+    }
+    if (bool) {
+      release(false);
+    }
+    GLDrawableImpl localGLDrawableImpl = drawableRead;
+    drawableRead = (null != paramGLDrawable ? (GLDrawableImpl)paramGLDrawable : drawable);
+    if (bool) {
+      makeCurrent();
+    }
+    return localGLDrawableImpl;
+  }
+  
+  public final GLDrawable getGLReadDrawable()
+  {
+    return drawableRead;
+  }
+  
+
+  public final GLDrawable setGLDrawable(GLDrawable paramGLDrawable, boolean paramBoolean)
+  {
+    Thread localThread = Thread.currentThread();
+    if (lock.isLockedByOtherThread()) {
+      throw new GLException("GLContext current by other thread " + lock.getOwner().getName() + ", operation not allowed on this thread " + localThread.getName());
+    }
+    boolean bool = lock.isOwner(localThread);
+    if ((bool) && (lock.getHoldCount() > 1))
+    {
+      throw new GLException("GLContext is recursively locked - unsupported for setGLDrawable(..)");
+    }
+    if ((drawable == paramGLDrawable) && ((paramBoolean) || (drawableRead == paramGLDrawable))) {
+      return drawable;
+    }
+    GLDrawableImpl localGLDrawableImpl1 = drawable;
+    GLDrawableImpl localGLDrawableImpl2 = drawableRead;
+    if ((isCreated()) && (null != localGLDrawableImpl1) && (localGLDrawableImpl1.isRealized())) {
+      if (!bool) {
+        makeCurrent();
+      }
+      
+      gl.glFinish();
+      associateDrawable(false);
+      if (!bool) {
+        release(false);
+      }
+    }
+    if (bool) {
+      release(false);
+    }
+    if ((!paramBoolean) || (drawableRead == drawable)) {
+      drawableRead = ((GLDrawableImpl)paramGLDrawable);
+    }
+    drawableRetargeted |= ((null != drawable) && (paramGLDrawable != drawable));
+    drawable = ((GLDrawableImpl)paramGLDrawable);
+    if ((isCreated()) && (null != drawable) && (drawable.isRealized())) {
+      int i = 0;
+      Object localObject1 = null;
+      try {
+        i = makeCurrent(true);
+      } catch (Throwable localThrowable) { String str1;
+        localObject1 = localThrowable;
+      } finally { String str2;
+        if (0 == i)
+        {
+          drawableRead = localGLDrawableImpl2;
+          drawable = localGLDrawableImpl1;
+          if (drawable.isRealized()) {
+            makeCurrent(true);
+          }
+          if (!bool) {
+            release(false);
+          }
+          String str3 = "Error: makeCurrent() failed with new drawable " + paramGLDrawable;
+          if (null != localObject1) {
+            throw new GLException(str3, (Throwable)localObject1);
+          }
+          throw new GLException(str3);
+        }
+      }
+      
+      if (!bool) {
+        release(false);
+      }
+    }
+    return localGLDrawableImpl1;
+  }
+  
+  public final GLDrawable getGLDrawable()
+  {
+    return drawable;
+  }
+  
+  public final GLDrawableImpl getDrawableImpl() {
+    return drawable;
+  }
+  
+  public final GL getRootGL()
+  {
+    Object localObject = gl;
+    GL localGL = ((GL)localObject).getDownstreamGL();
+    while (null != localGL) {
+      localObject = localGL;
+      localGL = ((GL)localObject).getDownstreamGL();
+    }
+    return localObject;
+  }
+  
+  public final GL getGL()
+  {
+    return gl;
+  }
+  
+  public GL setGL(GL paramGL)
+  {
+    if (DEBUG) {
+      String str1 = null != gl ? gl.getClass().getSimpleName() + ", " + gl.toString() : "<null>";
+      String str2 = null != paramGL ? paramGL.getClass().getSimpleName() + ", " + paramGL.toString() : "<null>";
+      System.err.println("Info: setGL (OpenGL " + getGLVersion() + "): " + getThreadName() + ", " + str1 + " -> " + str2);
+      ExceptionUtils.dumpStack(System.err);
+    }
+    gl = paramGL;
+    return paramGL;
+  }
+  
+  public final int getDefaultVAO()
+  {
+    return defaultVAO;
+  }
+  
+
+
+
+
+  protected void drawableUpdatedNotify()
+    throws GLException
+  {}
+  
+
+
+
+
+  public abstract Object getPlatformGLExtensions();
+  
+
+
+
+  public void release()
+    throws GLException { release(false); }
+  
+  private String getTraceSwitchMsg() {
+    long l = null != drawable ? drawable.getHandle() : 0L;
+    return "obj " + toHexString(hashCode()) + ", ctx " + toHexString(contextHandle) + ", isShared " + GLContextShareSet.isShared(this) + ", surf " + (null != drawable) + " " + toHexString(l) + ", " + lock;
+  }
+  
+  private void release(boolean paramBoolean) throws GLException { if (TRACE_SWITCH) {
+      System.err.println(getThreadName() + ": GLContext.ContextSwitch[release.0, inDestruction: " + paramBoolean + "]: " + getTraceSwitchMsg());
+    }
+    if (!lock.isOwner(Thread.currentThread())) {
+      localObject1 = getThreadName() + ": Context not current on thread, inDestruction: " + paramBoolean + ", " + getTraceSwitchMsg();
+      if (DEBUG_TRACE_SWITCH) {
+        System.err.println((String)localObject1);
+        if (null != lastCtxReleaseStack) {
+          System.err.print("Last release call: ");
+          lastCtxReleaseStack.printStackTrace();
+        } else {
+          System.err.println("Last release call: NONE");
+        }
+      }
+      throw new GLException((String)localObject1);
+    }
+    
+    Object localObject1 = null;
+    int i = ((paramBoolean) || (lock.getHoldCount() == 1)) && (0L != contextHandle) ? 1 : 0;
+    try {
+      if (i != 0) {
+        if (!paramBoolean) {
+          try {
+            contextMadeCurrent(false);
+          } catch (Throwable localThrowable) {
+            localObject1 = localThrowable;
+          }
+        }
+        releaseImpl();
+      }
+    } finally {
+      String str1;
+      if (i != 0) {
+        setCurrent(null);
+      }
+      lock.unlock();
+      drawable.unlockSurface();
+      if (DEBUG_TRACE_SWITCH) {
+        String str2 = getThreadName() + ": GLContext.ContextSwitch[release.X]: " + (i != 0 ? "switch" : "keep  ") + " - " + getTraceSwitchMsg();
+        lastCtxReleaseStack = new Throwable(str2);
+        if (TRACE_SWITCH) {
+          System.err.println(str2);
+        }
+      }
+    }
+    
+    if (null != localObject1)
+      throw new GLException("GLContext.release(false) during GLDrawableImpl.contextMadeCurrent(this, false)", (Throwable)localObject1);
+  }
+  
+  private Throwable lastCtxReleaseStack = null;
+  
+  protected abstract void releaseImpl() throws GLException;
+  
+  public final void destroy() {
+    if (DEBUG_TRACE_SWITCH) {
+      System.err.println(getThreadName() + ": GLContextImpl.destroy.0: " + getTraceSwitchMsg());
+    }
+    if (0L != contextHandle) {
+      if (null == drawable) {
+        throw new GLException("GLContext created but drawable is null: " + toString());
+      }
+      int i = drawable.lockSurface();
+      if (1 >= i)
+      {
+        throw new GLException("Surface not ready to lock: " + drawable);
+      }
+      Object localObject1 = null;
+      try {
+        if (!drawable.isRealized()) {
+          throw new GLException("GLContext created but drawable not realized: " + toString());
+        }
+        
+
+        lock.lock();
+        if ((DEBUG_TRACE_SWITCH) && 
+          (lock.getHoldCount() > 2)) {
+          System.err.println(getThreadName() + ": GLContextImpl.destroy: Lock was hold more than once - makeCurrent/release imbalance: " + getTraceSwitchMsg());
+          ExceptionUtils.dumpStack(System.err);
+        }
+        
+        try
+        {
+          if ((lock.getHoldCount() == 1) && 
+            (0 == makeCurrent())) {
+            throw new GLException("GLContext.makeCurrent() failed: " + toString());
+          }
+          try
+          {
+            associateDrawable(false);
+          } catch (Throwable localThrowable) {
+            localObject1 = localThrowable;
+          }
+          if (0 != defaultVAO) {
+            int[] arrayOfInt = { defaultVAO };
+            GL2ES3 localGL2ES3 = gl.getRootGL().getGL2ES3();
+            localGL2ES3.glBindVertexArray(0);
+            localGL2ES3.glDeleteVertexArrays(1, arrayOfInt, 0);
+            defaultVAO = 0;
+          }
+          glDebugHandler.enable(false);
+          if (lock.getHoldCount() > 1)
+          {
+            release(true);
+          }
+          destroyImpl();
+          contextHandle = 0L;
+          glDebugHandler = null;
+          
+          if ((GLContextShareSet.contextDestroyed(this)) && (!GLContextShareSet.hasCreatedSharedLeft(this))) {
+            GLContextShareSet.unregisterSharing(this);
+          }
+          resetStates(false);
+        } finally {
+          lock.unlock();
+          if (DEBUG_TRACE_SWITCH) {
+            System.err.println(getThreadName() + ": GLContextImpl.destroy.X: " + getTraceSwitchMsg());
+          }
+        }
+      } finally {
+        drawable.unlockSurface();
+      }
+      if (null != localObject1) {
+        throw new GLException("Exception @ destroy's associateDrawable(false)", localObject1);
+      }
+    } else {
+      resetStates(false);
+    }
+  }
+  
+  protected abstract void destroyImpl() throws GLException;
+  
+  public final void copy(GLContext paramGLContext, int paramInt) throws GLException {
+    if (paramGLContext.getHandle() == 0L) {
+      throw new GLException("Source OpenGL context has not been created");
+    }
+    if (getHandle() == 0L) {
+      throw new GLException("Destination OpenGL context has not been created");
+    }
+    
+    int i = drawable.lockSurface();
+    if (1 >= i)
+    {
+      throw new GLException("Surface not ready to lock");
+    }
+    try {
+      copyImpl(paramGLContext, paramInt);
+    } finally {
+      drawable.unlockSurface();
+    }
+  }
+  
+  protected abstract void copyImpl(GLContext paramGLContext, int paramInt) throws GLException;
+  
+  protected final boolean isSurfaceless()
+  {
+    return isSurfaceless;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final int makeCurrent()
+    throws GLException
+  {
+    return makeCurrent(false);
+  }
+  
+  protected final int makeCurrent(boolean paramBoolean) throws GLException {
+    int i = null != drawable ? 1 : 0;
+    if (TRACE_SWITCH) {
+      System.err.println(getThreadName() + ": GLContext.ContextSwitch[makeCurrent.0]: " + getTraceSwitchMsg());
+    }
+    if (i == 0) {
+      if (DEBUG_TRACE_SWITCH) {
+        System.err.println(getThreadName() + ": GLContext.ContextSwitch[makeCurrent.X0]: NULL Drawable - CONTEXT_NOT_CURRENT - " + getTraceSwitchMsg());
+      }
+      return 0;
+    }
+    
+
+    int j = drawable.lockSurface();
+    if (1 >= j) {
+      if (DEBUG_TRACE_SWITCH) {
+        System.err.println(getThreadName() + ": GLContext.ContextSwitch[makeCurrent.X1]: Surface Not Ready - CONTEXT_NOT_CURRENT - " + getTraceSwitchMsg());
+      }
+      return 0;
+    }
+    
+    int k = 1;
+    int m = 0;
+    try {
+      if (drawable.isRealized()) {
+        lock.lock();
+        try {
+          if ((0L == drawable.getHandle()) && (!isSurfaceless)) {
+            if (DEBUG) {
+              System.err.println(getThreadName() + ": GLContext.makeCurrent: Surfaceless evaluate");
+            }
+            if (hasRendererQuirk(22)) {
+              throw new GLException(String.format("Surfaceless not supported due to quirk %s: %s", new Object[] {
+                GLRendererQuirks.toString(22), toString() }));
+            }
+            
+            localObject1 = drawable.getNativeSurface();
+            if ((!(localObject1 instanceof ProxySurface)) || 
+              (!((ProxySurface)localObject1).containsUpstreamOptionBits(512))) {
+              throw new GLException(String.format("non-surfaceless drawable has zero-handle: %s", new Object[] { drawable.toString() }));
+            }
+          }
+          
+
+          Object localObject1 = getCurrent();
+          if (localObject1 != null) {
+            if (localObject1 == this)
+            {
+
+              drawableUpdatedNotify();
+              k = 0;
+              if (TRACE_SWITCH) {
+                System.err.println(getThreadName() + ": GLContext.ContextSwitch[makeCurrent.X2]: KEEP - CONTEXT_CURRENT - " + getTraceSwitchMsg());
+              }
+              int n = 1;
+              
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+              if (k != 0) {
+                if (DEBUG_TRACE_SWITCH) {
+                  System.err.println(getThreadName() + ": GLContext.ContextSwitch[makeCurrent.1]: Context lock.unlock() due to error, res " + makeCurrentResultToString(m) + ", " + lock);
+                }
+                lock.unlock();
+              }
+              
+
+
+
+
+
+
+              return n;
+            }
+            ((GLContext)localObject1).release();
+          }
+          
+          m = makeCurrentWithinLock(j);
+          k = 0 == m ? 1 : 0;
+
+
+
+        }
+        catch (RuntimeException localRuntimeException1)
+        {
+
+
+
+          k = 1;
+          throw localRuntimeException1;
+        } finally {
+          if (k != 0) {
+            if (DEBUG_TRACE_SWITCH) {
+              System.err.println(getThreadName() + ": GLContext.ContextSwitch[makeCurrent.1]: Context lock.unlock() due to error, res " + makeCurrentResultToString(m) + ", " + lock);
+            }
+            lock.unlock();
+          }
+        }
+      }
+    } catch (RuntimeException localRuntimeException2) {
+      k = 1;
+      throw localRuntimeException2;
+    } finally {
+      if (k != 0) {
+        drawable.unlockSurface();
+      }
+    }
+    
+    if (0 != m) {
+      if ((0L == drawable.getHandle()) && (!isSurfaceless)) {
+        if (hasRendererQuirk(22)) {
+          throw new GLException(String.format("Surfaceless not supported due to quirk %s: %s", new Object[] {
+            GLRendererQuirks.toString(22), toString() }));
+        }
+        if (DEBUG) {
+          System.err.println(getThreadName() + ": GLContext.makeCurrent: Surfaceless OK - validated");
+        }
+        isSurfaceless = true;
+      }
+      setCurrent(this);
+      if (2 == m)
+      {
+
+
+
+        glDebugHandler.init(isGLDebugEnabled());
+        
+        if (DEBUG_GL) {
+          setGL(GLPipelineFactory.create("com.jogamp.opengl.Debug", null, gl, null));
+          if (glDebugHandler.isEnabled()) {
+            glDebugHandler.addListener(new GLDebugMessageHandler.StdErrGLDebugListener(true));
+          }
+        }
+        if (TRACE_GL) {
+          setGL(GLPipelineFactory.create("com.jogamp.opengl.Trace", null, gl, new Object[] { System.err }));
+        }
+        
+        paramBoolean = true;
+      }
+      
+      if (paramBoolean) {
+        associateDrawable(true);
+      }
+      
+      contextMadeCurrent(true);
+    }
+    
+
+
+
+
+
+
+
+
+    if (TRACE_SWITCH) {
+      System.err.println(getThreadName() + ": GLContext.ContextSwitch[makeCurrent.X3]: SWITCH - " + makeCurrentResultToString(m) + " - stateTracker.on " + glStateTracker.isEnabled() + " - " + getTraceSwitchMsg());
+    }
+    return m;
+  }
+  
+  private final GLContextImpl getOtherSharedMaster() {
+    GLContextImpl localGLContextImpl = (GLContextImpl)GLContextShareSet.getSharedMaster(this);
+    return this != localGLContextImpl ? localGLContextImpl : null;
+  }
+  
+  private final int makeCurrentWithinLock(int paramInt) throws GLException { if (!isCreated()) {
+      if ((0 >= drawable.getSurfaceWidth()) || (0 >= drawable.getSurfaceHeight())) {
+        if (DEBUG_TRACE_SWITCH) {
+          System.err.println(getThreadName() + ": Create GL context REJECTED (zero surface size) for " + getClass().getName() + " - " + getTraceSwitchMsg());
+          System.err.println(drawable.toString());
+        }
+        return 0;
+      }
+      if (DEBUG_GL)
+      {
+        additionalCtxCreationFlags |= 0x20;
+      }
+      
+
+      GLContextImpl localGLContextImpl = getOtherSharedMaster();
+      if ((null != localGLContextImpl) && 
+        (1 >= drawable.lockSurface())) {
+        throw new GLException("GLContextShareSet could not lock sharedMaster surface: " + drawable);
+      }
+      boolean bool;
+      try {
+        if (null != localGLContextImpl) {
+          long l = localGLContextImpl.getHandle();
+          if (0L == l) {
+            throw new GLException("GLContextShareSet returned an invalid sharedMaster context: " + localGLContextImpl);
+          }
+          bool = createImpl(l);
+        } else {
+          bool = createImpl(0L);
+        }
+        if ((bool) && (hasNoDefaultVAO())) {
+          localObject1 = new int[1];
+          localObject2 = gl.getRootGL();
+          GL2ES3 localGL2ES3 = ((GL)localObject2).getGL2ES3();
+          localGL2ES3.glGenVertexArrays(1, (int[])localObject1, 0);
+          defaultVAO = localObject1[0];
+          localGL2ES3.glBindVertexArray(defaultVAO);
+        }
+      } finally {
+        if (null != localGLContextImpl) {
+          drawable.unlockSurface();
+        }
+      }
+      if (DEBUG_TRACE_SWITCH) {
+        System.err.println(getThreadName() + ": Create GL context " + (bool ? "OK" : "FAILED") + ": For " + getClass().getName() + " - " + getGLVersion() + " - " + getTraceSwitchMsg());
+      }
+      
+      if (!bool) {
+        return 0;
+      }
+      
+
+
+      Object localObject1 = drawable.getNativeSurface().getGraphicsConfiguration();
+      Object localObject2 = ((AbstractGraphicsConfiguration)localObject1).getScreen().getDevice();
+      
+
+      if ((!GLContext.getAvailableGLVersionsSet((AbstractGraphicsDevice)localObject2)) && 
+        (0 == (ctxOptions & 0x8)))
+      {
+        int i;
+        if (ctxVersion.compareTo(Version3_0) <= 0) {
+          i = 2;
+        } else
+          i = ctxVersion.getMajor();
+        int j;
+        int k;
+        if (0 != (ctxOptions & 0x4)) {
+          j = 4;
+          k = 0;
+        } else {
+          j = 2;
+          k = 1;
+        }
+        MappedGLVersion localMappedGLVersion = mapAvailableGLVersion((AbstractGraphicsDevice)localObject2, i, j, ctxVersion, ctxOptions, glRendererQuirks);
+        
+        if (k != 0)
+        {
+          mapAvailableGLVersion((AbstractGraphicsDevice)localObject2, i, 4, ctxVersion, ctxOptions, glRendererQuirks);
+          if (i >= 4) {
+            mapAvailableGLVersion((AbstractGraphicsDevice)localObject2, 3, j, ctxVersion, ctxOptions, glRendererQuirks);
+            mapAvailableGLVersion((AbstractGraphicsDevice)localObject2, 3, 4, ctxVersion, ctxOptions, glRendererQuirks);
+          }
+          if (i >= 3) {
+            mapAvailableGLVersion((AbstractGraphicsDevice)localObject2, 2, j, ctxVersion, ctxOptions, glRendererQuirks);
+          }
+          
+        }
+        else if (i >= 4) {
+          mapAvailableGLVersion((AbstractGraphicsDevice)localObject2, 3, j, ctxVersion, ctxOptions, glRendererQuirks);
+        }
+        
+        GLContext.setAvailableGLVersionsSet((AbstractGraphicsDevice)localObject2, true);
+        
+        if (DEBUG) {
+          System.err.println(getThreadName() + ": createContextOLD-MapGLVersions HAVE: " + localMappedGLVersion);
+        }
+      }
+      
+
+      GLContextShareSet.contextCreated(this);
+      return 2;
+    }
+    makeCurrentImpl();
+    return 1;
+  }
+  
+  protected abstract void makeCurrentImpl()
+    throws GLException;
+  
+  protected void associateDrawable(boolean paramBoolean)
+  {
+    drawable.associateContext(this, paramBoolean);
+  }
+  
+
+
+  protected void contextMadeCurrent(boolean paramBoolean)
+  {
+    drawable.contextMadeCurrent(this, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected abstract boolean createImpl(long paramLong)
+    throws GLException;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected abstract long createContextARBImpl(long paramLong, boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3);
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected abstract void destroyContextARBImpl(long paramLong);
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected final boolean isCreateContextARBAvail(AbstractGraphicsDevice paramAbstractGraphicsDevice) { return (!GLProfile.disableOpenGLARBContext) && (!GLRendererQuirks.existStickyDeviceQuirk(paramAbstractGraphicsDevice, 21)); }
+  
+  protected final String getCreateContextARBAvailStr(AbstractGraphicsDevice paramAbstractGraphicsDevice) {
+    boolean bool = GLRendererQuirks.existStickyDeviceQuirk(paramAbstractGraphicsDevice, 21);
+    return "disabled " + GLProfile.disableOpenGLARBContext + ", quirk " + bool;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected final long createContextARB(long paramLong, boolean paramBoolean)
+  {
+    AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = drawable.getNativeSurface().getGraphicsConfiguration();
+    AbstractGraphicsDevice localAbstractGraphicsDevice = localAbstractGraphicsConfiguration.getScreen().getDevice();
+    GLCapabilitiesImmutable localGLCapabilitiesImmutable = (GLCapabilitiesImmutable)localAbstractGraphicsConfiguration.getChosenCapabilities();
+    GLProfile localGLProfile = localGLCapabilitiesImmutable.getGLProfile();
+    
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": createContextARB-MapGLVersions is SET (" + localAbstractGraphicsDevice.getConnection() + "): " + 
+        GLContext.getAvailableGLVersionsSet(localAbstractGraphicsDevice));
+    }
+    if ((!GLContext.getAvailableGLVersionsSet(localAbstractGraphicsDevice)) && 
+      (!mapGLVersions(localAbstractGraphicsDevice)))
+    {
+      return 0L;
+    }
+    
+
+    int[] arrayOfInt1 = { 0, 0 };
+    GLContext.getRequestMajorAndCompat(localGLProfile, arrayOfInt1);
+    
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": createContextARB-MapGLVersions Requested " + localGLProfile + " -> " + GLContext.getGLVersion(arrayOfInt1[0], 0, arrayOfInt1[1], null));
+    }
+    int[] arrayOfInt2 = { 0 };
+    int[] arrayOfInt3 = { 0 };
+    int[] arrayOfInt4 = { 0 };
+    long l = 0L;
+    if (GLContext.getAvailableGLVersion(localAbstractGraphicsDevice, arrayOfInt1[0], arrayOfInt1[1], arrayOfInt2, arrayOfInt3, arrayOfInt4))
+    {
+      arrayOfInt4[0] |= additionalCtxCreationFlags;
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": createContextARB-MapGLVersions Mapped " + GLContext.getGLVersion(arrayOfInt2[0], arrayOfInt3[0], arrayOfInt4[0], null));
+      }
+      l = createContextARBImpl(paramLong, paramBoolean, arrayOfInt4[0], arrayOfInt2[0], arrayOfInt3[0]);
+      if ((0L != l) && 
+        (!setGLFunctionAvailability(true, arrayOfInt2[0], arrayOfInt3[0], arrayOfInt4[0], false, false))) {
+        throw new InternalError("setGLFunctionAvailability !strictMatch failed");
+      }
+    }
+    
+    return l;
+  }
+  
+  public static abstract interface MappedGLVersionListener {
+    public abstract void glVersionMapped(GLContextImpl.MappedGLVersion paramMappedGLVersion);
+  }
+  
+  public static class MappedGLVersion {
+    public final AbstractGraphicsDevice device;
+    public final int reqMajorVersion;
+    public final int reqProfile;
+    public final VersionNumber ctxVersion;
+    public final int ctxOptions;
+    public final GLRendererQuirks quirks;
+    public final VersionNumber preCtxVersion;
+    public final int preCtxOptions;
+    
+    public MappedGLVersion(AbstractGraphicsDevice paramAbstractGraphicsDevice, int paramInt1, int paramInt2, VersionNumber paramVersionNumber1, int paramInt3, GLRendererQuirks paramGLRendererQuirks, VersionNumber paramVersionNumber2, int paramInt4) {
+      device = paramAbstractGraphicsDevice;
+      reqMajorVersion = paramInt1;
+      reqProfile = paramInt2;
+      ctxVersion = paramVersionNumber1;
+      ctxOptions = paramInt3;
+      quirks = paramGLRendererQuirks;
+      preCtxVersion = paramVersionNumber2;
+      preCtxOptions = paramInt4;
+    }
+    
+    public final String toString() { return toString(new StringBuilder(), -1, -1, -1, -1).toString(); }
+    
+    public final StringBuilder toString(StringBuilder paramStringBuilder, int paramInt1, int paramInt2, int paramInt3, int paramInt4) {
+      paramStringBuilder.append(device.toString()).append(" ").append(reqMajorVersion).append(" (");
+      GLContextImpl.getGLProfile(paramStringBuilder, reqProfile).append(")");
+      if ((paramInt1 >= 0) && (paramInt2 >= 0) && (paramInt3 >= 0) && (paramInt4 >= 0)) {
+        paramStringBuilder.append("[").append(paramInt1).append(".").append(paramInt2).append(" .. ").append(paramInt3).append(".").append(paramInt4).append("]");
+      }
+      paramStringBuilder.append(": [");
+      if (null != preCtxVersion) {
+        GLContextImpl.getGLVersion(paramStringBuilder, preCtxVersion, preCtxOptions, null);
+      } else {
+        paramStringBuilder.append("None");
+      }
+      paramStringBuilder.append("] -> [");
+      GLContextImpl.getGLVersion(paramStringBuilder, ctxVersion, ctxOptions, null).append("]");
+      return paramStringBuilder;
+    }
+  }
+  
+
+
+  private static MappedGLVersionListener mapGLVersionListener = null;
+  
+  protected static synchronized void setMappedGLVersionListener(MappedGLVersionListener paramMappedGLVersionListener) { mapGLVersionListener = paramMappedGLVersionListener; }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected static MappedGLVersion mapAvailableGLVersion(AbstractGraphicsDevice paramAbstractGraphicsDevice, int paramInt1, int paramInt2, VersionNumber paramVersionNumber, int paramInt3, GLRendererQuirks paramGLRendererQuirks)
+  {
+    Integer localInteger = mapAvailableGLVersion(paramAbstractGraphicsDevice, paramInt1, paramInt2, paramVersionNumber.getMajor(), paramVersionNumber.getMinor(), paramInt3);
+    int[] arrayOfInt = { 0 };
+    VersionNumber localVersionNumber = null != localInteger ? decomposeBits(localInteger.intValue(), arrayOfInt) : null;
+    MappedGLVersion localMappedGLVersion = new MappedGLVersion(paramAbstractGraphicsDevice, paramInt1, paramInt2, paramVersionNumber, paramInt3, paramGLRendererQuirks, localVersionNumber, arrayOfInt[0]);
+    if (null != mapGLVersionListener) {
+      mapGLVersionListener.glVersionMapped(localMappedGLVersion);
+    }
+    return localMappedGLVersion;
+  }
+  
+  protected static void remapAvailableGLVersions(AbstractGraphicsDevice paramAbstractGraphicsDevice1, AbstractGraphicsDevice paramAbstractGraphicsDevice2) {
+    if ((paramAbstractGraphicsDevice1 == paramAbstractGraphicsDevice2) || (paramAbstractGraphicsDevice1.getUniqueID() == paramAbstractGraphicsDevice2.getUniqueID())) {
+      return;
+    }
+    synchronized (deviceVersionAvailable) {
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": createContextARB-MapGLVersions REMAP " + paramAbstractGraphicsDevice1 + " -> " + paramAbstractGraphicsDevice2);
+      }
+      IdentityHashMap localIdentityHashMap = new IdentityHashMap();
+      Set localSet = deviceVersionAvailable.keySet();
+      for (Iterator localIterator = localSet.iterator(); localIterator.hasNext();) {
+        String str1 = (String)localIterator.next();
+        Integer localInteger = (Integer)deviceVersionAvailable.get(str1);
+        if (null != localInteger) {
+          if (DEBUG) {
+            int[] arrayOfInt = { 0 };
+            localObject1 = decomposeBits(localInteger.intValue(), arrayOfInt);
+            System.err.println(" MapGLVersions REMAP OLD " + str1 + " -> " + GLContext.getGLVersion(new StringBuilder(), (VersionNumber)localObject1, arrayOfInt[0], null).toString());
+          }
+          localIdentityHashMap.put(str1, localInteger);
+          int i = str1.lastIndexOf('-');
+          if (0 >= i) {
+            throw new InternalError("device-separator '-' at " + i + " of " + str1);
+          }
+          Object localObject1 = str1.substring(0, i);
+          if (paramAbstractGraphicsDevice1.getUniqueID().equals(localObject1)) {
+            String str2 = str1.substring(i);
+            String str3 = (paramAbstractGraphicsDevice2.getUniqueID() + str2).intern();
+            if (DEBUG) {
+              System.err.println(" MapGLVersions REMAP NEW " + str3 + " -> (ditto)");
+            }
+            localIdentityHashMap.put(str3, localInteger);
+          }
+        }
+      }
+      deviceVersionAvailable.clear();
+      deviceVersionAvailable.putAll(localIdentityHashMap);
+      GLContext.setAvailableGLVersionsSet(paramAbstractGraphicsDevice2, true);
+    }
+  }
+  
+  private final boolean mapGLVersions(AbstractGraphicsDevice paramAbstractGraphicsDevice) {
+    synchronized (GLContext.deviceVersionAvailable) {
+      boolean bool1 = drawable.getFactory().hasOpenGLESSupport();
+      boolean bool2 = drawable.getFactory().hasOpenGLDesktopSupport();
+      boolean bool3 = drawable.getFactoryImpl().hasMajorMinorCreateContextARB();
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": createContextARB-MapGLVersions START (GLDesktop " + bool2 + ", GLES " + bool1 + ", minorVersion " + bool3 + ") on " + paramAbstractGraphicsDevice);
+      }
+      long l1 = DEBUG ? System.nanoTime() : 0L;
+      boolean bool4 = false;
+      
+      boolean bool5 = false;
+      boolean bool6 = false;
+      boolean bool7 = false;
+      boolean bool8 = false;
+      boolean bool9 = false;
+      boolean bool10 = false;
+      boolean bool11 = false;
+      boolean bool12 = false;
+      
+      if ((bool1) && (!GLProfile.disableOpenGLES)) {
+        if (!bool10) {
+          bool10 = createContextARBMapVersionsAvailable(paramAbstractGraphicsDevice, 3, 8, bool3);
+          bool4 |= bool10;
+          if (bool10) {
+            if (0 == (0x40 & ctxOptions))
+            {
+              mapAvailableGLVersion(paramAbstractGraphicsDevice, 2, 8, ctxVersion, ctxOptions, glRendererQuirks);
+              if (PROFILE_ALIASING) {
+                bool11 = true;
+              }
+            }
+            resetStates(false);
+          }
+        }
+        if (!bool11) {
+          bool11 = createContextARBMapVersionsAvailable(paramAbstractGraphicsDevice, 2, 8, bool3);
+          bool4 |= bool11;
+          if (bool11) {
+            if ((ctxVersion.getMajor() >= 3) && (hasRendererQuirk(15))) {
+              mapAvailableGLVersion(paramAbstractGraphicsDevice, 3, 8, ctxVersion, ctxOptions, glRendererQuirks);
+            }
+            resetStates(false);
+          }
+        }
+        if (!bool12) {
+          bool12 = createContextARBMapVersionsAvailable(paramAbstractGraphicsDevice, 1, 8, bool3);
+          bool4 |= bool12;
+          if (bool12) {
+            resetStates(false);
+          }
+        }
+      }
+      
+
+
+
+      if ((Platform.OSType.MACOS == Platform.getOSType()) && 
+        (Platform.getOSVersionNumber().compareTo(PlatformPropsImpl.OSXVersion.Mavericks) >= 0))
+      {
+
+
+        if ((bool2) && (!GLProfile.disableOpenGLDesktop) && (!GLProfile.disableOpenGLCore) && (!bool8) && (!bool9)) {
+          bool9 = createContextARBMapVersionsAvailable(paramAbstractGraphicsDevice, 3, 4, bool3);
+          bool4 |= bool9;
+          if (bool9) {
+            int i = 0 == (0x40 & ctxOptions) ? 1 : 0;
+            if ((i != 0) && (ctxVersion.getMajor() >= 4))
+            {
+              mapAvailableGLVersion(paramAbstractGraphicsDevice, 4, 4, ctxVersion, ctxOptions, glRendererQuirks);
+              bool8 = true;
+              if (DEBUG) {
+                System.err.println(getThreadName() + ": createContextARB-MapGLVersions: Quirk Triggerd: " + GLRendererQuirks.toString(13) + ": cause: OS " + Platform.getOSType() + ", OS Version " + Platform.getOSVersionNumber());
+              }
+            }
+            resetStates(false);
+          }
+        }
+      }
+      if ((bool2) && (!GLProfile.disableOpenGLDesktop) && (!GLProfile.disableOpenGLCore)) {
+        if (!bool8) {
+          bool8 = createContextARBMapVersionsAvailable(paramAbstractGraphicsDevice, 4, 4, bool3);
+          bool4 |= bool8;
+          if (bool8) {
+            if (0 == (0x40 & ctxOptions))
+            {
+              mapAvailableGLVersion(paramAbstractGraphicsDevice, 3, 4, ctxVersion, ctxOptions, glRendererQuirks);
+              if (PROFILE_ALIASING) {
+                bool9 = true;
+              }
+            }
+            resetStates(false);
+          }
+        }
+        if (!bool9) {
+          bool9 = createContextARBMapVersionsAvailable(paramAbstractGraphicsDevice, 3, 4, bool3);
+          bool4 |= bool9;
+          if (bool9) {
+            resetStates(false);
+          }
+        }
+      }
+      if ((bool2) && (!GLProfile.disableOpenGLDesktop)) {
+        if (!bool5) {
+          bool5 = createContextARBMapVersionsAvailable(paramAbstractGraphicsDevice, 4, 2, bool3);
+          bool4 |= bool5;
+          if (bool5) {
+            if (!bool8) {
+              mapAvailableGLVersion(paramAbstractGraphicsDevice, 4, 4, ctxVersion, ctxOptions, glRendererQuirks);
+              bool8 = true;
+            }
+            if (!bool9) {
+              mapAvailableGLVersion(paramAbstractGraphicsDevice, 3, 4, ctxVersion, ctxOptions, glRendererQuirks);
+              bool9 = true;
+            }
+            if (0 == (0x40 & ctxOptions))
+            {
+              mapAvailableGLVersion(paramAbstractGraphicsDevice, 3, 2, ctxVersion, ctxOptions, glRendererQuirks);
+              mapAvailableGLVersion(paramAbstractGraphicsDevice, 2, 2, ctxVersion, ctxOptions, glRendererQuirks);
+              if (PROFILE_ALIASING) {
+                bool6 = true;
+                bool7 = true;
+              }
+            }
+            resetStates(false);
+          }
+        }
+        if (!bool6) {
+          bool6 = createContextARBMapVersionsAvailable(paramAbstractGraphicsDevice, 3, 2, bool3);
+          bool4 |= bool6;
+          if (bool6) {
+            if (!bool9) {
+              mapAvailableGLVersion(paramAbstractGraphicsDevice, 3, 4, ctxVersion, ctxOptions, glRendererQuirks);
+              bool9 = true;
+            }
+            if (0 == (0x40 & ctxOptions))
+            {
+              mapAvailableGLVersion(paramAbstractGraphicsDevice, 2, 2, ctxVersion, ctxOptions, glRendererQuirks);
+              if (PROFILE_ALIASING) {
+                bool7 = true;
+              }
+            }
+            resetStates(false);
+          }
+        }
+        if (!bool7) {
+          bool7 = createContextARBMapVersionsAvailable(paramAbstractGraphicsDevice, 2, 2, bool3);
+          bool4 |= bool7;
+          if (bool7) {
+            resetStates(false);
+          }
+        }
+      }
+      if (bool4)
+      {
+        GLContext.setAvailableGLVersionsSet(paramAbstractGraphicsDevice, true);
+      }
+      if (DEBUG) {
+        long l2 = System.nanoTime();
+        System.err.println(getThreadName() + ": createContextARB-MapGLVersions END (success " + bool4 + ") on " + paramAbstractGraphicsDevice + ", profileAliasing: " + PROFILE_ALIASING + ", total " + (l2 - l1) / 1000000.0D + "ms");
+        if (bool4) {
+          System.err.println(GLContext.dumpAvailableGLVersions(null).toString());
+        }
+      }
+      return bool4;
+    }
+  }
+  
+
+
+
+
+
+  private final boolean createContextARBMapVersionsAvailable(AbstractGraphicsDevice paramAbstractGraphicsDevice, int paramInt1, int paramInt2, boolean paramBoolean)
+  {
+    int i = 0x1 | paramInt2;
+    
+
+
+
+
+
+    int[] arrayOfInt1 = new int[1];
+    int[] arrayOfInt2 = new int[1];
+    int j;
+    int k; int m; int n; if (paramBoolean) {
+      if (8 == paramInt2)
+      {
+        j = paramInt1;k = GLContext.getMaxMinor(i, j);
+        m = paramInt1;n = 0;
+      }
+      else if (4 == paramInt1) {
+        j = 4;k = GLContext.getMaxMinor(i, j);
+        m = 4;n = 0;
+      } else if (3 == paramInt1) {
+        j = 3;k = GLContext.getMaxMinor(i, j);
+        m = 3;n = 1;
+      }
+      else
+      {
+        j = 3;k = 0;
+        m = 2;n = 0;
+      }
+      
+    }
+    else if (8 == paramInt2)
+    {
+      j = paramInt1;k = 0;
+      m = paramInt1;n = 0;
+    }
+    else if (4 == paramInt1) {
+      j = 4;k = 0;
+      m = 4;n = 0;
+    } else if (3 == paramInt1) {
+      j = 3;k = 1;
+      m = 3;n = 1;
+    }
+    else
+    {
+      j = 2;k = 0;
+      m = 2;n = 0;
+    }
+    
+
+    long l = createContextARBVersions(0L, true, i, j, k, m, n, arrayOfInt1, arrayOfInt2);
+    
+
+
+
+    if ((0L == l) && (4 == paramInt2) && (!PROFILE_ALIASING))
+    {
+      i &= 0xFFFFFFFB;
+      i |= 0x10;
+      l = createContextARBVersions(0L, true, i, j, k, m, n, arrayOfInt1, arrayOfInt2);
+      
+
+
+      if (0L == l)
+      {
+        i &= 0xFFFFFFFB;
+        i &= 0xFFFFFFEF;
+        i |= 0x2;
+        l = createContextARBVersions(0L, true, i, j, k, m, n, arrayOfInt1, arrayOfInt2);
+      }
+    }
+    
+
+    boolean bool;
+    
+    if (0L != l)
+    {
+
+      MappedGLVersion localMappedGLVersion = mapAvailableGLVersion(paramAbstractGraphicsDevice, paramInt1, paramInt2, ctxVersion, ctxOptions, glRendererQuirks);
+      destroyContextARBImpl(l);
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": createContextARB-MapGLVersions HAVE " + localMappedGLVersion.toString(new StringBuilder(), m, n, j, k).toString());
+      }
+      bool = true;
+    } else {
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": createContextARB-MapGLVersions NOPE " + paramAbstractGraphicsDevice + ", " + paramInt1 + " (" + GLContext.getGLProfile(new StringBuilder(), paramInt2).toString() + ") [" + j + "." + k + " .. " + m + "." + n + "]");
+      }
+      bool = false;
+    }
+    return bool;
+  }
+  
+
+
+  private final long createContextARBVersions(long paramLong, boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int[] paramArrayOfInt1, int[] paramArrayOfInt2)
+  {
+    paramArrayOfInt1[0] = paramInt2;
+    paramArrayOfInt2[0] = paramInt3;
+    long l = 0L;
+    int i = 0;
+    do
+    {
+      if (DEBUG) {
+        i++;
+        System.err.println(getThreadName() + ": createContextARBVersions." + i + ": share " + paramLong + ", direct " + paramBoolean + ", version " + paramArrayOfInt1[0] + "." + paramArrayOfInt2[0] + " [" + paramInt2 + "." + paramInt3 + " .. " + paramInt4 + "." + paramInt5 + "]");
+      }
+      
+      l = createContextARBImpl(paramLong, paramBoolean, paramInt1, paramArrayOfInt1[0], paramArrayOfInt2[0]);
+      
+      if (0L != l) {
+        if (setGLFunctionAvailability(true, paramArrayOfInt1[0], paramArrayOfInt2[0], paramInt1, true, true)) {
+          break;
+        }
+        destroyContextARBImpl(l);
+        l = 0L;
+      }
+      
+    }
+    while (((paramArrayOfInt1[0] > paramInt4) || ((paramArrayOfInt1[0] == paramInt4) && (paramArrayOfInt2[0] > paramInt5))) && 
+      (GLContext.decrementGLVersion(paramInt1, paramArrayOfInt1, paramArrayOfInt2)));
+    
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": createContextARBVersions.X: ctx " + toHexString(l) + ", share " + paramLong + ", direct " + paramBoolean + ", version " + paramArrayOfInt1[0] + "." + paramArrayOfInt2[0] + " [" + paramInt2 + "." + paramInt3 + " .. " + paramInt4 + "." + paramInt5 + "]");
+    }
+    
+    return l;
+  }
+  
+
+
+
+
+
+
+
+
+  private final void setContextVersion(int paramInt1, int paramInt2, int paramInt3, VersionNumberString paramVersionNumberString, boolean paramBoolean)
+  {
+    if (0 == paramInt3) {
+      throw new GLException("Invalid GL Version " + paramInt1 + "." + paramInt2 + ", ctp " + toHexString(paramInt3));
+    }
+    ctxVersion = new VersionNumber(paramInt1, paramInt2, 0);
+    ctxVersionString = getGLVersion(paramInt1, paramInt2, paramInt3, glVersion);
+    ctxVendorVersion = paramVersionNumberString;
+    ctxOptions = paramInt3;
+    if (paramBoolean) {
+      ctxGLSLVersion = VersionNumber.zeroVersion;
+      if (hasGLSL()) {
+        String str = isGLES() ? null : gl.glGetString(35724);
+        if (null != str) {
+          ctxGLSLVersion = new VersionNumber(str);
+          if (ctxGLSLVersion.getMajor() < 1) {
+            ctxGLSLVersion = VersionNumber.zeroVersion;
+          }
+        }
+        if (ctxGLSLVersion.isZero()) {
+          ctxGLSLVersion = getStaticGLSLVersionNumber(paramInt1, paramInt2, ctxOptions);
+        }
+      }
+    }
+  }
+  
+
+
+
+  private final boolean verifyInstance(GLProfile paramGLProfile, String paramString, Object paramObject)
+  {
+    return ReflectionUtil.instanceOf(paramObject, paramGLProfile.getGLImplBaseClassName() + paramString);
+  }
+  
+  private final Object createInstance(AbstractGraphicsDevice paramAbstractGraphicsDevice, int paramInt1, int paramInt2, int paramInt3, boolean paramBoolean, Object[] paramArrayOfObject) {
+    String str = GLContext.getGLProfile(paramInt1, paramInt2, paramInt3);
+    GLProfile localGLProfile = GLProfile.get(paramAbstractGraphicsDevice, str);
+    return ReflectionUtil.createInstance(localGLProfile.getGLCtor(paramBoolean), paramArrayOfObject);
+  }
+  
+  private final boolean verifyInstance(AbstractGraphicsDevice paramAbstractGraphicsDevice, int paramInt1, int paramInt2, int paramInt3, String paramString, Object paramObject) {
+    String str = GLContext.getGLProfile(paramInt1, paramInt2, paramInt3);
+    GLProfile localGLProfile = GLProfile.get(paramAbstractGraphicsDevice, str);
+    return ReflectionUtil.instanceOf(paramObject, localGLProfile.getGLImplBaseClassName() + paramString);
+  }
+  
+
+
+
+  private final GL createGL(AbstractGraphicsDevice paramAbstractGraphicsDevice, int paramInt1, int paramInt2, int paramInt3)
+  {
+    String str = GLContext.getGLProfile(paramInt1, paramInt2, paramInt3);
+    GLProfile localGLProfile = GLProfile.get(paramAbstractGraphicsDevice, str);
+    GL localGL = (GL)ReflectionUtil.createInstance(localGLProfile.getGLCtor(true), new Object[] { localGLProfile, this });
+    
+
+
+
+
+
+
+    return localGL;
+  }
+  
+
+
+
+
+
+  private void finalizeInit(GL paramGL)
+  {
+    Method localMethod = null;
+    try {
+      localMethod = ReflectionUtil.getMethod(paramGL.getClass(), "finalizeInit", new Class[0]);
+    } catch (Throwable localThrowable) {
+      if (DEBUG) {
+        System.err.println("Caught " + localThrowable.getClass().getName() + ": " + localThrowable.getMessage());
+        localThrowable.printStackTrace();
+      }
+    }
+    if (null != localMethod) {
+      ReflectionUtil.callMethod(paramGL, localMethod, new Object[0]);
+    } else {
+      throw new InternalError("Missing 'void finalizeInit(ProcAddressTable)' in " + paramGL.getClass().getName());
+    }
+  }
+  
+  public final ProcAddressTable getGLProcAddressTable() {
+    return glProcAddressTable;
+  }
+  
+
+
+
+  public abstract ProcAddressTable getPlatformExtProcAddressTable();
+  
+
+
+  protected final String mapToRealGLFunctionName(String paramString)
+  {
+    Map localMap = getFunctionNameMap();
+    if (null != localMap) {
+      String str = (String)localMap.get(paramString);
+      if (str != null) {
+        return str;
+      }
+    }
+    return paramString;
+  }
+  
+
+
+  protected abstract Map<String, String> getFunctionNameMap();
+  
+
+  protected final String mapToRealGLExtensionName(String paramString)
+  {
+    Map localMap = getExtensionNameMap();
+    if (null != localMap) {
+      String str = (String)localMap.get(paramString);
+      if (str != null) {
+        return str;
+      }
+    }
+    return paramString;
+  }
+  
+
+  protected abstract Map<String, String> getExtensionNameMap();
+  
+  public final GLDynamicLookupHelper getGLDynamicLookupHelper()
+  {
+    return drawable.getFactoryImpl().getGLDynamicLookupHelper(ctxVersion.getMajor(), ctxOptions);
+  }
+  
+  public final GLDynamicLookupHelper getGLDynamicLookupHelper(int paramInt1, int paramInt2) { return drawable.getFactoryImpl().getGLDynamicLookupHelper(paramInt1, paramInt2); }
+  
+
+
+
+  protected final void resetProcAddressTable(final ProcAddressTable paramProcAddressTable, final GLDynamicLookupHelper paramGLDynamicLookupHelper)
+  {
+    AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public Object run() {
+        paramProcAddressTable.reset(paramGLDynamicLookupHelper);
+        return null;
+      }
+    });
+  }
+  
+
+
+  protected abstract void updateGLXProcAddressTable(String paramString, GLDynamicLookupHelper paramGLDynamicLookupHelper);
+  
+
+
+  private final boolean initGLRendererAndGLVersionStrings(final int paramInt1, final int paramInt2)
+  {
+    if (!glGetPtrInit) {
+      AccessController.doPrivileged(new PrivilegedAction()
+      {
+        public Object run() {
+          GLDynamicLookupHelper localGLDynamicLookupHelper = getGLDynamicLookupHelper(paramInt1, paramInt2);
+          if (null != localGLDynamicLookupHelper) {
+            localGLDynamicLookupHelper.claimAllLinkPermission();
+            try {
+              glGetStringPtr = localGLDynamicLookupHelper.dynamicLookupFunction("glGetString");
+              glGetIntegervPtr = localGLDynamicLookupHelper.dynamicLookupFunction("glGetIntegerv");
+              
+              localGLDynamicLookupHelper.releaseAllLinkPermission(); } finally { localGLDynamicLookupHelper.releaseAllLinkPermission();
+            }
+          }
+          return null;
+        } });
+      glGetPtrInit = true;
+    }
+    if ((0L == glGetStringPtr) || (0L == glGetIntegervPtr)) {
+      System.err.println("Error: Could not lookup: glGetString " + toHexString(glGetStringPtr) + ", glGetIntegerv " + toHexString(glGetIntegervPtr));
+      if (DEBUG) {
+        ExceptionUtils.dumpStack(System.err);
+      }
+      return false;
+    }
+    String str1 = glGetStringInt(7936, glGetStringPtr);
+    if (null == str1) {
+      if (DEBUG) {
+        System.err.println("Warning: GL_VENDOR is NULL.");
+        ExceptionUtils.dumpStack(System.err);
+      }
+      return false;
+    }
+    glVendor = str1;
+    
+    String str2 = glGetStringInt(7937, glGetStringPtr);
+    if (null == str2) {
+      if (DEBUG) {
+        System.err.println("Warning: GL_RENDERER is NULL.");
+        ExceptionUtils.dumpStack(System.err);
+      }
+      return false;
+    }
+    glRenderer = str2;
+    glRendererLowerCase = glRenderer.toLowerCase();
+    
+    String str3 = glGetStringInt(7938, glGetStringPtr);
+    if (null == str3)
+    {
+      if (DEBUG) {
+        System.err.println("Warning: GL_VERSION is NULL.");
+        ExceptionUtils.dumpStack(System.err);
+      }
+      return false;
+    }
+    glVersion = str3;
+    
+    return true;
+  }
+  
+
+
+
+
+
+
+
+  private final void getGLIntVersion(int[] paramArrayOfInt1, int[] paramArrayOfInt2)
+  {
+    paramArrayOfInt1[0] = 0;
+    paramArrayOfInt2[0] = 0;
+    if (0L == glGetIntegervPtr)
+    {
+      throw new InternalError("Not initialized: glGetString " + toHexString(glGetStringPtr) + ", glGetIntegerv " + toHexString(glGetIntegervPtr));
+    }
+    glGetIntegervInt(33307, paramArrayOfInt1, 0, glGetIntegervPtr);
+    glGetIntegervInt(33308, paramArrayOfInt2, 0, glGetIntegervPtr);
+  }
+  
+
+
+
+
+
+
+
+  private static final VersionNumber getGLVersionNumber(int paramInt, String paramString)
+  {
+    if (null != paramString) {
+      GLVersionNumber localGLVersionNumber = GLVersionNumber.create(paramString);
+      if (localGLVersionNumber.isValid()) {
+        int[] arrayOfInt1 = { localGLVersionNumber.getMajor() };
+        int[] arrayOfInt2 = { localGLVersionNumber.getMinor() };
+        if (GLContext.isValidGLVersion(paramInt, arrayOfInt1[0], arrayOfInt2[0])) {
+          return new VersionNumber(arrayOfInt1[0], arrayOfInt2[0], 0);
+        }
+      }
+    }
+    return null;
+  }
+  
+  protected final int getCtxOptions() {
+    return ctxOptions;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  protected final boolean setGLFunctionAvailability(boolean paramBoolean1, int paramInt1, int paramInt2, int paramInt3, boolean paramBoolean2, boolean paramBoolean3)
+    throws GLException
+  {
+    if ((null != gl) && (null != glProcAddressTable) && (!paramBoolean1)) {
+      return true;
+    }
+    
+    if ((0 < paramInt1) && (!GLContext.isValidGLVersion(paramInt3, paramInt1, paramInt2))) {
+      throw new GLException("Invalid GL Version Request " + GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, null));
+    }
+    
+    AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = drawable.getNativeSurface().getGraphicsConfiguration();
+    AbstractGraphicsDevice localAbstractGraphicsDevice = localAbstractGraphicsConfiguration.getScreen().getDevice();
+    int i = paramInt3;
+    VersionNumber localVersionNumber1 = new VersionNumber(paramInt1, paramInt2, 0);
+    
+
+    boolean bool1 = initGLRendererAndGLVersionStrings(paramInt1, paramInt3);
+    if (!bool1) {
+      String str = "Intialization of GL renderer strings failed. " + localAbstractGraphicsDevice + " - " + GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, null);
+      if (paramBoolean2)
+      {
+        if (DEBUG) {
+          System.err.println("Warning: setGLFunctionAvailability: " + str);
+        }
+        return false;
+      }
+      
+      throw new GLException(str);
+    }
+    
+    VersionNumber localVersionNumber2 = getGLVersionNumber(paramInt3, glVersion);
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": GLContext.setGLFuncAvail: Given " + localAbstractGraphicsDevice + " - " + 
+        GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, glVersion) + ", Number(Str) " + localVersionNumber2);
+    }
+    
+
+
+
+    bool1 = 0 != (0x8 & paramInt3);
+    
+
+
+
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": GLContext.setGLFuncAvail: Pre version verification - expected " + GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, null) + ", strictMatch " + paramBoolean2 + ", glVersionsMapping " + paramBoolean3);
+    }
+    
+
+
+
+
+
+    boolean bool2;
+    
+
+
+
+
+    if ((paramInt1 >= 3) || (localVersionNumber2.compareTo(Version3_0) >= 0)) {
+      int[] arrayOfInt = { 0 };localObject1 = new int[] { 0 };
+      getGLIntVersion(arrayOfInt, (int[])localObject1);
+      VersionNumber localVersionNumber3 = new VersionNumber(arrayOfInt[0], localObject1[0], 0);
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": GLContext.setGLFuncAvail: Version verification (Int): String " + glVersion + ", Number(Int) " + localVersionNumber3);
+      }
+      if (GLContext.isValidGLVersion(paramInt3, localVersionNumber3.getMajor(), localVersionNumber3.getMinor()))
+      {
+
+
+
+
+
+
+
+        int k = localVersionNumber3.getMajor();
+        if ((paramBoolean2) && (((!bool1) && (paramInt1 < 3)) || (
+          (localVersionNumber3.compareTo(localVersionNumber1) < 0) || ((bool1) && (((2 == paramInt1) && ((2 > k) || (k > 3))) || (((1 == paramInt1) || (3 <= paramInt1)) && (paramInt1 != k)))))))
+        {
+
+
+
+
+
+
+          if (DEBUG) {
+            System.err.println(getThreadName() + ": GLContext.setGLFuncAvail.X: FAIL, GL version mismatch (Int): " + GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, null) + " -> " + glVersion + ", " + localVersionNumber3);
+          }
+          return false;
+        }
+        
+        paramInt1 = localVersionNumber3.getMajor();
+        paramInt2 = localVersionNumber3.getMinor();
+        bool2 = true;
+      } else {
+        bool2 = false;
+      }
+    } else {
+      bool2 = false;
+    }
+    
+    boolean bool3;
+    
+    if (bool2) {
+      bool3 = true;
+    }
+    else {
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": GLContext.setGLFuncAvail: Version verification (String): String " + glVersion + ", Number(Str) " + localVersionNumber2);
+      }
+      
+
+      if (null != localVersionNumber2)
+      {
+
+
+
+
+
+
+
+        int j = localVersionNumber2.getMajor();
+        if ((paramBoolean2) && (((!bool1) && (paramInt1 < 3)) || (
+          (localVersionNumber2.compareTo(localVersionNumber1) < 0) || ((bool1) && (((2 == paramInt1) && ((2 > j) || (j > 3))) || (((1 == paramInt1) || (3 <= paramInt1)) && (paramInt1 != j)))))))
+        {
+
+
+
+
+
+
+          if (DEBUG) {
+            System.err.println(getThreadName() + ": GLContext.setGLFuncAvail.X: FAIL, GL version mismatch (String): " + GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, null) + " -> " + glVersion + ", " + localVersionNumber2);
+          }
+          return false;
+        }
+        if ((paramBoolean2) && (!bool2) && (paramInt1 >= 3)) {
+          if (DEBUG) {
+            System.err.println(getThreadName() + ": GLContext.setGLFuncAvail.X: FAIL, GL3/ES3 version Int failed, String: " + GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, null) + " -> " + glVersion + ", " + localVersionNumber2);
+          }
+          return false;
+        }
+        
+        paramInt1 = localVersionNumber2.getMajor();
+        paramInt2 = localVersionNumber2.getMinor();
+        bool3 = true;
+      } else {
+        bool3 = false;
+      }
+    }
+    if ((paramBoolean2) && (!bool3)) {
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": GLContext.setGLFuncAvail.X: FAIL, No GL version validation possible: " + GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, null) + " -> " + glVersion);
+      }
+      return false;
+    }
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": GLContext.setGLFuncAvail: Post version verification req " + 
+        GLContext.getGLVersion(localVersionNumber1.getMajor(), localVersionNumber1.getMinor(), i, null) + " -> has " + 
+        GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, null) + ", strictMatch " + paramBoolean2 + ", versionValidated " + bool3 + ", versionGL3IntOK " + bool2);
+    }
+    
+
+    if (paramInt1 < 2) {
+      paramInt3 &= 0xC3FF;
+    }
+    
+
+    if (!isCurrentContextHardwareRasterizer()) {
+      paramInt3 |= 0x40;
+    }
+    
+    VersionNumberString localVersionNumberString = GLVersionNumber.createVendorVersion(glVersion);
+    
+    setRendererQuirks(localAbstractGraphicsDevice, getDrawableImpl().getFactoryImpl(), localVersionNumber1
+      .getMajor(), localVersionNumber1.getMinor(), i, paramInt1, paramInt2, paramInt3, localVersionNumberString, paramBoolean3);
+    
+
+    if ((paramBoolean2) && (glRendererQuirks.exist(6))) {
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": GLContext.setGLFuncAvail.X: FAIL, GL is not compliant: " + GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, glVersion) + ", " + glRenderer);
+      }
+      return false;
+    }
+    
+    contextFQN = getContextFQN(localAbstractGraphicsDevice, paramInt1, paramInt2, paramInt3);
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": GLContext.setGLFuncAvail.0 validated FQN: " + contextFQN + " - " + GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, glVersion));
+    }
+    Object localObject1 = getGLDynamicLookupHelper(paramInt1, paramInt3);
+    if (null == localObject1) {
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": GLContext.setGLFuncAvail.X: FAIL, No GLDynamicLookupHelper for request: " + GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, null));
+      }
+      return false;
+    }
+    updateGLXProcAddressTable(contextFQN, (GLDynamicLookupHelper)localObject1);
+    
+
+
+
+
+
+    Object localObject2 = drawable.getGLProfile();
+    
+    ProcAddressTable localProcAddressTable = null;
+    synchronized (mappedContextTypeObjectLock) {
+      localProcAddressTable = (ProcAddressTable)mappedGLProcAddress.get(contextFQN);
+      if (null != localProcAddressTable) {
+        if (!verifyInstance(localAbstractGraphicsDevice, paramInt1, paramInt2, paramInt3, "ProcAddressTable", localProcAddressTable))
+        {
+          throw new GLException("GLContext GL ProcAddressTable mapped key(" + contextFQN + " - " + GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, null) + ") -> " + toHexString(localProcAddressTable.hashCode()) + " not matching " + localProcAddressTable.getClass().getName());
+        }
+        if ((!paramBoolean3) && (!verifyInstance((GLProfile)localObject2, "ProcAddressTable", localProcAddressTable)))
+        {
+          throw new GLException("GLContext GL ProcAddressTable mapped key(" + contextFQN + " - " + GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, null) + ") -> " + toHexString(localProcAddressTable.hashCode()) + ": " + localProcAddressTable.getClass().getName() + " not matching " + ((GLProfile)localObject2).getGLImplBaseClassName() + "/" + localObject2);
+        }
+      }
+    }
+    if (null != localProcAddressTable) {
+      glProcAddressTable = localProcAddressTable;
+      if (DEBUG) {
+        if (paramBoolean3) {
+          System.err.println(getThreadName() + ": GLContext GL ProcAddressTable reusing key(" + contextFQN + " - " + GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, null) + ") -> " + 
+            toHexString(localProcAddressTable.hashCode()) + ": " + localProcAddressTable.getClass().getName());
+        } else {
+          System.err.println(getThreadName() + ": GLContext GL ProcAddressTable reusing key(" + contextFQN + " - " + GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, null) + ") -> " + 
+            toHexString(localProcAddressTable.hashCode()) + ": " + localProcAddressTable.getClass().getName() + " -> " + ((GLProfile)localObject2).getGLImplBaseClassName());
+        }
+      }
+    } else {
+      glProcAddressTable = ((ProcAddressTable)createInstance(localAbstractGraphicsDevice, paramInt1, paramInt2, paramInt3, false, new Object[] { new GLProcAddressResolver() }));
+      
+      resetProcAddressTable(glProcAddressTable, (GLDynamicLookupHelper)localObject1);
+      
+      synchronized (mappedContextTypeObjectLock) {
+        mappedGLProcAddress.put(contextFQN, glProcAddressTable);
+        if (DEBUG) {
+          if (paramBoolean3) {
+            System.err.println(getThreadName() + ": GLContext GL ProcAddressTable mapping key(" + contextFQN + " - " + GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, null) + ") -> " + 
+              toHexString(glProcAddressTable.hashCode()) + ": " + glProcAddressTable.getClass().getName());
+          } else {
+            System.err.println(getThreadName() + ": GLContext GL ProcAddressTable mapping key(" + contextFQN + " - " + GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, null) + ") -> " + 
+              toHexString(glProcAddressTable.hashCode()) + ": " + glProcAddressTable.getClass().getName() + " -> " + ((GLProfile)localObject2).getGLImplBaseClassName());
+          }
+        }
+      }
+    }
+    
+    if ((null == gl) || (!verifyInstance(localAbstractGraphicsDevice, paramInt1, paramInt2, paramInt3, "Impl", gl))) {
+      setGL(createGL(localAbstractGraphicsDevice, paramInt1, paramInt2, paramInt3));
+    }
+    if ((!paramBoolean3) && (!verifyInstance((GLProfile)localObject2, "Impl", gl)))
+    {
+      throw new GLException("GLContext GL Object mismatch: " + GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, null) + ") -> " + ": " + gl.getClass().getName() + " not matching " + ((GLProfile)localObject2).getGLImplBaseClassName() + "/" + localObject2);
+    }
+    
+
+
+
+
+
+
+    synchronized (mappedContextTypeObjectLock) {
+      localObject2 = (ExtensionAvailabilityCache)mappedExtensionAvailabilityCache.get(contextFQN);
+    }
+    if (null != localObject2) {
+      extensionAvailability = ((ExtensionAvailabilityCache)localObject2);
+      if (DEBUG) {
+        System.err.println(getThreadName() + ": GLContext GL ExtensionAvailabilityCache reusing key(" + contextFQN + ") -> " + toHexString(localObject2.hashCode()) + " - entries: " + ((ExtensionAvailabilityCache)localObject2).getTotalExtensionCount());
+      }
+    } else {
+      extensionAvailability = new ExtensionAvailabilityCache();
+      setContextVersion(paramInt1, paramInt2, paramInt3, localVersionNumberString, false);
+      extensionAvailability.reset(this);
+      synchronized (mappedContextTypeObjectLock) {
+        mappedExtensionAvailabilityCache.put(contextFQN, extensionAvailability);
+        if (DEBUG) {
+          System.err.println(getThreadName() + ": GLContext GL ExtensionAvailabilityCache mapping key(" + contextFQN + ") -> " + toHexString(extensionAvailability.hashCode()) + " - entries: " + extensionAvailability.getTotalExtensionCount());
+        }
+      }
+    }
+    
+
+    if (bool1) {
+      if (paramInt1 >= 3) {
+        paramInt3 |= 0xC00;
+        paramInt3 |= 0x4000;
+        if (paramInt2 >= 2) {
+          paramInt3 |= 0x3000;
+        } else if (paramInt2 >= 1) {
+          paramInt3 |= 0x1000;
+        }
+      } else if (paramInt1 >= 2) {
+        paramInt3 |= 0x400;
+        paramInt3 |= 0x4000;
+      }
+    } else if ((paramInt1 > 4) || ((paramInt1 == 4) && (paramInt2 >= 5)) || (paramInt1 > 3) || ((paramInt1 == 3) && (paramInt2 >= 1)))
+    {
+
+
+      if (isExtensionAvailable("GL_ARB_ES3_2_compatibility")) {
+        paramInt3 |= 0x3000;
+      } else if (isExtensionAvailable("GL_ARB_ES3_1_compatibility")) {
+        paramInt3 |= 0x1000;
+      }
+      paramInt3 |= 0xC00;
+      paramInt3 |= 0x4000;
+    } else if ((paramInt1 > 4) || ((paramInt1 == 4) && (paramInt2 >= 3)) || (((paramInt1 > 3) || ((paramInt1 == 3) && (paramInt2 >= 1))) && 
+      (isExtensionAvailable("GL_ARB_ES3_compatibility"))))
+    {
+
+      paramInt3 |= 0xC00;
+      paramInt3 |= 0x4000;
+    } else if (isExtensionAvailable("GL_ARB_ES2_compatibility")) {
+      paramInt3 |= 0x400;
+      paramInt3 |= 0x4000;
+    } else if (hasFBOImpl(paramInt1, paramInt3, extensionAvailability)) {
+      paramInt3 |= 0x4000;
+    }
+    
+    if (((bool1) && (paramInt1 == 1)) || (isExtensionAvailable("GL_OES_single_precision"))) {
+      paramInt3 |= 0x8000;
+    }
+    
+    if (FORCE_NO_FBO_SUPPORT) {
+      paramInt3 &= 0xBFFF;
+    }
+    
+
+
+
+    setContextVersion(paramInt1, paramInt2, paramInt3, localVersionNumberString, true);
+    
+    finalizeInit(gl);
+    
+    setDefaultSwapInterval();
+    
+    int m = gl.glGetError();
+    
+    if (DEBUG) {
+      System.err.println(getThreadName() + ": GLContext.setGLFuncAvail.X: OK " + contextFQN + " - " + GLContext.getGLVersion(ctxVersion.getMajor(), ctxVersion.getMinor(), ctxOptions, null) + " - glErr " + toHexString(m));
+    }
+    return true;
+  }
+  
+
+
+  private static final void addStickyQuirkAlways(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLRendererQuirks paramGLRendererQuirks, int paramInt, boolean paramBoolean)
+  {
+    paramGLRendererQuirks.addQuirk(paramInt);
+    if (paramBoolean)
+    {
+      GLRendererQuirks.addStickyDeviceQuirk(paramAbstractGraphicsDevice, paramInt);
+    }
+    else {
+      synchronized (GLContextImpl.class) {
+        GLRendererQuirks.addStickyDeviceQuirk(paramAbstractGraphicsDevice, paramInt);
+      }
+    }
+  }
+  
+
+  private static final void addStickyQuirkAtMapping(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLRendererQuirks paramGLRendererQuirks, int paramInt, boolean paramBoolean)
+  {
+    paramGLRendererQuirks.addQuirk(paramInt);
+    if (paramBoolean)
+    {
+      GLRendererQuirks.addStickyDeviceQuirk(paramAbstractGraphicsDevice, paramInt);
+    }
+  }
+  
+
+
+
+
+  private final void setRendererQuirks(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLDrawableFactoryImpl paramGLDrawableFactoryImpl, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, VersionNumberString paramVersionNumberString, boolean paramBoolean)
+  {
+    int i = 0 == (paramInt6 & 0x40) ? 1 : 0;
+    int j = 0 != (paramInt6 & 0x2) ? 1 : 0;
+    int k = 0 != (paramInt6 & 0x8) ? 1 : 0;
+    int m = NativeWindowFactory.TYPE_X11 == NativeWindowFactory.getNativeWindowType(true) ? 1 : 0;
+    int n = Platform.getOSType() == Platform.OSType.WINDOWS ? 1 : 0;
+    int i1 = (glRenderer.contains("Mesa ")) || (glRenderer.contains("Gallium ")) ? 1 : 0;
+    
+    int i2;
+    int i3;
+    boolean bool;
+    if (i1 == 0) {
+      i2 = (glVendor.contains("ATI Technologies")) || (glRenderer.startsWith("ATI ")) ? 1 : 0;
+      i3 = (glVendor.contains("NVIDIA Corporation")) || (glRenderer.contains("NVIDIA ")) ? 1 : 0;
+      bool = glVendor.startsWith("Intel");
+    } else {
+      i2 = 0;
+      i3 = 0;
+      bool = false;
+    }
+    
+    GLRendererQuirks localGLRendererQuirks = new GLRendererQuirks();
+    
+
+
+
+    if ((k != 0) && 
+      (2 == paramInt1) && (2 < paramInt4))
+    {
+      if (DEBUG) {
+        System.err.println("Quirk: " + GLRendererQuirks.toString(15) + ": cause: ES req " + paramInt1 + " and 2 < " + paramInt4);
+      }
+      addStickyQuirkAlways(paramAbstractGraphicsDevice, localGLRendererQuirks, 15, paramBoolean);
+    }
+    
+    if (GLProfile.disableSurfacelessContext)
+    {
+      if (DEBUG) {
+        System.err.println("Quirk: " + GLRendererQuirks.toString(22) + ": cause: disabled");
+      }
+      addStickyQuirkAlways(paramAbstractGraphicsDevice, localGLRendererQuirks, 22, paramBoolean);
+    }
+    if (GLProfile.disableOpenGLARBContext)
+    {
+      if (DEBUG) {
+        System.err.println("Quirk: " + GLRendererQuirks.toString(21) + ": cause: disabled");
+      }
+      addStickyQuirkAlways(paramAbstractGraphicsDevice, localGLRendererQuirks, 21, paramBoolean);
+    }
+    
+    Object localObject2;
+    
+    Object localObject3;
+    if (Platform.getOSType() == Platform.OSType.MACOS)
+    {
+
+
+
+
+      if (DEBUG) {
+        System.err.println("Quirk: " + GLRendererQuirks.toString(3) + ": cause: OS " + Platform.getOSType());
+      }
+      localGLRendererQuirks.addQuirk(3);
+      
+
+
+      if (DEBUG) {
+        System.err.println("Quirk: " + GLRendererQuirks.toString(20) + ": cause: OS " + Platform.getOSType());
+      }
+      localGLRendererQuirks.addQuirk(20);
+      
+      if ((Platform.getOSVersionNumber().compareTo(PlatformPropsImpl.OSXVersion.Mavericks) >= 0) && (3 == paramInt1) && (4 == paramInt4))
+      {
+        if (DEBUG) {
+          System.err.println("Quirk: " + GLRendererQuirks.toString(13) + ": cause: OS " + Platform.getOSType() + ", OS Version " + Platform.getOSVersionNumber() + ", req " + paramInt1 + "." + paramInt2);
+        }
+        addStickyQuirkAtMapping(paramAbstractGraphicsDevice, localGLRendererQuirks, 13, paramBoolean);
+      }
+      if (i3 != 0) {
+        localObject1 = new VersionNumber(10, 7, 3);
+        if (Platform.getOSVersionNumber().compareTo((VersionNumber)localObject1) < 0)
+        {
+          if (DEBUG) {
+            System.err.println("Quirk: " + GLRendererQuirks.toString(7) + ": cause: OS " + Platform.getOSType() + ", OS Version " + Platform.getOSVersionNumber() + ", Renderer " + glRenderer);
+          }
+          localGLRendererQuirks.addQuirk(7);
+        }
+        if (Platform.getOSVersionNumber().compareTo(PlatformPropsImpl.OSXVersion.Lion) < 0)
+        {
+          if (DEBUG) {
+            System.err.println("Quirk: " + GLRendererQuirks.toString(12) + ": cause: OS " + Platform.getOSType() + ", OS Version " + Platform.getOSVersionNumber() + ", Renderer " + glRenderer);
+          }
+          localGLRendererQuirks.addQuirk(12);
+        }
+      }
+    } else if (n != 0)
+    {
+
+
+
+
+      if (DEBUG) {
+        System.err.println("Quirk: " + GLRendererQuirks.toString(1) + ": cause: OS " + Platform.getOSType());
+      }
+      localGLRendererQuirks.addQuirk(1);
+      
+
+      if (i2 != 0) {
+        localObject1 = new VersionNumber(5, 1, 0);
+        localObject2 = new VersionNumber(12, 102, 3);
+        
+        if (paramVersionNumberString.compareTo((VersionNumber)localObject2) < 0)
+        {
+          if (DEBUG) {
+            System.err.println("Quirk: " + GLRendererQuirks.toString(10) + ": cause: OS " + Platform.getOSType() + ", [Vendor " + glVendor + " or Renderer " + glRenderer + "], driverVersion " + paramVersionNumberString);
+          }
+          localGLRendererQuirks.addQuirk(10);
+        }
+        
+        if (Platform.getOSVersionNumber().compareTo((VersionNumber)localObject1) <= 0)
+        {
+          if (DEBUG) {
+            System.err.println("Quirk: " + GLRendererQuirks.toString(9) + ": cause: OS-Version " + Platform.getOSType() + " " + Platform.getOSVersionNumber() + ", [Vendor " + glVendor + " or Renderer " + glRenderer + "]");
+          }
+          localGLRendererQuirks.addQuirk(9);
+        }
+        
+        if (paramVersionNumberString.compareTo(VersionNumberString.zeroVersion) == 0) {
+          localObject3 = new VersionNumber(glVersion);
+          if ((((VersionNumber)localObject3).getSub() <= 8787) && (glRenderer.equals("ATI Radeon 3100 Graphics")))
+          {
+            if (DEBUG) {
+              System.err.println("Quirk: " + GLRendererQuirks.toString(21) + ": cause: OS " + Platform.getOSType() + ", [Vendor " + glVendor + ", Renderer " + glRenderer + " and Version " + glVersion + "]");
+            }
+            addStickyQuirkAtMapping(paramAbstractGraphicsDevice, localGLRendererQuirks, 21, paramBoolean);
+          }
+        }
+      } else if ((bool) && (glRenderer.equals("Intel Bear Lake B")))
+      {
+        if (DEBUG) {
+          System.err.println("Quirk: " + GLRendererQuirks.toString(19) + ": cause: OS " + Platform.getOSType() + ", [Vendor " + glVendor + " and Renderer " + glRenderer + "]");
+        }
+        localGLRendererQuirks.addQuirk(19);
+      }
+    } else if (Platform.OSType.ANDROID == Platform.getOSType())
+    {
+
+
+
+      if (glRenderer.contains("PowerVR"))
+      {
+        if (DEBUG) {
+          System.err.println("Quirk: " + GLRendererQuirks.toString(2) + ": cause: OS " + Platform.getOSType() + ", Renderer " + glRenderer);
+        }
+        localGLRendererQuirks.addQuirk(2);
+      }
+      if (glRenderer.contains("Immersion.16"))
+      {
+        if (DEBUG) {
+          System.err.println("Quirk: " + GLRendererQuirks.toString(14) + ": cause: OS " + Platform.getOSType() + ", Renderer " + glRenderer);
+        }
+        localGLRendererQuirks.addQuirk(14);
+      }
+    }
+    
+
+
+
+    if (m != 0)
+    {
+
+
+
+
+
+
+
+      if (glRenderer.contains("Mesa ")) {
+        if ((glRenderer.contains("X11")) && (paramVersionNumberString.compareTo(Version8_0) < 0)) {
+          if (DEBUG) {
+            System.err.println("Quirk: " + GLRendererQuirks.toString(8) + ": cause: X11 Renderer=" + glRenderer + ", Version=[vendor " + paramVersionNumberString + ", GL " + glVersion + "]");
+          }
+          localGLRendererQuirks.addQuirk(8);
+        }
+      } else if (i2 != 0)
+      {
+        if (DEBUG) {
+          System.err.println("Quirk: " + GLRendererQuirks.toString(8) + ": cause: X11 Renderer=" + glRenderer);
+        }
+        localGLRendererQuirks.addQuirk(8);
+      }
+      else if (X11Util.getMarkAllDisplaysUnclosable())
+      {
+        if (DEBUG) {
+          System.err.println("Quirk: " + GLRendererQuirks.toString(8) + ": cause: X11Util Downstream");
+        }
+        localGLRendererQuirks.addQuirk(8);
+      }
+      
+
+      if (i3 != 0)
+      {
+
+        if ((k == 0) && (!(paramAbstractGraphicsDevice instanceof EGLGraphicsDevice)))
+        {
+          if (DEBUG) {
+            System.err.print("Quirk: " + GLRendererQuirks.toString(22) + ": cause: !ES, !EGL, Vendor " + glVendor + ", X11 Renderer " + glRenderer + ", Version=[vendor " + paramVersionNumberString + ", GL " + glVersion + "]");
+          }
+          addStickyQuirkAtMapping(paramAbstractGraphicsDevice, localGLRendererQuirks, 22, paramBoolean);
+        }
+      }
+    }
+    
+
+
+
+
+    if (i1 != 0) {
+      localObject1 = new VersionNumber(8, 0, 0);
+      localObject2 = new VersionNumber(9, 2, 1);
+      
+
+
+      if (DEBUG) {
+        System.err.println("Quirk: " + GLRendererQuirks.toString(4) + ": cause: Renderer " + glRenderer);
+      }
+      localGLRendererQuirks.addQuirk(4);
+      
+      if (i != 0)
+      {
+
+        if (DEBUG) {
+          System.err.println("Quirk: " + GLRendererQuirks.toString(0) + ": cause: Renderer " + glRenderer);
+        }
+        localGLRendererQuirks.addQuirk(0);
+
+      }
+      else if (paramVersionNumberString.compareTo((VersionNumber)localObject1) < 0)
+      {
+        if (DEBUG) {
+          System.err.println("Quirk: " + GLRendererQuirks.toString(18) + ": cause: Renderer " + glRenderer + " / Mesa-Version " + paramVersionNumberString);
+        }
+        localGLRendererQuirks.addQuirk(18);
+      }
+      
+      if ((j != 0) && ((paramInt4 > 3) || ((paramInt4 == 3) && (paramInt5 >= 1))))
+      {
+
+        if (DEBUG) {
+          System.err.println("Quirk: " + GLRendererQuirks.toString(6) + ": cause: Renderer " + glRenderer);
+        }
+        localGLRendererQuirks.addQuirk(6);
+      }
+      if ((glRenderer.contains("Intel(R)")) && 
+        (paramVersionNumberString.compareTo((VersionNumber)localObject2) >= 0) && (m != 0))
+      {
+        if (DEBUG) {
+          System.err.println("Quirk: " + GLRendererQuirks.toString(14) + ": cause: X11 / Renderer " + glRenderer + " / Mesa-Version " + paramVersionNumberString);
+        }
+        localGLRendererQuirks.addQuirk(14);
+      }
+      if (glVendor.contains("nouveau"))
+      {
+
+
+        if (DEBUG) {
+          System.err.println("Quirk: " + GLRendererQuirks.toString(17) + ": cause: X11 / Renderer " + glRenderer + " / Vendor " + glVendor);
+        }
+        addStickyQuirkAtMapping(paramAbstractGraphicsDevice, localGLRendererQuirks, 17, paramBoolean);
+      }
+      if ((n != 0) && (glRenderer.contains("SVGA3D")) && (paramVersionNumberString.compareTo((VersionNumber)localObject1) < 0))
+      {
+        if (DEBUG) {
+          System.err.println("Quirk: " + GLRendererQuirks.toString(11) + ": cause: OS " + Platform.getOSType() + " / Renderer " + glRenderer + " / Mesa-Version " + paramVersionNumberString);
+        }
+        localGLRendererQuirks.addQuirk(11);
+      }
+    }
+    
+
+
+
+    if (FORCE_NO_COLOR_RENDERBUFFER)
+    {
+      if (DEBUG) {
+        System.err.println("Quirk: " + GLRendererQuirks.toString(18) + ": cause: property");
+      }
+      localGLRendererQuirks.addQuirk(18);
+    }
+    if ((FORCE_MIN_FBO_SUPPORT) || (localGLRendererQuirks.exist(18)))
+    {
+      if (DEBUG) {
+        localObject2 = FORCE_MIN_FBO_SUPPORT ? "property, " : "";
+        localObject3 = localGLRendererQuirks.exist(18) ? "BuggyColorRenderbuffer" : "";
+        System.err.println("Quirk: " + GLRendererQuirks.toString(11) + ": cause: " + (String)localObject2 + (String)localObject3);
+      }
+      localGLRendererQuirks.addQuirk(11);
+    }
+    
+    if (DEBUG) {
+      System.err.println("Quirks local.0: " + localGLRendererQuirks);
+    }
+    
+
+    GLRendererQuirks.pushStickyDeviceQuirks(paramAbstractGraphicsDevice, localGLRendererQuirks);
+    
+    Object localObject1 = paramGLDrawableFactoryImpl.getDefaultDevice();
+    if (!GLRendererQuirks.areSameStickyDevice((AbstractGraphicsDevice)localObject1, paramAbstractGraphicsDevice)) {
+      GLRendererQuirks.pushStickyDeviceQuirks((AbstractGraphicsDevice)localObject1, localGLRendererQuirks);
+    }
+    if (k != 0) {
+      localObject2 = GLDrawableFactory.getEGLFactory().getDefaultDevice();
+      if ((!GLRendererQuirks.areSameStickyDevice((AbstractGraphicsDevice)localObject2, paramAbstractGraphicsDevice)) && 
+        (!GLRendererQuirks.areSameStickyDevice((AbstractGraphicsDevice)localObject2, (AbstractGraphicsDevice)localObject1))) {
+        GLRendererQuirks.pushStickyDeviceQuirks((AbstractGraphicsDevice)localObject2, localGLRendererQuirks);
+      }
+    }
+    
+    glRendererQuirks = localGLRendererQuirks;
+    if (DEBUG) {
+      System.err.println("Quirks local.X: " + glRendererQuirks);
+      System.err.println("Quirks sticky on " + paramAbstractGraphicsDevice + ": " + GLRendererQuirks.getStickyDeviceQuirks(paramAbstractGraphicsDevice));
+    }
+  }
+  
+  private static final boolean hasFBOImpl(int paramInt1, int paramInt2, ExtensionAvailabilityCache paramExtensionAvailabilityCache) {
+    if (((0 == (paramInt2 & 0x8)) || (paramInt1 < 2)) && (paramInt1 < 3)) { if (null == paramExtensionAvailabilityCache) {
+        break label67;
+      }
+    }
+    
+
+
+
+    label67:
+    
+
+
+    return (paramExtensionAvailabilityCache.isExtensionAvailable("GL_ARB_ES2_compatibility")) || (paramExtensionAvailabilityCache.isExtensionAvailable("GL_ARB_framebuffer_object")) || (paramExtensionAvailabilityCache.isExtensionAvailable("GL_EXT_framebuffer_object")) || (paramExtensionAvailabilityCache.isExtensionAvailable("GL_OES_framebuffer_object"));
+  }
+  
+  private final void removeCachedVersion(int paramInt1, int paramInt2, int paramInt3)
+  {
+    if (!isCurrentContextHardwareRasterizer()) {
+      paramInt3 |= 0x40;
+    }
+    AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = drawable.getNativeSurface().getGraphicsConfiguration();
+    AbstractGraphicsDevice localAbstractGraphicsDevice = localAbstractGraphicsConfiguration.getScreen().getDevice();
+    
+    contextFQN = getContextFQN(localAbstractGraphicsDevice, paramInt1, paramInt2, paramInt3);
+    if (DEBUG)
+      System.err.println(getThreadName() + ": RM Context FQN: " + contextFQN + " - " + GLContext.getGLVersion(paramInt1, paramInt2, paramInt3, null));
+    Object localObject1;
+    int i;
+    synchronized (mappedContextTypeObjectLock) {
+      localObject1 = (ProcAddressTable)mappedGLProcAddress.remove(contextFQN);
+      if (DEBUG) {
+        i = null != localObject1 ? localObject1.hashCode() : 0;
+        System.err.println(getThreadName() + ": RM GLContext GL ProcAddressTable mapping key(" + contextFQN + ") -> " + toHexString(i));
+      }
+    }
+    
+    synchronized (mappedContextTypeObjectLock) {
+      localObject1 = (ExtensionAvailabilityCache)mappedExtensionAvailabilityCache.remove(contextFQN);
+      if (DEBUG) {
+        i = null != localObject1 ? localObject1.hashCode() : 0;
+        System.err.println(getThreadName() + ": RM GLContext GL ExtensionAvailabilityCache mapping key(" + contextFQN + ") -> " + toHexString(i));
+      }
+    }
+  }
+  
+  private final boolean isCurrentContextHardwareRasterizer() {
+    boolean bool = true;
+    
+    if (!drawable.getChosenGLCapabilities().getHardwareAccelerated()) {
+      bool = false;
+
+    }
+    else
+    {
+      bool = (!glRendererLowerCase.contains("software")) && (!glRendererLowerCase.contains("mesa x11")) && (!glRendererLowerCase.contains("softpipe")) && (!glRendererLowerCase.contains("llvmpipe"));
+    }
+    
+    return bool;
+  }
+  
+
+  protected abstract StringBuilder getPlatformExtensionsStringImpl();
+  
+  public final boolean isFunctionAvailable(String paramString)
+  {
+    if (null != glProcAddressTable) {
+      try {
+        if (glProcAddressTable.isFunctionAvailable(paramString)) {
+          return true;
+        }
+      }
+      catch (Exception localException1) {}
+    }
+    
+    ProcAddressTable localProcAddressTable = getPlatformExtProcAddressTable();
+    if (null != localProcAddressTable) {
+      try {
+        if (localProcAddressTable.isFunctionAvailable(paramString)) {
+          return true;
+        }
+      }
+      catch (Exception localException2) {}
+    }
+    
+    final GLDynamicLookupHelper localGLDynamicLookupHelper = getGLDynamicLookupHelper(ctxVersion.getMajor(), ctxOptions);
+    if (null == localGLDynamicLookupHelper) {
+      throw new GLException("No GLDynamicLookupHelper for " + this);
+    }
+    final String str = GLNameResolver.normalizeVEN(GLNameResolver.normalizeARB(paramString, true), true);
+    ((Boolean)AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public Boolean run() {
+        boolean bool = false;
+        localGLDynamicLookupHelper.claimAllLinkPermission();
+        try {
+          int i = GLNameResolver.getFuncNamePermutationNumber(str);
+          for (int j = 0; (!bool) && (j < i); j++) {
+            String str = GLNameResolver.getFuncNamePermutation(str, j);
+            try {
+              bool = localGLDynamicLookupHelper.isFunctionAvailable(str);
+            } catch (Exception localException) {}
+          }
+        } finally {
+          localGLDynamicLookupHelper.releaseAllLinkPermission();
+        }
+        return Boolean.valueOf(bool);
+      }
+    }))
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      .booleanValue();
+  }
+  
+  public final boolean isExtensionAvailable(String paramString) {
+    if (null != extensionAvailability) {
+      return extensionAvailability.isExtensionAvailable(mapToRealGLExtensionName(paramString));
+    }
+    return false;
+  }
+  
+  public final int getPlatformExtensionCount()
+  {
+    return null != extensionAvailability ? extensionAvailability.getPlatformExtensionCount() : 0;
+  }
+  
+  public final String getPlatformExtensionsString()
+  {
+    if (null != extensionAvailability) {
+      return extensionAvailability.getPlatformExtensionsString();
+    }
+    return null;
+  }
+  
+  public final int getGLExtensionCount()
+  {
+    return null != extensionAvailability ? extensionAvailability.getGLExtensionCount() : 0;
+  }
+  
+  public final String getGLExtensionsString()
+  {
+    if (null != extensionAvailability) {
+      return extensionAvailability.getGLExtensionsString();
+    }
+    return null;
+  }
+  
+  public final boolean isExtensionCacheInitialized() {
+    if (null != extensionAvailability) {
+      return extensionAvailability.isInitialized();
+    }
+    return false;
+  }
+  
+  protected static String getContextFQN(AbstractGraphicsDevice paramAbstractGraphicsDevice, int paramInt1, int paramInt2, int paramInt3)
+  {
+    paramInt3 &= 0x3FF;
+    
+    return paramAbstractGraphicsDevice.getUniqueID() + "-" + toHexString(composeBits(paramInt1, paramInt2, paramInt3));
+  }
+  
+  protected final String getContextFQN() {
+    return contextFQN;
+  }
+  
+  public int getDefaultPixelDataType()
+  {
+    evalPixelDataType();
+    return pixelDataType;
+  }
+  
+  public int getDefaultPixelDataFormat()
+  {
+    evalPixelDataType();
+    return pixelDataFormat;
+  }
+  
+  private final void evalPixelDataType() {
+    if (!pixelDataEvaluated) {
+      int i = 0;
+      
+
+
+
+
+      if ((isGLES2Compatible()) || (isExtensionAvailable("GL_OES_read_format"))) {
+        int[] arrayOfInt = { 0, 0 };
+        gl.glGetIntegerv(35739, arrayOfInt, 0);
+        gl.glGetIntegerv(35738, arrayOfInt, 1);
+        
+        pixelDataFormat = arrayOfInt[0];
+        pixelDataType = arrayOfInt[1];
+        i = (0 != pixelDataFormat) && (0 != pixelDataType) ? 1 : 0;
+      }
+      if (i == 0)
+      {
+
+        pixelDataFormat = 6408;
+        pixelDataType = 5121;
+      }
+      
+
+      pixelDataEvaluated = true;
+    }
+  }
+  
+
+
+  public final boolean setSwapInterval(int paramInt)
+    throws GLException
+  {
+    validateCurrent();
+    return setSwapIntervalNC(paramInt);
+  }
+  
+  protected final boolean setSwapIntervalNC(int paramInt) throws GLException { if ((!drawableRetargeted) || 
+      (!hasRendererQuirk(4)))
+    {
+
+      Integer localInteger = setSwapIntervalImpl2(paramInt);
+      if (null != localInteger) {
+        currentSwapInterval = localInteger.intValue();
+        return true;
+      }
+    }
+    return false;
+  }
+  
+  protected abstract Integer setSwapIntervalImpl2(int paramInt);
+  
+  public final int getSwapInterval() {
+    return currentSwapInterval;
+  }
+  
+  protected final void setDefaultSwapInterval() {
+    currentSwapInterval = 0;
+    setSwapIntervalNC(1);
+  }
+  
+
+
+
+  public final GLBufferObjectTracker getBufferObjectTracker()
+  {
+    return bufferObjectTracker;
+  }
+  
+  public final GLBufferStateTracker getBufferStateTracker() {
+    return bufferStateTracker;
+  }
+  
+  public final GLStateTracker getGLStateTracker() {
+    return glStateTracker;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final boolean isOwner(Thread paramThread)
+  {
+    return lock.isOwner(paramThread);
+  }
+  
+
+
+
+
+
+  public final boolean hasWaiters()
+  {
+    return lock.getQueueLength() > 0;
+  }
+  
+
+
+
+
+
+  public final int getLockCount()
+  {
+    return lock.getHoldCount();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public final void setBoundFramebuffer(int paramInt1, int paramInt2)
+  {
+    if (0 > paramInt2) {
+      return;
+    }
+    switch (paramInt1) {
+    case 36009: 
+    case 36160: 
+      boundFBOTarget[0] = paramInt2;
+      break;
+    case 36008: 
+      boundFBOTarget[1] = paramInt2;
+      break;
+    }
+  }
+  
+  public final int getBoundFramebuffer(int paramInt)
+  {
+    switch (paramInt) {
+    case 36009: 
+    case 36160: 
+      return boundFBOTarget[0];
+    case 36008: 
+      return boundFBOTarget[1];
+    }
+    throw new InternalError("Invalid FBO target name: " + toHexString(paramInt));
+  }
+  
+
+
+  public final int getDefaultDrawFramebuffer() { return drawable.getDefaultDrawFramebuffer(); }
+  
+  public final int getDefaultReadFramebuffer() { return drawable.getDefaultReadFramebuffer(); }
+  
+  public final int getDefaultReadBuffer() { return drawable.getDefaultReadBuffer(gl, drawableRead != drawable); }
+  
+
+
+
+
+  public final String getGLDebugMessageExtension()
+  {
+    return glDebugHandler.getExtension();
+  }
+  
+  public final boolean isGLDebugMessageEnabled()
+  {
+    return glDebugHandler.isEnabled();
+  }
+  
+  public final int getContextCreationFlags()
+  {
+    return additionalCtxCreationFlags;
+  }
+  
+  public final void setContextCreationFlags(int paramInt)
+  {
+    if (!isCreated()) {
+      additionalCtxCreationFlags = (paramInt & 0x20);
+    }
+  }
+  
+  public final boolean isGLDebugSynchronous() {
+    return glDebugHandler.isSynchronous();
+  }
+  
+  public final void setGLDebugSynchronous(boolean paramBoolean) {
+    glDebugHandler.setSynchronous(paramBoolean);
+  }
+  
+  public final void enableGLDebugMessage(boolean paramBoolean) throws GLException
+  {
+    if (!isCreated()) {
+      if (paramBoolean) {
+        additionalCtxCreationFlags |= 0x20;
+      } else {
+        additionalCtxCreationFlags &= 0xFFFFFFDF;
+      }
+    } else if ((0 != (additionalCtxCreationFlags & 0x20)) && 
+      (null != getGLDebugMessageExtension())) {
+      glDebugHandler.enable(paramBoolean);
+    }
+  }
+  
+  public final void addGLDebugListener(GLDebugListener paramGLDebugListener)
+  {
+    glDebugHandler.addListener(paramGLDebugListener);
+  }
+  
+  public final void removeGLDebugListener(GLDebugListener paramGLDebugListener)
+  {
+    glDebugHandler.removeListener(paramGLDebugListener);
+  }
+  
+  public final void glDebugMessageControl(int paramInt1, int paramInt2, int paramInt3, int paramInt4, IntBuffer paramIntBuffer, boolean paramBoolean)
+  {
+    if (glDebugHandler.isExtensionKHRARB()) {
+      gl.getGL2ES2().glDebugMessageControl(paramInt1, paramInt2, paramInt3, paramInt4, paramIntBuffer, paramBoolean);
+    } else if (glDebugHandler.isExtensionAMD()) {
+      gl.getGL2GL3().glDebugMessageEnableAMD(GLDebugMessage.translateARB2AMDCategory(paramInt1, paramInt2), paramInt3, paramInt4, paramIntBuffer, paramBoolean);
+    }
+  }
+  
+  public final void glDebugMessageControl(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int[] paramArrayOfInt, int paramInt5, boolean paramBoolean)
+  {
+    if (glDebugHandler.isExtensionKHRARB()) {
+      gl.getGL2ES2().glDebugMessageControl(paramInt1, paramInt2, paramInt3, paramInt4, paramArrayOfInt, paramInt5, paramBoolean);
+    } else if (glDebugHandler.isExtensionAMD()) {
+      gl.getGL2GL3().glDebugMessageEnableAMD(GLDebugMessage.translateARB2AMDCategory(paramInt1, paramInt2), paramInt3, paramInt4, paramArrayOfInt, paramInt5, paramBoolean);
+    }
+  }
+  
+  public final void glDebugMessageInsert(int paramInt1, int paramInt2, int paramInt3, int paramInt4, String paramString)
+  {
+    int i = null != paramString ? paramString.length() : 0;
+    if (glDebugHandler.isExtensionKHRARB()) {
+      gl.getGL2ES2().glDebugMessageInsert(paramInt1, paramInt2, paramInt3, paramInt4, i, paramString);
+    } else if (glDebugHandler.isExtensionAMD()) {
+      gl.getGL2GL3().glDebugMessageInsertAMD(GLDebugMessage.translateARB2AMDCategory(paramInt1, paramInt2), paramInt4, paramInt3, i, paramString);
+    }
+  }
+  
+  private static native String glGetStringInt(int paramInt, long paramLong);
+  
+  private static native void glGetIntegervInt(int paramInt1, int[] paramArrayOfInt, int paramInt2, long paramLong);
+}

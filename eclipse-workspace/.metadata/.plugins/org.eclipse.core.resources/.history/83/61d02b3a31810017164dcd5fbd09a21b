@@ -1,0 +1,186 @@
+package jogamp.opengl.util.glsl;
+
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.GLArrayData;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLUniformData;
+import com.jogamp.opengl.util.GLArrayDataServer;
+import com.jogamp.opengl.util.PMVMatrix;
+import com.jogamp.opengl.util.glsl.ShaderCode;
+import com.jogamp.opengl.util.glsl.ShaderProgram;
+import java.nio.FloatBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLSLTextureRaster
+{
+  private final boolean textureVertFlipped;
+  private final int textureUnit;
+  private ShaderProgram sp;
+  private PMVMatrix pmvMatrix;
+  private GLUniformData pmvMatrixUniform;
+  private GLUniformData activeTexUniform;
+  private GLArrayDataServer interleavedVBO;
+  static final String shaderBasename = "texture01_xxx";
+  static final String shaderSrcPath = "../../shader";
+  static final String shaderBinPath = "../../shader/bin";
+  
+  public GLSLTextureRaster(int paramInt, boolean paramBoolean)
+  {
+    textureVertFlipped = paramBoolean;
+    textureUnit = paramInt;
+  }
+  
+  public int getTextureUnit() { return textureUnit; }
+  
+
+
+
+
+  public void init(GL2ES2 paramGL2ES2)
+  {
+    ShaderCode localShaderCode1 = ShaderCode.create(paramGL2ES2, 35633, getClass(), "../../shader", "../../shader/bin", "texture01_xxx", true);
+    
+    ShaderCode localShaderCode2 = ShaderCode.create(paramGL2ES2, 35632, getClass(), "../../shader", "../../shader/bin", "texture01_xxx", true);
+    
+    localShaderCode1.defaultShaderCustomization(paramGL2ES2, true, true);
+    localShaderCode2.defaultShaderCustomization(paramGL2ES2, true, true);
+    
+
+    sp = new ShaderProgram();
+    sp.add(localShaderCode1);
+    sp.add(localShaderCode2);
+    if (!sp.link(paramGL2ES2, System.err)) {
+      throw new GLException("Couldn't link program: " + sp);
+    }
+    sp.useProgram(paramGL2ES2, true);
+    
+
+    pmvMatrix = new PMVMatrix();
+    pmvMatrix.glMatrixMode(5889);
+    pmvMatrix.glLoadIdentity();
+    pmvMatrix.glMatrixMode(5888);
+    pmvMatrix.glLoadIdentity();
+    pmvMatrixUniform = new GLUniformData("mgl_PMVMatrix", 4, 4, pmvMatrix.glGetPMvMatrixf());
+    if (pmvMatrixUniform.setLocation(paramGL2ES2, sp.program()) < 0) {
+      throw new GLException("Couldn't locate " + pmvMatrixUniform + " in shader: " + sp);
+    }
+    paramGL2ES2.glUniform(pmvMatrixUniform);
+    
+    activeTexUniform = new GLUniformData("mgl_Texture0", textureUnit);
+    if (activeTexUniform.setLocation(paramGL2ES2, sp.program()) < 0) {
+      throw new GLException("Couldn't locate " + activeTexUniform + " in shader: " + sp);
+    }
+    paramGL2ES2.glUniform(activeTexUniform);
+    
+    float[] arrayOfFloat;
+    if (textureVertFlipped) {
+      arrayOfFloat = s_quadTexCoords01;
+    } else {
+      arrayOfFloat = s_quadTexCoords00;
+    }
+    
+    interleavedVBO = GLArrayDataServer.createGLSLInterleaved(5, 5126, false, 8, 35044);
+    
+    GLArrayData localGLArrayData1 = interleavedVBO.addGLSLSubArray("mgl_Vertex", 3, 34962);
+    if (localGLArrayData1.setLocation(paramGL2ES2, sp.program()) < 0) {
+      throw new GLException("Couldn't locate " + localGLArrayData1 + " in shader: " + sp);
+    }
+    GLArrayData localGLArrayData2 = interleavedVBO.addGLSLSubArray("mgl_MultiTexCoord", 2, 34962);
+    if (localGLArrayData2.setLocation(paramGL2ES2, sp.program()) < 0) {
+      throw new GLException("Couldn't locate " + localGLArrayData2 + " in shader: " + sp);
+    }
+    FloatBuffer localFloatBuffer = (FloatBuffer)interleavedVBO.getBuffer();
+    for (int i = 0; i < 4; i++) {
+      localFloatBuffer.put(s_quadVertices, i * 3, 3);
+      localFloatBuffer.put(arrayOfFloat, i * 2, 2);
+    }
+    
+    interleavedVBO.seal(paramGL2ES2, true);
+    interleavedVBO.enableBuffer(paramGL2ES2, false);
+    
+    sp.useProgram(paramGL2ES2, false);
+  }
+  
+  public void reshape(GL2ES2 paramGL2ES2, int paramInt1, int paramInt2, int paramInt3, int paramInt4) {
+    if (null != sp) {
+      pmvMatrix.glMatrixMode(5889);
+      pmvMatrix.glLoadIdentity();
+      pmvMatrix.glOrthof(-1.0F, 1.0F, -1.0F, 1.0F, 0.0F, 10.0F);
+      
+      pmvMatrix.glMatrixMode(5888);
+      pmvMatrix.glLoadIdentity();
+      
+      sp.useProgram(paramGL2ES2, true);
+      paramGL2ES2.glUniform(pmvMatrixUniform);
+      sp.useProgram(paramGL2ES2, false);
+    }
+  }
+  
+  public void dispose(GL2ES2 paramGL2ES2) {
+    if (null != pmvMatrixUniform) {
+      pmvMatrixUniform = null;
+    }
+    pmvMatrix = null;
+    if (null != interleavedVBO) {
+      interleavedVBO.destroy(paramGL2ES2);
+      interleavedVBO = null;
+    }
+    if (null != sp) {
+      sp.destroy(paramGL2ES2);
+      sp = null;
+    }
+  }
+  
+  public void display(GL2ES2 paramGL2ES2) {
+    if (null != sp) {
+      sp.useProgram(paramGL2ES2, true);
+      interleavedVBO.enableBuffer(paramGL2ES2, true);
+      
+      paramGL2ES2.glDrawArrays(5, 0, 4);
+      
+      interleavedVBO.enableBuffer(paramGL2ES2, false);
+      sp.useProgram(paramGL2ES2, false);
+    }
+  }
+  
+  private static final float[] s_quadVertices = { -1.0F, -1.0F, 0.0F, 1.0F, -1.0F, 0.0F, -1.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F };
+  
+
+
+
+
+  private static final float[] s_quadTexCoords00 = { 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F };
+  
+
+
+
+
+  private static final float[] s_quadTexCoords01 = { 0.0F, 1.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F };
+}

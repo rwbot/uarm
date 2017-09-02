@@ -1,0 +1,112 @@
+package com.jogamp.opengl.glu.gl2;
+
+import com.jogamp.common.util.SecurityUtil;
+import com.jogamp.gluegen.runtime.FunctionAddressResolver;
+import com.jogamp.gluegen.runtime.ProcAddressTable;
+import com.jogamp.gluegen.runtime.opengl.GLNameResolver;
+import java.lang.reflect.Field;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+
+
+
+
+
+
+
+
+final class GLUgl2ProcAddressTable
+  extends ProcAddressTable
+{
+  long _addressof_gluBuild1DMipmapLevels;
+  long _addressof_gluBuild1DMipmaps;
+  long _addressof_gluBuild2DMipmapLevels;
+  long _addressof_gluBuild2DMipmaps;
+  long _addressof_gluBuild3DMipmapLevels;
+  long _addressof_gluBuild3DMipmaps;
+  long _addressof_gluScaleImage;
+  
+  public GLUgl2ProcAddressTable() {}
+  
+  public GLUgl2ProcAddressTable(FunctionAddressResolver paramFunctionAddressResolver)
+  {
+    super(paramFunctionAddressResolver);
+  }
+  
+
+
+
+
+
+  protected boolean isFunctionAvailableImpl(String paramString)
+    throws IllegalArgumentException
+  {
+    String str1 = GLNameResolver.normalizeVEN(GLNameResolver.normalizeARB(paramString, true), true);
+    final String str2 = "_addressof_" + str1;
+    final int i = GLNameResolver.getFuncNamePermutationNumber(str1);
+    Field localField = (Field)AccessController.doPrivileged(new PrivilegedAction() {
+      public final Field run() {
+        Field localField = null;
+        for (int i = 0; i < i; i++) {
+          String str = GLNameResolver.getFuncNamePermutation(str2, i);
+          try {
+            localField = GLUgl2ProcAddressTable.class.getDeclaredField(str);
+            localField.setAccessible(true);
+            return localField;
+          } catch (NoSuchFieldException localNoSuchFieldException) {}
+        }
+        return null;
+      }
+    });
+    if (null == localField)
+    {
+
+      throw new RuntimeException("WARNING: Address field query failed for \"" + str1 + "\"/\"" + paramString + "\"; it's either statically linked or address field is not a known " + "function");
+    }
+    
+
+    try
+    {
+      return 0L != localField.getLong(this);
+    } catch (Exception localException) {
+      throw new RuntimeException("WARNING: Address query failed for \"" + str1 + "\"/\"" + paramString + "\"; it's either statically linked or is not a known " + "function", localException);
+    }
+  }
+  
+
+  public long getAddressFor(String paramString)
+    throws SecurityException, IllegalArgumentException
+  {
+    SecurityUtil.checkAllLinkPermission();
+    String str1 = GLNameResolver.normalizeVEN(GLNameResolver.normalizeARB(paramString, true), true);
+    final String str2 = "_addressof_" + str1;
+    final int i = GLNameResolver.getFuncNamePermutationNumber(str1);
+    Field localField = (Field)AccessController.doPrivileged(new PrivilegedAction() {
+      public final Field run() {
+        Field localField = null;
+        for (int i = 0; i < i; i++) {
+          String str = GLNameResolver.getFuncNamePermutation(str2, i);
+          try {
+            localField = GLUgl2ProcAddressTable.class.getDeclaredField(str);
+            localField.setAccessible(true);
+            return localField;
+          } catch (NoSuchFieldException localNoSuchFieldException) {}
+        }
+        return null;
+      }
+    });
+    if (null == localField)
+    {
+
+      throw new RuntimeException("WARNING: Address field query failed for \"" + str1 + "\"/\"" + paramString + "\"; it's either statically linked or address field is not a known " + "function");
+    }
+    
+
+    try
+    {
+      return localField.getLong(this);
+    } catch (Exception localException) {
+      throw new RuntimeException("WARNING: Address query failed for \"" + str1 + "\"/\"" + paramString + "\"; it's either statically linked or is not a known " + "function", localException);
+    }
+  }
+}

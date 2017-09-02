@@ -1,0 +1,138 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+import jogamp.graph.font.typecast.ot.Fixed;
+
+
+
+
+
+
+
+
+
+
+
+public class HheaTable
+  implements Table
+{
+  private final DirectoryEntry de;
+  private final int version;
+  private final short ascender;
+  private final short descender;
+  private final short lineGap;
+  private final short advanceWidthMax;
+  private final short minLeftSideBearing;
+  private final short minRightSideBearing;
+  private final short xMaxExtent;
+  private final short caretSlopeRise;
+  private final short caretSlopeRun;
+  private final short metricDataFormat;
+  private final int numberOfHMetrics;
+  
+  protected HheaTable(DirectoryEntry paramDirectoryEntry, DataInput paramDataInput)
+    throws IOException
+  {
+    de = ((DirectoryEntry)paramDirectoryEntry.clone());
+    version = paramDataInput.readInt();
+    ascender = paramDataInput.readShort();
+    descender = paramDataInput.readShort();
+    lineGap = paramDataInput.readShort();
+    advanceWidthMax = paramDataInput.readShort();
+    minLeftSideBearing = paramDataInput.readShort();
+    minRightSideBearing = paramDataInput.readShort();
+    xMaxExtent = paramDataInput.readShort();
+    caretSlopeRise = paramDataInput.readShort();
+    caretSlopeRun = paramDataInput.readShort();
+    for (int i = 0; i < 5; i++) {
+      paramDataInput.readShort();
+    }
+    metricDataFormat = paramDataInput.readShort();
+    numberOfHMetrics = paramDataInput.readUnsignedShort();
+  }
+  
+  public short getAdvanceWidthMax() {
+    return advanceWidthMax;
+  }
+  
+  public short getAscender() {
+    return ascender;
+  }
+  
+  public short getCaretSlopeRise() {
+    return caretSlopeRise;
+  }
+  
+  public short getCaretSlopeRun() {
+    return caretSlopeRun;
+  }
+  
+  public short getDescender() {
+    return descender;
+  }
+  
+  public short getLineGap() {
+    return lineGap;
+  }
+  
+  public short getMetricDataFormat() {
+    return metricDataFormat;
+  }
+  
+  public short getMinLeftSideBearing() {
+    return minLeftSideBearing;
+  }
+  
+  public short getMinRightSideBearing() {
+    return minRightSideBearing;
+  }
+  
+  public int getNumberOfHMetrics() {
+    return numberOfHMetrics;
+  }
+  
+  public int getType()
+  {
+    return 1751672161;
+  }
+  
+  public short getXMaxExtent() {
+    return xMaxExtent;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public String toString()
+  {
+    return "'hhea' Table - Horizontal Header\n--------------------------------" + "\n        'hhea' version:       " + Fixed.floatValue(version) + "\n        yAscender:            " + ascender + "\n        yDescender:           " + descender + "\n        yLineGap:             " + lineGap + "\n        advanceWidthMax:      " + advanceWidthMax + "\n        minLeftSideBearing:   " + minLeftSideBearing + "\n        minRightSideBearing:  " + minRightSideBearing + "\n        xMaxExtent:           " + xMaxExtent + "\n        horizCaretSlopeNum:   " + caretSlopeRise + "\n        horizCaretSlopeDenom: " + caretSlopeRun + "\n        reserved0:            0" + "\n        reserved1:            0" + "\n        reserved2:            0" + "\n        reserved3:            0" + "\n        reserved4:            0" + "\n        metricDataFormat:     " + metricDataFormat + "\n        numOf_LongHorMetrics: " + numberOfHMetrics;
+  }
+  
+
+
+
+
+
+
+  public DirectoryEntry getDirectoryEntry()
+  {
+    return de;
+  }
+}

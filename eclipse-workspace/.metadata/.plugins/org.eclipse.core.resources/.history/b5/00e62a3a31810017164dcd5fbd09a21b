@@ -1,0 +1,458 @@
+package jogamp.opengl.util.av.impl;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.os.DynamicLibraryBundle;
+import com.jogamp.common.os.DynamicLibraryBundleInfo;
+import com.jogamp.common.util.RunnableExecutor;
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.opengl.GLProfile;
+import java.io.PrintStream;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class FFMPEGDynamicLibraryBundleInfo
+  implements DynamicLibraryBundleInfo
+{
+  private static final boolean DEBUG = (FFMPEGMediaPlayer.DEBUG) || (DynamicLibraryBundleInfo.DEBUG);
+  
+  private static final List<String> glueLibNames = new ArrayList();
+  
+  private static final int symbolCount = 65;
+  private static final String[] symbolNames = { "avutil_version", "avformat_version", "avcodec_version", "avresample_version", "swresample_version", "avcodec_register_all", "avcodec_close", "avcodec_string", "avcodec_find_decoder", "avcodec_open2", "avcodec_alloc_frame", "avcodec_get_frame_defaults", "avcodec_free_frame", "avcodec_default_get_buffer", "avcodec_default_release_buffer", "avcodec_default_get_buffer2", "avcodec_get_edge_width", "av_image_fill_linesizes", "avcodec_align_dimensions", "avcodec_align_dimensions2", "avcodec_flush_buffers", "av_init_packet", "av_new_packet", "av_destruct_packet", "av_free_packet", "avcodec_decode_audio4", "avcodec_decode_video2", "av_pix_fmt_descriptors", "av_frame_unref", "av_realloc", "av_free", "av_get_bits_per_pixel", "av_samples_get_buffer_size", "av_get_bytes_per_sample", "av_opt_set_int", "av_dict_get", "av_dict_count", "av_dict_set", "av_dict_free", "avformat_alloc_context", "avformat_free_context", "avformat_close_input", "av_register_all", "av_find_input_format", "avformat_open_input", "av_dump_format", "av_read_frame", "av_seek_frame", "avformat_seek_file", "av_read_play", "av_read_pause", "avformat_network_init", "avformat_network_deinit", "avformat_find_stream_info", "avdevice_register_all", "avresample_alloc_context", "avresample_open", "avresample_close", "avresample_free", "avresample_convert", "av_opt_set_sample_fmt", "swr_alloc", "swr_init", "swr_free", "swr_convert" };
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private static final String[] optionalSymbolNames = { "avformat_seek_file", "avcodec_free_frame", "av_frame_unref", "av_dict_count", "avcodec_default_get_buffer", "avcodec_default_release_buffer", "avcodec_default_get_buffer2", "avdevice_register_all", "avresample_version", "avresample_alloc_context", "avresample_open", "avresample_close", "avresample_free", "avresample_convert", "av_opt_set_sample_fmt", "swresample_version", "swr_alloc", "swr_init", "swr_free", "swr_convert" };
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private static final boolean[] libLoaded = new boolean[6];
+  private static final long[] symbolAddr = new long[65];
+  
+  private static final boolean ready;
+  
+  private static final boolean libsUFCLoaded;
+  static final VersionNumber avCodecVersion;
+  static final VersionNumber avFormatVersion;
+  static final VersionNumber avUtilVersion;
+  static final VersionNumber avResampleVersion;
+  static final VersionNumber swResampleVersion;
+  private static final FFMPEGNatives natives;
+  private static final int LIB_IDX_UTI = 0;
+  private static final int LIB_IDX_FMT = 1;
+  private static final int LIB_IDX_COD = 2;
+  private static final int LIB_IDX_DEV = 3;
+  private static final int LIB_IDX_AVR = 4;
+  private static final int LIB_IDX_SWR = 5;
+  private static final PrivilegedAction<DynamicLibraryBundle> privInitSymbolsAction = new PrivilegedAction()
+  {
+    public DynamicLibraryBundle run() {
+      DynamicLibraryBundle localDynamicLibraryBundle = new DynamicLibraryBundle(new FFMPEGDynamicLibraryBundleInfo());
+      for (int i = 0; i < 6; i++) {
+        FFMPEGDynamicLibraryBundleInfo.libLoaded[i] = localDynamicLibraryBundle.isToolLibLoaded(i);
+      }
+      if ((FFMPEGDynamicLibraryBundleInfo.libLoaded[0] == 0) || (FFMPEGDynamicLibraryBundleInfo.libLoaded[1] == 0) || (FFMPEGDynamicLibraryBundleInfo.libLoaded[2] == 0)) {
+        System.err.println("FFMPEG Tool library incomplete: [ avutil " + FFMPEGDynamicLibraryBundleInfo.libLoaded[0] + ", avformat " + FFMPEGDynamicLibraryBundleInfo.libLoaded[1] + ", avcodec " + FFMPEGDynamicLibraryBundleInfo.libLoaded[2] + "]");
+        return null;
+      }
+      localDynamicLibraryBundle.claimAllLinkPermission();
+      try {
+        for (i = 0; i < 65; i++) {
+          FFMPEGDynamicLibraryBundleInfo.symbolAddr[i] = localDynamicLibraryBundle.dynamicLookupFunction(FFMPEGDynamicLibraryBundleInfo.symbolNames[i]);
+        }
+        
+        localDynamicLibraryBundle.releaseAllLinkPermission(); } finally { localDynamicLibraryBundle.releaseAllLinkPermission();
+      }
+      return localDynamicLibraryBundle;
+    }
+  };
+  
+
+
+
+  private static final boolean initSymbols(VersionNumber[] paramArrayOfVersionNumber)
+  {
+    for (int i = 0; i < 6; i++) {
+      libLoaded[i] = false;
+    }
+    if (symbolNames.length != 65) {
+      throw new InternalError("XXX0 " + symbolNames.length + " != " + 65);
+    }
+    
+    DynamicLibraryBundle localDynamicLibraryBundle = (DynamicLibraryBundle)AccessController.doPrivileged(privInitSymbolsAction);
+    if (null == localDynamicLibraryBundle) {
+      return false;
+    }
+    
+
+    HashSet localHashSet = new HashSet();
+    localHashSet.addAll(Arrays.asList(optionalSymbolNames));
+    
+
+    boolean bool = true;
+    for (int j = 0; j < 65; j++) {
+      if (0L == symbolAddr[j])
+      {
+        String str = symbolNames[j];
+        if (!localHashSet.contains(str)) {
+          System.err.println("Fail: Could not resolve symbol <" + symbolNames[j] + ">: not optional, no alternatives.");
+          bool = false;
+        } else if (DEBUG) {
+          System.err.println("OK: Unresolved optional symbol <" + symbolNames[j] + ">");
+        }
+      }
+    }
+    paramArrayOfVersionNumber[0] = FFMPEGStaticNatives.getAVVersion(FFMPEGStaticNatives.getAvVersion0(symbolAddr[0]));
+    paramArrayOfVersionNumber[1] = FFMPEGStaticNatives.getAVVersion(FFMPEGStaticNatives.getAvVersion0(symbolAddr[1]));
+    paramArrayOfVersionNumber[2] = FFMPEGStaticNatives.getAVVersion(FFMPEGStaticNatives.getAvVersion0(symbolAddr[2]));
+    paramArrayOfVersionNumber[3] = FFMPEGStaticNatives.getAVVersion(FFMPEGStaticNatives.getAvVersion0(symbolAddr[3]));
+    paramArrayOfVersionNumber[4] = FFMPEGStaticNatives.getAVVersion(FFMPEGStaticNatives.getAvVersion0(symbolAddr[4]));
+    
+    return bool;
+  }
+  
+  static
+  {
+    GLProfile.initSingleton();
+    boolean bool = false;
+    
+    VersionNumber[] arrayOfVersionNumber = new VersionNumber[5];
+    try {
+      bool = initSymbols(arrayOfVersionNumber);
+    } catch (Throwable localThrowable) {
+      ExceptionUtils.dumpThrowable("", localThrowable);
+    }
+    libsUFCLoaded = (libLoaded[0] != 0) && (libLoaded[1] != 0) && (libLoaded[2] != 0);
+    avUtilVersion = arrayOfVersionNumber[0];
+    avFormatVersion = arrayOfVersionNumber[1];
+    avCodecVersion = arrayOfVersionNumber[2];
+    avResampleVersion = arrayOfVersionNumber[3];
+    swResampleVersion = arrayOfVersionNumber[4];
+    if (!libsUFCLoaded) {
+      System.err.println("LIB_AV Not Available: lavu, lavc, lavu");
+      natives = null;
+      ready = false;
+    } else if (!bool) {
+      System.err.println("LIB_AV Not Matching");
+      natives = null;
+      ready = false;
+    } else {
+      int i = avCodecVersion.getMajor();
+      int j = avFormatVersion.getMajor();
+      int k = avUtilVersion.getMajor();
+      if ((i == 53) && (j == 53) && (k == 51))
+      {
+        natives = new FFMPEGv08Natives();
+      } else if ((i == 54) && (j == 54) && (k == 52))
+      {
+        natives = new FFMPEGv09Natives();
+      } else if ((i == 55) && (j == 55) && ((k == 52) || (k == 53)))
+      {
+        natives = new FFMPEGv10Natives();
+      } else if ((i == 56) && (j == 56) && (k == 54))
+      {
+        natives = new FFMPEGv11Natives();
+      } else {
+        System.err.println("LIB_AV No Version/Native-Impl Match");
+        natives = null;
+      }
+      if ((null != natives) && (FFMPEGStaticNatives.initIDs0())) {
+        ready = natives.initSymbols0(symbolAddr, 65);
+      } else {
+        ready = false;
+      }
+    }
+  }
+  
+  static boolean libsLoaded() { return libsUFCLoaded; }
+  static boolean avDeviceLoaded() { return libLoaded[3]; }
+  static boolean avResampleLoaded() { return libLoaded[4]; }
+  static boolean swResampleLoaded() { return libLoaded[5]; }
+  static FFMPEGNatives getNatives() { return natives; }
+  static boolean initSingleton() { return ready; }
+  
+
+
+  public final boolean shallLinkGlobal()
+  {
+    return true;
+  }
+  
+
+
+
+
+
+  public final boolean shallLookupGlobal()
+  {
+    return true;
+  }
+  
+  public final List<String> getGlueLibNames()
+  {
+    return glueLibNames;
+  }
+  
+  public final List<List<String>> getToolLibNames()
+  {
+    ArrayList localArrayList1 = new ArrayList();
+    
+
+
+    ArrayList localArrayList2 = new ArrayList();
+    localArrayList2.add("avutil");
+    
+    localArrayList2.add("libavutil.so.55");
+    localArrayList2.add("libavutil.so.54");
+    localArrayList2.add("libavutil.so.53");
+    localArrayList2.add("libavutil.so.52");
+    localArrayList2.add("libavutil.so.51");
+    localArrayList2.add("libavutil.so.50");
+    
+    localArrayList2.add("avutil-55");
+    localArrayList2.add("avutil-54");
+    localArrayList2.add("avutil-53");
+    localArrayList2.add("avutil-52");
+    localArrayList2.add("avutil-51");
+    localArrayList2.add("avutil-50");
+    localArrayList1.add(localArrayList2);
+    
+    ArrayList localArrayList3 = new ArrayList();
+    localArrayList3.add("avformat");
+    
+    localArrayList3.add("libavformat.so.57");
+    localArrayList3.add("libavformat.so.56");
+    localArrayList3.add("libavformat.so.55");
+    localArrayList3.add("libavformat.so.54");
+    localArrayList3.add("libavformat.so.53");
+    localArrayList3.add("libavformat.so.52");
+    
+    localArrayList3.add("avformat-57");
+    localArrayList3.add("avformat-56");
+    localArrayList3.add("avformat-55");
+    localArrayList3.add("avformat-54");
+    localArrayList3.add("avformat-53");
+    localArrayList3.add("avformat-52");
+    localArrayList1.add(localArrayList3);
+    
+    ArrayList localArrayList4 = new ArrayList();
+    localArrayList4.add("avcodec");
+    
+    localArrayList4.add("libavcodec.so.57");
+    localArrayList4.add("libavcodec.so.56");
+    localArrayList4.add("libavcodec.so.55");
+    localArrayList4.add("libavcodec.so.54");
+    localArrayList4.add("libavcodec.so.53");
+    localArrayList4.add("libavcodec.so.52");
+    
+    localArrayList4.add("avcodec-57");
+    localArrayList4.add("avcodec-56");
+    localArrayList4.add("avcodec-55");
+    localArrayList4.add("avcodec-54");
+    localArrayList4.add("avcodec-53");
+    localArrayList4.add("avcodec-52");
+    localArrayList1.add(localArrayList4);
+    
+    ArrayList localArrayList5 = new ArrayList();
+    localArrayList5.add("avdevice");
+    
+    localArrayList5.add("libavdevice.so.57");
+    localArrayList5.add("libavdevice.so.56");
+    localArrayList5.add("libavdevice.so.55");
+    localArrayList5.add("libavdevice.so.54");
+    localArrayList5.add("libavdevice.so.53");
+    
+    localArrayList5.add("avdevice-57");
+    localArrayList5.add("avdevice-56");
+    localArrayList5.add("avdevice-55");
+    localArrayList5.add("avdevice-54");
+    localArrayList5.add("avdevice-53");
+    localArrayList1.add(localArrayList5);
+    
+    ArrayList localArrayList6 = new ArrayList();
+    localArrayList6.add("avresample");
+    
+    localArrayList6.add("libavresample.so.3");
+    localArrayList6.add("libavresample.so.2");
+    localArrayList6.add("libavresample.so.1");
+    
+    localArrayList6.add("avresample-3");
+    localArrayList6.add("avresample-2");
+    localArrayList6.add("avresample-1");
+    localArrayList1.add(localArrayList6);
+    
+    ArrayList localArrayList7 = new ArrayList();
+    localArrayList7.add("swresample");
+    
+    localArrayList7.add("libswresample.so.2");
+    localArrayList7.add("libswresample.so.1");
+    localArrayList7.add("libswresample.so.0");
+    
+    localArrayList7.add("swresample-2");
+    localArrayList7.add("swresample-1");
+    localArrayList7.add("swresample-0");
+    localArrayList1.add(localArrayList7);
+    
+    return localArrayList1;
+  }
+  
+  public final List<String> getToolGetProcAddressFuncNameList()
+  {
+    return null;
+  }
+  
+  public final long toolGetProcAddress(long paramLong, String paramString)
+  {
+    return 0L;
+  }
+  
+  public final boolean useToolGetProcAdressFirst(String paramString)
+  {
+    return false;
+  }
+  
+  public final RunnableExecutor getLibLoaderExecutor()
+  {
+    return DynamicLibraryBundle.getDefaultRunnableExecutor();
+  }
+  
+  protected FFMPEGDynamicLibraryBundleInfo() {}
+}

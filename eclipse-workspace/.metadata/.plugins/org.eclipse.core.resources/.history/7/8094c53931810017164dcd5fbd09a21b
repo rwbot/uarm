@@ -1,0 +1,66 @@
+package g4p_controls;
+
+import java.util.LinkedList;
+
+public class GTabManager
+{
+  private LinkedList<Focusable> textControls = new LinkedList();
+  
+  public GTabManager() {}
+  
+  public boolean addControls(Focusable... paramVarArgs)
+  {
+    boolean bool = false;
+    for (Focusable localFocusable : paramVarArgs) {
+      bool |= addControl(localFocusable);
+    }
+    return bool;
+  }
+  
+  public boolean addControl(Focusable paramFocusable)
+  {
+    if (!textControls.contains(paramFocusable))
+    {
+      paramFocusable.setTabManager(this);
+      textControls.addLast(paramFocusable);
+      return true;
+    }
+    return false;
+  }
+  
+  public boolean removeControl(Focusable paramFocusable)
+  {
+    int i = textControls.lastIndexOf(paramFocusable);
+    if (i > 0)
+    {
+      paramFocusable.setTabManager(null);
+      textControls.remove(i);
+      return true;
+    }
+    return false;
+  }
+  
+  boolean nextControl(Focusable paramFocusable)
+  {
+    int i = textControls.lastIndexOf(paramFocusable);
+    if ((textControls.size() > 1) && (i >= 0) && (i < textControls.size() - 1))
+    {
+      i++;
+      GAbstractControl.controlToTakeFocus = (GAbstractControl)textControls.get(i);
+      return true;
+    }
+    return false;
+  }
+  
+  boolean prevControl(Focusable paramFocusable)
+  {
+    int i = textControls.lastIndexOf(paramFocusable);
+    if ((textControls.size() > 1) && (i > 0))
+    {
+      i--;
+      GAbstractControl.controlToTakeFocus = (GAbstractControl)textControls.get(i);
+      return true;
+    }
+    return false;
+  }
+}

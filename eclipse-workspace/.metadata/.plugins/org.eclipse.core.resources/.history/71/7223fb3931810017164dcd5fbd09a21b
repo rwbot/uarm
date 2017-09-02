@@ -1,0 +1,94 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class CmapFormat0
+  extends CmapFormat
+{
+  private final int[] _glyphIdArray = new int['Ā'];
+  
+  protected CmapFormat0(DataInput paramDataInput) throws IOException {
+    super(paramDataInput);
+    _format = 0;
+    for (int i = 0; i < 256; i++) {
+      _glyphIdArray[i] = paramDataInput.readUnsignedByte();
+    }
+  }
+  
+  public int getRangeCount()
+  {
+    return 1;
+  }
+  
+  public CmapFormat.Range getRange(int paramInt) throws ArrayIndexOutOfBoundsException
+  {
+    if (paramInt != 0) {
+      throw new ArrayIndexOutOfBoundsException();
+    }
+    return new CmapFormat.Range(0, 255);
+  }
+  
+  public int mapCharCode(int paramInt)
+  {
+    if ((0 <= paramInt) && (paramInt < 256)) {
+      return _glyphIdArray[paramInt];
+    }
+    return 0;
+  }
+}

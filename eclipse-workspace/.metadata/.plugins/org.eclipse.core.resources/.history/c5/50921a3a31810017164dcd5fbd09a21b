@@ -1,0 +1,226 @@
+package jogamp.newt.awt;
+
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.CapabilitiesImmutable;
+import com.jogamp.nativewindow.NativeWindow;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.NativeWindowFactory;
+import com.jogamp.nativewindow.awt.AWTGraphicsConfiguration;
+import com.jogamp.nativewindow.awt.AWTGraphicsScreen;
+import com.jogamp.nativewindow.awt.JAWTWindow;
+import com.jogamp.nativewindow.util.Point;
+import com.jogamp.nativewindow.util.Rectangle;
+import com.jogamp.newt.Display;
+import com.jogamp.newt.MonitorDevice;
+import com.jogamp.newt.NewtFactory;
+import com.jogamp.newt.Screen;
+import java.awt.Component;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.io.PrintStream;
+import jogamp.nativewindow.awt.AWTMisc;
+import jogamp.nativewindow.jawt.JAWTUtil;
+import jogamp.nativewindow.jawt.x11.X11SunJDKReflection;
+import jogamp.nativewindow.x11.X11Lib;
+import jogamp.newt.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class NewtFactoryAWT
+  extends NewtFactory
+{
+  public static final boolean DEBUG_IMPLEMENTATION = Debug.debug("Window");
+  
+
+
+
+
+  public NewtFactoryAWT() {}
+  
+
+
+
+
+  /**
+   * @deprecated
+   */
+  public static JAWTWindow getNativeWindow(Object paramObject, CapabilitiesImmutable paramCapabilitiesImmutable)
+  {
+    if (null == paramObject) {
+      throw new NativeWindowException("Null AWT Component");
+    }
+    if (!(paramObject instanceof Component)) {
+      throw new NativeWindowException("AWT Component not a java.awt.Component");
+    }
+    return getNativeWindow((Component)paramObject, paramCapabilitiesImmutable);
+  }
+  
+
+
+  /**
+   * @deprecated
+   */
+  public static JAWTWindow getNativeWindow(Component paramComponent, CapabilitiesImmutable paramCapabilitiesImmutable)
+  {
+    AWTGraphicsConfiguration localAWTGraphicsConfiguration = AWTGraphicsConfiguration.create(paramComponent, null, paramCapabilitiesImmutable);
+    return getNativeWindow(paramComponent, localAWTGraphicsConfiguration);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static JAWTWindow getNativeWindow(Component paramComponent, AWTGraphicsConfiguration paramAWTGraphicsConfiguration)
+  {
+    NativeWindow localNativeWindow = NativeWindowFactory.getNativeWindow(paramComponent, paramAWTGraphicsConfiguration);
+    if (!(localNativeWindow instanceof JAWTWindow)) {
+      throw new NativeWindowException("Not an AWT NativeWindow: " + localNativeWindow);
+    }
+    if (DEBUG_IMPLEMENTATION) {
+      System.err.println("NewtFactoryAWT.getNativeWindow: " + paramComponent + " -> " + localNativeWindow);
+    }
+    return (JAWTWindow)localNativeWindow;
+  }
+  
+  public static void destroyNativeWindow(JAWTWindow paramJAWTWindow) {
+    AbstractGraphicsConfiguration localAbstractGraphicsConfiguration = paramJAWTWindow.getGraphicsConfiguration();
+    paramJAWTWindow.destroy();
+    localAbstractGraphicsConfiguration.getScreen().getDevice().close();
+  }
+  
+
+
+
+  private static GraphicsConfiguration checkComponentValid(Component paramComponent)
+    throws IllegalArgumentException
+  {
+    if (!paramComponent.isDisplayable()) {
+      throw new IllegalArgumentException("Given AWT-Component is not displayable: " + paramComponent);
+    }
+    GraphicsConfiguration localGraphicsConfiguration = paramComponent.getGraphicsConfiguration();
+    if (null == localGraphicsConfiguration) {
+      throw new IllegalArgumentException("Given AWT-Component has no GraphicsConfiguration set: " + paramComponent);
+    }
+    return localGraphicsConfiguration;
+  }
+  
+
+
+
+
+
+
+
+  public static Display createDisplay(Component paramComponent, boolean paramBoolean)
+    throws IllegalArgumentException
+  {
+    GraphicsConfiguration localGraphicsConfiguration = checkComponentValid(paramComponent);
+    GraphicsDevice localGraphicsDevice = localGraphicsConfiguration.getDevice();
+    
+
+    String str2 = NativeWindowFactory.getNativeWindowType(true);
+    String str1; if (NativeWindowFactory.TYPE_X11 == str2) {
+      long l = X11SunJDKReflection.graphicsDeviceGetDisplay(localGraphicsDevice);
+      if (0L == l) {
+        str1 = null;
+
+
+      }
+      else
+      {
+
+
+        str1 = X11Lib.XDisplayString(l);
+      }
+    } else {
+      str1 = null;
+    }
+    return NewtFactory.createDisplay(str1, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+  public static Screen createScreen(Component paramComponent, boolean paramBoolean)
+    throws IllegalArgumentException
+  {
+    Display localDisplay = createDisplay(paramComponent, paramBoolean);
+    return NewtFactory.createScreen(localDisplay, AWTGraphicsScreen.findScreenIndex(paramComponent.getGraphicsConfiguration().getDevice()));
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static MonitorDevice getMonitorDevice(Screen paramScreen, Component paramComponent)
+    throws IllegalArgumentException
+  {
+    GraphicsConfiguration localGraphicsConfiguration = checkComponentValid(paramComponent);
+    String str = NativeWindowFactory.getNativeWindowType(true);
+    MonitorDevice localMonitorDevice = null;
+    paramScreen.addReference();
+    try {
+      if (NativeWindowFactory.TYPE_MACOSX == str) {
+        localMonitorDevice = paramScreen.getMonitor(JAWTUtil.getMonitorDisplayID(localGraphicsConfiguration.getDevice()));
+      }
+      if (null == localMonitorDevice)
+      {
+        Point localPoint = AWTMisc.getLocationOnScreenSafe(null, paramComponent, false);
+        Rectangle localRectangle = new Rectangle(localPoint.getX(), localPoint.getY(), paramComponent.getWidth(), paramComponent.getHeight());
+        localMonitorDevice = paramScreen.getMainMonitor(localRectangle);
+      }
+    } finally {
+      paramScreen.removeReference();
+    }
+    return localMonitorDevice;
+  }
+}

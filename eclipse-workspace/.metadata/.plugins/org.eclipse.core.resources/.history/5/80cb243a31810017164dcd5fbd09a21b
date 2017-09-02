@@ -1,0 +1,192 @@
+package jogamp.opengl.glu.gl2.nurbs;
+
+import com.jogamp.opengl.GL2;
+import com.jogamp.opengl.glu.gl2.GLUgl2;
+import jogamp.opengl.glu.nurbs.CArrayOfFloats;
+import jogamp.opengl.glu.nurbs.SurfaceEvaluator;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class GL2SurfaceEvaluator
+  implements SurfaceEvaluator
+{
+  private final GL2 gl;
+  private boolean output_triangles;
+  private int poradi;
+  
+  public GL2SurfaceEvaluator()
+  {
+    gl = GLUgl2.getCurrentGL2();
+  }
+  
+
+
+
+
+  public void bgnmap2f()
+  {
+    if (!output_triangles)
+    {
+
+
+      gl.glPushAttrib(65536);
+    }
+  }
+  
+
+
+
+
+
+
+  public void polymode(int paramInt)
+  {
+    if (!output_triangles) {
+      switch (paramInt) {
+      case 0: 
+      default: 
+        gl.glPolygonMode(1032, 6914);
+        break;
+      case 1: 
+        gl.glPolygonMode(1032, 6913);
+        break;
+      case 2: 
+        gl.glPolygonMode(1032, 6912);
+      }
+      
+    }
+  }
+  
+
+
+
+
+
+  public void endmap2f()
+  {
+    if (!output_triangles)
+    {
+
+      gl.glPopAttrib();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  public void domain2f(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4) {}
+  
+
+
+
+
+
+
+
+
+
+
+  public void mapgrid2f(int paramInt1, float paramFloat1, float paramFloat2, int paramInt2, float paramFloat3, float paramFloat4)
+  {
+    if (!output_triangles)
+    {
+
+      gl.glMapGrid2d(paramInt1, paramFloat1, paramFloat2, paramInt2, paramFloat3, paramFloat4);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+  public void mapmesh2f(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5)
+  {
+    if (!output_triangles)
+    {
+
+
+
+
+
+
+
+
+      switch (paramInt1) {
+      case 0: 
+        gl.glEvalMesh2(6914, paramInt2, paramInt3, paramInt4, paramInt5);
+        break;
+      case 1: 
+        gl.glEvalMesh2(6913, paramInt2, paramInt3, paramInt4, paramInt5);
+        break;
+      case 2: 
+        gl.glEvalMesh2(6912, paramInt2, paramInt3, paramInt4, paramInt5);
+      }
+      
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void map2f(int paramInt1, float paramFloat1, float paramFloat2, int paramInt2, int paramInt3, float paramFloat3, float paramFloat4, int paramInt4, int paramInt5, CArrayOfFloats paramCArrayOfFloats)
+  {
+    if (!output_triangles)
+    {
+
+      gl.glMap2f(paramInt1, paramFloat1, paramFloat2, paramInt2, paramInt3, paramFloat3, paramFloat4, paramInt4, paramInt5, paramCArrayOfFloats
+        .getArray(), paramCArrayOfFloats.getPointer());
+    }
+  }
+  
+
+
+
+
+
+  public void enable(int paramInt)
+  {
+    gl.glEnable(paramInt);
+  }
+}

@@ -1,0 +1,74 @@
+package de.voidplus.leapmotion;
+
+import com.leapmotion.leap.Pointable;
+import com.leapmotion.leap.Vector;
+import processing.core.PApplet;
+import processing.core.PVector;
+
+public class CircleGesture
+  extends Gesture
+  implements RawAccess<com.leapmotion.leap.CircleGesture>
+{
+  private com.leapmotion.leap.CircleGesture _circle;
+  
+  public CircleGesture(PApplet paramPApplet, LeapMotion paramLeapMotion, com.leapmotion.leap.Gesture paramGesture)
+  {
+    super(paramPApplet, paramLeapMotion, paramGesture);
+    _circle = new com.leapmotion.leap.CircleGesture(paramGesture);
+  }
+  
+  public com.leapmotion.leap.CircleGesture getRaw()
+  {
+    return _circle;
+  }
+  
+  public PVector getCenter()
+  {
+    return leap.map(_circle.center());
+  }
+  
+  public PVector getRawCenter()
+  {
+    return leap.convert(_circle.center());
+  }
+  
+  public PVector getNormal()
+  {
+    return leap.map(_circle.normal());
+  }
+  
+  public PVector getRawNormal()
+  {
+    return leap.convert(_circle.normal());
+  }
+  
+  public float getProgress()
+  {
+    return _circle.progress();
+  }
+  
+  public float getRadius()
+  {
+    return _circle.radius();
+  }
+  
+  public Finger getFinger()
+  {
+    if (_circle.pointable().isFinger()) {
+      return new Finger(parent, leap, new com.leapmotion.leap.Finger(_circle.pointable()));
+    }
+    return null;
+  }
+  
+  public int getDirection()
+  {
+    if (isValid())
+    {
+      if (_circle.pointable().direction().angleTo(_circle.normal()) <= 1.5707963267948966D) {
+        return 1;
+      }
+      return 0;
+    }
+    return -1;
+  }
+}

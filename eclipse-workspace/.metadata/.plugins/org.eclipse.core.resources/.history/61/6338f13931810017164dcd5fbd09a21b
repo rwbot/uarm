@@ -1,0 +1,1553 @@
+package com.jogamp.opengl.util;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.os.MachineDataInfo;
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2ES1;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.util.glsl.ShaderState;
+import java.io.PrintStream;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import java.nio.ShortBuffer;
+import java.util.ArrayList;
+import java.util.Iterator;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ImmModeSink
+{
+  protected static final boolean DEBUG_BEGIN_END = PropertyAccess.isPropertyDefined("jogl.debug.ImmModeSink.BeginEnd", true);
+  protected static final boolean DEBUG_DRAW = PropertyAccess.isPropertyDefined("jogl.debug.ImmModeSink.Draw", true);
+  protected static final boolean DEBUG_BUFFER = PropertyAccess.isPropertyDefined("jogl.debug.ImmModeSink.Buffer", true);
+  
+
+
+
+  public static final int GL_QUADS = 7;
+  
+
+
+
+  public static final int GL_QUAD_STRIP = 8;
+  
+
+
+
+  public static final int GL_POLYGON = 9;
+  
+
+
+
+  private VBOSet vboSet;
+  
+
+
+  private final ArrayList<VBOSet> vboSetList;
+  
+
+
+
+  public static ImmModeSink createFixed(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, int paramInt10)
+  {
+    return new ImmModeSink(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8, paramInt9, false, paramInt10, null, 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static ImmModeSink createGLSL(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, int paramInt10, ShaderState paramShaderState)
+  {
+    return new ImmModeSink(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8, paramInt9, true, paramInt10, paramShaderState, 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static ImmModeSink createGLSL(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, int paramInt10, int paramInt11)
+  {
+    return new ImmModeSink(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8, paramInt9, true, paramInt10, null, paramInt11);
+  }
+  
+
+  public void destroy(GL paramGL)
+  {
+    destroyList(paramGL);
+    
+    vboSet.destroy(paramGL);
+  }
+  
+  public void reset() {
+    reset(null);
+  }
+  
+  public void reset(GL paramGL) {
+    destroyList(paramGL);
+    vboSet.reset(paramGL);
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder("ImmModeSink[");
+    localStringBuilder.append(",\n\tVBO list: " + vboSetList.size() + " [");
+    for (Iterator localIterator = vboSetList.iterator(); localIterator.hasNext();) {
+      localStringBuilder.append("\n\t");
+      localStringBuilder.append(localIterator.next());
+    }
+    if (vboSetList.size() > 0) {
+      localStringBuilder.append("\n\t],\nVBO current: NOP]");
+    } else {
+      localStringBuilder.append("\n\t],\nVBO current: \n");
+      localStringBuilder.append(vboSet);
+      localStringBuilder.append("\n]");
+    }
+    return localStringBuilder.toString();
+  }
+  
+  public void draw(GL paramGL, boolean paramBoolean) {
+    if (DEBUG_DRAW) {
+      System.err.println("ImmModeSink.draw(disableBufferAfterDraw: " + paramBoolean + "):\n\t" + this);
+    }
+    int i = 0;
+    for (int j = 0; j < vboSetList.size(); i++) {
+      ((VBOSet)vboSetList.get(j)).draw(paramGL, null, paramBoolean, i);j++;
+    }
+  }
+  
+  public void draw(GL paramGL, Buffer paramBuffer, boolean paramBoolean) {
+    if (DEBUG_DRAW) {
+      System.err.println("ImmModeSink.draw(disableBufferAfterDraw: " + paramBoolean + "):\n\t" + this);
+    }
+    int i = 0;
+    for (int j = 0; j < vboSetList.size(); i++) {
+      ((VBOSet)vboSetList.get(j)).draw(paramGL, paramBuffer, paramBoolean, i);j++;
+    }
+  }
+  
+  public void glBegin(int paramInt) {
+    vboSet.modeOrig = paramInt;
+    switch (paramInt) {
+    case 8: 
+      paramInt = 5;
+      break;
+    case 9: 
+      paramInt = 6;
+    }
+    
+    vboSet.mode = paramInt;
+    if (DEBUG_BEGIN_END) {
+      System.err.println("ImmModeSink.glBegin(" + vboSet.modeOrig + " -> " + vboSet.mode + ")");
+    }
+    vboSet.checkSeal(false);
+  }
+  
+  public final void glEnd(GL paramGL) {
+    glEnd(paramGL, null, true);
+  }
+  
+  public void glEnd(GL paramGL, boolean paramBoolean) {
+    glEnd(paramGL, null, paramBoolean);
+  }
+  
+  public final void glEnd(GL paramGL, Buffer paramBuffer) {
+    glEnd(paramGL, paramBuffer, true);
+  }
+  
+  private void glEnd(GL paramGL, Buffer paramBuffer, boolean paramBoolean) {
+    if (DEBUG_BEGIN_END) {
+      System.err.println("ImmModeSink START glEnd(immediate: " + paramBoolean + ")");
+    }
+    if (paramBoolean) {
+      vboSet.seal(paramGL, true);
+      vboSet.draw(paramGL, paramBuffer, true, -1);
+      reset(paramGL);
+    } else {
+      vboSet.seal(paramGL, true);
+      vboSet.enableBuffer(paramGL, false);
+      vboSetList.add(vboSet);
+      vboSet = vboSet.regenerate(paramGL);
+    }
+    if (DEBUG_BEGIN_END) {
+      System.err.println("ImmModeSink END glEnd(immediate: " + paramBoolean + ")");
+    }
+  }
+  
+  public void glVertexv(Buffer paramBuffer) {
+    vboSet.glVertexv(paramBuffer);
+  }
+  
+  public void glNormalv(Buffer paramBuffer) { vboSet.glNormalv(paramBuffer); }
+  
+  public void glColorv(Buffer paramBuffer) {
+    vboSet.glColorv(paramBuffer);
+  }
+  
+  public void glTexCoordv(Buffer paramBuffer) { vboSet.glTexCoordv(paramBuffer); }
+  
+  public final void glVertex2f(float paramFloat1, float paramFloat2)
+  {
+    vboSet.glVertex2f(paramFloat1, paramFloat2);
+  }
+  
+  public final void glVertex3f(float paramFloat1, float paramFloat2, float paramFloat3) {
+    vboSet.glVertex3f(paramFloat1, paramFloat2, paramFloat3);
+  }
+  
+  public final void glNormal3f(float paramFloat1, float paramFloat2, float paramFloat3) {
+    vboSet.glNormal3f(paramFloat1, paramFloat2, paramFloat3);
+  }
+  
+  public final void glColor3f(float paramFloat1, float paramFloat2, float paramFloat3) {
+    vboSet.glColor3f(paramFloat1, paramFloat2, paramFloat3);
+  }
+  
+  public final void glColor4f(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4) {
+    vboSet.glColor4f(paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+  }
+  
+  public final void glTexCoord2f(float paramFloat1, float paramFloat2) {
+    vboSet.glTexCoord2f(paramFloat1, paramFloat2);
+  }
+  
+  public final void glTexCoord3f(float paramFloat1, float paramFloat2, float paramFloat3) {
+    vboSet.glTexCoord3f(paramFloat1, paramFloat2, paramFloat3);
+  }
+  
+  public final void glVertex2s(short paramShort1, short paramShort2) {
+    vboSet.glVertex2s(paramShort1, paramShort2);
+  }
+  
+  public final void glVertex3s(short paramShort1, short paramShort2, short paramShort3) {
+    vboSet.glVertex3s(paramShort1, paramShort2, paramShort3);
+  }
+  
+  public final void glNormal3s(short paramShort1, short paramShort2, short paramShort3) {
+    vboSet.glNormal3s(paramShort1, paramShort2, paramShort3);
+  }
+  
+  public final void glColor3s(short paramShort1, short paramShort2, short paramShort3) {
+    vboSet.glColor3s(paramShort1, paramShort2, paramShort3);
+  }
+  
+  public final void glColor4s(short paramShort1, short paramShort2, short paramShort3, short paramShort4) {
+    vboSet.glColor4s(paramShort1, paramShort2, paramShort3, paramShort4);
+  }
+  
+  public final void glTexCoord2s(short paramShort1, short paramShort2) {
+    vboSet.glTexCoord2s(paramShort1, paramShort2);
+  }
+  
+  public final void glTexCoord3s(short paramShort1, short paramShort2, short paramShort3) {
+    vboSet.glTexCoord3s(paramShort1, paramShort2, paramShort3);
+  }
+  
+  public final void glVertex2b(byte paramByte1, byte paramByte2) {
+    vboSet.glVertex2b(paramByte1, paramByte2);
+  }
+  
+  public final void glVertex3b(byte paramByte1, byte paramByte2, byte paramByte3) {
+    vboSet.glVertex3b(paramByte1, paramByte2, paramByte3);
+  }
+  
+  public final void glNormal3b(byte paramByte1, byte paramByte2, byte paramByte3) {
+    vboSet.glNormal3b(paramByte1, paramByte2, paramByte3);
+  }
+  
+  public final void glColor3b(byte paramByte1, byte paramByte2, byte paramByte3) {
+    vboSet.glColor3b(paramByte1, paramByte2, paramByte3);
+  }
+  
+  public final void glColor3ub(byte paramByte1, byte paramByte2, byte paramByte3) {
+    vboSet.glColor3ub(paramByte1, paramByte2, paramByte3);
+  }
+  
+  public final void glColor4b(byte paramByte1, byte paramByte2, byte paramByte3, byte paramByte4) {
+    vboSet.glColor4b(paramByte1, paramByte2, paramByte3, paramByte4);
+  }
+  
+  public final void glColor4ub(byte paramByte1, byte paramByte2, byte paramByte3, byte paramByte4) {
+    vboSet.glColor4ub(paramByte1, paramByte2, paramByte3, paramByte4);
+  }
+  
+  public final void glTexCoord2b(byte paramByte1, byte paramByte2) {
+    vboSet.glTexCoord2b(paramByte1, paramByte2);
+  }
+  
+  public final void glTexCoord3b(byte paramByte1, byte paramByte2, byte paramByte3) {
+    vboSet.glTexCoord3b(paramByte1, paramByte2, paramByte3);
+  }
+  
+
+
+
+
+  protected ImmModeSink(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, boolean paramBoolean, int paramInt10, ShaderState paramShaderState, int paramInt11)
+  {
+    vboSet = new VBOSet(paramInt1, paramInt2, paramInt3, paramInt4, paramInt5, paramInt6, paramInt7, paramInt8, paramInt9, paramBoolean, paramInt10, paramShaderState, paramInt11);
+    
+
+    vboSetList = new ArrayList();
+  }
+  
+  public boolean getUseVBO() { return vboSet.getUseVBO(); }
+  
+
+
+  public int getResizeElementCount()
+  {
+    return vboSet.getResizeElementCount();
+  }
+  
+
+
+
+
+
+  public void setResizeElementCount(int paramInt) { vboSet.setResizeElementCount(paramInt); }
+  
+  private void destroyList(GL paramGL) {
+    for (int i = 0; i < vboSetList.size(); i++) {
+      ((VBOSet)vboSetList.get(i)).destroy(paramGL);
+    }
+    vboSetList.clear();
+  }
+  
+
+
+
+  static {}
+  
+
+
+  protected static class VBOSet
+  {
+    protected VBOSet(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9, boolean paramBoolean, int paramInt10, ShaderState paramShaderState, int paramInt11)
+    {
+      glBufferUsage = paramInt10;
+      initialElementCount = paramInt1;
+      useVBO = (0 != paramInt10);
+      useGLSL = paramBoolean;
+      shaderState = paramShaderState;
+      shaderProgram = paramInt11;
+      
+      if ((paramBoolean) && (null == shaderState) && (0 == paramInt11)) {
+        throw new IllegalArgumentException("Using GLSL but neither a valid shader-program nor ShaderState has been passed!");
+      }
+      
+      resizeElementCount = paramInt1;
+      vDataType = paramInt3;
+      vDataTypeSigned = GLBuffers.isSignedGLType(paramInt3);
+      vComps = paramInt2;
+      vCompsBytes = (paramInt2 * GLBuffers.sizeOfGLType(paramInt3));
+      cDataType = paramInt5;
+      cDataTypeSigned = GLBuffers.isSignedGLType(paramInt5);
+      cComps = paramInt4;
+      cCompsBytes = (paramInt4 * GLBuffers.sizeOfGLType(paramInt5));
+      nDataType = paramInt7;
+      nDataTypeSigned = GLBuffers.isSignedGLType(paramInt7);
+      nComps = paramInt6;
+      nCompsBytes = (paramInt6 * GLBuffers.sizeOfGLType(paramInt7));
+      tDataType = paramInt9;
+      tDataTypeSigned = GLBuffers.isSignedGLType(paramInt9);
+      tComps = paramInt8;
+      tCompsBytes = (paramInt8 * GLBuffers.sizeOfGLType(paramInt9));
+      vboName = 0;
+      
+      vCount = 0;
+      cCount = 0;
+      nCount = 0;
+      tCount = 0;
+      vElems = 0;
+      cElems = 0;
+      nElems = 0;
+      tElems = 0;
+      
+      pageSize = Platform.getMachineDataInfo().pageSizeInBytes();
+      
+      reallocateBuffer(paramInt1);
+      rewind();
+      
+      sealed = false;
+      sealedGL = false;
+      mode = 0;
+      modeOrig = 0;
+      bufferEnabled = false;
+      bufferWritten = false;
+      bufferWrittenOnce = false;
+      glslLocationSet = false;
+    }
+    
+    protected int getResizeElementCount() { return resizeElementCount; }
+    protected void setResizeElementCount(int paramInt) { resizeElementCount = paramInt; }
+    
+    protected boolean getUseVBO() { return useVBO; }
+    
+    protected final VBOSet regenerate(GL paramGL) {
+      return new VBOSet(initialElementCount, vComps, vDataType, cComps, cDataType, nComps, nDataType, tComps, tDataType, useGLSL, glBufferUsage, shaderState, shaderProgram);
+    }
+    
+    protected void checkSeal(boolean paramBoolean)
+      throws GLException
+    {
+      if (0 == mode) {
+        throw new GLException("No mode set yet, call glBegin(mode) first:\n\t" + this);
+      }
+      if (sealed != paramBoolean) {
+        if (paramBoolean) {
+          throw new GLException("Not Sealed yet, call glEnd() first:\n\t" + this);
+        }
+        throw new GLException("Already Sealed, can't modify VBO after glEnd():\n\t" + this);
+      }
+    }
+    
+
+    private boolean usingShaderProgram = false;
+    private final int glBufferUsage;
+    private final int initialElementCount;
+    private final boolean useVBO;
+    
+    protected void useShaderProgram(GL2ES2 paramGL2ES2, boolean paramBoolean)
+    {
+      if ((paramBoolean) || (!usingShaderProgram))
+      {
+        if (null != shaderState) {
+          shaderState.useProgram(paramGL2ES2, true);
+        } else {
+          paramGL2ES2.glUseProgram(shaderProgram);
+        }
+        usingShaderProgram = true;
+      }
+    }
+    
+    private final boolean useGLSL;
+    private final ShaderState shaderState;
+    private int shaderProgram;
+    private int mode;
+    
+    protected void draw(GL paramGL, Buffer paramBuffer, boolean paramBoolean, int paramInt)
+    {
+      enableBuffer(paramGL, true);
+      
+      if ((null != shaderState) || (0 != shaderProgram)) {
+        useShaderProgram(paramGL.getGL2ES2(), false);
+      }
+      
+      if (ImmModeSink.DEBUG_DRAW) {
+        System.err.println("ImmModeSink.draw[" + paramInt + "].0 (disableBufferAfterDraw: " + paramBoolean + "):\n\t" + this);
+      }
+      
+      if (buffer != null) { int i;
+        if (null == paramBuffer) {
+          if ((7 == mode) && (!paramGL.isGL2())) {
+            for (i = 0; i < vElems - 3; i += 4) {
+              paramGL.glDrawArrays(6, i, 4);
+            }
+          } else {
+            paramGL.glDrawArrays(mode, 0, vElems);
+          }
+        }
+        else {
+          if (!paramGL.getContext().isCPUDataSourcingAvail()) {
+            throw new GLException("CPU data sourcing n/a w/ " + paramGL.getContext());
+          }
+          
+          if ((paramBuffer instanceof ByteBuffer)) {
+            i = 5121;
+          } else if ((paramBuffer instanceof ShortBuffer)) {
+            i = 5123;
+          } else if ((paramBuffer instanceof IntBuffer)) {
+            i = 5125;
+          } else {
+            throw new GLException("Given Buffer Class not supported: " + paramBuffer.getClass() + ", should be ubyte, ushort or uint:\n\t" + this);
+          }
+          int j = paramBuffer.remaining();
+          int k = paramBuffer.position();
+          
+          if ((7 == mode) && (!paramGL.isGL2())) { Object localObject;
+            int m; if (5121 == i) {
+              localObject = (ByteBuffer)paramBuffer;
+              for (m = 0; m < j; m++) {
+                paramGL.glDrawArrays(6, 0xFF & ((ByteBuffer)localObject).get(k + m), 4);
+              }
+            } else if (5123 == i) {
+              localObject = (ShortBuffer)paramBuffer;
+              for (m = 0; m < j; m++) {
+                paramGL.glDrawArrays(6, 0xFFFF & ((ShortBuffer)localObject).get(k + m), 4);
+              }
+            } else {
+              localObject = (IntBuffer)paramBuffer;
+              for (m = 0; m < j; m++) {
+                paramGL.glDrawArrays(6, 0xFFFFFFFF & ((IntBuffer)localObject).get(k + m), 4);
+              }
+            }
+          } else {
+            ((GL2ES1)paramGL).glDrawElements(mode, j, i, paramBuffer);
+          }
+        }
+      }
+      
+
+      if (paramBoolean) {
+        enableBuffer(paramGL, false);
+      }
+      
+      if (ImmModeSink.DEBUG_DRAW) {
+        System.err.println("ImmModeSink.draw[" + paramInt + "].X (disableBufferAfterDraw: " + paramBoolean + ")");
+      }
+    }
+    
+    private int modeOrig;
+    private int resizeElementCount;
+    private ByteBuffer buffer;
+    
+    public void glVertexv(Buffer paramBuffer)
+    {
+      checkSeal(false);
+      Buffers.put(vertexArray, paramBuffer);
+    }
+    
+    private int vboName;
+    
+    public void glNormalv(Buffer paramBuffer)
+    {
+      checkSeal(false);
+      Buffers.put(normalArray, paramBuffer);
+    }
+    
+    private static final int VERTEX = 0;
+    
+    public void glColorv(Buffer paramBuffer)
+    {
+      checkSeal(false);
+      Buffers.put(colorArray, paramBuffer);
+    }
+    
+    private static final int COLOR = 1;
+    
+    public void glTexCoordv(Buffer paramBuffer)
+    {
+      checkSeal(false);
+      Buffers.put(textCoordArray, paramBuffer);
+    }
+    
+    private static final int NORMAL = 2;
+    public void glVertex2b(byte paramByte1, byte paramByte2)
+    {
+      checkSeal(false);
+      growBuffer(0);
+      if (vComps > 0)
+        Buffers.putNb(vertexArray, vDataTypeSigned, paramByte1, true);
+      if (vComps > 1)
+        Buffers.putNb(vertexArray, vDataTypeSigned, paramByte2, true);
+      countAndPadding(0, vComps - 2);
+    }
+    
+    public void glVertex3b(byte paramByte1, byte paramByte2, byte paramByte3)
+    {
+      checkSeal(false);
+      growBuffer(0);
+      if (vComps > 0)
+        Buffers.putNb(vertexArray, vDataTypeSigned, paramByte1, true);
+      if (vComps > 1)
+        Buffers.putNb(vertexArray, vDataTypeSigned, paramByte2, true);
+      if (vComps > 2)
+        Buffers.putNb(vertexArray, vDataTypeSigned, paramByte3, true);
+      countAndPadding(0, vComps - 3);
+    }
+    
+    public void glVertex2s(short paramShort1, short paramShort2)
+    {
+      checkSeal(false);
+      growBuffer(0);
+      if (vComps > 0)
+        Buffers.putNs(vertexArray, vDataTypeSigned, paramShort1, true);
+      if (vComps > 1)
+        Buffers.putNs(vertexArray, vDataTypeSigned, paramShort2, true);
+      countAndPadding(0, vComps - 2);
+    }
+    
+    public void glVertex3s(short paramShort1, short paramShort2, short paramShort3)
+    {
+      checkSeal(false);
+      growBuffer(0);
+      if (vComps > 0)
+        Buffers.putNs(vertexArray, vDataTypeSigned, paramShort1, true);
+      if (vComps > 1)
+        Buffers.putNs(vertexArray, vDataTypeSigned, paramShort2, true);
+      if (vComps > 2)
+        Buffers.putNs(vertexArray, vDataTypeSigned, paramShort3, true);
+      countAndPadding(0, vComps - 3);
+    }
+    
+    public void glVertex2f(float paramFloat1, float paramFloat2)
+    {
+      checkSeal(false);
+      growBuffer(0);
+      if (vComps > 0)
+        Buffers.putNf(vertexArray, vDataTypeSigned, paramFloat1);
+      if (vComps > 1)
+        Buffers.putNf(vertexArray, vDataTypeSigned, paramFloat2);
+      countAndPadding(0, vComps - 2);
+    }
+    
+    public void glVertex3f(float paramFloat1, float paramFloat2, float paramFloat3)
+    {
+      checkSeal(false);
+      growBuffer(0);
+      if (vComps > 0)
+        Buffers.putNf(vertexArray, vDataTypeSigned, paramFloat1);
+      if (vComps > 1)
+        Buffers.putNf(vertexArray, vDataTypeSigned, paramFloat2);
+      if (vComps > 2)
+        Buffers.putNf(vertexArray, vDataTypeSigned, paramFloat3);
+      countAndPadding(0, vComps - 3);
+    }
+    
+    public void glNormal3b(byte paramByte1, byte paramByte2, byte paramByte3)
+    {
+      checkSeal(false);
+      growBuffer(2);
+      if (nComps > 0)
+        Buffers.putNb(normalArray, nDataTypeSigned, paramByte1, true);
+      if (nComps > 1)
+        Buffers.putNb(normalArray, nDataTypeSigned, paramByte2, true);
+      if (nComps > 2)
+        Buffers.putNb(normalArray, nDataTypeSigned, paramByte3, true);
+      countAndPadding(2, nComps - 3);
+    }
+    
+    public void glNormal3s(short paramShort1, short paramShort2, short paramShort3)
+    {
+      checkSeal(false);
+      growBuffer(2);
+      if (nComps > 0)
+        Buffers.putNs(normalArray, nDataTypeSigned, paramShort1, true);
+      if (nComps > 1)
+        Buffers.putNs(normalArray, nDataTypeSigned, paramShort2, true);
+      if (nComps > 2)
+        Buffers.putNs(normalArray, nDataTypeSigned, paramShort3, true);
+      countAndPadding(2, nComps - 3);
+    }
+    
+    public void glNormal3f(float paramFloat1, float paramFloat2, float paramFloat3)
+    {
+      checkSeal(false);
+      growBuffer(2);
+      if (nComps > 0)
+        Buffers.putNf(normalArray, nDataTypeSigned, paramFloat1);
+      if (nComps > 1)
+        Buffers.putNf(normalArray, nDataTypeSigned, paramFloat2);
+      if (nComps > 2)
+        Buffers.putNf(normalArray, nDataTypeSigned, paramFloat3);
+      countAndPadding(2, nComps - 3);
+    }
+    
+    public void glColor3b(byte paramByte1, byte paramByte2, byte paramByte3)
+    {
+      checkSeal(false);
+      growBuffer(1);
+      if (cComps > 0)
+        Buffers.putNb(colorArray, cDataTypeSigned, paramByte1, true);
+      if (cComps > 1)
+        Buffers.putNb(colorArray, cDataTypeSigned, paramByte2, true);
+      if (cComps > 2)
+        Buffers.putNb(colorArray, cDataTypeSigned, paramByte3, true);
+      countAndPadding(1, cComps - 3);
+    }
+    
+    public void glColor3ub(byte paramByte1, byte paramByte2, byte paramByte3)
+    {
+      checkSeal(false);
+      growBuffer(1);
+      if (cComps > 0)
+        Buffers.putNb(colorArray, cDataTypeSigned, paramByte1, false);
+      if (cComps > 1)
+        Buffers.putNb(colorArray, cDataTypeSigned, paramByte2, false);
+      if (cComps > 2)
+        Buffers.putNb(colorArray, cDataTypeSigned, paramByte3, false);
+      countAndPadding(1, cComps - 3);
+    }
+    
+    public void glColor4b(byte paramByte1, byte paramByte2, byte paramByte3, byte paramByte4)
+    {
+      checkSeal(false);
+      growBuffer(1);
+      if (cComps > 0)
+        Buffers.putNb(colorArray, cDataTypeSigned, paramByte1, true);
+      if (cComps > 1)
+        Buffers.putNb(colorArray, cDataTypeSigned, paramByte2, true);
+      if (cComps > 2)
+        Buffers.putNb(colorArray, cDataTypeSigned, paramByte3, true);
+      if (cComps > 3)
+        Buffers.putNb(colorArray, cDataTypeSigned, paramByte4, true);
+      countAndPadding(1, cComps - 4);
+    }
+    
+    public void glColor4ub(byte paramByte1, byte paramByte2, byte paramByte3, byte paramByte4)
+    {
+      checkSeal(false);
+      growBuffer(1);
+      if (cComps > 0)
+        Buffers.putNb(colorArray, cDataTypeSigned, paramByte1, false);
+      if (cComps > 1)
+        Buffers.putNb(colorArray, cDataTypeSigned, paramByte2, false);
+      if (cComps > 2)
+        Buffers.putNb(colorArray, cDataTypeSigned, paramByte3, false);
+      if (cComps > 3)
+        Buffers.putNb(colorArray, cDataTypeSigned, paramByte4, false);
+      countAndPadding(1, cComps - 4);
+    }
+    
+    public void glColor3s(short paramShort1, short paramShort2, short paramShort3)
+    {
+      checkSeal(false);
+      growBuffer(1);
+      if (cComps > 0)
+        Buffers.putNs(colorArray, cDataTypeSigned, paramShort1, true);
+      if (cComps > 1)
+        Buffers.putNs(colorArray, cDataTypeSigned, paramShort2, true);
+      if (cComps > 2)
+        Buffers.putNs(colorArray, cDataTypeSigned, paramShort3, true);
+      countAndPadding(1, cComps - 3);
+    }
+    
+    public void glColor4s(short paramShort1, short paramShort2, short paramShort3, short paramShort4)
+    {
+      checkSeal(false);
+      growBuffer(1);
+      if (cComps > 0)
+        Buffers.putNs(colorArray, cDataTypeSigned, paramShort1, true);
+      if (cComps > 1)
+        Buffers.putNs(colorArray, cDataTypeSigned, paramShort2, true);
+      if (cComps > 2)
+        Buffers.putNs(colorArray, cDataTypeSigned, paramShort3, true);
+      if (cComps > 3)
+        Buffers.putNs(colorArray, cDataTypeSigned, paramShort4, true);
+      countAndPadding(1, cComps - 4);
+    }
+    
+    public void glColor3f(float paramFloat1, float paramFloat2, float paramFloat3)
+    {
+      checkSeal(false);
+      growBuffer(1);
+      if (cComps > 0)
+        Buffers.putNf(colorArray, cDataTypeSigned, paramFloat1);
+      if (cComps > 1)
+        Buffers.putNf(colorArray, cDataTypeSigned, paramFloat2);
+      if (cComps > 2)
+        Buffers.putNf(colorArray, cDataTypeSigned, paramFloat3);
+      countAndPadding(1, cComps - 3);
+    }
+    
+    public void glColor4f(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+    {
+      checkSeal(false);
+      growBuffer(1);
+      if (cComps > 0)
+        Buffers.putNf(colorArray, cDataTypeSigned, paramFloat1);
+      if (cComps > 1)
+        Buffers.putNf(colorArray, cDataTypeSigned, paramFloat2);
+      if (cComps > 2)
+        Buffers.putNf(colorArray, cDataTypeSigned, paramFloat3);
+      if (cComps > 3)
+        Buffers.putNf(colorArray, cDataTypeSigned, paramFloat4);
+      countAndPadding(1, cComps - 4);
+    }
+    
+    public void glTexCoord2b(byte paramByte1, byte paramByte2)
+    {
+      checkSeal(false);
+      growBuffer(3);
+      if (tComps > 0)
+        Buffers.putNb(textCoordArray, tDataTypeSigned, paramByte1, true);
+      if (tComps > 1)
+        Buffers.putNb(textCoordArray, tDataTypeSigned, paramByte2, true);
+      countAndPadding(3, tComps - 2);
+    }
+    
+    public void glTexCoord3b(byte paramByte1, byte paramByte2, byte paramByte3)
+    {
+      checkSeal(false);
+      growBuffer(3);
+      if (tComps > 0)
+        Buffers.putNb(textCoordArray, tDataTypeSigned, paramByte1, true);
+      if (tComps > 1)
+        Buffers.putNb(textCoordArray, tDataTypeSigned, paramByte2, true);
+      if (tComps > 2)
+        Buffers.putNb(textCoordArray, tDataTypeSigned, paramByte3, true);
+      countAndPadding(3, tComps - 3);
+    }
+    
+    public void glTexCoord2s(short paramShort1, short paramShort2)
+    {
+      checkSeal(false);
+      growBuffer(3);
+      if (tComps > 0)
+        Buffers.putNs(textCoordArray, tDataTypeSigned, paramShort1, true);
+      if (tComps > 1)
+        Buffers.putNs(textCoordArray, tDataTypeSigned, paramShort2, true);
+      countAndPadding(3, tComps - 2);
+    }
+    
+    public void glTexCoord3s(short paramShort1, short paramShort2, short paramShort3)
+    {
+      checkSeal(false);
+      growBuffer(3);
+      if (tComps > 0)
+        Buffers.putNs(textCoordArray, tDataTypeSigned, paramShort1, true);
+      if (tComps > 1)
+        Buffers.putNs(textCoordArray, tDataTypeSigned, paramShort2, true);
+      if (tComps > 2)
+        Buffers.putNs(textCoordArray, tDataTypeSigned, paramShort3, true);
+      countAndPadding(3, tComps - 3);
+    }
+    
+    public void glTexCoord2f(float paramFloat1, float paramFloat2)
+    {
+      checkSeal(false);
+      growBuffer(3);
+      if (tComps > 0)
+        Buffers.putNf(textCoordArray, tDataTypeSigned, paramFloat1);
+      if (tComps > 1)
+        Buffers.putNf(textCoordArray, tDataTypeSigned, paramFloat2);
+      countAndPadding(3, tComps - 2);
+    }
+    private static final int TEXTCOORD = 3;
+    private int vCount;
+    
+    public void glTexCoord3f(float paramFloat1, float paramFloat2, float paramFloat3)
+    {
+      checkSeal(false);
+      growBuffer(3);
+      if (tComps > 0)
+        Buffers.putNf(textCoordArray, tDataTypeSigned, paramFloat1);
+      if (tComps > 1)
+        Buffers.putNf(textCoordArray, tDataTypeSigned, paramFloat2);
+      if (tComps > 2)
+        Buffers.putNf(textCoordArray, tDataTypeSigned, paramFloat3);
+      countAndPadding(3, tComps - 3);
+    }
+    
+    private int cCount;
+    
+    public void rewind()
+    {
+      if (null != vertexArray) {
+        vertexArray.rewind();
+      }
+      if (null != colorArray) {
+        colorArray.rewind();
+      }
+      if (null != normalArray) {
+        normalArray.rewind();
+      }
+      if (null != textCoordArray) {
+        textCoordArray.rewind();
+      }
+    }
+    
+    private int nCount;
+    private int tCount;
+    
+    public void setShaderProgram(int paramInt)
+    {
+      if ((null == shaderState) && (0 == paramInt)) {
+        throw new IllegalArgumentException("Not allowed to zero shader program if no ShaderState is set");
+      }
+      shaderProgram = paramInt;
+      glslLocationSet = false;
+    }
+    
+    private int vOffset;
+    private int cOffset;
+    private int nOffset;
+    private int tOffset;
+    
+    private boolean resetGLSLArrayLocation(GL2ES2 paramGL2ES2)
+    {
+      int i = 0;
+      int j = 0;
+      
+      if (null != vArrayData) {
+        i++;
+        if (vArrayData.setLocation(paramGL2ES2, shaderProgram) >= 0) {
+          j++;
+        }
+      }
+      if (null != cArrayData) {
+        i++;
+        if (cArrayData.setLocation(paramGL2ES2, shaderProgram) >= 0) {
+          j++;
+        }
+      }
+      if (null != nArrayData) {
+        i++;
+        if (nArrayData.setLocation(paramGL2ES2, shaderProgram) >= 0) {
+          j++;
+        }
+      }
+      if (null != tArrayData) {
+        i++;
+        if (tArrayData.setLocation(paramGL2ES2, shaderProgram) >= 0) {
+          j++;
+        }
+      }
+      glslLocationSet = (i == j);
+      return glslLocationSet; }
+    
+    private int vElems;
+    private int cElems;
+    public void destroy(GL paramGL) { reset(paramGL);
+      
+      vCount = 0;cCount = 0;nCount = 0;tCount = 0;
+      vertexArray = null;colorArray = null;normalArray = null;textCoordArray = null;
+      vArrayData = null;cArrayData = null;nArrayData = null;tArrayData = null;
+      buffer = null; }
+    
+    private int nElems;
+    private int tElems;
+    public void reset(GL paramGL) { enableBuffer(paramGL, false);
+      reset(); }
+    
+    private final int vComps;
+    private final int cComps;
+    public void reset() { if (buffer != null) {
+        buffer.clear();
+      }
+      rewind();
+      
+      mode = 0;
+      modeOrig = 0;
+      sealed = false;
+      sealedGL = false;
+      bufferEnabled = false;
+      bufferWritten = false;
+      vElems = 0;
+      cElems = 0;
+      nElems = 0;
+      tElems = 0;
+    }
+    
+    public void seal(GL paramGL, boolean paramBoolean)
+    {
+      seal(paramBoolean);
+      if (sealedGL == paramBoolean) return;
+      sealedGL = paramBoolean;
+      GL localGL = paramGL.getGL();
+      if (paramBoolean) {
+        if (useVBO) {
+          if (0 == vboName) {
+            int[] arrayOfInt = new int[1];
+            localGL.glGenBuffers(1, arrayOfInt, 0);
+            vboName = arrayOfInt[0];
+          }
+          if (null != vArrayData) {
+            vArrayData.setVBOName(vboName);
+          }
+          if (null != cArrayData) {
+            cArrayData.setVBOName(vboName);
+          }
+          if (null != nArrayData) {
+            nArrayData.setVBOName(vboName);
+          }
+          if (null != tArrayData) {
+            tArrayData.setVBOName(vboName);
+          }
+        }
+        enableBuffer(localGL, true);
+      } else {
+        enableBuffer(localGL, false);
+      }
+    }
+    
+    public void seal(boolean paramBoolean)
+    {
+      if (sealed == paramBoolean) return;
+      sealed = paramBoolean;
+      if (paramBoolean) {
+        bufferWritten = false;
+        rewind();
+      }
+    }
+    
+    public void enableBuffer(GL paramGL, boolean paramBoolean) {
+      if ((bufferEnabled != paramBoolean) && (vElems > 0)) {
+        if (paramBoolean) {
+          checkSeal(true);
+        }
+        bufferEnabled = paramBoolean;
+        if (useGLSL) {
+          useShaderProgram(paramGL.getGL2ES2(), true);
+          if (null != shaderState) {
+            enableBufferGLSLShaderState(paramGL, paramBoolean);
+          } else {
+            enableBufferGLSLSimple(paramGL, paramBoolean);
+          }
+        } else {
+          enableBufferFixed(paramGL, paramBoolean);
+        }
+      }
+    }
+    
+    private final void writeBuffer(GL paramGL) {
+      int i = vElems * vCompsBytes;
+      int j = cElems * cCompsBytes;
+      int k = nElems * nCompsBytes;
+      int m = tElems * tCompsBytes;
+      int n = buffer.limit() - (i + j + k + m);
+      if ((bufferWrittenOnce) && (n > pageSize)) {
+        if (0 < i) {
+          paramGL.glBufferSubData(34962, vOffset, i, vertexArray);
+        }
+        if (0 < j) {
+          paramGL.glBufferSubData(34962, cOffset, j, colorArray);
+        }
+        if (0 < k) {
+          paramGL.glBufferSubData(34962, nOffset, k, normalArray);
+        }
+        if (0 < m) {
+          paramGL.glBufferSubData(34962, tOffset, m, textCoordArray);
+        }
+      } else {
+        paramGL.glBufferData(34962, buffer.limit(), buffer, glBufferUsage);
+        bufferWrittenOnce = true;
+      }
+    }
+    
+    private void enableBufferFixed(GL paramGL, boolean paramBoolean) {
+      GL2ES1 localGL2ES1 = paramGL.getGL2ES1();
+      
+      boolean bool1 = (vComps > 0) && (vElems > 0);
+      boolean bool2 = (cComps > 0) && (cElems > 0);
+      boolean bool3 = (nComps > 0) && (nElems > 0);
+      boolean bool4 = (tComps > 0) && (tElems > 0);
+      
+      if (ImmModeSink.DEBUG_DRAW) {
+        System.err.println("ImmModeSink.enableFixed.0 " + paramBoolean + ": use [ v " + bool1 + ", c " + bool2 + ", n " + bool3 + ", t " + bool4 + "], " + getElemUseCountStr() + ", " + buffer);
+      }
+      
+      if (paramBoolean) {
+        if (useVBO) {
+          if (0 == vboName) {
+            throw new InternalError("Using VBO but no vboName");
+          }
+          localGL2ES1.glBindBuffer(34962, vboName);
+          
+          if (!bufferWritten) {
+            writeBuffer(paramGL);
+          }
+        }
+        bufferWritten = true;
+      }
+      
+      if (bool1) {
+        if (paramBoolean) {
+          localGL2ES1.glEnableClientState(32884);
+          localGL2ES1.glVertexPointer(vArrayData);
+        } else {
+          localGL2ES1.glDisableClientState(32884);
+        }
+      }
+      if (bool2) {
+        if (paramBoolean) {
+          localGL2ES1.glEnableClientState(32886);
+          localGL2ES1.glColorPointer(cArrayData);
+        } else {
+          localGL2ES1.glDisableClientState(32886);
+        }
+      }
+      if (bool3) {
+        if (paramBoolean) {
+          localGL2ES1.glEnableClientState(32885);
+          localGL2ES1.glNormalPointer(nArrayData);
+        } else {
+          localGL2ES1.glDisableClientState(32885);
+        }
+      }
+      if (bool4) {
+        if (paramBoolean) {
+          localGL2ES1.glEnableClientState(32888);
+          localGL2ES1.glTexCoordPointer(tArrayData);
+        } else {
+          localGL2ES1.glDisableClientState(32888);
+        }
+      }
+      
+      if ((paramBoolean) && (useVBO)) {
+        paramGL.glBindBuffer(34962, 0);
+      }
+      
+      if (ImmModeSink.DEBUG_DRAW)
+        System.err.println("ImmModeSink.enableFixed.X "); }
+    private final int nComps;
+    private final int tComps;
+    private final int vCompsBytes;
+    
+    private void enableBufferGLSLShaderState(GL paramGL, boolean paramBoolean) { GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+      
+      boolean bool1 = (vComps > 0) && (vElems > 0);
+      boolean bool2 = (cComps > 0) && (cElems > 0);
+      boolean bool3 = (nComps > 0) && (nElems > 0);
+      boolean bool4 = (tComps > 0) && (tElems > 0);
+      
+      if (ImmModeSink.DEBUG_DRAW) {
+        System.err.println("ImmModeSink.enableGLSL.A.0 " + paramBoolean + ": use [ v " + bool1 + ", c " + bool2 + ", n " + bool3 + ", t " + bool4 + "], " + getElemUseCountStr() + ", " + buffer);
+      }
+      
+      if (paramBoolean) {
+        if (useVBO) {
+          if (0 == vboName) {
+            throw new InternalError("Using VBO but no vboName");
+          }
+          localGL2ES2.glBindBuffer(34962, vboName);
+          if (!bufferWritten) {
+            writeBuffer(paramGL);
+          }
+        }
+        bufferWritten = true;
+      }
+      
+      if (bool1) {
+        if (paramBoolean) {
+          shaderState.enableVertexAttribArray(localGL2ES2, vArrayData);
+          shaderState.vertexAttribPointer(localGL2ES2, vArrayData);
+        } else {
+          shaderState.disableVertexAttribArray(localGL2ES2, vArrayData);
+        }
+      }
+      if (bool2) {
+        if (paramBoolean) {
+          shaderState.enableVertexAttribArray(localGL2ES2, cArrayData);
+          shaderState.vertexAttribPointer(localGL2ES2, cArrayData);
+        } else {
+          shaderState.disableVertexAttribArray(localGL2ES2, cArrayData);
+        }
+      }
+      if (bool3) {
+        if (paramBoolean) {
+          shaderState.enableVertexAttribArray(localGL2ES2, nArrayData);
+          shaderState.vertexAttribPointer(localGL2ES2, nArrayData);
+        } else {
+          shaderState.disableVertexAttribArray(localGL2ES2, nArrayData);
+        }
+      }
+      if (bool4) {
+        if (paramBoolean) {
+          shaderState.enableVertexAttribArray(localGL2ES2, tArrayData);
+          shaderState.vertexAttribPointer(localGL2ES2, tArrayData);
+        } else {
+          shaderState.disableVertexAttribArray(localGL2ES2, tArrayData);
+        }
+      }
+      glslLocationSet = true;
+      
+      if ((paramBoolean) && (useVBO)) {
+        localGL2ES2.glBindBuffer(34962, 0);
+      }
+      
+      if (ImmModeSink.DEBUG_DRAW)
+        System.err.println("ImmModeSink.enableGLSL.A.X "); }
+    
+    private final int cCompsBytes;
+    private final int nCompsBytes;
+    
+    private void enableBufferGLSLSimple(GL paramGL, boolean paramBoolean) { GL2ES2 localGL2ES2 = paramGL.getGL2ES2();
+      
+      boolean bool1 = (vComps > 0) && (vElems > 0);
+      boolean bool2 = (cComps > 0) && (cElems > 0);
+      boolean bool3 = (nComps > 0) && (nElems > 0);
+      boolean bool4 = (tComps > 0) && (tElems > 0);
+      
+      if (ImmModeSink.DEBUG_DRAW) {
+        System.err.println("ImmModeSink.enableGLSL.B.0 " + paramBoolean + ": use [ v " + bool1 + ", c " + bool2 + ", n " + bool3 + ", t " + bool4 + "], " + getElemUseCountStr() + ", " + buffer);
+      }
+      
+      if ((!glslLocationSet) && 
+        (!resetGLSLArrayLocation(localGL2ES2))) {
+        if (ImmModeSink.DEBUG_DRAW) {
+          int i = null != vArrayData ? vArrayData.getLocation() : -1;
+          int j = null != cArrayData ? cArrayData.getLocation() : -1;
+          int k = null != nArrayData ? nArrayData.getLocation() : -1;
+          int m = null != tArrayData ? tArrayData.getLocation() : -1;
+          System.err.println("ImmModeSink.enableGLSL.B.X attribute locations in shader program " + shaderProgram + ", incomplete [" + i + ", " + j + ", " + k + ", " + m + "] - glslLocationSet " + glslLocationSet);
+        }
+        return;
+      }
+      
+
+      if (paramBoolean) {
+        if (useVBO) {
+          if (0 == vboName) {
+            throw new InternalError("Using VBO but no vboName");
+          }
+          localGL2ES2.glBindBuffer(34962, vboName);
+          if (!bufferWritten) {
+            writeBuffer(paramGL);
+          }
+        }
+        bufferWritten = true;
+      }
+      
+      if (bool1) {
+        if (paramBoolean) {
+          localGL2ES2.glEnableVertexAttribArray(vArrayData.getLocation());
+          localGL2ES2.glVertexAttribPointer(vArrayData);
+        } else {
+          localGL2ES2.glDisableVertexAttribArray(vArrayData.getLocation());
+        }
+      }
+      if (bool2) {
+        if (paramBoolean) {
+          localGL2ES2.glEnableVertexAttribArray(cArrayData.getLocation());
+          localGL2ES2.glVertexAttribPointer(cArrayData);
+        } else {
+          localGL2ES2.glDisableVertexAttribArray(cArrayData.getLocation());
+        }
+      }
+      if (bool3) {
+        if (paramBoolean) {
+          localGL2ES2.glEnableVertexAttribArray(nArrayData.getLocation());
+          localGL2ES2.glVertexAttribPointer(nArrayData);
+        } else {
+          localGL2ES2.glDisableVertexAttribArray(nArrayData.getLocation());
+        }
+      }
+      if (bool4) {
+        if (paramBoolean) {
+          localGL2ES2.glEnableVertexAttribArray(tArrayData.getLocation());
+          localGL2ES2.glVertexAttribPointer(tArrayData);
+        } else {
+          localGL2ES2.glDisableVertexAttribArray(tArrayData.getLocation());
+        }
+      }
+      
+      if ((paramBoolean) && (useVBO)) {
+        localGL2ES2.glBindBuffer(34962, 0);
+      }
+      
+      if (ImmModeSink.DEBUG_DRAW)
+        System.err.println("ImmModeSink.enableGLSL.B.X "); }
+    
+    private final int tCompsBytes;
+    private final int vDataType;
+    private final int cDataType;
+    private final int nDataType;
+    public String toString() { String str = useGLSL ? ", useShaderState " + (null != shaderState) + ", shaderProgram " + shaderProgram + ", glslLocationSet " + glslLocationSet : "";
+      
+
+
+
+
+
+      return "VBOSet[mode " + mode + ", modeOrig " + modeOrig + ", use/count " + getElemUseCountStr() + ", sealed " + sealed + ", sealedGL " + sealedGL + ", bufferEnabled " + bufferEnabled + ", bufferWritten " + bufferWritten + " (once " + bufferWrittenOnce + ")" + ", useVBO " + useVBO + ", vboName " + vboName + ", useGLSL " + useGLSL + str + ",\n\t" + vArrayData + ",\n\t" + cArrayData + ",\n\t" + nArrayData + ",\n\t" + tArrayData + "]";
+    }
+    
+
+
+    private final int tDataType;
+    
+    private final boolean vDataTypeSigned;
+    private final boolean cDataTypeSigned;
+    private final boolean nDataTypeSigned;
+    private final boolean tDataTypeSigned;
+    private final int pageSize;
+    private Buffer vertexArray;
+    private Buffer colorArray;
+    private Buffer normalArray;
+    private Buffer textCoordArray;
+    private GLArrayDataWrapper vArrayData;
+    
+    protected String getElemUseCountStr() { return "[v " + vElems + "/" + vCount + ", c " + cElems + "/" + cCount + ", n " + nElems + "/" + nCount + ", t " + tElems + "/" + tCount + "]"; }
+    
+    private GLArrayDataWrapper cArrayData;
+    private GLArrayDataWrapper nArrayData;
+    
+    protected boolean fitElementInBuffer(int paramInt) { switch (paramInt) {
+      case 0: 
+        return vCount - vElems >= 1;
+      case 1: 
+        return cCount - cElems >= 1;
+      case 2: 
+        return nCount - nElems >= 1;
+      case 3: 
+        return tCount - tElems >= 1;
+      }
+      throw new InternalError("XXX");
+    }
+    
+    protected boolean reallocateBuffer(int paramInt)
+    {
+      int i = paramInt - (vCount - vElems);
+      int j = paramInt - (cCount - cElems);
+      int k = paramInt - (nCount - nElems);
+      int m = paramInt - (tCount - tElems);
+      
+      if ((0 >= i) && (0 >= j) && (0 >= k) && (0 >= m)) {
+        if (ImmModeSink.DEBUG_BUFFER) {
+          System.err.println("ImmModeSink.realloc: " + getElemUseCountStr() + " + " + paramInt + " -> NOP");
+        }
+        return false;
+      }
+      
+      if (ImmModeSink.DEBUG_BUFFER) {
+        System.err.println("ImmModeSink.realloc: " + getElemUseCountStr() + " + " + paramInt);
+      }
+      vCount += i;
+      cCount += j;
+      nCount += k;
+      tCount += m;
+      
+      int n = vCount * vCompsBytes;
+      int i1 = cCount * cCompsBytes;
+      int i2 = nCount * nCompsBytes;
+      int i3 = tCount * tCompsBytes;
+      
+      buffer = Buffers.newDirectByteBuffer(n + i1 + i2 + i3);
+      vOffset = 0;
+      
+      if (n > 0) {
+        vertexArray = GLBuffers.sliceGLBuffer(buffer, vOffset, n, vDataType);
+      } else {
+        vertexArray = null;
+      }
+      cOffset = (vOffset + n);
+      
+      if (i1 > 0) {
+        colorArray = GLBuffers.sliceGLBuffer(buffer, cOffset, i1, cDataType);
+      } else {
+        colorArray = null;
+      }
+      nOffset = (cOffset + i1);
+      
+      if (i2 > 0) {
+        normalArray = GLBuffers.sliceGLBuffer(buffer, nOffset, i2, nDataType);
+      } else {
+        normalArray = null;
+      }
+      tOffset = (nOffset + i2);
+      
+      if (i3 > 0) {
+        textCoordArray = GLBuffers.sliceGLBuffer(buffer, tOffset, i3, tDataType);
+      } else {
+        textCoordArray = null;
+      }
+      
+      buffer.position(tOffset + i3);
+      buffer.flip();
+      
+      if (vComps > 0) {
+        vArrayData = GLArrayDataWrapper.createFixed(32884, vComps, vDataType, 
+          GLBuffers.isGLTypeFixedPoint(vDataType), 0, vertexArray, 0, vOffset, 35044, 34962);
+      }
+      else {
+        vArrayData = null;
+      }
+      if (cComps > 0) {
+        cArrayData = GLArrayDataWrapper.createFixed(32886, cComps, cDataType, 
+          GLBuffers.isGLTypeFixedPoint(cDataType), 0, colorArray, 0, cOffset, 35044, 34962);
+      }
+      else {
+        cArrayData = null;
+      }
+      if (nComps > 0) {
+        nArrayData = GLArrayDataWrapper.createFixed(32885, nComps, nDataType, 
+          GLBuffers.isGLTypeFixedPoint(nDataType), 0, normalArray, 0, nOffset, 35044, 34962);
+      }
+      else {
+        nArrayData = null;
+      }
+      if (tComps > 0) {
+        tArrayData = GLArrayDataWrapper.createFixed(32888, tComps, tDataType, 
+          GLBuffers.isGLTypeFixedPoint(tDataType), 0, textCoordArray, 0, tOffset, 35044, 34962);
+      }
+      else {
+        tArrayData = null;
+      }
+      
+      bufferWrittenOnce = false;
+      
+      if (ImmModeSink.DEBUG_BUFFER) {
+        System.err.println("ImmModeSink.realloc.X: " + toString());
+        ExceptionUtils.dumpStack(System.err);
+      }
+      return true;
+    }
+    
+    protected final boolean growBuffer(int paramInt)
+    {
+      if ((null != buffer) && (!sealed) && 
+        (!fitElementInBuffer(paramInt)))
+      {
+        Buffer localBuffer1 = vertexArray;Buffer localBuffer2 = colorArray;Buffer localBuffer3 = normalArray;Buffer localBuffer4 = textCoordArray;
+        
+        if (reallocateBuffer(resizeElementCount)) {
+          if (null != localBuffer1) {
+            localBuffer1.flip();
+            Buffers.put(vertexArray, localBuffer1);
+          }
+          if (null != localBuffer2) {
+            localBuffer2.flip();
+            Buffers.put(colorArray, localBuffer2);
+          }
+          if (null != localBuffer3) {
+            localBuffer3.flip();
+            Buffers.put(normalArray, localBuffer3);
+          }
+          if (null != localBuffer4) {
+            localBuffer4.flip();
+            Buffers.put(textCoordArray, localBuffer4);
+          }
+          return true;
+        }
+      }
+      
+      return false;
+    }
+    
+
+    private GLArrayDataWrapper tArrayData;
+    
+    private boolean sealed;
+    
+    private boolean sealedGL;
+    private boolean bufferEnabled;
+    private boolean bufferWritten;
+    private boolean bufferWrittenOnce;
+    private boolean glslLocationSet;
+    private void countAndPadding(int paramInt1, int paramInt2)
+    {
+      if (sealed) {
+        return;
+      }
+      Buffer localBuffer;
+      boolean bool;
+      int i;
+      switch (paramInt1) {
+      case 0: 
+        localBuffer = vertexArray;
+        bool = vDataTypeSigned;
+        i = 4 == vComps ? 1 : 0;
+        vElems += 1;
+        break;
+      case 1: 
+        localBuffer = colorArray;
+        bool = cDataTypeSigned;
+        i = 4 == cComps ? 1 : 0;
+        cElems += 1;
+        break;
+      case 2: 
+        localBuffer = normalArray;
+        bool = nDataTypeSigned;
+        i = 0;
+        nElems += 1;
+        break;
+      case 3: 
+        localBuffer = textCoordArray;
+        bool = tDataTypeSigned;
+        i = 0;
+        tElems += 1;
+        break;
+      default:  throw new InternalError("Invalid type " + paramInt1);
+      }
+      
+      if (null == localBuffer) { return;
+      }
+      while (paramInt2 > i) {
+        paramInt2--;
+        Buffers.putNf(localBuffer, bool, 0.0F);
+      }
+      if (paramInt2 > 0) {
+        Buffers.putNf(localBuffer, bool, 1.0F);
+      }
+    }
+  }
+}

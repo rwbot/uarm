@@ -1,0 +1,107 @@
+package jogamp.opengl.util.pngj;
+
+
+
+public class ImageLines
+{
+  public final ImageInfo imgInfo;
+  
+
+  public final int channels;
+  
+
+  public final int bitDepth;
+  
+
+  public final ImageLine.SampleType sampleType;
+  
+
+  public final boolean samplesUnpacked;
+  
+
+  public final int elementsPerRow;
+  
+
+  public final int rowOffset;
+  
+
+  public final int nRows;
+  
+
+  public final int rowStep;
+  
+  public final int[][] scanlines;
+  
+  public final byte[][] scanlinesb;
+  
+
+  public ImageLines(ImageInfo paramImageInfo, ImageLine.SampleType paramSampleType, boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3)
+  {
+    imgInfo = paramImageInfo;
+    channels = channels;
+    bitDepth = bitDepth;
+    sampleType = paramSampleType;
+    samplesUnpacked = ((paramBoolean) || (!packed));
+    elementsPerRow = (paramBoolean ? samplesPerRow : samplesPerRowPacked);
+    rowOffset = paramInt1;
+    nRows = paramInt2;
+    rowStep = paramInt3;
+    if (paramSampleType == ImageLine.SampleType.INT) {
+      scanlines = new int[paramInt2][elementsPerRow];
+      scanlinesb = ((byte[][])null);
+    } else if (paramSampleType == ImageLine.SampleType.BYTE) {
+      scanlinesb = new byte[paramInt2][elementsPerRow];
+      scanlines = ((int[][])null);
+    } else {
+      throw new PngjExceptionInternal("bad ImageLine initialization");
+    }
+  }
+  
+
+
+
+  public int imageRowToMatrixRow(int paramInt)
+  {
+    int i = (paramInt - rowOffset) / rowStep;
+    return i < nRows ? i : i < 0 ? 0 : nRows - 1;
+  }
+  
+
+
+  public int imageRowToMatrixRowStrict(int paramInt)
+  {
+    paramInt -= rowOffset;
+    int i = (paramInt >= 0) && (paramInt % rowStep == 0) ? paramInt / rowStep : -1;
+    return i < nRows ? i : -1;
+  }
+  
+
+
+
+
+
+
+  public int matrixRowToImageRow(int paramInt)
+  {
+    return paramInt * rowStep + rowOffset;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public ImageLine getImageLineAtMatrixRow(int paramInt)
+  {
+    if ((paramInt < 0) || (paramInt > nRows))
+      throw new PngjException("Bad row " + paramInt + ". Should be positive and less than " + nRows);
+    ImageLine localImageLine = sampleType == ImageLine.SampleType.INT ? new ImageLine(imgInfo, sampleType, samplesUnpacked, scanlines[paramInt], null) : new ImageLine(imgInfo, sampleType, samplesUnpacked, null, scanlinesb[paramInt]);
+    
+    localImageLine.setRown(matrixRowToImageRow(paramInt));
+    return localImageLine;
+  }
+}

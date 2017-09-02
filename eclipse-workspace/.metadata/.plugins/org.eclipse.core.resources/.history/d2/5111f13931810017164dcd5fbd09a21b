@@ -1,0 +1,346 @@
+package com.jogamp.opengl.util;
+
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLAnimatorControl;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLEventListener;
+import com.jogamp.opengl.GLEventListenerState;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLRunnable;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLDrawableUtil
+{
+  public GLDrawableUtil() {}
+  
+  protected static final boolean DEBUG = Debug.debug("GLDrawable");
+  
+  public static final boolean isAnimatorStartedOnOtherThread(GLAnimatorControl paramGLAnimatorControl) {
+    return (paramGLAnimatorControl.isStarted()) && (paramGLAnimatorControl.getThread() != Thread.currentThread()); }
+  
+  public static final boolean isAnimatorStarted(GLAnimatorControl paramGLAnimatorControl)
+  {
+    return null != paramGLAnimatorControl ? paramGLAnimatorControl.isStarted() : false;
+  }
+  
+  public static final boolean isAnimatorAnimatingOnOtherThread(GLAnimatorControl paramGLAnimatorControl) {
+    return (paramGLAnimatorControl.isAnimating()) && (paramGLAnimatorControl.getThread() != Thread.currentThread());
+  }
+  
+  public static final boolean isAnimatorAnimating(GLAnimatorControl paramGLAnimatorControl) {
+    return null != paramGLAnimatorControl ? paramGLAnimatorControl.isAnimating() : false;
+  }
+  
+
+
+
+  public static class ReshapeGLEventListener
+    implements GLRunnable
+  {
+    private final GLEventListener listener;
+    
+
+    private final boolean displayAfterReshape;
+    
+
+
+    public ReshapeGLEventListener(GLEventListener paramGLEventListener, boolean paramBoolean)
+    {
+      listener = paramGLEventListener;
+      displayAfterReshape = paramBoolean;
+    }
+    
+    public boolean run(GLAutoDrawable paramGLAutoDrawable) {
+      listener.reshape(paramGLAutoDrawable, 0, 0, paramGLAutoDrawable.getSurfaceWidth(), paramGLAutoDrawable.getSurfaceHeight());
+      if (displayAfterReshape) {
+        listener.display(paramGLAutoDrawable);
+      }
+      return true;
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final void moveGLEventListener(GLAutoDrawable paramGLAutoDrawable1, GLAutoDrawable paramGLAutoDrawable2, GLEventListener paramGLEventListener, boolean paramBoolean)
+  {
+    boolean bool = paramGLAutoDrawable1.getGLEventListenerInitState(paramGLEventListener);
+    if (paramBoolean) {
+      paramGLAutoDrawable1.removeGLEventListener(paramGLEventListener);
+      paramGLAutoDrawable2.addGLEventListener(paramGLEventListener);
+      if (bool) {
+        paramGLAutoDrawable2.setGLEventListenerInitState(paramGLEventListener, true);
+        paramGLAutoDrawable2.invoke(false, new ReshapeGLEventListener(paramGLEventListener, true));
+      }
+    } else {
+      paramGLAutoDrawable1.disposeGLEventListener(paramGLEventListener, true);
+      paramGLAutoDrawable2.addGLEventListener(paramGLEventListener);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final void moveAllGLEventListener(GLAutoDrawable paramGLAutoDrawable1, GLAutoDrawable paramGLAutoDrawable2, boolean paramBoolean)
+  {
+    for (int i = paramGLAutoDrawable1.getGLEventListenerCount(); 0 < i; i--) {
+      GLEventListener localGLEventListener = paramGLAutoDrawable1.getGLEventListener(0);
+      moveGLEventListener(paramGLAutoDrawable1, paramGLAutoDrawable2, localGLEventListener, paramBoolean);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static boolean isSwapGLContextSafe(GLCapabilitiesImmutable paramGLCapabilitiesImmutable1, GLCapabilitiesImmutable paramGLCapabilitiesImmutable2, GLCapabilitiesImmutable paramGLCapabilitiesImmutable3)
+  {
+    int i = (paramGLCapabilitiesImmutable1.getAccumAlphaBits() > 0) || (paramGLCapabilitiesImmutable1.getAccumRedBits() > 0) || (paramGLCapabilitiesImmutable1.getAccumGreenBits() > 0) || (paramGLCapabilitiesImmutable1.getAccumBlueBits() > 0) ? 1 : 0;
+    if (((paramGLCapabilitiesImmutable2.isOnscreen()) && (!paramGLCapabilitiesImmutable3.isOnscreen())) || ((!paramGLCapabilitiesImmutable2.isOnscreen()) && (paramGLCapabilitiesImmutable3.isOnscreen())))
+    {
+      if ((paramGLCapabilitiesImmutable2.getSampleBuffers()) || (paramGLCapabilitiesImmutable3.getSampleBuffers()) || 
+        (paramGLCapabilitiesImmutable2.getStereo()) || (paramGLCapabilitiesImmutable3.getStereo()) || (i != 0))
+      {
+
+
+
+        return false; }
+    }
+    return true;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final void swapGLContextAndAllGLEventListener(GLAutoDrawable paramGLAutoDrawable1, GLAutoDrawable paramGLAutoDrawable2)
+  {
+    GLEventListenerState localGLEventListenerState1 = GLEventListenerState.moveFrom(paramGLAutoDrawable1, true);
+    GLEventListenerState localGLEventListenerState2 = GLEventListenerState.moveFrom(paramGLAutoDrawable2, true);
+    Runnable localRunnable1 = localGLEventListenerState1.getUnlockSurfaceOp();
+    Runnable localRunnable2 = localGLEventListenerState2.getUnlockSurfaceOp();
+    try {
+      localGLEventListenerState1.moveTo(paramGLAutoDrawable2, localRunnable2);
+      localGLEventListenerState2.moveTo(paramGLAutoDrawable1, localRunnable1);
+    }
+    finally {
+      localRunnable2.run();
+      localRunnable1.run();
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final void swapGLContext(GLAutoDrawable paramGLAutoDrawable1, GLAutoDrawable paramGLAutoDrawable2)
+  {
+    GLAnimatorControl localGLAnimatorControl1 = paramGLAutoDrawable1.getAnimator();
+    GLAnimatorControl localGLAnimatorControl2 = paramGLAutoDrawable2.getAnimator();
+    int i = (isAnimatorAnimatingOnOtherThread(localGLAnimatorControl1)) && (localGLAnimatorControl1.pause()) ? 1 : 0;
+    int j = (isAnimatorAnimatingOnOtherThread(localGLAnimatorControl2)) && (localGLAnimatorControl2.pause()) ? 1 : 0;
+    
+    RecursiveLock localRecursiveLock1 = paramGLAutoDrawable1.getUpstreamLock();
+    RecursiveLock localRecursiveLock2 = paramGLAutoDrawable2.getUpstreamLock();
+    localRecursiveLock1.lock();
+    localRecursiveLock2.lock();
+    try {
+      NativeSurface localNativeSurface1 = paramGLAutoDrawable1.getNativeSurface();
+      int k = 1 < localNativeSurface1.lockSurface() ? 1 : 0;
+      if ((paramGLAutoDrawable1.isRealized()) && (k == 0)) {
+        throw new GLException("Could not lock realized a surface " + paramGLAutoDrawable1);
+      }
+      NativeSurface localNativeSurface2 = paramGLAutoDrawable2.getNativeSurface();
+      int m = 1 < localNativeSurface2.lockSurface() ? 1 : 0;
+      if ((paramGLAutoDrawable2.isRealized()) && (m == 0)) {
+        throw new GLException("Could not lock realized b surface " + paramGLAutoDrawable2);
+      }
+      try {
+        for (int n = paramGLAutoDrawable1.getGLEventListenerCount() - 1; 0 <= n; n--) {
+          paramGLAutoDrawable1.disposeGLEventListener(paramGLAutoDrawable1.getGLEventListener(n), false);
+        }
+        for (n = paramGLAutoDrawable2.getGLEventListenerCount() - 1; 0 <= n; n--) {
+          paramGLAutoDrawable2.disposeGLEventListener(paramGLAutoDrawable2.getGLEventListener(n), false);
+        }
+        paramGLAutoDrawable2.setContext(paramGLAutoDrawable1.setContext(paramGLAutoDrawable2.getContext(), false), false);
+      }
+      finally {
+        if (m != 0) {
+          localNativeSurface2.unlockSurface();
+        }
+        if (k != 0) {
+          localNativeSurface1.unlockSurface();
+        }
+      }
+    } finally {
+      localRecursiveLock2.unlock();
+      localRecursiveLock1.unlock();
+    }
+    paramGLAutoDrawable1.invoke(true, setViewport);
+    paramGLAutoDrawable2.invoke(true, setViewport);
+    if (i != 0) localGLAnimatorControl1.resume();
+    if (j != 0) localGLAnimatorControl2.resume();
+  }
+  
+  private static final GLRunnable setViewport = new GLRunnable()
+  {
+    public boolean run(GLAutoDrawable paramAnonymousGLAutoDrawable) {
+      paramAnonymousGLAutoDrawable.getGL().glViewport(0, 0, paramAnonymousGLAutoDrawable.getSurfaceWidth(), paramAnonymousGLAutoDrawable.getSurfaceHeight());
+      return false;
+    }
+  };
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final boolean swapBuffersBeforeRead(GLCapabilitiesImmutable paramGLCapabilitiesImmutable)
+  {
+    return (paramGLCapabilitiesImmutable.isFBO()) && (paramGLCapabilitiesImmutable.getSampleBuffers());
+  }
+}

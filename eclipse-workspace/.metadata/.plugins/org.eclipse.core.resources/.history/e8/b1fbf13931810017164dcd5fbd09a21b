@@ -1,0 +1,350 @@
+package com.jogamp.opengl.util.awt;
+
+import com.jogamp.common.util.IntObjectHashMap;
+import com.jogamp.common.util.IntObjectHashMap.Entry;
+import com.jogamp.nativewindow.util.PixelFormat;
+import com.jogamp.nativewindow.util.PixelFormat.Composition;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.util.GLPixelBuffer;
+import com.jogamp.opengl.util.GLPixelBuffer.GLPixelAttributes;
+import com.jogamp.opengl.util.GLPixelBuffer.GLPixelBufferProvider;
+import com.jogamp.opengl.util.GLPixelBuffer.SingletonGLPixelBufferProvider;
+import java.awt.image.BufferedImage;
+import java.awt.image.ColorModel;
+import java.awt.image.DataBuffer;
+import java.awt.image.DataBufferInt;
+import java.awt.image.Raster;
+import java.awt.image.SinglePixelPackedSampleModel;
+import java.awt.image.WritableRaster;
+import java.nio.Buffer;
+import java.nio.IntBuffer;
+import java.util.Iterator;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AWTGLPixelBuffer
+  extends GLPixelBuffer
+{
+  private static final GLPixelBuffer.GLPixelAttributes awtPixelAttributesIntBGRA = new GLPixelBuffer.GLPixelAttributes(32993, 5121);
+  private static final GLPixelBuffer.GLPixelAttributes awtPixelAttributesIntRGBA = new GLPixelBuffer.GLPixelAttributes(6408, 5121);
+  
+
+
+
+
+  public final BufferedImage image;
+  
+
+
+
+
+  private final PixelFormat.Composition hostPixelComp;
+  
+
+
+
+
+  private final int awtFormat;
+  
+
+
+
+
+
+  public AWTGLPixelBuffer(PixelFormat.Composition paramComposition, GLPixelBuffer.GLPixelAttributes paramGLPixelAttributes, boolean paramBoolean1, int paramInt1, int paramInt2, int paramInt3, int paramInt4, BufferedImage paramBufferedImage, Buffer paramBuffer, boolean paramBoolean2)
+  {
+    super(paramGLPixelAttributes, paramBoolean1, paramInt2, paramInt3, paramInt4, paramBuffer, paramBoolean2);
+    image = paramBufferedImage;
+    hostPixelComp = paramComposition;
+    awtFormat = paramInt1;
+  }
+  
+  public final PixelFormat.Composition getHostPixelComp() { return hostPixelComp; }
+  public final int getAWTFormat() { return awtFormat; }
+  
+  public void dispose()
+  {
+    image.flush();
+    super.dispose();
+  }
+  
+
+
+
+
+
+  public BufferedImage getAlignedImage(int paramInt1, int paramInt2)
+    throws IllegalArgumentException
+  {
+    if (paramInt1 * paramInt2 > image.getWidth() * image.getHeight()) {
+      throw new IllegalArgumentException("Requested size exceeds image size: " + paramInt1 + "x" + paramInt2 + " > " + image.getWidth() + "x" + image.getHeight());
+    }
+    if ((paramInt1 == image.getWidth()) && (paramInt2 == image.getHeight())) {
+      return image;
+    }
+    ColorModel localColorModel = image.getColorModel();
+    WritableRaster localWritableRaster1 = image.getRaster();
+    DataBuffer localDataBuffer = localWritableRaster1.getDataBuffer();
+    SinglePixelPackedSampleModel localSinglePixelPackedSampleModel1 = (SinglePixelPackedSampleModel)localWritableRaster1.getSampleModel();
+    
+    SinglePixelPackedSampleModel localSinglePixelPackedSampleModel2 = new SinglePixelPackedSampleModel(localDataBuffer.getDataType(), paramInt1, paramInt2, paramInt1, localSinglePixelPackedSampleModel1.getBitMasks());
+    WritableRaster localWritableRaster2 = Raster.createWritableRaster(localSinglePixelPackedSampleModel2, localDataBuffer, null);
+    return new BufferedImage(localColorModel, localWritableRaster2, localColorModel.isAlphaPremultiplied(), null);
+  }
+  
+  public final boolean isDataBufferSource(BufferedImage paramBufferedImage)
+  {
+    DataBuffer localDataBuffer1 = image.getRaster().getDataBuffer();
+    DataBuffer localDataBuffer2 = paramBufferedImage.getRaster().getDataBuffer();
+    return localDataBuffer2 == localDataBuffer1;
+  }
+  
+  public StringBuilder toString(StringBuilder paramStringBuilder)
+  {
+    paramStringBuilder = super.toString(paramStringBuilder);
+    paramStringBuilder.append(", allowRowStride ").append(allowRowStride).append(", image [").append(image.getWidth()).append("x").append(image.getHeight()).append(", ").append(image.toString()).append("]");
+    return paramStringBuilder;
+  }
+  
+  public String toString() {
+    return "AWTGLPixelBuffer[" + toString(null).toString() + "]";
+  }
+  
+
+
+
+  public static class AWTGLPixelBufferProvider
+    implements GLPixelBuffer.GLPixelBufferProvider
+  {
+    private final boolean allowRowStride;
+    
+
+
+    public AWTGLPixelBufferProvider(boolean paramBoolean)
+    {
+      allowRowStride = paramBoolean;
+    }
+    
+    public boolean getAllowRowStride() {
+      return allowRowStride;
+    }
+    
+    public GLPixelBuffer.GLPixelAttributes getAttributes(GL paramGL, int paramInt, boolean paramBoolean) {
+      return paramGL.isGLES() ? AWTGLPixelBuffer.awtPixelAttributesIntRGBA : AWTGLPixelBuffer.awtPixelAttributesIntBGRA;
+    }
+    
+    public GLPixelBuffer.GLPixelAttributes getAttributes(GLProfile paramGLProfile, int paramInt) {
+      return paramGLProfile.isGLES() ? AWTGLPixelBuffer.awtPixelAttributesIntRGBA : AWTGLPixelBuffer.awtPixelAttributesIntBGRA;
+    }
+    
+
+
+
+
+
+
+    public PixelFormat.Composition getHostPixelComp(GLProfile paramGLProfile, int paramInt)
+    {
+      return getAWTPixelFormatcomp;
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+    public int getAWTFormat(GLProfile paramGLProfile, int paramInt)
+    {
+      if (4 == paramInt)
+      {
+        return paramGLProfile.isGLES() ? 4 : 2;
+      }
+      return paramGLProfile.isGLES() ? 4 : 1;
+    }
+    
+    public PixelFormat getAWTPixelFormat(GLProfile paramGLProfile, int paramInt)
+    {
+      if (4 == paramInt) {
+        return paramGLProfile.isGLES() ? PixelFormat.RGBx8888 : PixelFormat.BGRA8888;
+      }
+      return paramGLProfile.isGLES() ? PixelFormat.RGBx8888 : PixelFormat.BGRx8888;
+    }
+    
+
+
+
+
+
+
+
+
+    public AWTGLPixelBuffer allocate(GL paramGL, PixelFormat.Composition paramComposition, GLPixelBuffer.GLPixelAttributes paramGLPixelAttributes, boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+    {
+      if (null == paramComposition) {
+        throw new IllegalArgumentException("Null hostPixComp");
+      }
+      int i = getAWTFormat(paramGL.getGLProfile(), paramComposition.componentCount());
+      BufferedImage localBufferedImage = new BufferedImage(paramInt1, paramInt2, i);
+      int[] arrayOfInt = ((DataBufferInt)localBufferedImage.getRaster().getDataBuffer()).getData();
+      IntBuffer localIntBuffer = IntBuffer.wrap(arrayOfInt);
+      return new AWTGLPixelBuffer(paramComposition, paramGLPixelAttributes, paramBoolean, i, paramInt1, paramInt2, paramInt3, localBufferedImage, localIntBuffer, allowRowStride);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public static class SingleAWTGLPixelBufferProvider
+    extends AWTGLPixelBuffer.AWTGLPixelBufferProvider
+    implements GLPixelBuffer.SingletonGLPixelBufferProvider
+  {
+    private final IntObjectHashMap bufferMap = new IntObjectHashMap(8);
+    
+    private static int getHashCode(PixelFormat.Composition paramComposition, GLPixelBuffer.GLPixelAttributes paramGLPixelAttributes, boolean paramBoolean)
+    {
+      int i = paramComposition.hashCode();
+      i = (i << 5) - i + paramGLPixelAttributes.hashCode();
+      
+      return i;
+    }
+    
+
+
+    public SingleAWTGLPixelBufferProvider(boolean paramBoolean)
+    {
+      super();
+    }
+    
+
+
+
+
+
+
+
+    public AWTGLPixelBuffer allocate(GL paramGL, PixelFormat.Composition paramComposition, GLPixelBuffer.GLPixelAttributes paramGLPixelAttributes, boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3, int paramInt4)
+    {
+      if (null == paramComposition) {
+        paramComposition = pfmt.comp;
+      }
+      int i = getHashCode(paramComposition, paramGLPixelAttributes, paramBoolean);
+      AWTGLPixelBuffer localAWTGLPixelBuffer = (AWTGLPixelBuffer)bufferMap.get(i);
+      if ((null == localAWTGLPixelBuffer) || (localAWTGLPixelBuffer.requiresNewBuffer(paramGL, paramInt1, paramInt2, paramInt4))) {
+        if (null != localAWTGLPixelBuffer) {
+          localAWTGLPixelBuffer.dispose();
+        }
+        localAWTGLPixelBuffer = allocateImpl(paramComposition, paramGLPixelAttributes, paramBoolean, 
+          getAWTFormat(paramGL.getGLProfile(), paramComposition.componentCount()), paramInt1, paramInt2, paramInt3, paramInt4);
+        bufferMap.put(i, localAWTGLPixelBuffer);
+      }
+      return localAWTGLPixelBuffer;
+    }
+    
+
+
+
+    private AWTGLPixelBuffer allocateImpl(PixelFormat.Composition paramComposition, GLPixelBuffer.GLPixelAttributes paramGLPixelAttributes, boolean paramBoolean, int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5)
+    {
+      BufferedImage localBufferedImage = new BufferedImage(paramInt2, paramInt3, paramInt1);
+      int[] arrayOfInt = ((DataBufferInt)localBufferedImage.getRaster().getDataBuffer()).getData();
+      IntBuffer localIntBuffer = IntBuffer.wrap(arrayOfInt);
+      
+      return new AWTGLPixelBuffer(paramComposition, paramGLPixelAttributes, paramBoolean, paramInt1, paramInt2, paramInt3, paramInt4, localBufferedImage, localIntBuffer, getAllowRowStride());
+    }
+    
+
+
+
+
+    public AWTGLPixelBuffer getSingleBuffer(PixelFormat.Composition paramComposition, GLPixelBuffer.GLPixelAttributes paramGLPixelAttributes, boolean paramBoolean)
+    {
+      return (AWTGLPixelBuffer)bufferMap.get(getHashCode(paramComposition, paramGLPixelAttributes, paramBoolean));
+    }
+    
+
+
+
+
+
+    public AWTGLPixelBuffer initSingleton(GLProfile paramGLProfile, int paramInt1, boolean paramBoolean, int paramInt2, int paramInt3, int paramInt4)
+    {
+      GLPixelBuffer.GLPixelAttributes localGLPixelAttributes = getAttributes(paramGLProfile, paramInt1);
+      PixelFormat localPixelFormat = getAWTPixelFormat(paramGLProfile, paramInt1);
+      int i = getAWTFormat(paramGLProfile, paramInt1);
+      int j = getHashCode(comp, localGLPixelAttributes, paramBoolean);
+      AWTGLPixelBuffer localAWTGLPixelBuffer = (AWTGLPixelBuffer)bufferMap.get(j);
+      if (null != localAWTGLPixelBuffer) {
+        return null;
+      }
+      localAWTGLPixelBuffer = allocateImpl(comp, localGLPixelAttributes, paramBoolean, i, paramInt2, paramInt3, paramInt4, 0);
+      bufferMap.put(j, localAWTGLPixelBuffer);
+      return localAWTGLPixelBuffer;
+    }
+    
+    public void dispose()
+    {
+      for (Iterator localIterator = bufferMap.iterator(); localIterator.hasNext();) {
+        AWTGLPixelBuffer localAWTGLPixelBuffer = (AWTGLPixelBuffer)nextvalue;
+        localAWTGLPixelBuffer.dispose();
+      }
+      bufferMap.clear();
+    }
+  }
+}

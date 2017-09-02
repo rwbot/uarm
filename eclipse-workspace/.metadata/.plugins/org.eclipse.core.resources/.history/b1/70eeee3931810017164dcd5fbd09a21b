@@ -1,0 +1,116 @@
+package com.jogamp.opengl.math;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public final class Binary32
+{
+  static final int NEGATIVE_ZERO_BITS = Integer.MIN_VALUE;
+  static final int MASK_SIGN = Integer.MIN_VALUE;
+  static final int MASK_EXPONENT = 2146435072;
+  static final int MASK_SIGNIFICAND = 8388607;
+  static final int BIAS = 127;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public Binary32() {}
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static int unpackGetExponentUnbiased(float paramFloat)
+  {
+    int i = Float.floatToRawIntBits(paramFloat);
+    int j = i & MASK_EXPONENT;
+    int k = j >> 23;
+    return k - BIAS;
+  }
+  
+
+
+
+
+
+
+
+  public static int unpackGetSign(float paramFloat)
+  {
+    int i = Float.floatToRawIntBits(paramFloat);
+    return (i & MASK_SIGN) >> 31 & 0x1;
+  }
+  
+
+
+
+
+
+
+
+  public static int unpackGetSignificand(float paramFloat)
+  {
+    int i = Float.floatToRawIntBits(paramFloat);
+    return i & MASK_SIGNIFICAND;
+  }
+}

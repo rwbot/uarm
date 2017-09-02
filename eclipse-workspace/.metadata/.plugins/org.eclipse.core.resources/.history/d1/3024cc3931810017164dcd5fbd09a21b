@@ -1,0 +1,66 @@
+package com.jogamp.common;
+
+import com.jogamp.common.util.JogampVersion;
+import com.jogamp.common.util.VersionUtil;
+import java.io.PrintStream;
+import java.util.jar.Manifest;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GlueGenVersion
+  extends JogampVersion
+{
+  protected static volatile GlueGenVersion jogampCommonVersionInfo;
+  
+  protected GlueGenVersion(String paramString, Manifest paramManifest)
+  {
+    super(paramString, paramManifest);
+  }
+  
+  public static GlueGenVersion getInstance() {
+    if (null == jogampCommonVersionInfo) {
+      synchronized (GlueGenVersion.class) {
+        if (null == jogampCommonVersionInfo)
+        {
+
+          Manifest localManifest = VersionUtil.getManifest(GlueGenVersion.class.getClassLoader(), "com.jogamp.common");
+          if (null != localManifest) {
+            jogampCommonVersionInfo = new GlueGenVersion("com.jogamp.common", localManifest);
+          } else {
+            localManifest = VersionUtil.getManifest(GlueGenVersion.class.getClassLoader(), "com.jogamp.gluegen");
+            jogampCommonVersionInfo = new GlueGenVersion("com.jogamp.gluegen", localManifest);
+          }
+        }
+      }
+    }
+    return jogampCommonVersionInfo;
+  }
+  
+  public static void main(String[] paramArrayOfString) {
+    System.err.println(VersionUtil.getPlatformInfo());
+    System.err.println(getInstance());
+  }
+}

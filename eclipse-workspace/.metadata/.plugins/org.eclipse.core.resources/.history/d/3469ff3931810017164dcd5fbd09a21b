@@ -1,0 +1,47 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class SignatureBlock
+{
+  private final int reserved1;
+  private final int reserved2;
+  private final int signatureLen;
+  private final byte[] signature;
+  
+  protected SignatureBlock(DataInput paramDataInput)
+    throws IOException
+  {
+    reserved1 = paramDataInput.readUnsignedShort();
+    reserved2 = paramDataInput.readUnsignedShort();
+    signatureLen = paramDataInput.readInt();
+    signature = new byte[signatureLen];
+    paramDataInput.readFully(signature);
+  }
+  
+  public String toString()
+  {
+    StringBuilder localStringBuilder = new StringBuilder();
+    for (int i = 0; i < signatureLen; i += 16) {
+      if (signatureLen - i >= 16) {
+        localStringBuilder.append(new String(signature, i, 16)).append("\n");
+      } else {
+        localStringBuilder.append(new String(signature, i, signatureLen - i)).append("\n");
+      }
+    }
+    return localStringBuilder.toString();
+  }
+}

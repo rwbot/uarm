@@ -1,0 +1,81 @@
+package jogamp.nativewindow;
+
+import com.jogamp.common.util.locks.LockFactory;
+import com.jogamp.common.util.locks.RecursiveLock;
+import com.jogamp.nativewindow.ToolkitLock;
+import java.io.PrintStream;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GlobalToolkitLock
+  implements ToolkitLock
+{
+  private static final RecursiveLock globalLock = ;
+  private static GlobalToolkitLock singleton = new GlobalToolkitLock();
+  
+  public static final GlobalToolkitLock getSingleton() {
+    return singleton;
+  }
+  
+  private GlobalToolkitLock() {}
+  
+  public final void lock()
+  {
+    globalLock.lock();
+    if (TRACE_LOCK) System.err.println(Thread.currentThread() + " GlobalToolkitLock: lock() " + toStringImpl());
+  }
+  
+  public final void unlock()
+  {
+    if (TRACE_LOCK) System.err.println(Thread.currentThread() + " GlobalToolkitLock: unlock() " + toStringImpl());
+    globalLock.unlock();
+  }
+  
+  public final void validateLocked() throws RuntimeException
+  {
+    globalLock.validateLocked();
+  }
+  
+
+
+  public final void dispose() {}
+  
+
+  public String toString()
+  {
+    return "GlobalToolkitLock[" + toStringImpl() + "]";
+  }
+  
+  private String toStringImpl() { return "obj 0x" + Integer.toHexString(hashCode()) + ", isOwner " + globalLock.isOwner(Thread.currentThread()) + ", " + globalLock.toString(); }
+}

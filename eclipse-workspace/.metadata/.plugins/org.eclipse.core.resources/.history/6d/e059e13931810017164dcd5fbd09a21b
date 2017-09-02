@@ -1,0 +1,71 @@
+package com.jogamp.nativewindow;
+
+
+
+
+
+
+
+
+
+
+
+public class DefaultGraphicsScreen
+  implements Cloneable, AbstractGraphicsScreen
+{
+  private final AbstractGraphicsDevice device;
+  
+
+
+
+
+
+
+
+
+
+  private final int idx;
+  
+
+
+
+
+
+
+
+
+
+  public DefaultGraphicsScreen(AbstractGraphicsDevice paramAbstractGraphicsDevice, int paramInt)
+  {
+    device = paramAbstractGraphicsDevice;
+    idx = paramInt;
+  }
+  
+  public static AbstractGraphicsScreen createDefault(String paramString) {
+    return new DefaultGraphicsScreen(new DefaultGraphicsDevice(paramString, DefaultGraphicsDevice.getDefaultDisplayConnection(paramString), 0), 0);
+  }
+  
+  public Object clone()
+  {
+    try {
+      return super.clone();
+    } catch (CloneNotSupportedException localCloneNotSupportedException) {
+      throw new NativeWindowException(localCloneNotSupportedException);
+    }
+  }
+  
+  public AbstractGraphicsDevice getDevice()
+  {
+    return device;
+  }
+  
+  public int getIndex()
+  {
+    return idx;
+  }
+  
+  public String toString()
+  {
+    return getClass().getSimpleName() + "[" + device + ", idx " + idx + "]";
+  }
+}

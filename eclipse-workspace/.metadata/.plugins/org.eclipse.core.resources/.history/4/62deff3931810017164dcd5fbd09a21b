@@ -1,0 +1,151 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+import jogamp.graph.font.typecast.ot.Fixed;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class VheaTable
+  implements Table
+{
+  private final DirectoryEntry _de;
+  private final int _version;
+  private final short _ascent;
+  private final short _descent;
+  private final short _lineGap;
+  private final short _advanceHeightMax;
+  private final short _minTopSideBearing;
+  private final short _minBottomSideBearing;
+  private final short _yMaxExtent;
+  private final short _caretSlopeRise;
+  private final short _caretSlopeRun;
+  private final short _metricDataFormat;
+  private final int _numberOfLongVerMetrics;
+  
+  protected VheaTable(DirectoryEntry paramDirectoryEntry, DataInput paramDataInput)
+    throws IOException
+  {
+    _de = ((DirectoryEntry)paramDirectoryEntry.clone());
+    _version = paramDataInput.readInt();
+    _ascent = paramDataInput.readShort();
+    _descent = paramDataInput.readShort();
+    _lineGap = paramDataInput.readShort();
+    _advanceHeightMax = paramDataInput.readShort();
+    _minTopSideBearing = paramDataInput.readShort();
+    _minBottomSideBearing = paramDataInput.readShort();
+    _yMaxExtent = paramDataInput.readShort();
+    _caretSlopeRise = paramDataInput.readShort();
+    _caretSlopeRun = paramDataInput.readShort();
+    for (int i = 0; i < 5; i++) {
+      paramDataInput.readShort();
+    }
+    _metricDataFormat = paramDataInput.readShort();
+    _numberOfLongVerMetrics = paramDataInput.readUnsignedShort();
+  }
+  
+  public short getAdvanceHeightMax() {
+    return _advanceHeightMax;
+  }
+  
+  public short getAscent() {
+    return _ascent;
+  }
+  
+  public short getCaretSlopeRise() {
+    return _caretSlopeRise;
+  }
+  
+  public short getCaretSlopeRun() {
+    return _caretSlopeRun;
+  }
+  
+  public short getDescent() {
+    return _descent;
+  }
+  
+  public short getLineGap() {
+    return _lineGap;
+  }
+  
+  public short getMetricDataFormat() {
+    return _metricDataFormat;
+  }
+  
+  public short getMinTopSideBearing() {
+    return _minTopSideBearing;
+  }
+  
+  public short getMinBottomSideBearing() {
+    return _minBottomSideBearing;
+  }
+  
+  public int getNumberOfLongVerMetrics() {
+    return _numberOfLongVerMetrics;
+  }
+  
+  public int getType()
+  {
+    return 1986553185;
+  }
+  
+  public short getYMaxExtent() {
+    return _yMaxExtent;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public String toString()
+  {
+    return "'vhea' Table - Vertical Header\n------------------------------" + "\n        'vhea' version:       " + Fixed.floatValue(_version) + "\n        xAscender:            " + _ascent + "\n        xDescender:           " + _descent + "\n        xLineGap:             " + _lineGap + "\n        advanceHeightMax:     " + _advanceHeightMax + "\n        minTopSideBearing:    " + _minTopSideBearing + "\n        minBottomSideBearing: " + _minBottomSideBearing + "\n        yMaxExtent:           " + _yMaxExtent + "\n        horizCaretSlopeNum:   " + _caretSlopeRise + "\n        horizCaretSlopeDenom: " + _caretSlopeRun + "\n        reserved0:            0" + "\n        reserved1:            0" + "\n        reserved2:            0" + "\n        reserved3:            0" + "\n        reserved4:            0" + "\n        metricDataFormat:     " + _metricDataFormat + "\n        numOf_LongVerMetrics: " + _numberOfLongVerMetrics;
+  }
+  
+
+
+
+
+
+
+  public DirectoryEntry getDirectoryEntry()
+  {
+    return _de;
+  }
+}

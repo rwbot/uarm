@@ -1,0 +1,168 @@
+package com.jogamp.opengl.util.texture;
+
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class TextureState
+{
+  private final int target;
+  
+  public static final int getTextureTargetQueryName(int paramInt)
+  {
+    int i;
+    switch (paramInt) {
+    case 3553:  i = 32873; break;
+    case 34067:  i = 34068; break;
+    case 32879:  i = 32874; break;
+    case 3552:  i = 32872; break;
+    case 35864:  i = 35868; break;
+    case 35866:  i = 35869; break;
+    case 34037:  i = 34038; break;
+    case 35882:  i = 35884; break;
+    case 37120:  i = 37124; break;
+    case 37122:  i = 37125; break;
+    default:  i = 0;
+    }
+    return i;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+  private final int[] state = { 0, 0, 0, 0, 0, 0 };
+  
+  private static final String toHexString(int paramInt) { return "0x" + Integer.toHexString(paramInt); }
+  
+  private static final int activeTexture(GL paramGL) {
+    int[] arrayOfInt = { 0 };
+    paramGL.glGetIntegerv(34016, arrayOfInt, 0);
+    return arrayOfInt[0];
+  }
+  
+
+
+
+
+
+  public TextureState(GL paramGL, int paramInt)
+    throws GLException
+  {
+    this(paramGL, activeTexture(paramGL), paramInt);
+  }
+  
+
+
+
+
+
+
+  public TextureState(GL paramGL, int paramInt1, int paramInt2)
+    throws GLException
+  {
+    target = paramInt2;
+    state[0] = paramInt1;
+    int i = getTextureTargetQueryName(paramInt2);
+    if (0 == i) {
+      throw new GLException("Unsupported textureTarget " + toHexString(paramInt2));
+    }
+    paramGL.glGetIntegerv(i, state, 1);
+    paramGL.glGetTexParameteriv(target, 10240, state, 2);
+    paramGL.glGetTexParameteriv(target, 10241, state, 3);
+    paramGL.glGetTexParameteriv(target, 10242, state, 4);
+    paramGL.glGetTexParameteriv(target, 10243, state, 5);
+  }
+  
+
+
+
+
+
+
+  public final void restore(GL paramGL)
+  {
+    paramGL.glActiveTexture(state[0]);
+    paramGL.glBindTexture(target, state[1]);
+    paramGL.glTexParameteri(target, 10240, state[2]);
+    paramGL.glTexParameteri(target, 10241, state[3]);
+    paramGL.glTexParameteri(target, 10242, state[4]);
+    paramGL.glTexParameteri(target, 10243, state[5]);
+  }
+  
+
+  public final int getUnit() { return state[0]; }
+  
+  public final int getTarget() { return target; }
+  
+
+  public final int getObject() { return state[1]; }
+  
+  public final int getMagFilter() { return state[2]; }
+  
+  public final int getMinFilter() { return state[3]; }
+  
+  public final int getWrapS() { return state[4]; }
+  
+  public final int getWrapT() { return state[5]; }
+  
+
+
+
+
+  public final String toString()
+  {
+    return "TextureState[unit " + (state[0] - 33984) + ", target " + toHexString(target) + ": obj " + toHexString(state[1]) + ", filter[mag " + toHexString(state[2]) + ", min " + toHexString(state[3]) + "], " + ": wrap[s " + toHexString(state[4]) + ", t " + toHexString(state[5]) + "]]";
+  }
+}

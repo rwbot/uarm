@@ -1,0 +1,122 @@
+package jogamp.nativewindow.jawt.x11;
+
+import com.jogamp.nativewindow.AbstractGraphicsConfiguration;
+import com.jogamp.nativewindow.awt.AWTGraphicsConfiguration;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.lang.reflect.Method;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class X11SunJDKReflection
+{
+  private static Class<?> x11GraphicsDeviceClass;
+  private static Method x11GraphicsDeviceGetDisplayMethod;
+  private static Class<?> x11GraphicsConfigClass;
+  private static Method x11GraphicsConfigGetVisualMethod;
+  private static boolean initialized;
+  
+  static
+  {
+    AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public Object run() {
+        try {
+          X11SunJDKReflection.access$002(Class.forName("sun.awt.X11GraphicsDevice"));
+          X11SunJDKReflection.access$102(X11SunJDKReflection.x11GraphicsDeviceClass.getDeclaredMethod("getDisplay", new Class[0]));
+          X11SunJDKReflection.x11GraphicsDeviceGetDisplayMethod.setAccessible(true);
+          
+          X11SunJDKReflection.access$202(Class.forName("sun.awt.X11GraphicsConfig"));
+          X11SunJDKReflection.access$302(X11SunJDKReflection.x11GraphicsConfigClass.getDeclaredMethod("getVisual", new Class[0]));
+          X11SunJDKReflection.x11GraphicsConfigGetVisualMethod.setAccessible(true);
+          X11SunJDKReflection.access$402(true);
+        }
+        catch (Exception localException) {}
+        
+        return null;
+      }
+    });
+  }
+  
+  public static long graphicsDeviceGetDisplay(GraphicsDevice paramGraphicsDevice) {
+    if (!initialized) {
+      return 0L;
+    }
+    try
+    {
+      return ((Long)x11GraphicsDeviceGetDisplayMethod.invoke(paramGraphicsDevice, (Object[])null)).longValue();
+    } catch (Exception localException) {}
+    return 0L;
+  }
+  
+  public static int graphicsConfigurationGetVisualID(AbstractGraphicsConfiguration paramAbstractGraphicsConfiguration)
+  {
+    try {
+      if ((paramAbstractGraphicsConfiguration instanceof AWTGraphicsConfiguration)) {
+        return graphicsConfigurationGetVisualID(((AWTGraphicsConfiguration)paramAbstractGraphicsConfiguration).getAWTGraphicsConfiguration());
+      }
+      return 0;
+    } catch (Exception localException) {}
+    return 0;
+  }
+  
+  public static int graphicsConfigurationGetVisualID(GraphicsConfiguration paramGraphicsConfiguration)
+  {
+    if (!initialized) {
+      return 0;
+    }
+    try
+    {
+      return ((Integer)x11GraphicsConfigGetVisualMethod.invoke(paramGraphicsConfiguration, (Object[])null)).intValue();
+    } catch (Exception localException) {}
+    return 0;
+  }
+  
+  public X11SunJDKReflection() {}
+}

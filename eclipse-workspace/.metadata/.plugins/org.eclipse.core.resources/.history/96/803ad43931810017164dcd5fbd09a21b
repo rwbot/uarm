@@ -1,0 +1,350 @@
+package com.jogamp.gluegen.runtime;
+
+import com.jogamp.common.os.DynamicLookupHelper;
+import com.jogamp.common.util.SecurityUtil;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.lang.reflect.AccessibleObject;
+import java.lang.reflect.Field;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class ProcAddressTable
+{
+  private static final String PROCADDRESS_VAR_PREFIX = "_addressof_";
+  private static final int PROCADDRESS_VAR_PREFIX_LEN;
+  protected static boolean DEBUG;
+  protected static String DEBUG_PREFIX;
+  protected static int debugNum;
+  private final FunctionAddressResolver resolver;
+  
+  static
+  {
+    PROCADDRESS_VAR_PREFIX_LEN = "_addressof_".length();
+    
+
+
+
+
+
+
+
+    AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public Object run() {
+        ProcAddressTable.DEBUG = System.getProperty("jogamp.debug.ProcAddressHelper") != null;
+        if (ProcAddressTable.DEBUG) {
+          ProcAddressTable.DEBUG_PREFIX = System.getProperty("jogamp.debug.ProcAddressHelper.prefix");
+        }
+        return null;
+      }
+    });
+  }
+  
+  public ProcAddressTable() {
+    this(new One2OneResolver(null));
+  }
+  
+  public ProcAddressTable(FunctionAddressResolver paramFunctionAddressResolver) {
+    resolver = paramFunctionAddressResolver;
+  }
+  
+
+
+
+
+
+
+
+  public void reset(DynamicLookupHelper paramDynamicLookupHelper)
+    throws SecurityException, RuntimeException
+  {
+    if (null == paramDynamicLookupHelper) {
+      throw new RuntimeException("Passed null DynamicLookupHelper");
+    }
+    
+    Field[] arrayOfField = getClass().getDeclaredFields();
+    
+    PrintStream localPrintStream;
+    if (DEBUG) {
+      localPrintStream = getDebugOutStream();
+      localPrintStream.println(getClass().getName() + ".reset() (w/ " + arrayOfField.length + " prospective fields)");
+    } else {
+      localPrintStream = null;
+    }
+    
+
+    AccessibleObject.setAccessible(arrayOfField, true);
+    paramDynamicLookupHelper.claimAllLinkPermission();
+    try {
+      for (int i = 0; i < arrayOfField.length; i++) {
+        String str1 = arrayOfField[i].getName();
+        if (isAddressField(str1)) {
+          String str2 = fieldToFunctionName(str1);
+          setEntry(arrayOfField[i], str2, paramDynamicLookupHelper);
+        }
+      }
+    } finally {
+      paramDynamicLookupHelper.releaseAllLinkPermission();
+    }
+    
+    if (DEBUG) {
+      localPrintStream.flush();
+      if (DEBUG_PREFIX != null) {
+        localPrintStream.close();
+      }
+    }
+  }
+  
+
+
+
+
+
+
+
+
+  public void initEntry(String paramString, DynamicLookupHelper paramDynamicLookupHelper)
+    throws SecurityException, IllegalArgumentException
+  {
+    Field localField = fieldForFunction(paramString);
+    localField.setAccessible(true);
+    setEntry(localField, paramString, paramDynamicLookupHelper);
+  }
+  
+  private final void setEntry(Field paramField, String paramString, DynamicLookupHelper paramDynamicLookupHelper) throws SecurityException {
+    try {
+      assert (paramField.getType() == Long.TYPE);
+      long l = resolver.resolve(paramString, paramDynamicLookupHelper);
+      paramField.setLong(this, l);
+      if (DEBUG) {
+        getDebugOutStream().println("  " + paramField.getName() + " -> 0x" + Long.toHexString(l));
+      }
+    } catch (Exception localException) {
+      throw new RuntimeException("Can not get proc address for method \"" + paramString + "\": Couldn't set value of field \"" + paramField, localException);
+    }
+  }
+  
+  private final String fieldToFunctionName(String paramString)
+  {
+    return paramString.substring(PROCADDRESS_VAR_PREFIX_LEN);
+  }
+  
+  private final Field fieldForFunction(String paramString) throws IllegalArgumentException {
+    try {
+      return getClass().getDeclaredField("_addressof_" + paramString);
+    } catch (NoSuchFieldException localNoSuchFieldException) {
+      throw new IllegalArgumentException(getClass().getName() + " has no entry for the function '" + paramString + "'.", localNoSuchFieldException);
+    }
+  }
+  
+
+
+
+
+
+
+  private final Field fieldForFunctionInSec(final String paramString)
+    throws IllegalArgumentException
+  {
+    (Field)AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public Field run() {
+        try {
+          Field localField = getClass().getDeclaredField("_addressof_" + paramString);
+          localField.setAccessible(true);
+          return localField;
+        } catch (NoSuchFieldException localNoSuchFieldException) {
+          throw new IllegalArgumentException(getClass().getName() + " has no entry for the function '" + paramString + "'.", localNoSuchFieldException);
+        }
+      }
+    });
+  }
+  
+  private final boolean isAddressField(String paramString) {
+    return paramString.startsWith("_addressof_");
+  }
+  
+  private static final PrintStream getDebugOutStream() {
+    PrintStream localPrintStream = null;
+    if (DEBUG) {
+      if (DEBUG_PREFIX != null) {
+        try {
+          localPrintStream = new PrintStream(new BufferedOutputStream(new FileOutputStream(DEBUG_PREFIX + File.separatorChar + "procaddresstable-" + ++debugNum + ".txt")));
+        }
+        catch (IOException localIOException) {
+          localIOException.printStackTrace();
+          localPrintStream = System.err;
+        }
+      } else {
+        localPrintStream = System.err;
+      }
+    }
+    return localPrintStream;
+  }
+  
+
+
+  private final Map<String, Long> toMap()
+  {
+    TreeMap localTreeMap = new TreeMap();
+    
+    Field[] arrayOfField = getClass().getFields();
+    try {
+      for (int i = 0; i < arrayOfField.length; i++) {
+        String str = arrayOfField[i].getName();
+        if (isAddressField(str)) {
+          localTreeMap.put(fieldToFunctionName(str), (Long)arrayOfField[i].get(this));
+        }
+      }
+    } catch (IllegalArgumentException localIllegalArgumentException) {
+      throw new RuntimeException(localIllegalArgumentException);
+    } catch (IllegalAccessException localIllegalAccessException) {
+      throw new RuntimeException(localIllegalAccessException);
+    }
+    
+    return localTreeMap;
+  }
+  
+
+  public final boolean isFunctionAvailable(String paramString)
+  {
+    try
+    {
+      return isFunctionAvailableImpl(paramString);
+    } catch (IllegalArgumentException localIllegalArgumentException) {}
+    return false;
+  }
+  
+
+
+
+
+
+
+
+
+
+  protected boolean isFunctionAvailableImpl(String paramString)
+    throws IllegalArgumentException
+  {
+    Field localField = fieldForFunctionInSec(paramString);
+    try {
+      return 0L != localField.getLong(this);
+    } catch (IllegalAccessException localIllegalAccessException) {
+      throw new RuntimeException(localIllegalAccessException);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public long getAddressFor(String paramString)
+    throws SecurityException, IllegalArgumentException
+  {
+    SecurityUtil.checkAllLinkPermission();
+    Field localField = fieldForFunctionInSec(paramString);
+    try {
+      return localField.getLong(this);
+    } catch (IllegalAccessException localIllegalAccessException) {
+      throw new RuntimeException(localIllegalAccessException);
+    }
+  }
+  
+
+
+  public final Set<String> getNullPointerFunctions()
+  {
+    Map localMap = toMap();
+    LinkedHashSet localLinkedHashSet = new LinkedHashSet();
+    for (Iterator localIterator = localMap.entrySet().iterator(); localIterator.hasNext();) {
+      Map.Entry localEntry = (Map.Entry)localIterator.next();
+      long l = ((Long)localEntry.getValue()).longValue();
+      if (l == 0L) {
+        localLinkedHashSet.add(localEntry.getKey());
+      }
+    }
+    return localLinkedHashSet;
+  }
+  
+  public final String toString()
+  {
+    return getClass().getName() + "" + toMap();
+  }
+  
+  private static class One2OneResolver implements FunctionAddressResolver {
+    private One2OneResolver() {}
+    
+    public long resolve(String paramString, DynamicLookupHelper paramDynamicLookupHelper) throws SecurityException { return paramDynamicLookupHelper.dynamicLookupFunction(paramString); }
+  }
+}

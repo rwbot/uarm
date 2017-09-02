@@ -1,0 +1,156 @@
+package com.leapmotion.leap;
+
+
+
+
+public class Finger
+  extends Pointable
+{
+  private long swigCPtr;
+  
+
+
+  public Finger(long paramLong, boolean paramBoolean)
+  {
+    super(LeapJNI.Finger_SWIGUpcast(paramLong), paramBoolean);
+    swigCPtr = paramLong;
+  }
+  
+  public static long getCPtr(Finger paramFinger) {
+    return paramFinger == null ? 0L : swigCPtr;
+  }
+  
+  protected void finalize() {
+    delete();
+  }
+  
+  public synchronized void delete() {
+    if (swigCPtr != 0L) {
+      if (swigCMemOwn) {
+        swigCMemOwn = false;
+        LeapJNI.delete_Finger(swigCPtr);
+      }
+      swigCPtr = 0L;
+    }
+    super.delete();
+  }
+  
+  public Finger() {
+    this(LeapJNI.new_Finger__SWIG_0(), true);
+  }
+  
+  public Finger(Pointable paramPointable) {
+    this(LeapJNI.new_Finger__SWIG_1(Pointable.getCPtr(paramPointable), paramPointable), true);
+  }
+  
+  public Vector jointPosition(Joint paramJoint) {
+    return new Vector(LeapJNI.Finger_jointPosition(swigCPtr, this, paramJoint.swigValue()), true);
+  }
+  
+  public Bone bone(Bone.Type paramType) {
+    return new Bone(LeapJNI.Finger_bone(swigCPtr, this, paramType.swigValue()), true);
+  }
+  
+  public Type type() {
+    return Type.swigToEnum(LeapJNI.Finger_type(swigCPtr, this));
+  }
+  
+  public static Finger invalid() {
+    return new Finger(LeapJNI.Finger_invalid(), false);
+  }
+  
+  public String toString() {
+    return LeapJNI.Finger_toString(swigCPtr, this);
+  }
+  
+  public static enum Joint {
+    JOINT_MCP(0), 
+    JOINT_PIP(1), 
+    JOINT_DIP(2), 
+    JOINT_TIP(3);
+    
+    public final int swigValue() {
+      return swigValue;
+    }
+    
+    public static Joint swigToEnum(int paramInt) {
+      Joint[] arrayOfJoint1 = (Joint[])Joint.class.getEnumConstants();
+      if ((paramInt < arrayOfJoint1.length) && (paramInt >= 0) && (swigValue == paramInt))
+        return arrayOfJoint1[paramInt];
+      for (Joint localJoint : arrayOfJoint1)
+        if (swigValue == paramInt)
+          return localJoint;
+      throw new IllegalArgumentException("No enum " + Joint.class + " with value " + paramInt);
+    }
+    
+    private Joint()
+    {
+      swigValue = SwigNext.access$008();
+    }
+    
+    private Joint(int paramInt)
+    {
+      swigValue = paramInt;
+      SwigNext.access$002(paramInt + 1);
+    }
+    
+    private Joint(Joint paramJoint)
+    {
+      swigValue = swigValue;
+      SwigNext.access$002(swigValue + 1);
+    }
+    
+    private final int swigValue;
+    private static class SwigNext
+    {
+      private static int next = 0;
+      
+      private SwigNext() {}
+    } }
+  
+  public static enum Type { TYPE_THUMB(0), 
+    TYPE_INDEX(1), 
+    TYPE_MIDDLE(2), 
+    TYPE_RING(3), 
+    TYPE_PINKY(4);
+    
+    public final int swigValue() {
+      return swigValue;
+    }
+    
+    public static Type swigToEnum(int paramInt) {
+      Type[] arrayOfType1 = (Type[])Type.class.getEnumConstants();
+      if ((paramInt < arrayOfType1.length) && (paramInt >= 0) && (swigValue == paramInt))
+        return arrayOfType1[paramInt];
+      for (Type localType : arrayOfType1)
+        if (swigValue == paramInt)
+          return localType;
+      throw new IllegalArgumentException("No enum " + Type.class + " with value " + paramInt);
+    }
+    
+    private Type()
+    {
+      swigValue = SwigNext.access$108();
+    }
+    
+    private Type(int paramInt)
+    {
+      swigValue = paramInt;
+      SwigNext.access$102(paramInt + 1);
+    }
+    
+    private Type(Type paramType)
+    {
+      swigValue = swigValue;
+      SwigNext.access$102(swigValue + 1);
+    }
+    
+    private final int swigValue;
+    private static class SwigNext
+    {
+      private static int next = 0;
+      
+      private SwigNext() {}
+    }
+  }
+}

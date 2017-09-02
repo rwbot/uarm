@@ -1,0 +1,68 @@
+package com.jogamp.common.util.locks;
+
+import jogamp.common.util.locks.RecursiveLockImpl01CompleteFair;
+import jogamp.common.util.locks.RecursiveLockImpl01Unfairish;
+import jogamp.common.util.locks.RecursiveLockImplJava5;
+import jogamp.common.util.locks.RecursiveThreadGroupLockImpl01Unfairish;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class LockFactory
+{
+  public LockFactory() {}
+  
+  public static enum ImplType
+  {
+    Int01(0),  Java5(1),  Int02ThreadGroup(2);
+    
+    public final int id;
+    
+    private ImplType(int paramInt) {
+      id = paramInt;
+    }
+  }
+  
+  public static RecursiveLock createRecursiveLock()
+  {
+    return new RecursiveLockImpl01Unfairish();
+  }
+  
+  public static RecursiveThreadGroupLock createRecursiveThreadGroupLock()
+  {
+    return new RecursiveThreadGroupLockImpl01Unfairish();
+  }
+  
+  public static RecursiveLock createRecursiveLock(ImplType paramImplType, boolean paramBoolean) {
+    switch (1.$SwitchMap$com$jogamp$common$util$locks$LockFactory$ImplType[paramImplType.ordinal()]) {
+    case 1: 
+      return paramBoolean ? new RecursiveLockImpl01CompleteFair() : new RecursiveLockImpl01Unfairish();
+    case 2: 
+      return new RecursiveLockImplJava5(paramBoolean);
+    case 3: 
+      return new RecursiveThreadGroupLockImpl01Unfairish();
+    }
+    throw new InternalError("XXX");
+  }
+}

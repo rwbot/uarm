@@ -1,0 +1,186 @@
+package com.jogamp.common.util;
+
+import java.security.AllPermission;
+import java.security.CodeSource;
+import java.security.Permission;
+import java.security.ProtectionDomain;
+import java.security.cert.Certificate;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class SecurityUtil
+{
+  private static final Permission allPermissions = new AllPermission();
+  private static final SecurityManager securityManager = System.getSecurityManager();
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public SecurityUtil() {}
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static final boolean hasAllPermissions()
+  {
+    return hasPermission(allPermissions);
+  }
+  
+
+
+
+  public static final boolean hasPermission(Permission paramPermission)
+  {
+    try
+    {
+      checkPermission(paramPermission);
+      return true;
+    } catch (SecurityException localSecurityException) {}
+    return false;
+  }
+  
+
+
+
+  public static final void checkAllPermissions()
+    throws SecurityException
+  {
+    checkPermission(allPermissions);
+  }
+  
+
+
+  public static final void checkPermission(Permission paramPermission)
+    throws SecurityException
+  {
+    if (null != securityManager) {
+      securityManager.checkPermission(paramPermission);
+    }
+  }
+  
+
+
+
+  public static final boolean hasLinkPermission(String paramString)
+  {
+    try
+    {
+      checkLinkPermission(paramString);
+      return true;
+    } catch (SecurityException localSecurityException) {}
+    return false;
+  }
+  
+
+
+
+  public static final void checkLinkPermission(String paramString)
+    throws SecurityException
+  {
+    if (null != securityManager) {
+      securityManager.checkLink(paramString);
+    }
+  }
+  
+
+
+  public static final void checkAllLinkPermission()
+    throws SecurityException
+  {
+    if (null != securityManager)
+      securityManager.checkPermission(allLinkPermission);
+  }
+  
+  private static final RuntimePermission allLinkPermission = new RuntimePermission("loadLibrary.*");
+  
+  private static final boolean DEBUG = false;
+  
+
+  public static final Certificate[] getCerts(Class<?> paramClass)
+    throws SecurityException
+  {
+    ProtectionDomain localProtectionDomain = paramClass.getProtectionDomain();
+    Object localObject1 = null != localProtectionDomain ? localProtectionDomain.getCodeSource() : null;
+    Object localObject2 = null != localObject1 ? localObject1.getCertificates() : null;
+    return (null != localObject2) && (localObject2.length > 0) ? localObject2 : null;
+  }
+  
+  public static final boolean equals(Certificate[] paramArrayOfCertificate1, Certificate[] paramArrayOfCertificate2) {
+    if (paramArrayOfCertificate1 == paramArrayOfCertificate2) {
+      return true;
+    }
+    if ((paramArrayOfCertificate1 == null) || (paramArrayOfCertificate2 == null)) {
+      return false;
+    }
+    if (paramArrayOfCertificate1.length != paramArrayOfCertificate2.length) {
+      return false;
+    }
+    
+    int i = 0;
+    while ((i < paramArrayOfCertificate1.length) && (paramArrayOfCertificate1[i].equals(paramArrayOfCertificate2[i]))) {
+      i++;
+    }
+    return i == paramArrayOfCertificate1.length;
+  }
+}

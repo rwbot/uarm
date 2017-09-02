@@ -1,0 +1,289 @@
+package com.jogamp.graph.geom;
+
+import com.jogamp.opengl.math.FloatUtil;
+import com.jogamp.opengl.math.VectorUtil;
+import com.jogamp.opengl.math.geom.AABBox;
+import java.util.ArrayList;
+import jogamp.graph.geom.plane.AffineTransform;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Outline
+  implements Comparable<Outline>
+{
+  private ArrayList<Vertex> vertices;
+  private boolean closed;
+  private final AABBox bbox;
+  private boolean dirtyBBox;
+  
+  public Outline()
+  {
+    vertices = new ArrayList(3);
+    closed = false;
+    bbox = new AABBox();
+    dirtyBBox = false;
+  }
+  
+
+
+  public Outline(Outline paramOutline)
+  {
+    vertices = new ArrayList(vertices.size());
+    for (int i = 0; i < vertices.size(); i++) {
+      vertices.add(((Vertex)vertices.get(i)).clone());
+    }
+    closed = closed;
+    bbox = new AABBox(bbox);
+    dirtyBBox = dirtyBBox;
+  }
+  
+  public final int getVertexCount() {
+    return vertices.size();
+  }
+  
+
+
+
+  public final void addVertex(Vertex paramVertex)
+    throws NullPointerException
+  {
+    addVertex(vertices.size(), paramVertex);
+  }
+  
+
+
+
+
+
+  public final void addVertex(int paramInt, Vertex paramVertex)
+    throws NullPointerException, IndexOutOfBoundsException
+  {
+    if (null == paramVertex) {
+      throw new NullPointerException("vertex is null");
+    }
+    vertices.add(paramInt, paramVertex);
+    if (!dirtyBBox) {
+      bbox.resize(paramVertex.getCoord());
+    }
+  }
+  
+
+
+
+
+
+
+  public final void setVertex(int paramInt, Vertex paramVertex)
+    throws NullPointerException, IndexOutOfBoundsException
+  {
+    if (null == paramVertex) {
+      throw new NullPointerException("vertex is null");
+    }
+    vertices.set(paramInt, paramVertex);
+    dirtyBBox = true;
+  }
+  
+  public final Vertex getVertex(int paramInt) {
+    return (Vertex)vertices.get(paramInt);
+  }
+  
+  public int getVertexIndex(Vertex paramVertex) {
+    return vertices.indexOf(paramVertex);
+  }
+  
+
+
+
+
+  public final Vertex removeVertex(int paramInt)
+    throws IndexOutOfBoundsException
+  {
+    dirtyBBox = true;
+    return (Vertex)vertices.remove(paramInt);
+  }
+  
+  public final boolean isEmpty() {
+    return vertices.size() == 0;
+  }
+  
+  public final Vertex getLastVertex() {
+    if (isEmpty()) {
+      return null;
+    }
+    return (Vertex)vertices.get(vertices.size() - 1);
+  }
+  
+  public final ArrayList<Vertex> getVertices() {
+    return vertices;
+  }
+  
+
+
+
+
+
+  public final void setVertices(ArrayList<Vertex> paramArrayList)
+  {
+    vertices = paramArrayList;
+    validateBoundingBox();
+  }
+  
+  public final boolean isClosed() {
+    return closed;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final boolean setClosed(boolean paramBoolean)
+  {
+    closed = true;
+    if (!isEmpty()) {
+      Vertex localVertex1 = (Vertex)vertices.get(0);
+      Vertex localVertex2 = getLastVertex();
+      if (!VectorUtil.isVec3Equal(localVertex1.getCoord(), 0, localVertex2.getCoord(), 0, 1.1920929E-7F)) {
+        if (paramBoolean) {
+          vertices.add(localVertex1.clone());
+        } else {
+          vertices.add(0, localVertex2.clone());
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+  
+
+
+  public final Outline transform(AffineTransform paramAffineTransform, Vertex.Factory<? extends Vertex> paramFactory)
+  {
+    Outline localOutline = new Outline();
+    int i = vertices.size();
+    for (int j = 0; j < i; j++) {
+      Vertex localVertex = (Vertex)vertices.get(j);
+      localOutline.addVertex(paramAffineTransform.transform(localVertex, paramFactory.create()));
+    }
+    closed = closed;
+    return localOutline;
+  }
+  
+  private final void validateBoundingBox() {
+    dirtyBBox = false;
+    bbox.reset();
+    for (int i = 0; i < vertices.size(); i++) {
+      bbox.resize(((Vertex)vertices.get(i)).getCoord());
+    }
+  }
+  
+  public final AABBox getBounds() {
+    if (dirtyBBox) {
+      validateBoundingBox();
+    }
+    return bbox;
+  }
+  
+
+
+
+
+
+  public final int compareTo(Outline paramOutline)
+  {
+    float f1 = getBounds().getSize();
+    float f2 = paramOutline.getBounds().getSize();
+    if (FloatUtil.isEqual(f1, f2, 1.1920929E-7F))
+      return 0;
+    if (f1 < f2) {
+      return -1;
+    }
+    return 1;
+  }
+  
+
+
+
+
+
+  public boolean equals(Object paramObject)
+  {
+    if (paramObject == this) {
+      return true;
+    }
+    if ((null == paramObject) || (!(paramObject instanceof Outline))) {
+      return false;
+    }
+    Outline localOutline = (Outline)paramObject;
+    if (getVertexCount() != localOutline.getVertexCount()) {
+      return false;
+    }
+    if (!getBounds().equals(localOutline.getBounds())) {
+      return false;
+    }
+    for (int i = getVertexCount() - 1; i >= 0; i--) {
+      if (!getVertex(i).equals(localOutline.getVertex(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
+  
+  public final int hashCode() {
+    throw new InternalError("hashCode not designed");
+  }
+  
+  public String toString()
+  {
+    return getClass().getName() + "@" + Integer.toHexString(super.hashCode());
+  }
+}

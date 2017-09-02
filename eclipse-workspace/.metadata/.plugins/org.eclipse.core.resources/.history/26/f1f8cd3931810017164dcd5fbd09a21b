@@ -1,0 +1,283 @@
+package com.jogamp.common.nio;
+
+import com.jogamp.common.os.Platform;
+import com.jogamp.common.util.LongObjectHashMap;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import java.nio.LongBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class PointerBuffer
+  extends AbstractBuffer<PointerBuffer>
+{
+  public static final int ELEMENT_SIZE = Platform.is32Bit() ? 4 : 8;
+  protected LongObjectHashMap dataMap = null;
+  
+  static {
+    Platform.initSingleton();
+  }
+  
+  static PointerBuffer create(ByteBuffer paramByteBuffer)
+  {
+    return Platform.is32Bit() ? new PointerBuffer(paramByteBuffer.asIntBuffer()) : new PointerBuffer(paramByteBuffer.asLongBuffer());
+  }
+  
+  PointerBuffer(IntBuffer paramIntBuffer)
+  {
+    super(paramIntBuffer, ELEMENT_SIZE, paramIntBuffer.capacity());
+  }
+  
+  PointerBuffer(LongBuffer paramLongBuffer)
+  {
+    super(paramLongBuffer, ELEMENT_SIZE, paramLongBuffer.capacity());
+  }
+  
+  private final void validateDataMap() {
+    if (null == dataMap) {
+      dataMap = new LongObjectHashMap();
+      dataMap.setKeyNotFoundValue(null);
+    }
+  }
+  
+  public static PointerBuffer allocate(int paramInt)
+  {
+    if (Platform.is32Bit()) {
+      return new PointerBuffer(IntBuffer.wrap(new int[paramInt]));
+    }
+    return new PointerBuffer(LongBuffer.wrap(new long[paramInt]));
+  }
+  
+
+  public static PointerBuffer allocateDirect(int paramInt)
+  {
+    return create(Buffers.newDirectByteBuffer(ELEMENT_SIZE * paramInt));
+  }
+  
+  public static PointerBuffer wrap(ByteBuffer paramByteBuffer) {
+    return create(paramByteBuffer);
+  }
+  
+
+
+  public final PointerBuffer duplicate()
+  {
+    PointerBuffer localPointerBuffer;
+    
+    if (Platform.is32Bit()) {
+      localPointerBuffer = new PointerBuffer((IntBuffer)buffer);
+    } else {
+      localPointerBuffer = new PointerBuffer((LongBuffer)buffer);
+    }
+    if (null != dataMap) {
+      dataMap = ((LongObjectHashMap)dataMap.clone());
+    }
+    position = position;
+    return localPointerBuffer;
+  }
+  
+
+
+
+  public final PointerBuffer put(PointerBuffer paramPointerBuffer)
+  {
+    if (remaining() < paramPointerBuffer.remaining()) {
+      throw new IndexOutOfBoundsException();
+    }
+    if ((null == dataMap) && (null == dataMap)) {}
+    
+    while (paramPointerBuffer.hasRemaining()) {
+      put(paramPointerBuffer.get()); continue;
+      
+
+      while (paramPointerBuffer.hasRemaining()) {
+        long l = paramPointerBuffer.get();
+        put(l);
+        if (null != dataMap) {
+          Buffer localBuffer = (Buffer)dataMap.get(l);
+          if (null != localBuffer) {
+            validateDataMap();
+            dataMap.put(l, localBuffer);
+          } else if (null != dataMap) {
+            dataMap.remove(l);
+          }
+        } else if (null != dataMap) {
+          dataMap.remove(l);
+        }
+      }
+    }
+    return this;
+  }
+  
+
+  public final long get()
+  {
+    long l = get(position);
+    position += 1;
+    return l;
+  }
+  
+
+  public final long get(int paramInt)
+  {
+    if ((0 > paramInt) || (paramInt >= capacity)) {
+      throw new IndexOutOfBoundsException();
+    }
+    if (Platform.is32Bit()) {
+      return ((IntBuffer)buffer).get(paramInt) & 0xFFFFFFFF;
+    }
+    return ((LongBuffer)buffer).get(paramInt);
+  }
+  
+
+
+
+
+  public final PointerBuffer get(long[] paramArrayOfLong, int paramInt1, int paramInt2)
+  {
+    if (paramArrayOfLong.length < paramInt1 + paramInt2) {
+      throw new IndexOutOfBoundsException();
+    }
+    if (remaining() < paramInt2) {
+      throw new IndexOutOfBoundsException();
+    }
+    while (paramInt2 > 0) {
+      paramArrayOfLong[(paramInt1++)] = get(position++);
+      paramInt2--;
+    }
+    return this;
+  }
+  
+
+  public final PointerBuffer put(int paramInt, long paramLong)
+  {
+    if ((0 > paramInt) || (paramInt >= capacity)) {
+      throw new IndexOutOfBoundsException();
+    }
+    if (Platform.is32Bit()) {
+      ((IntBuffer)buffer).put(paramInt, (int)paramLong);
+    } else {
+      ((LongBuffer)buffer).put(paramInt, paramLong);
+    }
+    return this;
+  }
+  
+
+  public final PointerBuffer put(long paramLong)
+  {
+    put(position, paramLong);
+    position += 1;
+    return this;
+  }
+  
+
+
+  public final PointerBuffer put(long[] paramArrayOfLong, int paramInt1, int paramInt2)
+  {
+    if (paramArrayOfLong.length < paramInt1 + paramInt2) {
+      throw new IndexOutOfBoundsException();
+    }
+    if (remaining() < paramInt2) {
+      throw new IndexOutOfBoundsException();
+    }
+    while (paramInt2 > 0) {
+      put(position++, paramArrayOfLong[(paramInt1++)]);
+      paramInt2--;
+    }
+    return this;
+  }
+  
+
+
+
+
+
+  public final PointerBuffer referenceBuffer(int paramInt, Buffer paramBuffer)
+  {
+    if (null == paramBuffer) {
+      throw new IllegalArgumentException("Buffer is null");
+    }
+    if (!Buffers.isDirect(paramBuffer)) {
+      throw new IllegalArgumentException("Buffer is not direct");
+    }
+    long l1 = Platform.is32Bit() ? 4294967295L : -1L;
+    long l2 = getDirectBufferAddressImpl(paramBuffer) & l1;
+    if (0L == l2) {
+      throw new RuntimeException("Couldn't determine native address of given Buffer: " + paramBuffer);
+    }
+    validateDataMap();
+    put(paramInt, l2);
+    dataMap.put(l2, paramBuffer);
+    return this;
+  }
+  
+
+
+  public final PointerBuffer referenceBuffer(Buffer paramBuffer)
+  {
+    referenceBuffer(position, paramBuffer);
+    position += 1;
+    return this;
+  }
+  
+  public final Buffer getReferencedBuffer(int paramInt) {
+    if (null != dataMap) {
+      long l = get(paramInt);
+      return (Buffer)dataMap.get(l);
+    }
+    return null;
+  }
+  
+  public final Buffer getReferencedBuffer() {
+    Buffer localBuffer = getReferencedBuffer(position);
+    position += 1;
+    return localBuffer;
+  }
+  
+
+
+  public String toString()
+  {
+    return "PointerBuffer:" + super.toString();
+  }
+  
+  private native long getDirectBufferAddressImpl(Object paramObject);
+}

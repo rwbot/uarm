@@ -1,0 +1,94 @@
+package jogamp.common.os;
+
+import com.jogamp.common.os.AndroidVersion;
+import com.jogamp.common.util.ReflectionUtil;
+import java.io.File;
+import java.lang.reflect.Method;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AndroidUtils
+{
+  private static final Method androidGetPackageInfoVersionNameMethod;
+  private static final Method androidGetPackageInfoVersionCodeMethod;
+  private static final Method androidGetTempRootMethod;
+  
+  static
+  {
+    if (AndroidVersion.isAvailable) {
+      ClassLoader localClassLoader = AndroidUtils.class.getClassLoader();
+      Class localClass = ReflectionUtil.getClass("jogamp.common.os.android.AndroidUtilsImpl", true, localClassLoader);
+      androidGetPackageInfoVersionCodeMethod = ReflectionUtil.getMethod(localClass, "getPackageInfoVersionCode", new Class[] { String.class });
+      androidGetPackageInfoVersionNameMethod = ReflectionUtil.getMethod(localClass, "getPackageInfoVersionName", new Class[] { String.class });
+      androidGetTempRootMethod = ReflectionUtil.getMethod(localClass, "getTempRoot", new Class[0]);
+    } else {
+      androidGetPackageInfoVersionCodeMethod = null;
+      androidGetPackageInfoVersionNameMethod = null;
+      androidGetTempRootMethod = null;
+    }
+  }
+  
+
+
+
+
+  public static final int getPackageInfoVersionCode(String paramString)
+  {
+    if (null != androidGetPackageInfoVersionCodeMethod) {
+      return ((Integer)ReflectionUtil.callMethod(null, androidGetPackageInfoVersionCodeMethod, new Object[] { paramString })).intValue();
+    }
+    return -1;
+  }
+  
+
+
+
+
+  public static final String getPackageInfoVersionName(String paramString)
+  {
+    if (null != androidGetPackageInfoVersionNameMethod) {
+      return (String)ReflectionUtil.callMethod(null, androidGetPackageInfoVersionNameMethod, new Object[] { paramString });
+    }
+    return null;
+  }
+  
+
+
+
+
+  public static File getTempRoot()
+    throws RuntimeException
+  {
+    if (null != androidGetTempRootMethod) {
+      return (File)ReflectionUtil.callMethod(null, androidGetTempRootMethod, new Object[0]);
+    }
+    return null;
+  }
+  
+  public AndroidUtils() {}
+}

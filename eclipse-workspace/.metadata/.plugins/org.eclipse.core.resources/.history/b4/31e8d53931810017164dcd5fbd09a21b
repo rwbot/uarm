@@ -1,0 +1,375 @@
+package jogamp.common.os.elf;
+
+import com.jogamp.common.os.MachineDataInfo.StaticConfig;
+import com.jogamp.common.os.Platform.ABIType;
+import com.jogamp.common.os.Platform.CPUFamily;
+import com.jogamp.common.os.Platform.CPUType;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ElfHeaderPart2
+{
+  public static final int EF_ARM_ABIMASK = -16777216;
+  public static final int EF_ARM_ABISHIFT = 24;
+  public static final int EF_ARM_ABI5 = 83886080;
+  public static final int EF_ARM_BE8 = 8388608;
+  public static final int EF_ARM_GCCMASK = 4198399;
+  public static final int EF_ARM_ABI_FLOAT_HARD = 1024;
+  public static final int EF_ARM_ABI_FLOAT_SOFT = 512;
+  public final ElfHeaderPart1 eh1;
+  public final Ehdr_p2 raw;
+  public final String cpuName;
+  public final Platform.CPUType cpuType;
+  public final Platform.ABIType abiType;
+  public final SectionHeader[] sht;
+  
+  public static ElfHeaderPart2 read(ElfHeaderPart1 paramElfHeaderPart1, RandomAccessFile paramRandomAccessFile)
+    throws IOException, IllegalArgumentException
+  {
+    return new ElfHeaderPart2(paramElfHeaderPart1, paramRandomAccessFile);
+  }
+  
+
+
+
+  ElfHeaderPart2(ElfHeaderPart1 paramElfHeaderPart1, RandomAccessFile paramRandomAccessFile)
+    throws IllegalArgumentException, IOException
+  {
+    eh1 = paramElfHeaderPart1;
+    
+
+
+
+    Object localObject1 = new byte[Ehdr_p2.size(machDesc.ordinal())];
+    IOUtils.readBytes(paramRandomAccessFile, (byte[])localObject1, 0, localObject1.length);
+    Object localObject2 = ByteBuffer.wrap((byte[])localObject1, 0, localObject1.length);
+    raw = Ehdr_p2.create(machDesc.ordinal(), (ByteBuffer)localObject2);
+    
+    sht = readSectionHeaderTable(paramRandomAccessFile);
+    
+    if ((Platform.CPUFamily.ARM == cpuType.family) && (cpuType.is32Bit))
+    {
+      localObject1 = null;
+      localObject2 = null;
+      boolean bool = false;
+      SectionHeader localSectionHeader = getSectionHeader(1879048195);
+      if (ElfHeaderPart1.DEBUG)
+        System.err.println("ELF-2: Got ARM Attribs Section Header: " + localSectionHeader);
+      Object localObject3;
+      if (null != localSectionHeader) {
+        localObject3 = (SectionArmAttributes)localSectionHeader.readSection(paramRandomAccessFile);
+        if (ElfHeaderPart1.DEBUG) {
+          System.err.println("ELF-2: Got ARM Attribs Section Block : " + localObject3);
+        }
+        localObject4 = ((SectionArmAttributes)localObject3).get(SectionArmAttributes.Tag.CPU_name);
+        if ((null != localObject4) && (((SectionArmAttributes.Attribute)localObject4).isNTBS())) {
+          localObject1 = ((SectionArmAttributes.Attribute)localObject4).getNTBS();
+        }
+        SectionArmAttributes.Attribute localAttribute1 = ((SectionArmAttributes)localObject3).get(SectionArmAttributes.Tag.CPU_raw_name);
+        if ((null != localAttribute1) && (localAttribute1.isNTBS())) {
+          localObject2 = localAttribute1.getNTBS();
+        }
+        SectionArmAttributes.Attribute localAttribute2 = ((SectionArmAttributes)localObject3).get(SectionArmAttributes.Tag.ABI_VFP_args);
+        if (null != localAttribute2) {
+          bool = SectionArmAttributes.abiVFPArgsAcceptsVFPVariant(localAttribute2.getULEB128());
+        }
+      }
+      
+
+      if ((null != localObject1) && (((String)localObject1).length() > 0)) {
+        localObject3 = ((String)localObject1).toLowerCase().replace(' ', '-');
+      } else if ((null != localObject2) && (((String)localObject2).length() > 0)) {
+        localObject3 = ((String)localObject2).toLowerCase().replace(' ', '-');
+      } else {
+        localObject3 = cpuName;
+      }
+      
+
+      Object localObject4 = queryCPUTypeSafe((String)localObject3);
+      if (null == localObject4)
+      {
+        localObject3 = "arm-" + (String)localObject3;
+        localObject4 = queryCPUTypeSafe((String)localObject3);
+        if (null == localObject4)
+        {
+          localObject3 = cpuName;
+          localObject4 = queryCPUTypeSafe((String)localObject3);
+          if (null == localObject4) {
+            throw new InternalError("XXX: " + (String)localObject3 + ", " + paramElfHeaderPart1);
+          }
+        }
+      }
+      cpuName = ((String)localObject3);
+      cpuType = ((Platform.CPUType)localObject4);
+      if (ElfHeaderPart1.DEBUG) {
+        System.err.println("ELF-2: abiARM cpuName " + (String)localObject3 + "[armCpuName " + (String)localObject1 + ", armCpuRawName " + (String)localObject2 + "] -> " + cpuName + " -> " + cpuType + ", abiVFPArgsAcceptsVFPVariant " + bool);
+      }
+      
+      if (cpuType.is32Bit) {
+        abiType = (bool ? Platform.ABIType.EABI_GNU_ARMHF : Platform.ABIType.EABI_GNU_ARMEL);
+      } else {
+        abiType = abiType;
+      }
+    } else {
+      cpuName = cpuName;
+      cpuType = cpuType;
+      abiType = abiType;
+    }
+    if (ElfHeaderPart1.DEBUG)
+      System.err.println("ELF-2: cpuName " + cpuName + " -> " + cpuType + ", " + abiType);
+  }
+  
+  private static Platform.CPUType queryCPUTypeSafe(String paramString) {
+    Platform.CPUType localCPUType = null;
+    try {
+      localCPUType = Platform.CPUType.query(paramString);
+    } catch (Throwable localThrowable) {
+      if (ElfHeaderPart1.DEBUG) {
+        System.err.println("ELF-2: queryCPUTypeSafe(" + paramString + "): " + localThrowable.getMessage());
+      }
+    }
+    return localCPUType;
+  }
+  
+  public final short getSize() { return raw.getE_ehsize(); }
+  
+  public final int getFlags()
+  {
+    return raw.getE_flags();
+  }
+  
+  public byte getArmABI()
+  {
+    return (byte)((0xFF000000 & raw.getE_flags()) >> 24 & 0xFF);
+  }
+  
+  public int getArmLegacyGCCFlags()
+  {
+    int i = raw.getE_flags();
+    return 0 != (0xFF000000 & i) ? 0x400FFF & i : 0;
+  }
+  
+
+
+
+
+
+
+
+  public byte getArmFloatMode()
+  {
+    int i = raw.getE_flags();
+    if (0 != (0xFF000000 & i)) {
+      if ((0x400 & i) != 0) {
+        return 2;
+      }
+      if ((0x200 & i) != 0) {
+        return 1;
+      }
+    }
+    return 0;
+  }
+  
+  public final SectionHeader getSectionHeader(int paramInt)
+  {
+    for (int i = 0; i < sht.length; i++) {
+      SectionHeader localSectionHeader = sht[i];
+      if (localSectionHeader.getType() == paramInt) {
+        return localSectionHeader;
+      }
+    }
+    return null;
+  }
+  
+  public final SectionHeader getSectionHeader(String paramString)
+  {
+    for (int i = 0; i < sht.length; i++) {
+      SectionHeader localSectionHeader = sht[i];
+      if (localSectionHeader.getName().equals(paramString)) {
+        return localSectionHeader;
+      }
+    }
+    return null;
+  }
+  
+  public final String toString()
+  {
+    int i = getArmABI();
+    String str;
+    if (0 != i) {
+      str = ", arm[abi " + i + ", lGCC " + getArmLegacyGCCFlags() + ", float " + getArmFloatMode() + "]";
+    } else {
+      str = "";
+    }
+    return "ELF-2[" + cpuType + ", " + abiType + ", flags[" + IOUtils.toHexString(getFlags()) + str + "], sh-num " + sht.length + "]";
+  }
+  
+  final SectionHeader[] readSectionHeaderTable(RandomAccessFile paramRandomAccessFile)
+    throws IOException, IllegalArgumentException
+  {
+    long l = raw.getE_shoff();
+    if (0L == l) {
+      return new SectionHeader[0];
+    }
+    IOUtils.seek(paramRandomAccessFile, l);
+    
+
+    int i = raw.getE_shstrndx();
+    int j = raw.getE_shentsize();
+    Object localObject1;
+    Object localObject2;
+    int k; SectionHeader[] arrayOfSectionHeader; if (0 == raw.getE_shnum())
+    {
+      localObject1 = new byte[j];
+      IOUtils.readBytes(paramRandomAccessFile, (byte[])localObject1, 0, j);
+      localObject2 = new SectionHeader(this, (byte[])localObject1, 0, j, 0);
+      k = (int)raw.getSh_size();
+      if (0 >= k) {
+        throw new IllegalArgumentException("EHdr sh_num == 0 and 1st SHdr size == 0");
+      }
+      arrayOfSectionHeader = new SectionHeader[k];
+      arrayOfSectionHeader[0] = localObject2;
+      m = 1;
+    } else {
+      k = raw.getE_shnum();
+      arrayOfSectionHeader = new SectionHeader[k]; }
+    for (int m = 0; 
+        
+        m < k; m++) {
+      localObject1 = new byte[j];
+      IOUtils.readBytes(paramRandomAccessFile, (byte[])localObject1, 0, j);
+      arrayOfSectionHeader[m] = new SectionHeader(this, (byte[])localObject1, 0, j, m);
+    }
+    if (0 != i)
+    {
+      if (IOUtils.shortToInt((short)65280) <= i) {
+        throw new InternalError("TODO strndx: -256 < " + i);
+      }
+      localObject1 = arrayOfSectionHeader[i];
+      if (3 != ((SectionHeader)localObject1).getType()) {
+        throw new IllegalArgumentException("Ref. string Shdr[" + i + "] is of type " + raw.getSh_type());
+      }
+      localObject2 = ((SectionHeader)localObject1).readSection(paramRandomAccessFile);
+      for (m = 0; m < k; m++) {
+        arrayOfSectionHeader[m].initName((Section)localObject2, raw.getSh_name());
+      }
+    }
+    
+    return arrayOfSectionHeader;
+  }
+}

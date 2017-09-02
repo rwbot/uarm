@@ -1,0 +1,120 @@
+package jogamp.opengl.awt;
+
+import com.jogamp.common.util.awt.AWTEDTExecutor;
+import com.jogamp.opengl.GLException;
+import java.awt.EventQueue;
+import jogamp.opengl.GLWorkerThread;
+import jogamp.opengl.ThreadingImpl;
+import jogamp.opengl.ToolkitThreadingPlugin;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class AWTThreadingPlugin
+  implements ToolkitThreadingPlugin
+{
+  public AWTThreadingPlugin() {}
+  
+  public final boolean isToolkitThread()
+    throws GLException
+  {
+    return EventQueue.isDispatchThread();
+  }
+  
+  public final boolean isOpenGLThread() throws GLException
+  {
+    switch (1.$SwitchMap$com$jogamp$opengl$Threading$Mode[ThreadingImpl.getMode().ordinal()])
+    {
+    case 1: 
+      if ((Java2D.isOGLPipelineActive()) && (!ThreadingImpl.isX11())) {
+        return Java2D.isQueueFlusherThread();
+      }
+      return EventQueue.isDispatchThread();
+    
+    case 2: 
+      if (Java2D.isOGLPipelineActive())
+      {
+
+
+
+
+        return (Java2D.isQueueFlusherThread()) || ((ThreadingImpl.isX11()) && (GLWorkerThread.isWorkerThread()));
+      }
+      return GLWorkerThread.isWorkerThread();
+    }
+    
+    throw new InternalError("Illegal single-threading mode " + ThreadingImpl.getMode());
+  }
+  
+  public final void invokeOnOpenGLThread(boolean paramBoolean, Runnable paramRunnable)
+    throws GLException
+  {
+    switch (1.$SwitchMap$com$jogamp$opengl$Threading$Mode[ThreadingImpl.getMode().ordinal()])
+    {
+
+
+
+
+
+
+
+    case 1: 
+      if ((paramBoolean) && (Java2D.isOGLPipelineActive()) && (!ThreadingImpl.isX11())) {
+        Java2D.invokeWithOGLContextCurrent(null, paramRunnable);
+      } else {
+        AWTEDTExecutor.singleton.invoke(paramBoolean, paramRunnable);
+      }
+      break;
+    
+    case 2: 
+      ThreadingImpl.invokeOnWorkerThread(paramBoolean, paramRunnable);
+      break;
+    
+    case 3: 
+      paramRunnable.run();
+      break;
+    
+    default: 
+      throw new InternalError("Illegal single-threading mode " + ThreadingImpl.getMode());
+    }
+    
+  }
+}

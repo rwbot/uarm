@@ -1,0 +1,103 @@
+package com.jogamp.opengl.util.texture.spi.awt;
+
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.util.texture.TextureData;
+import com.jogamp.opengl.util.texture.awt.AWTTextureData;
+import com.jogamp.opengl.util.texture.spi.TextureProvider;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
+import java.net.URL;
+import javax.imageio.ImageIO;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class IIOTextureProvider
+  implements TextureProvider
+{
+  private static final boolean DEBUG = Debug.debug("TextureIO");
+  
+
+  public IIOTextureProvider() {}
+  
+  public TextureData newTextureData(GLProfile paramGLProfile, File paramFile, int paramInt1, int paramInt2, boolean paramBoolean, String paramString)
+    throws IOException
+  {
+    BufferedImage localBufferedImage = ImageIO.read(paramFile);
+    if (localBufferedImage == null) {
+      return null;
+    }
+    if (DEBUG) {
+      System.out.println("TextureIO.newTextureData(): BufferedImage type for " + paramFile + " = " + localBufferedImage
+        .getType());
+    }
+    return new AWTTextureData(paramGLProfile, paramInt1, paramInt2, paramBoolean, localBufferedImage);
+  }
+  
+
+
+
+  public TextureData newTextureData(GLProfile paramGLProfile, InputStream paramInputStream, int paramInt1, int paramInt2, boolean paramBoolean, String paramString)
+    throws IOException
+  {
+    BufferedImage localBufferedImage = ImageIO.read(paramInputStream);
+    if (localBufferedImage == null) {
+      return null;
+    }
+    if (DEBUG) {
+      System.out.println("TextureIO.newTextureData(): BufferedImage type for stream = " + localBufferedImage
+        .getType());
+    }
+    return new AWTTextureData(paramGLProfile, paramInt1, paramInt2, paramBoolean, localBufferedImage);
+  }
+  
+
+
+
+  public TextureData newTextureData(GLProfile paramGLProfile, URL paramURL, int paramInt1, int paramInt2, boolean paramBoolean, String paramString)
+    throws IOException
+  {
+    InputStream localInputStream = paramURL.openStream();
+    try {
+      return newTextureData(paramGLProfile, localInputStream, paramInt1, paramInt2, paramBoolean, paramString);
+    } finally {
+      localInputStream.close();
+    }
+  }
+}

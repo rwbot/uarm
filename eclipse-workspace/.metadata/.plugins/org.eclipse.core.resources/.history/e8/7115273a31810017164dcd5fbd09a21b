@@ -1,0 +1,437 @@
+package jogamp.opengl.glu.nurbs;
+
+
+
+
+
+
+
+public class Mapdesc
+{
+  private static final int MAXCOORDS = 5;
+  
+
+
+
+
+
+  public Mapdesc next;
+  
+
+
+
+
+
+  public int isrational;
+  
+
+
+
+
+
+  public int ncoords;
+  
+
+
+
+
+
+  private final int type;
+  
+
+
+
+
+
+  private final int hcoords;
+  
+
+
+
+
+
+  private final int inhcoords;
+  
+
+
+
+
+
+  private final int mask;
+  
+
+
+
+
+
+  private float pixel_tolerance;
+  
+
+
+
+
+
+  private float error_tolerance;
+  
+
+
+
+
+
+  private float bbox_subdividing;
+  
+
+
+
+
+
+  private float culling_method;
+  
+
+
+
+
+
+  private float sampling_method;
+  
+
+
+
+
+
+  float clampfactor;
+  
+
+
+
+
+
+  private float minsavings;
+  
+
+
+
+
+  private float s_steps;
+  
+
+
+
+
+  private float t_steps;
+  
+
+
+
+
+  float maxrate;
+  
+
+
+
+
+  private float maxsrate;
+  
+
+
+
+
+  private float maxtrate;
+  
+
+
+
+
+  private final float[][] bmat;
+  
+
+
+
+
+  private final float[][] smat;
+  
+
+
+
+
+  private final float[][] cmat;
+  
+
+
+
+
+  private final float[] bboxsize;
+  
+
+
+
+
+
+  public Mapdesc(int paramInt1, int paramInt2, int paramInt3)
+  {
+    type = paramInt1;
+    isrational = paramInt2;
+    ncoords = paramInt3;
+    hcoords = (paramInt3 + (isrational > 0 ? 0 : 1));
+    inhcoords = (paramInt3 - (isrational > 0 ? 1 : 0));
+    mask = ((1 << inhcoords * 2) - 1);
+    next = null;
+    
+    assert (hcoords <= 5);
+    assert (inhcoords >= 1);
+    
+    pixel_tolerance = 1.0F;
+    error_tolerance = 1.0F;
+    bbox_subdividing = 0.0F;
+    culling_method = 0.0F;
+    sampling_method = 0.0F;
+    clampfactor = 0.0F;
+    minsavings = 0.0F;
+    s_steps = 0.0F;
+    t_steps = 0.0F;
+    
+    maxrate = (s_steps < 0.0F ? 0.0F : s_steps);
+    maxsrate = (s_steps < 0.0F ? 0.0F : s_steps);
+    maxtrate = (t_steps < 0.0F ? 0.0F : t_steps);
+    bmat = new float[5][5];
+    cmat = new float[5][5];
+    smat = new float[5][5];
+    
+    identify(bmat);
+    identify(cmat);
+    identify(smat);
+    bboxsize = new float[5];
+    for (int i = 0; i < inhcoords; i++) {
+      bboxsize[i] = 1.0F;
+    }
+  }
+  
+
+
+
+  private void identify(float[][] paramArrayOfFloat)
+  {
+    for (int i = 0; i < 5; i++)
+      for (int j = 0; j < 5; j++)
+        paramArrayOfFloat[i][j] = 0.0F;
+    for (i = 0; i < 5; i++) {
+      paramArrayOfFloat[i][i] = 1.0F;
+    }
+  }
+  
+
+
+  public boolean isProperty(int paramInt)
+  {
+    boolean bool;
+    
+
+    switch (paramInt) {
+    case 1: 
+    case 2: 
+    case 6: 
+    case 7: 
+    case 10: 
+    case 13: 
+    case 14: 
+    case 17: 
+    case 20: 
+      bool = true;
+      break;
+    case 3: case 4: case 5: case 8: case 9: case 11: case 12: case 15: case 16: case 18: case 19: default: 
+      bool = false;
+    }
+    
+    return bool;
+  }
+  
+
+
+
+  public int getNCoords()
+  {
+    return ncoords;
+  }
+  
+
+
+
+  public int getType()
+  {
+    return type;
+  }
+  
+
+
+
+
+
+  public boolean isRangeSampling()
+  {
+    return (isParametricDistanceSampling()) || (isPathLengthSampling()) || (isSurfaceAreaSampling()) || (isObjectSpaceParaSampling()) || (isObjectSpacePathSampling());
+  }
+  
+
+
+
+
+  private boolean isObjectSpacePathSampling()
+  {
+    return sampling_method == 9.0F;
+  }
+  
+
+
+
+
+  private boolean isObjectSpaceParaSampling()
+  {
+    return sampling_method == 8.0F;
+  }
+  
+
+
+
+
+  private boolean isSurfaceAreaSampling()
+  {
+    return sampling_method == 7.0F;
+  }
+  
+
+
+
+
+  boolean isPathLengthSampling()
+  {
+    return sampling_method == 6.0F;
+  }
+  
+
+
+
+
+  boolean isParametricDistanceSampling()
+  {
+    return sampling_method == 5.0F;
+  }
+  
+
+
+
+
+  public boolean isCulling()
+  {
+    return culling_method != 0.0F;
+  }
+  
+
+
+
+  public boolean isConstantSampling()
+  {
+    return sampling_method == 3.0F;
+  }
+  
+
+
+
+  public boolean isDomainSampling()
+  {
+    return sampling_method == 2.0F;
+  }
+  
+
+
+
+
+
+
+  public float getProperty(int paramInt)
+  {
+    return 0.0F;
+  }
+  
+
+
+
+
+
+  public void setProperty(int paramInt, float paramFloat)
+  {
+    switch (paramInt) {
+    case 1: 
+      pixel_tolerance = paramFloat;
+      break;
+    case 20: 
+      error_tolerance = paramFloat;
+      break;
+    case 2: 
+      culling_method = paramFloat;
+      break;
+    case 17: 
+      if (paramFloat <= 0.0F)
+        paramFloat = 0.0F;
+      bbox_subdividing = paramFloat;
+      break;
+    case 6: 
+      if (paramFloat < 0.0F)
+        paramFloat = 0.0F;
+      s_steps = paramFloat;
+      maxrate = paramFloat;
+      maxsrate = paramFloat;
+      break;
+    case 7: 
+      if (paramFloat < 0.0F)
+        paramFloat = 0.0F;
+      t_steps = paramFloat;
+      maxtrate = paramFloat;
+      break;
+    case 10: 
+      sampling_method = paramFloat;
+      break;
+    case 13: 
+      if (paramFloat < 0.0F)
+        paramFloat = 0.0F;
+      clampfactor = paramFloat;
+      break;
+    case 14: 
+      if (paramFloat <= 0.0F)
+        paramFloat = 0.0F;
+      minsavings = paramFloat;
+    }
+    
+  }
+  
+
+
+
+
+
+
+
+
+
+  public void xformSampling(CArrayOfFloats paramCArrayOfFloats, int paramInt1, int paramInt2, float[] paramArrayOfFloat, int paramInt3)
+  {
+    xFormMat(smat, paramCArrayOfFloats, paramInt1, paramInt2, paramArrayOfFloat, paramInt3);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  private void xFormMat(float[][] paramArrayOfFloat, CArrayOfFloats paramCArrayOfFloats, int paramInt1, int paramInt2, float[] paramArrayOfFloat1, int paramInt3)
+  {
+    if (isrational > 0) {}
+  }
+}

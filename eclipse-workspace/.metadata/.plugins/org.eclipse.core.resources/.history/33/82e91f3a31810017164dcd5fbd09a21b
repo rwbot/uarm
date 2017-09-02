@@ -1,0 +1,151 @@
+package jogamp.opengl;
+
+import com.jogamp.opengl.FPSCounter;
+import java.io.PrintStream;
+import java.util.concurrent.TimeUnit;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class FPSCounterImpl
+  implements FPSCounter
+{
+  private int fpsUpdateFramesInterval;
+  private PrintStream fpsOutputStream;
+  private long fpsStartTime;
+  private long fpsLastUpdateTime;
+  private long fpsLastPeriod;
+  private long fpsTotalDuration;
+  private int fpsTotalFrames;
+  private float fpsLast;
+  private float fpsTotal;
+  
+  public FPSCounterImpl()
+  {
+    setUpdateFPSFrames(0, null);
+  }
+  
+
+
+
+
+
+
+  public final synchronized void tickFPS()
+  {
+    fpsTotalFrames += 1;
+    if ((fpsUpdateFramesInterval > 0) && (fpsTotalFrames % fpsUpdateFramesInterval == 0)) {
+      long l = TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
+      fpsLastPeriod = (l - fpsLastUpdateTime);
+      fpsLastPeriod = Math.max(fpsLastPeriod, 1L);
+      fpsLast = (fpsUpdateFramesInterval * 1000.0F / (float)fpsLastPeriod);
+      
+      fpsTotalDuration = (l - fpsStartTime);
+      fpsTotalDuration = Math.max(fpsTotalDuration, 1L);
+      fpsTotal = (fpsTotalFrames * 1000.0F / (float)fpsTotalDuration);
+      
+      if (null != fpsOutputStream) {
+        fpsOutputStream.println(toString());
+      }
+      
+      fpsLastUpdateTime = l;
+    }
+  }
+  
+  public StringBuilder toString(StringBuilder paramStringBuilder) {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    String str1 = String.valueOf(fpsLast);
+    str1 = str1.substring(0, str1.indexOf('.') + 2);
+    String str2 = String.valueOf(fpsTotal);
+    str2 = str2.substring(0, str2.indexOf('.') + 2);
+    paramStringBuilder.append(fpsTotalDuration / 1000L + " s: " + fpsUpdateFramesInterval + " f / " + fpsLastPeriod + " ms, " + str1 + " fps, " + fpsLastPeriod / fpsUpdateFramesInterval + " ms/f; " + "total: " + fpsTotalFrames + " f, " + str2 + " fps, " + fpsTotalDuration / fpsTotalFrames + " ms/f");
+    
+    return paramStringBuilder;
+  }
+  
+  public String toString()
+  {
+    return toString(null).toString();
+  }
+  
+  public final synchronized void setUpdateFPSFrames(int paramInt, PrintStream paramPrintStream)
+  {
+    fpsUpdateFramesInterval = paramInt;
+    fpsOutputStream = paramPrintStream;
+    resetFPSCounter();
+  }
+  
+  public final synchronized void resetFPSCounter()
+  {
+    fpsStartTime = TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
+    fpsLastUpdateTime = fpsStartTime;
+    fpsLastPeriod = 0L;
+    fpsTotalFrames = 0;
+    fpsLast = 0.0F;fpsTotal = 0.0F;
+    fpsLastPeriod = 0L;fpsTotalDuration = 0L;
+  }
+  
+  public final synchronized int getUpdateFPSFrames()
+  {
+    return fpsUpdateFramesInterval;
+  }
+  
+  public final synchronized long getFPSStartTime()
+  {
+    return fpsStartTime;
+  }
+  
+  public final synchronized long getLastFPSUpdateTime()
+  {
+    return fpsLastUpdateTime;
+  }
+  
+  public final synchronized long getLastFPSPeriod()
+  {
+    return fpsLastPeriod;
+  }
+  
+  public final synchronized float getLastFPS()
+  {
+    return fpsLast;
+  }
+  
+  public final synchronized int getTotalFPSFrames()
+  {
+    return fpsTotalFrames;
+  }
+  
+  public final synchronized long getTotalFPSDuration()
+  {
+    return fpsTotalDuration;
+  }
+  
+  public final synchronized float getTotalFPS()
+  {
+    return fpsTotal;
+  }
+}

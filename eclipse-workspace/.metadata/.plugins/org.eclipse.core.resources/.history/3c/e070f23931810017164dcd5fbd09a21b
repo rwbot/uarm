@@ -1,0 +1,2033 @@
+package com.jogamp.opengl.util.awt;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.util.InterruptSource.Thread;
+import com.jogamp.common.util.PropertyAccess;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLEventListener;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.awt.GLCanvas;
+import com.jogamp.opengl.glu.GLU;
+import com.jogamp.opengl.util.FPSAnimator;
+import com.jogamp.opengl.util.packrect.BackingStoreManager;
+import com.jogamp.opengl.util.packrect.Rect;
+import com.jogamp.opengl.util.packrect.RectVisitor;
+import com.jogamp.opengl.util.packrect.RectanglePacker;
+import com.jogamp.opengl.util.texture.Texture;
+import com.jogamp.opengl.util.texture.TextureCoords;
+import java.awt.AlphaComposite;
+import java.awt.Color;
+import java.awt.EventQueue;
+import java.awt.Font;
+import java.awt.Frame;
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.Point;
+import java.awt.RenderingHints;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.awt.font.FontRenderContext;
+import java.awt.font.GlyphMetrics;
+import java.awt.font.GlyphVector;
+import java.awt.geom.Rectangle2D;
+import java.awt.geom.Rectangle2D.Double;
+import java.io.PrintStream;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import java.text.CharacterIterator;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class TextRenderer
+{
+  private static final boolean DEBUG = PropertyAccess.isPropertyDefined("jogl.debug.TextRenderer", true);
+  
+  private static final boolean DISABLE_GLYPH_CACHE = false;
+  
+  private static final boolean DRAW_BBOXES = false;
+  
+  static final int kSize = 256;
+  
+  private static final int CYCLES_PER_FLUSH = 100;
+  
+  private static final float MAX_VERTICAL_FRAGMENTATION = 0.7F;
+  
+  static final int kQuadsPerBuffer = 100;
+  
+  static final int kCoordsPerVertVerts = 3;
+  
+  static final int kCoordsPerVertTex = 2;
+  
+  static final int kVertsPerQuad = 4;
+  
+  static final int kTotalBufferSizeVerts = 400;
+  
+  static final int kTotalBufferSizeCoordsVerts = 1200;
+  
+  static final int kTotalBufferSizeCoordsTex = 800;
+  static final int kTotalBufferSizeBytesVerts = 4800;
+  static final int kTotalBufferSizeBytesTex = 3200;
+  static final int kSizeInBytes_OneVertices_VertexData = 12;
+  static final int kSizeInBytes_OneVertices_TexData = 8;
+  private final Font font;
+  private final boolean antialiased;
+  private final boolean useFractionalMetrics;
+  private boolean mipmap;
+  private RectanglePacker packer;
+  private boolean haveMaxSize;
+  private final RenderDelegate renderDelegate;
+  private TextureRenderer cachedBackingStore;
+  private Graphics2D cachedGraphics;
+  private FontRenderContext cachedFontRenderContext;
+  private final Map<String, Rect> stringLocations = new HashMap();
+  
+  private final GlyphProducer mGlyphProducer;
+  
+  private int numRenderCycles;
+  
+  private boolean inBeginEndPair;
+  
+  private boolean isOrthoMode;
+  
+  private int beginRenderingWidth;
+  
+  private int beginRenderingHeight;
+  
+  private boolean beginRenderingDepthTestDisabled;
+  
+  private boolean haveCachedColor;
+  
+  private float cachedR;
+  
+  private float cachedG;
+  
+  private float cachedB;
+  
+  private float cachedA;
+  
+  private Color cachedColor;
+  private boolean needToResetColor;
+  private Frame dbgFrame;
+  private boolean debugged;
+  Pipelined_QuadRenderer mPipelinedQuadRenderer;
+  private boolean useVertexArrays = true;
+  
+
+  private boolean isExtensionAvailable_GL_VERSION_1_5;
+  
+  private boolean checkFor_isExtensionAvailable_GL_VERSION_1_5;
+  
+  private boolean smoothing = true;
+  
+
+
+
+
+
+
+  public TextRenderer(Font paramFont)
+  {
+    this(paramFont, false, false, null, false);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public TextRenderer(Font paramFont, boolean paramBoolean)
+  {
+    this(paramFont, false, false, null, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public TextRenderer(Font paramFont, boolean paramBoolean1, boolean paramBoolean2)
+  {
+    this(paramFont, paramBoolean1, paramBoolean2, null, false);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public TextRenderer(Font paramFont, boolean paramBoolean1, boolean paramBoolean2, RenderDelegate paramRenderDelegate)
+  {
+    this(paramFont, paramBoolean1, paramBoolean2, paramRenderDelegate, false);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public TextRenderer(Font paramFont, boolean paramBoolean1, boolean paramBoolean2, RenderDelegate paramRenderDelegate, boolean paramBoolean3)
+  {
+    font = paramFont;
+    antialiased = paramBoolean1;
+    useFractionalMetrics = paramBoolean2;
+    mipmap = paramBoolean3;
+    
+
+
+    packer = new RectanglePacker(new Manager(), 256, 256);
+    
+    if (paramRenderDelegate == null) {
+      paramRenderDelegate = new DefaultRenderDelegate();
+    }
+    
+    renderDelegate = paramRenderDelegate;
+    
+    mGlyphProducer = new GlyphProducer(paramFont.getNumGlyphs());
+  }
+  
+
+
+  public Rectangle2D getBounds(String paramString)
+  {
+    return getBounds(paramString);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public Rectangle2D getBounds(CharSequence paramCharSequence)
+  {
+    Rect localRect = (Rect)stringLocations.get(paramCharSequence);
+    
+    if (localRect != null) {
+      TextData localTextData = (TextData)localRect.getUserData();
+      
+
+
+      return new Rectangle2D.Double(-originx, -originy, localRect.w(), localRect.h());
+    }
+    
+
+
+    return normalize(renderDelegate.getBounds(paramCharSequence, font, 
+      getFontRenderContext()));
+  }
+  
+  public Font getFont()
+  {
+    return font;
+  }
+  
+
+
+
+
+  public FontRenderContext getFontRenderContext()
+  {
+    if (cachedFontRenderContext == null) {
+      cachedFontRenderContext = getGraphics2D().getFontRenderContext();
+    }
+    
+    return cachedFontRenderContext;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void beginRendering(int paramInt1, int paramInt2)
+    throws GLException
+  {
+    beginRendering(paramInt1, paramInt2, true);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void beginRendering(int paramInt1, int paramInt2, boolean paramBoolean)
+    throws GLException
+  {
+    beginRendering(true, paramInt1, paramInt2, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public void begin3DRendering()
+    throws GLException
+  {
+    beginRendering(false, 0, 0, false);
+  }
+  
+
+
+
+
+
+  public void setColor(Color paramColor)
+    throws GLException
+  {
+    int i = (haveCachedColor) && (cachedColor != null) && (paramColor.equals(cachedColor)) ? 1 : 0;
+    
+    if (i == 0) {
+      flushGlyphPipeline();
+    }
+    
+    getBackingStore().setColor(paramColor);
+    haveCachedColor = true;
+    cachedColor = paramColor;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void setColor(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+    throws GLException
+  {
+    int i = (haveCachedColor) && (cachedColor == null) && (paramFloat1 == cachedR) && (paramFloat2 == cachedG) && (paramFloat3 == cachedB) && (paramFloat4 == cachedA) ? 1 : 0;
+    
+
+
+    if (i == 0) {
+      flushGlyphPipeline();
+    }
+    
+    getBackingStore().setColor(paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+    haveCachedColor = true;
+    cachedR = paramFloat1;
+    cachedG = paramFloat2;
+    cachedB = paramFloat3;
+    cachedA = paramFloat4;
+    cachedColor = null;
+  }
+  
+
+
+
+
+
+
+
+
+
+  public void draw(CharSequence paramCharSequence, int paramInt1, int paramInt2)
+    throws GLException
+  {
+    draw3D(paramCharSequence, paramInt1, paramInt2, 0.0F, 1.0F);
+  }
+  
+
+  public void draw(String paramString, int paramInt1, int paramInt2)
+    throws GLException
+  {
+    draw3D(paramString, paramInt1, paramInt2, 0.0F, 1.0F);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public void draw3D(CharSequence paramCharSequence, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    internal_draw3D(paramCharSequence, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+  }
+  
+
+
+
+  public void draw3D(String paramString, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    internal_draw3D(paramString, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+  }
+  
+  public float getCharWidth(char paramChar)
+  {
+    return mGlyphProducer.getGlyphPixelWidth(paramChar);
+  }
+  
+
+
+
+
+  public void flush()
+  {
+    flushGlyphPipeline();
+  }
+  
+
+
+
+
+
+  public void endRendering()
+    throws GLException
+  {
+    endRendering(true);
+  }
+  
+
+
+
+
+  public void end3DRendering()
+    throws GLException
+  {
+    endRendering(false);
+  }
+  
+
+
+
+  public void dispose()
+    throws GLException
+  {
+    packer.dispose();
+    packer = null;
+    cachedBackingStore = null;
+    cachedGraphics = null;
+    cachedFontRenderContext = null;
+    
+    if (dbgFrame != null) {
+      dbgFrame.dispose();
+    }
+  }
+  
+
+
+
+
+
+
+
+  private static Rectangle2D preNormalize(Rectangle2D paramRectangle2D)
+  {
+    int i = (int)Math.floor(paramRectangle2D.getMinX()) - 1;
+    int j = (int)Math.floor(paramRectangle2D.getMinY()) - 1;
+    int k = (int)Math.ceil(paramRectangle2D.getMaxX()) + 1;
+    int m = (int)Math.ceil(paramRectangle2D.getMaxY()) + 1;
+    return new Rectangle2D.Double(i, j, k - i, m - j);
+  }
+  
+
+
+
+
+
+
+
+  private Rectangle2D normalize(Rectangle2D paramRectangle2D)
+  {
+    int i = (int)Math.max(1.0D, 0.015D * font.getSize());
+    
+
+
+
+    return new Rectangle2D.Double((int)Math.floor(paramRectangle2D.getMinX() - i), (int)Math.floor(paramRectangle2D.getMinY() - i), (int)Math.ceil(paramRectangle2D.getWidth() + 2 * i), (int)Math.ceil(paramRectangle2D.getHeight()) + 2 * i);
+  }
+  
+  private TextureRenderer getBackingStore() {
+    TextureRenderer localTextureRenderer = (TextureRenderer)packer.getBackingStore();
+    
+    if (localTextureRenderer != cachedBackingStore)
+    {
+      if (cachedGraphics != null) {
+        cachedGraphics.dispose();
+        cachedGraphics = null;
+        cachedFontRenderContext = null;
+      }
+      
+      cachedBackingStore = localTextureRenderer;
+    }
+    
+    return cachedBackingStore;
+  }
+  
+  private Graphics2D getGraphics2D() {
+    TextureRenderer localTextureRenderer = getBackingStore();
+    
+    if (cachedGraphics == null) {
+      cachedGraphics = localTextureRenderer.createGraphics();
+      
+
+      cachedGraphics.setComposite(AlphaComposite.Src);
+      cachedGraphics.setColor(Color.WHITE);
+      cachedGraphics.setFont(font);
+      cachedGraphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, antialiased ? RenderingHints.VALUE_TEXT_ANTIALIAS_ON : RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
+      
+
+      cachedGraphics.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, useFractionalMetrics ? RenderingHints.VALUE_FRACTIONALMETRICS_ON : RenderingHints.VALUE_FRACTIONALMETRICS_OFF);
+    }
+    
+
+
+
+    return cachedGraphics;
+  }
+  
+  private void beginRendering(boolean paramBoolean1, int paramInt1, int paramInt2, boolean paramBoolean2)
+  {
+    GL2 localGL2 = GLContext.getCurrentGL().getGL2();
+    
+    if ((DEBUG) && (!debugged)) {
+      debug(localGL2);
+    }
+    
+    inBeginEndPair = true;
+    isOrthoMode = paramBoolean1;
+    beginRenderingWidth = paramInt1;
+    beginRenderingHeight = paramInt2;
+    beginRenderingDepthTestDisabled = paramBoolean2;
+    
+    if (paramBoolean1) {
+      getBackingStore().beginOrthoRendering(paramInt1, paramInt2, paramBoolean2);
+    }
+    else {
+      getBackingStore().begin3DRendering();
+    }
+    
+
+    localGL2.glPushClientAttrib(-1);
+    
+    if (!haveMaxSize)
+    {
+
+      int[] arrayOfInt = new int[1];
+      localGL2.glGetIntegerv(3379, arrayOfInt, 0);
+      packer.setMaxSize(arrayOfInt[0], arrayOfInt[0]);
+      haveMaxSize = true;
+    }
+    
+    if ((needToResetColor) && (haveCachedColor)) {
+      if (cachedColor == null) {
+        getBackingStore().setColor(cachedR, cachedG, cachedB, cachedA);
+      } else {
+        getBackingStore().setColor(cachedColor);
+      }
+      
+      needToResetColor = false;
+    }
+    
+
+
+    if ((mipmap) && (!getBackingStore().isUsingAutoMipmapGeneration())) {
+      if (DEBUG) {
+        System.err.println("Disabled mipmapping in TextRenderer");
+      }
+      
+      mipmap = false;
+    }
+  }
+  
+
+
+
+
+
+  private void endRendering(boolean paramBoolean)
+    throws GLException
+  {
+    flushGlyphPipeline();
+    
+    inBeginEndPair = false;
+    
+    GL2 localGL2 = GLContext.getCurrentGL().getGL2();
+    
+
+    localGL2.glPopClientAttrib();
+    
+
+
+
+    if ((getUseVertexArrays()) && (is15Available(localGL2))) {
+      try {
+        localGL2.glBindBuffer(34962, 0);
+      } catch (Exception localException) {
+        isExtensionAvailable_GL_VERSION_1_5 = false;
+      }
+    }
+    
+    if (paramBoolean) {
+      getBackingStore().endOrthoRendering();
+    } else {
+      getBackingStore().end3DRendering();
+    }
+    
+    if (++numRenderCycles >= 100) {
+      numRenderCycles = 0;
+      
+      if (DEBUG) {
+        System.err.println("Clearing unused entries in endRendering()");
+      }
+      
+      clearUnusedEntries();
+    }
+  }
+  
+  private void clearUnusedEntries() {
+    final ArrayList localArrayList = new ArrayList();
+    
+
+
+    packer.visit(new RectVisitor()
+    {
+      public void visit(Rect paramAnonymousRect) {
+        TextRenderer.TextData localTextData = (TextRenderer.TextData)paramAnonymousRect.getUserData();
+        
+        if (localTextData.used()) {
+          localTextData.clearUsed();
+        } else {
+          localArrayList.add(paramAnonymousRect);
+        }
+      }
+    });
+    
+    for (Rect localRect : localArrayList) {
+      packer.remove(localRect);
+      stringLocations.remove(((TextData)localRect.getUserData()).string());
+      
+      int i = getUserDataunicodeID;
+      
+      if (i > 0) {
+        mGlyphProducer.clearCacheEntry(i);
+      }
+    }
+    
+
+
+
+
+
+
+
+
+    float f = packer.verticalFragmentationRatio();
+    
+    if ((!localArrayList.isEmpty()) && (f > 0.7F)) {
+      if (DEBUG) {
+        System.err.println("Compacting TextRenderer backing store due to vertical fragmentation " + f);
+      }
+      
+
+
+      packer.compact();
+    }
+    
+    if (DEBUG) {
+      getBackingStore().markDirty(0, 0, getBackingStore().getWidth(), 
+        getBackingStore().getHeight());
+    }
+  }
+  
+  private void internal_draw3D(CharSequence paramCharSequence, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    for (Glyph localGlyph : mGlyphProducer.getGlyphs(paramCharSequence)) {
+      float f = localGlyph.draw3D(paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+      paramFloat1 += f * paramFloat4;
+    }
+  }
+  
+  private void flushGlyphPipeline() {
+    if (mPipelinedQuadRenderer != null) {
+      mPipelinedQuadRenderer.draw();
+    }
+  }
+  
+  private void draw3D_ROBUST(CharSequence paramCharSequence, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    String str;
+    if ((paramCharSequence instanceof String)) {
+      str = (String)paramCharSequence;
+    } else {
+      str = paramCharSequence.toString();
+    }
+    
+
+    Rect localRect = (Rect)stringLocations.get(str);
+    
+    if (localRect == null)
+    {
+      localObject1 = getGraphics2D();
+      localObject2 = preNormalize(renderDelegate.getBounds(str, font, getFontRenderContext()));
+      localRectangle2D = normalize((Rectangle2D)localObject2);
+      
+      Point localPoint = new Point((int)-localRectangle2D.getMinX(), (int)-localRectangle2D.getMinY());
+      
+      localRect = new Rect(0, 0, (int)localRectangle2D.getWidth(), (int)localRectangle2D.getHeight(), new TextData(str, localPoint, (Rectangle2D)localObject2, -1));
+      
+
+      packer.add(localRect);
+      stringLocations.put(str, localRect);
+      
+
+
+      localObject1 = getGraphics2D();
+      
+
+
+      int i = localRect.x() + x;
+      int j = localRect.y() + y;
+      
+
+      ((Graphics2D)localObject1).setComposite(AlphaComposite.Clear);
+      ((Graphics2D)localObject1).fillRect(localRect.x(), localRect.y(), localRect.w(), localRect.h());
+      ((Graphics2D)localObject1).setComposite(AlphaComposite.Src);
+      
+
+      renderDelegate.draw((Graphics2D)localObject1, str, i, j);
+      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      getBackingStore().markDirty(localRect.x(), localRect.y(), localRect.w(), localRect
+        .h());
+    }
+    
+
+    Object localObject1 = getBackingStore();
+    
+
+
+
+    Object localObject2 = (TextData)localRect.getUserData();
+    ((TextData)localObject2).markUsed();
+    
+    Rectangle2D localRectangle2D = ((TextData)localObject2).origRect();
+    
+
+    ((TextureRenderer)localObject1).draw3DRect(paramFloat1 - paramFloat4 * ((TextData)localObject2).origOriginX(), paramFloat2 - paramFloat4 * (
+      (float)localRectangle2D.getHeight() - ((TextData)localObject2).origOriginY()), paramFloat3, localRect
+      .x() + (originx - ((TextData)localObject2).origOriginX()), ((TextureRenderer)localObject1)
+      .getHeight() - localRect.y() - (int)localRectangle2D.getHeight() - (
+      originy - ((TextData)localObject2).origOriginY()), 
+      (int)localRectangle2D.getWidth(), (int)localRectangle2D.getHeight(), paramFloat4);
+  }
+  
+
+
+  private void debug(GL paramGL)
+  {
+    dbgFrame = new Frame("TextRenderer Debug Output");
+    
+    GLCanvas localGLCanvas = new GLCanvas(new GLCapabilities(paramGL.getGLProfile()));
+    localGLCanvas.setSharedContext(GLContext.getCurrent());
+    localGLCanvas.addGLEventListener(new DebugListener(paramGL, dbgFrame));
+    dbgFrame.add(localGLCanvas);
+    
+    final FPSAnimator localFPSAnimator = new FPSAnimator(localGLCanvas, 10);
+    dbgFrame.addWindowListener(new WindowAdapter()
+    {
+
+
+
+
+      public void windowClosing(WindowEvent paramAnonymousWindowEvent)
+      {
+
+
+
+        new InterruptSource.Thread(null, new Runnable()
+        {
+          public void run()
+          {
+            val$anim.stop();
+          }
+        })
+        
+
+
+
+          .start();
+      }
+    });
+    dbgFrame.setSize(256, 256);
+    dbgFrame.setVisible(true);
+    localFPSAnimator.start();
+    debugged = true;
+  }
+  
+
+
+
+
+  public static abstract interface RenderDelegate
+  {
+    public abstract boolean intensityOnly();
+    
+
+
+
+
+    public abstract Rectangle2D getBounds(String paramString, Font paramFont, FontRenderContext paramFontRenderContext);
+    
+
+
+
+
+    public abstract Rectangle2D getBounds(CharSequence paramCharSequence, Font paramFont, FontRenderContext paramFontRenderContext);
+    
+
+
+
+
+    public abstract Rectangle2D getBounds(GlyphVector paramGlyphVector, FontRenderContext paramFontRenderContext);
+    
+
+
+
+
+    public abstract void draw(Graphics2D paramGraphics2D, String paramString, int paramInt1, int paramInt2);
+    
+
+
+
+
+    public abstract void drawGlyphVector(Graphics2D paramGraphics2D, GlyphVector paramGlyphVector, int paramInt1, int paramInt2);
+  }
+  
+
+
+
+
+  private static class CharSequenceIterator
+    implements CharacterIterator
+  {
+    CharSequence mSequence;
+    
+
+
+
+    int mLength;
+    
+
+
+
+    int mCurrentIndex;
+    
+
+
+
+
+    CharSequenceIterator() {}
+    
+
+
+
+    CharSequenceIterator(CharSequence paramCharSequence)
+    {
+      initFromCharSequence(paramCharSequence);
+    }
+    
+    public void initFromCharSequence(CharSequence paramCharSequence) {
+      mSequence = paramCharSequence;
+      mLength = mSequence.length();
+      mCurrentIndex = 0;
+    }
+    
+    public char last()
+    {
+      mCurrentIndex = Math.max(0, mLength - 1);
+      
+      return current();
+    }
+    
+    public char current()
+    {
+      if ((mLength == 0) || (mCurrentIndex >= mLength)) {
+        return 65535;
+      }
+      
+      return mSequence.charAt(mCurrentIndex);
+    }
+    
+    public char next()
+    {
+      mCurrentIndex += 1;
+      
+      return current();
+    }
+    
+    public char previous()
+    {
+      mCurrentIndex = Math.max(mCurrentIndex - 1, 0);
+      
+      return current();
+    }
+    
+    public char setIndex(int paramInt)
+    {
+      mCurrentIndex = paramInt;
+      
+      return current();
+    }
+    
+    public int getBeginIndex()
+    {
+      return 0;
+    }
+    
+    public int getEndIndex()
+    {
+      return mLength;
+    }
+    
+    public int getIndex()
+    {
+      return mCurrentIndex;
+    }
+    
+    public Object clone()
+    {
+      CharSequenceIterator localCharSequenceIterator = new CharSequenceIterator(mSequence);
+      mCurrentIndex = mCurrentIndex;
+      
+      return localCharSequenceIterator;
+    }
+    
+    public char first()
+    {
+      if (mLength == 0) {
+        return 65535;
+      }
+      
+      mCurrentIndex = 0;
+      
+      return current();
+    }
+  }
+  
+
+
+
+  static class TextData
+  {
+    private final String str;
+    
+
+
+    int unicodeID;
+    
+
+
+    private final Point origin;
+    
+
+
+    private final Rectangle2D origRect;
+    
+
+
+    private boolean used;
+    
+
+
+
+    TextData(String paramString, Point paramPoint, Rectangle2D paramRectangle2D, int paramInt)
+    {
+      str = paramString;
+      origin = paramPoint;
+      origRect = paramRectangle2D;
+      unicodeID = paramInt;
+    }
+    
+    String string() {
+      return str;
+    }
+    
+    Point origin() {
+      return origin;
+    }
+    
+
+    int origOriginX()
+    {
+      return (int)-origRect.getMinX();
+    }
+    
+    int origOriginY() {
+      return (int)-origRect.getMinY();
+    }
+    
+    Rectangle2D origRect() {
+      return origRect;
+    }
+    
+    boolean used() {
+      return used;
+    }
+    
+    void markUsed() {
+      used = true;
+    }
+    
+    void clearUsed() {
+      used = false;
+    }
+  }
+  
+
+  class Manager
+    implements BackingStoreManager
+  {
+    private Graphics2D g;
+    
+    Manager() {}
+    
+    public Object allocateBackingStore(int paramInt1, int paramInt2)
+    {
+      TextureRenderer localTextureRenderer;
+      if (renderDelegate.intensityOnly()) {
+        localTextureRenderer = TextureRenderer.createAlphaOnlyRenderer(paramInt1, paramInt2, mipmap);
+      } else {
+        localTextureRenderer = new TextureRenderer(paramInt1, paramInt2, true, mipmap);
+      }
+      localTextureRenderer.setSmoothing(smoothing);
+      
+      if (TextRenderer.DEBUG) {
+        System.err.println(" TextRenderer allocating backing store " + paramInt1 + " x " + paramInt2);
+      }
+      
+
+      return localTextureRenderer;
+    }
+    
+    public void deleteBackingStore(Object paramObject)
+    {
+      ((TextureRenderer)paramObject).dispose();
+    }
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public boolean preExpand(Rect paramRect, int paramInt)
+    {
+      if (paramInt == 0) {
+        if (TextRenderer.DEBUG) {
+          System.err.println("Clearing unused entries in preExpand(): attempt number " + paramInt);
+        }
+        
+
+
+        if (inBeginEndPair)
+        {
+          flush();
+        }
+        
+        TextRenderer.this.clearUnusedEntries();
+        
+        return true;
+      }
+      
+      return false;
+    }
+    
+
+    public boolean additionFailed(Rect paramRect, int paramInt)
+    {
+      packer.clear();
+      stringLocations.clear();
+      mGlyphProducer.clearAllCacheEntries();
+      
+      if (TextRenderer.DEBUG) {
+        System.err.println(" *** Cleared all text because addition failed ***");
+      }
+      
+
+      if (paramInt == 0) {
+        return true;
+      }
+      
+      return false;
+    }
+    
+    public boolean canCompact()
+    {
+      return true;
+    }
+    
+
+    public void beginMovement(Object paramObject1, Object paramObject2)
+    {
+      if (inBeginEndPair)
+      {
+        flush();
+        
+        localObject = GLContext.getCurrentGL().getGL2();
+        
+
+        ((GL2)localObject).glPopClientAttrib();
+        
+
+
+
+        if ((getUseVertexArrays()) && (TextRenderer.this.is15Available((GL)localObject))) {
+          try {
+            ((GL2)localObject).glBindBuffer(34962, 0);
+          } catch (Exception localException) {
+            isExtensionAvailable_GL_VERSION_1_5 = false;
+          }
+        }
+        
+        if (isOrthoMode) {
+          ((TextureRenderer)paramObject1).endOrthoRendering();
+        } else {
+          ((TextureRenderer)paramObject1).end3DRendering();
+        }
+      }
+      
+      Object localObject = (TextureRenderer)paramObject2;
+      g = ((TextureRenderer)localObject).createGraphics();
+    }
+    
+
+    public void move(Object paramObject1, Rect paramRect1, Object paramObject2, Rect paramRect2)
+    {
+      TextureRenderer localTextureRenderer1 = (TextureRenderer)paramObject1;
+      TextureRenderer localTextureRenderer2 = (TextureRenderer)paramObject2;
+      
+      if (localTextureRenderer1 == localTextureRenderer2)
+      {
+        g.copyArea(paramRect1.x(), paramRect1.y(), paramRect1.w(), paramRect1
+          .h(), paramRect2.x() - paramRect1.x(), paramRect2
+          .y() - paramRect1.y());
+      }
+      else {
+        Image localImage = localTextureRenderer1.getImage();
+        g.drawImage(localImage, paramRect2.x(), paramRect2.y(), paramRect2
+          .x() + paramRect2.w(), paramRect2
+          .y() + paramRect2.h(), paramRect1.x(), paramRect1
+          .y(), paramRect1.x() + paramRect1.w(), paramRect1
+          .y() + paramRect1.h(), null);
+      }
+    }
+    
+    public void endMovement(Object paramObject1, Object paramObject2)
+    {
+      g.dispose();
+      
+
+      TextureRenderer localTextureRenderer = (TextureRenderer)paramObject2;
+      localTextureRenderer.markDirty(0, 0, localTextureRenderer.getWidth(), localTextureRenderer
+        .getHeight());
+      
+
+      if (inBeginEndPair) {
+        if (isOrthoMode) {
+          ((TextureRenderer)paramObject2).beginOrthoRendering(beginRenderingWidth, 
+            beginRenderingHeight, beginRenderingDepthTestDisabled);
+        } else {
+          ((TextureRenderer)paramObject2).begin3DRendering();
+        }
+        
+
+        GL2 localGL2 = GLContext.getCurrentGL().getGL2();
+        localGL2.glPushClientAttrib(-1);
+        
+        if (haveCachedColor) {
+          if (cachedColor == null) {
+            ((TextureRenderer)paramObject2).setColor(cachedR, 
+              cachedG, cachedB, cachedA);
+          } else {
+            ((TextureRenderer)paramObject2).setColor(cachedColor);
+          }
+        }
+      } else {
+        needToResetColor = true;
+      }
+    }
+  }
+  
+  public static class DefaultRenderDelegate implements TextRenderer.RenderDelegate {
+    public DefaultRenderDelegate() {}
+    
+    public boolean intensityOnly() { return true; }
+    
+
+
+    public Rectangle2D getBounds(CharSequence paramCharSequence, Font paramFont, FontRenderContext paramFontRenderContext)
+    {
+      return getBounds(paramFont.createGlyphVector(paramFontRenderContext, new TextRenderer.CharSequenceIterator(paramCharSequence)), paramFontRenderContext);
+    }
+    
+
+
+
+    public Rectangle2D getBounds(String paramString, Font paramFont, FontRenderContext paramFontRenderContext)
+    {
+      return getBounds(paramFont.createGlyphVector(paramFontRenderContext, paramString), paramFontRenderContext);
+    }
+    
+    public Rectangle2D getBounds(GlyphVector paramGlyphVector, FontRenderContext paramFontRenderContext)
+    {
+      return paramGlyphVector.getVisualBounds();
+    }
+    
+
+    public void drawGlyphVector(Graphics2D paramGraphics2D, GlyphVector paramGlyphVector, int paramInt1, int paramInt2)
+    {
+      paramGraphics2D.drawGlyphVector(paramGlyphVector, paramInt1, paramInt2);
+    }
+    
+    public void draw(Graphics2D paramGraphics2D, String paramString, int paramInt1, int paramInt2)
+    {
+      paramGraphics2D.drawString(paramString, paramInt1, paramInt2);
+    }
+  }
+  
+
+
+
+
+
+  private final char[] singleUnicode = new char[1];
+  
+
+
+
+
+  class Glyph
+  {
+    private int unicodeID;
+    
+
+
+
+    private int glyphCode;
+    
+
+
+
+    private TextRenderer.GlyphProducer producer;
+    
+
+
+    private float advance;
+    
+
+
+    private GlyphVector singleUnicodeGlyphVector;
+    
+
+
+    private Rect glyphRectForTextureMapping;
+    
+
+
+    private String str;
+    
+
+
+    private boolean needAdvance;
+    
+
+
+
+    public Glyph(int paramInt1, int paramInt2, float paramFloat, GlyphVector paramGlyphVector, TextRenderer.GlyphProducer paramGlyphProducer)
+    {
+      unicodeID = paramInt1;
+      glyphCode = paramInt2;
+      advance = paramFloat;
+      singleUnicodeGlyphVector = paramGlyphVector;
+      producer = paramGlyphProducer;
+    }
+    
+
+
+    public Glyph(String paramString, boolean paramBoolean)
+    {
+      str = paramString;
+      needAdvance = paramBoolean;
+    }
+    
+    public int getUnicodeID()
+    {
+      return unicodeID;
+    }
+    
+    public int getGlyphCode()
+    {
+      return glyphCode;
+    }
+    
+    public float getAdvance()
+    {
+      return advance;
+    }
+    
+    public float draw3D(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4) {
+      Object localObject;
+      if (str != null) {
+        TextRenderer.this.draw3D_ROBUST(str, paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+        if (!needAdvance) {
+          return 0.0F;
+        }
+        
+        localObject = font.createGlyphVector(getFontRenderContext(), str);
+        float f1 = 0.0F;
+        for (int i = 0; i < ((GlyphVector)localObject).getNumGlyphs(); i++) {
+          f1 += ((GlyphVector)localObject).getGlyphMetrics(i).getAdvance();
+        }
+        return f1;
+      }
+      
+
+      if (glyphRectForTextureMapping == null) {
+        upload();
+      }
+      try
+      {
+        if (mPipelinedQuadRenderer == null) {
+          mPipelinedQuadRenderer = new TextRenderer.Pipelined_QuadRenderer(TextRenderer.this);
+        }
+        
+        localObject = TextRenderer.this.getBackingStore();
+        
+        TextureCoords localTextureCoords = ((TextureRenderer)localObject).getTexture().getImageTexCoords();
+        float f2 = localTextureCoords.right();
+        float f3 = localTextureCoords.bottom();
+        
+        Rect localRect = glyphRectForTextureMapping;
+        TextRenderer.TextData localTextData = (TextRenderer.TextData)localRect.getUserData();
+        localTextData.markUsed();
+        
+        Rectangle2D localRectangle2D = localTextData.origRect();
+        
+        float f4 = paramFloat1 - paramFloat4 * localTextData.origOriginX();
+        float f5 = paramFloat2 - paramFloat4 * ((float)localRectangle2D.getHeight() - localTextData.origOriginY());
+        
+        int j = localRect.x() + (originx - localTextData.origOriginX());
+        
+        int k = ((TextureRenderer)localObject).getHeight() - localRect.y() - (int)localRectangle2D.getHeight() - (originy - localTextData.origOriginY());
+        int m = (int)localRectangle2D.getWidth();
+        int n = (int)localRectangle2D.getHeight();
+        
+        float f6 = f2 * j / ((TextureRenderer)localObject).getWidth();
+        
+        float f7 = f3 * (1.0F - k / ((TextureRenderer)localObject).getHeight());
+        float f8 = f2 * (j + m) / ((TextureRenderer)localObject).getWidth();
+        
+        float f9 = f3 * (1.0F - (k + n) / ((TextureRenderer)localObject).getHeight());
+        
+        mPipelinedQuadRenderer.glTexCoord2f(f6, f7);
+        mPipelinedQuadRenderer.glVertex3f(f4, f5, paramFloat3);
+        mPipelinedQuadRenderer.glTexCoord2f(f8, f7);
+        mPipelinedQuadRenderer.glVertex3f(f4 + m * paramFloat4, f5, paramFloat3);
+        
+        mPipelinedQuadRenderer.glTexCoord2f(f8, f9);
+        mPipelinedQuadRenderer.glVertex3f(f4 + m * paramFloat4, f5 + n * paramFloat4, paramFloat3);
+        
+        mPipelinedQuadRenderer.glTexCoord2f(f6, f9);
+        mPipelinedQuadRenderer.glVertex3f(f4, f5 + n * paramFloat4, paramFloat3);
+      }
+      catch (Exception localException) {
+        localException.printStackTrace();
+      }
+      return advance;
+    }
+    
+    public void clear()
+    {
+      glyphRectForTextureMapping = null;
+    }
+    
+    private void upload() {
+      GlyphVector localGlyphVector = getGlyphVector();
+      Rectangle2D localRectangle2D1 = TextRenderer.preNormalize(renderDelegate.getBounds(localGlyphVector, getFontRenderContext()));
+      Rectangle2D localRectangle2D2 = TextRenderer.this.normalize(localRectangle2D1);
+      
+      Point localPoint = new Point((int)-localRectangle2D2.getMinX(), (int)-localRectangle2D2.getMinY());
+      
+      Rect localRect = new Rect(0, 0, (int)localRectangle2D2.getWidth(), (int)localRectangle2D2.getHeight(), new TextRenderer.TextData(null, localPoint, localRectangle2D1, unicodeID));
+      
+      packer.add(localRect);
+      glyphRectForTextureMapping = localRect;
+      Graphics2D localGraphics2D = TextRenderer.this.getGraphics2D();
+      
+
+      int i = localRect.x() + x;
+      int j = localRect.y() + y;
+      
+
+      localGraphics2D.setComposite(AlphaComposite.Clear);
+      localGraphics2D.fillRect(localRect.x(), localRect.y(), localRect.w(), localRect.h());
+      localGraphics2D.setComposite(AlphaComposite.Src);
+      
+
+      renderDelegate.drawGlyphVector(localGraphics2D, localGlyphVector, i, j);
+      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      TextRenderer.this.getBackingStore().markDirty(localRect.x(), localRect.y(), localRect.w(), localRect
+        .h());
+      
+      producer.register(this);
+    }
+    
+    private GlyphVector getGlyphVector() {
+      GlyphVector localGlyphVector = singleUnicodeGlyphVector;
+      if (localGlyphVector != null) {
+        singleUnicodeGlyphVector = null;
+        return localGlyphVector;
+      }
+      singleUnicode[0] = ((char)unicodeID);
+      return font.createGlyphVector(getFontRenderContext(), singleUnicode);
+    }
+  }
+  
+  class GlyphProducer {
+    static final int undefined = -2;
+    final FontRenderContext fontRenderContext = null;
+    List<TextRenderer.Glyph> glyphsOutput = new ArrayList();
+    HashMap<String, GlyphVector> fullGlyphVectorCache = new HashMap();
+    HashMap<Character, GlyphMetrics> glyphMetricsCache = new HashMap();
+    
+    int[] unicodes2Glyphs;
+    
+    TextRenderer.Glyph[] glyphCache;
+    
+    TextRenderer.CharSequenceIterator iter = new TextRenderer.CharSequenceIterator();
+    
+    GlyphProducer(int paramInt) {
+      unicodes2Glyphs = new int['Ȁ'];
+      glyphCache = new TextRenderer.Glyph[paramInt];
+      clearAllCacheEntries();
+    }
+    
+    public List<TextRenderer.Glyph> getGlyphs(CharSequence paramCharSequence) {
+      glyphsOutput.clear();
+      
+      GlyphVector localGlyphVector = (GlyphVector)fullGlyphVectorCache.get(paramCharSequence.toString());
+      if (localGlyphVector == null) {
+        iter.initFromCharSequence(paramCharSequence);
+        localGlyphVector = font.createGlyphVector(getFontRenderContext(), iter);
+        fullGlyphVectorCache.put(paramCharSequence.toString(), localGlyphVector);
+      }
+      int i = localGlyphVector.getLayoutFlags() != 0 ? 1 : 0;
+      if (i != 0)
+      {
+        glyphsOutput.add(new TextRenderer.Glyph(TextRenderer.this, paramCharSequence.toString(), false));
+        return glyphsOutput;
+      }
+      
+      int j = localGlyphVector.getNumGlyphs();
+      int k = 0;
+      while (k < j) {
+        Character localCharacter = TextRenderer.CharacterCache.valueOf(paramCharSequence.charAt(k));
+        GlyphMetrics localGlyphMetrics = (GlyphMetrics)glyphMetricsCache.get(localCharacter);
+        if (localGlyphMetrics == null) {
+          localGlyphMetrics = localGlyphVector.getGlyphMetrics(k);
+          glyphMetricsCache.put(localCharacter, localGlyphMetrics);
+        }
+        TextRenderer.Glyph localGlyph = getGlyph(paramCharSequence, localGlyphMetrics, k);
+        if (localGlyph != null) {
+          glyphsOutput.add(localGlyph);
+          k++;
+        }
+        else
+        {
+          StringBuilder localStringBuilder = new StringBuilder();
+          while ((k < j) && 
+            (getGlyph(paramCharSequence, localGlyphVector.getGlyphMetrics(k), k) == null)) {
+            localStringBuilder.append(paramCharSequence.charAt(k++));
+          }
+          glyphsOutput.add(new TextRenderer.Glyph(TextRenderer.this, localStringBuilder.toString(), k < j));
+        }
+      }
+      
+
+      return glyphsOutput;
+    }
+    
+    public void clearCacheEntry(int paramInt) {
+      int i = unicodes2Glyphs[paramInt];
+      if (i != -2) {
+        TextRenderer.Glyph localGlyph = glyphCache[i];
+        if (localGlyph != null) {
+          localGlyph.clear();
+        }
+        glyphCache[i] = null;
+      }
+      unicodes2Glyphs[paramInt] = -2;
+    }
+    
+    public void clearAllCacheEntries() {
+      for (int i = 0; i < unicodes2Glyphs.length; i++) {
+        clearCacheEntry(i);
+      }
+    }
+    
+    public void register(TextRenderer.Glyph paramGlyph) {
+      unicodes2Glyphs[paramGlyph.getUnicodeID()] = paramGlyph.getGlyphCode();
+      glyphCache[paramGlyph.getGlyphCode()] = paramGlyph;
+    }
+    
+    public float getGlyphPixelWidth(char paramChar) {
+      TextRenderer.Glyph localGlyph = getGlyph(paramChar);
+      if (localGlyph != null) {
+        return localGlyph.getAdvance();
+      }
+      
+
+      singleUnicode[0] = paramChar;
+      if (null == fontRenderContext) {
+        throw new InternalError("fontRenderContext never initialized!");
+      }
+      GlyphVector localGlyphVector = font.createGlyphVector(fontRenderContext, 
+        singleUnicode);
+      return localGlyphVector.getGlyphMetrics(0).getAdvance();
+    }
+    
+
+
+
+
+    private TextRenderer.Glyph getGlyph(CharSequence paramCharSequence, GlyphMetrics paramGlyphMetrics, int paramInt)
+    {
+      int i = paramCharSequence.charAt(paramInt);
+      
+      if (i >= unicodes2Glyphs.length) {
+        return null;
+      }
+      
+      int j = unicodes2Glyphs[i];
+      if (j != -2) {
+        return glyphCache[j];
+      }
+      
+
+      singleUnicode[0] = i;
+      GlyphVector localGlyphVector = font.createGlyphVector(getFontRenderContext(), singleUnicode);
+      return getGlyph(i, localGlyphVector, paramGlyphMetrics);
+    }
+    
+
+
+    private TextRenderer.Glyph getGlyph(int paramInt)
+    {
+      if (paramInt >= unicodes2Glyphs.length) {
+        return null;
+      }
+      
+      int i = unicodes2Glyphs[paramInt];
+      if (i != -2) {
+        return glyphCache[i];
+      }
+      singleUnicode[0] = ((char)paramInt);
+      GlyphVector localGlyphVector = font.createGlyphVector(getFontRenderContext(), singleUnicode);
+      return getGlyph(paramInt, localGlyphVector, localGlyphVector.getGlyphMetrics(0));
+    }
+    
+
+    private TextRenderer.Glyph getGlyph(int paramInt, GlyphVector paramGlyphVector, GlyphMetrics paramGlyphMetrics)
+    {
+      int i = paramGlyphVector.getGlyphCode(0);
+      
+      if (i >= glyphCache.length) {
+        return null;
+      }
+      
+
+      TextRenderer.Glyph localGlyph = new TextRenderer.Glyph(TextRenderer.this, paramInt, i, paramGlyphMetrics.getAdvance(), paramGlyphVector, this);
+      
+
+      register(localGlyph);
+      return localGlyph;
+    }
+  }
+  
+
+
+  private static class CharacterCache
+  {
+    static final Character[] cache = new Character[''];
+    
+    static {
+      for (int i = 0; i < cache.length; i++) {
+        cache[i] = Character.valueOf((char)i);
+      }
+    }
+    
+    public static Character valueOf(char paramChar) {
+      if (paramChar <= '') {
+        return cache[paramChar];
+      }
+      return Character.valueOf(paramChar);
+    }
+    
+    private CharacterCache() {} }
+  
+  class Pipelined_QuadRenderer { int mOutstandingGlyphsVerticesPipeline = 0;
+    FloatBuffer mTexCoords;
+    FloatBuffer mVertCoords;
+    boolean usingVBOs;
+    int mVBO_For_ResuableTileVertices;
+    int mVBO_For_ResuableTileTexCoords;
+    
+    Pipelined_QuadRenderer() {
+      GL2 localGL2 = GLContext.getCurrentGL().getGL2();
+      mVertCoords = Buffers.newDirectFloatBuffer(1200);
+      mTexCoords = Buffers.newDirectFloatBuffer(800);
+      
+      usingVBOs = ((getUseVertexArrays()) && (TextRenderer.this.is15Available(localGL2)));
+      
+      if (usingVBOs) {
+        try {
+          int[] arrayOfInt = new int[2];
+          localGL2.glGenBuffers(2, IntBuffer.wrap(arrayOfInt));
+          
+          mVBO_For_ResuableTileVertices = arrayOfInt[0];
+          mVBO_For_ResuableTileTexCoords = arrayOfInt[1];
+          
+          localGL2.glBindBuffer(34962, mVBO_For_ResuableTileVertices);
+          
+          localGL2.glBufferData(34962, 4800L, null, 35040);
+          
+
+          localGL2.glBindBuffer(34962, mVBO_For_ResuableTileTexCoords);
+          
+          localGL2.glBufferData(34962, 3200L, null, 35040);
+        }
+        catch (Exception localException) {
+          isExtensionAvailable_GL_VERSION_1_5 = false;
+          usingVBOs = false;
+        }
+      }
+    }
+    
+    public void glTexCoord2f(float paramFloat1, float paramFloat2) {
+      mTexCoords.put(paramFloat1);
+      mTexCoords.put(paramFloat2);
+    }
+    
+    public void glVertex3f(float paramFloat1, float paramFloat2, float paramFloat3) {
+      mVertCoords.put(paramFloat1);
+      mVertCoords.put(paramFloat2);
+      mVertCoords.put(paramFloat3);
+      
+      mOutstandingGlyphsVerticesPipeline += 1;
+      
+      if (mOutstandingGlyphsVerticesPipeline >= 400) {
+        draw();
+      }
+    }
+    
+    private void draw() {
+      if (useVertexArrays) {
+        drawVertexArrays();
+      } else {
+        drawIMMEDIATE();
+      }
+    }
+    
+    private void drawVertexArrays() {
+      if (mOutstandingGlyphsVerticesPipeline > 0) {
+        GL2 localGL2 = GLContext.getCurrentGL().getGL2();
+        
+        TextureRenderer localTextureRenderer = TextRenderer.this.getBackingStore();
+        localTextureRenderer.getTexture();
+        
+        mVertCoords.rewind();
+        mTexCoords.rewind();
+        
+        localGL2.glEnableClientState(32884);
+        
+        if (usingVBOs) {
+          localGL2.glBindBuffer(34962, mVBO_For_ResuableTileVertices);
+          
+          localGL2.glBufferSubData(34962, 0L, mOutstandingGlyphsVerticesPipeline * 12, mVertCoords);
+          
+
+          localGL2.glVertexPointer(3, 5126, 0, 0L);
+        } else {
+          localGL2.glVertexPointer(3, 5126, 0, mVertCoords);
+        }
+        
+        localGL2.glEnableClientState(32888);
+        
+        if (usingVBOs) {
+          localGL2.glBindBuffer(34962, mVBO_For_ResuableTileTexCoords);
+          
+          localGL2.glBufferSubData(34962, 0L, mOutstandingGlyphsVerticesPipeline * 8, mTexCoords);
+          
+
+          localGL2.glTexCoordPointer(2, 5126, 0, 0L);
+        } else {
+          localGL2.glTexCoordPointer(2, 5126, 0, mTexCoords);
+        }
+        
+        localGL2.glDrawArrays(7, 0, mOutstandingGlyphsVerticesPipeline);
+        
+
+        mVertCoords.rewind();
+        mTexCoords.rewind();
+        mOutstandingGlyphsVerticesPipeline = 0;
+      }
+    }
+    
+    private void drawIMMEDIATE() {
+      if (mOutstandingGlyphsVerticesPipeline > 0) {
+        TextureRenderer localTextureRenderer = TextRenderer.this.getBackingStore();
+        localTextureRenderer.getTexture();
+        
+        GL2 localGL2 = GLContext.getCurrentGL().getGL2();
+        localGL2.glBegin(7);
+        try
+        {
+          int i = mOutstandingGlyphsVerticesPipeline / 4;
+          mVertCoords.rewind();
+          mTexCoords.rewind();
+          
+          for (int j = 0; j < i; j++) {
+            localGL2.glTexCoord2f(mTexCoords.get(), mTexCoords.get());
+            localGL2.glVertex3f(mVertCoords.get(), mVertCoords.get(), mVertCoords
+              .get());
+            
+            localGL2.glTexCoord2f(mTexCoords.get(), mTexCoords.get());
+            localGL2.glVertex3f(mVertCoords.get(), mVertCoords.get(), mVertCoords
+              .get());
+            
+            localGL2.glTexCoord2f(mTexCoords.get(), mTexCoords.get());
+            localGL2.glVertex3f(mVertCoords.get(), mVertCoords.get(), mVertCoords
+              .get());
+            
+            localGL2.glTexCoord2f(mTexCoords.get(), mTexCoords.get());
+            localGL2.glVertex3f(mVertCoords.get(), mVertCoords.get(), mVertCoords
+              .get());
+          }
+        } catch (Exception localException) {
+          localException.printStackTrace();
+        } finally {
+          localGL2.glEnd();
+          mVertCoords.rewind();
+          mTexCoords.rewind();
+          mOutstandingGlyphsVerticesPipeline = 0;
+        }
+      }
+    }
+  }
+  
+  class DebugListener implements GLEventListener {
+    private GLU glu;
+    private Frame frame;
+    
+    DebugListener(GL paramGL, Frame paramFrame) {
+      glu = GLU.createGLU(paramGL);
+      frame = paramFrame;
+    }
+    
+    public void display(GLAutoDrawable paramGLAutoDrawable)
+    {
+      GL2 localGL2 = GLContext.getCurrentGL().getGL2();
+      localGL2.glClear(16640);
+      
+      if (packer == null) {
+        return;
+      }
+      
+      TextureRenderer localTextureRenderer = TextRenderer.this.getBackingStore();
+      final int i = localTextureRenderer.getWidth();
+      final int j = localTextureRenderer.getHeight();
+      localTextureRenderer.beginOrthoRendering(i, j);
+      localTextureRenderer.drawOrthoRect(0, 0);
+      localTextureRenderer.endOrthoRendering();
+      
+      if ((frame.getWidth() != i) || (frame.getHeight() != j)) {
+        EventQueue.invokeLater(new Runnable()
+        {
+          public void run() {
+            frame.setSize(i, j);
+          }
+        });
+      }
+    }
+    
+    public void dispose(GLAutoDrawable paramGLAutoDrawable)
+    {
+      glu = null;
+      frame = null;
+    }
+    
+
+
+
+
+    public void init(GLAutoDrawable paramGLAutoDrawable) {}
+    
+
+
+
+
+    public void reshape(GLAutoDrawable paramGLAutoDrawable, int paramInt1, int paramInt2, int paramInt3, int paramInt4) {}
+    
+
+
+
+    public void displayChanged(GLAutoDrawable paramGLAutoDrawable, boolean paramBoolean1, boolean paramBoolean2) {}
+  }
+  
+
+
+
+  public void setUseVertexArrays(boolean paramBoolean)
+  {
+    useVertexArrays = paramBoolean;
+  }
+  
+
+
+
+
+  public final boolean getUseVertexArrays()
+  {
+    return useVertexArrays;
+  }
+  
+
+
+
+
+
+  public void setSmoothing(boolean paramBoolean)
+  {
+    smoothing = paramBoolean;
+    getBackingStore().setSmoothing(paramBoolean);
+  }
+  
+
+
+
+
+
+  public boolean getSmoothing()
+  {
+    return smoothing;
+  }
+  
+  private final boolean is15Available(GL paramGL) {
+    if (!checkFor_isExtensionAvailable_GL_VERSION_1_5) {
+      isExtensionAvailable_GL_VERSION_1_5 = paramGL.isExtensionAvailable("GL_VERSION_1_5");
+      checkFor_isExtensionAvailable_GL_VERSION_1_5 = true;
+    }
+    return isExtensionAvailable_GL_VERSION_1_5;
+  }
+  
+  static {}
+}

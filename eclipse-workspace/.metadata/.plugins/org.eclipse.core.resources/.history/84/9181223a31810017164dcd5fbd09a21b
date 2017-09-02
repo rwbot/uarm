@@ -1,0 +1,696 @@
+package jogamp.opengl.awt;
+
+import com.jogamp.common.os.Platform.OSType;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawableFactory;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import java.awt.Graphics;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
+import java.awt.HeadlessException;
+import java.awt.Rectangle;
+import java.io.PrintStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import jogamp.common.os.PlatformPropsImpl;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Java2D
+{
+  private static boolean DEBUG = Debug.debug("Java2D");
+  
+  private static boolean isHeadless;
+  
+  private static boolean isOGLPipelineActive;
+  
+  private static boolean isOGLPipelineResourceCompatible;
+  
+  private static Method invokeWithOGLContextCurrentMethod;
+  
+  private static Method isQueueFlusherThreadMethod;
+  
+  private static Method getOGLViewportMethod;
+  
+  private static Method getOGLScissorBoxMethod;
+  private static Method getOGLSurfaceIdentifierMethod;
+  private static Method getOGLTextureTypeMethod;
+  private static boolean fbObjectSupportInitialized;
+  private static Method invokeWithOGLSharedContextCurrentMethod;
+  private static Method getOGLSurfaceTypeMethod;
+  public static final int UNDEFINED = getOGLUtilitiesIntField("UNDEFINED");
+  public static final int WINDOW = getOGLUtilitiesIntField("WINDOW");
+  public static final int PBUFFER = getOGLUtilitiesIntField("PBUFFER");
+  public static final int TEXTURE = getOGLUtilitiesIntField("TEXTURE");
+  public static final int FLIP_BACKBUFFER = getOGLUtilitiesIntField("FLIP_BACKBUFFER");
+  public static final int FBOBJECT = getOGLUtilitiesIntField("FBOBJECT");
+  
+
+
+  private static boolean initializedJ2DFBOShareContext;
+  
+
+
+  private static GLContext j2dFBOShareContext;
+  
+
+
+  private static Method createOGLContextOnSurfaceMethod;
+  
+
+  private static Method makeOGLContextCurrentOnSurfaceMethod;
+  
+
+  private static Method destroyOGLContextMethod;
+  
+
+
+  static
+  {
+    AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public Object run() {
+        if (Java2D.DEBUG) {
+          System.err.println("Checking for Java2D/OpenGL support");
+        }
+        Object localObject = null;
+        try {
+          Java2D.access$102(true);
+          
+
+
+
+          boolean bool1 = PlatformPropsImpl.OS_TYPE == Platform.OSType.MACOS;
+          
+
+          boolean bool3 = true;
+          String str2 = System.getProperty("sun.java2d.opengl");
+          if (null != str2) {
+            bool3 = Boolean.valueOf(str2).booleanValue();
+          }
+          boolean bool2 = !bool3;
+          GraphicsConfiguration localGraphicsConfiguration;
+          String str1; if ((!bool2) && (!bool1))
+          {
+            localGraphicsConfiguration = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration();
+            str1 = localGraphicsConfiguration.getClass().getName();
+          } else {
+            if (Java2D.DEBUG) {
+              System.err.println("Java2D support disabled: by Property " + bool2 + ", by OS " + bool1);
+            }
+            localGraphicsConfiguration = null;
+            str1 = "nil";
+          }
+          
+          Java2D.access$102(false);
+          if (Java2D.DEBUG) {
+            System.err.println("Java2D support: default GraphicsConfiguration = " + str1);
+          }
+          Java2D.access$202(str1.startsWith("sun.java2d.opengl"));
+          Java2D.access$302(Java2D.isOGLPipelineActive);
+          
+          if (Java2D.isOGLPipelineActive) {
+            try
+            {
+              Class localClass1 = Class.forName("sun.java2d.opengl.OGLUtilities");
+              Java2D.access$402(localClass1.getDeclaredMethod("invokeWithOGLContextCurrent", new Class[] { Graphics.class, Runnable.class }));
+              
+
+
+
+              Java2D.invokeWithOGLContextCurrentMethod.setAccessible(true);
+              
+              Java2D.access$502(localClass1.getDeclaredMethod("isQueueFlusherThread", new Class[0]));
+              
+              Java2D.isQueueFlusherThreadMethod.setAccessible(true);
+              
+              if (Java2D.isOGLPipelineResourceCompatible) {
+                Java2D.access$602(localClass1.getDeclaredMethod("getOGLViewport", new Class[] { Graphics.class, Integer.TYPE, Integer.TYPE }));
+                
+
+
+
+
+                Java2D.getOGLViewportMethod.setAccessible(true);
+                
+                Java2D.access$702(localClass1.getDeclaredMethod("getOGLScissorBox", new Class[] { Graphics.class }));
+                
+
+
+                Java2D.getOGLScissorBoxMethod.setAccessible(true);
+                
+                Java2D.access$802(localClass1.getDeclaredMethod("getOGLSurfaceIdentifier", new Class[] { Graphics.class }));
+                
+
+
+                Java2D.getOGLSurfaceIdentifierMethod.setAccessible(true);
+                
+
+                Java2D.access$902(true);
+                try {
+                  Java2D.access$1002(localClass1.getDeclaredMethod("invokeWithOGLSharedContextCurrent", new Class[] { GraphicsConfiguration.class, Runnable.class }));
+                  
+
+
+
+                  Java2D.invokeWithOGLSharedContextCurrentMethod.setAccessible(true);
+                  
+                  Java2D.access$1102(localClass1.getDeclaredMethod("getOGLSurfaceType", new Class[] { Graphics.class }));
+                  
+
+
+                  Java2D.getOGLSurfaceTypeMethod.setAccessible(true);
+                } catch (Exception localException2) {
+                  Java2D.access$902(false);
+                  if (Java2D.DEBUG) {
+                    localException2.printStackTrace();
+                    System.err.println("Info: Disabling Java2D/JOGL FBO support");
+                  }
+                }
+                
+                try
+                {
+                  Java2D.access$1202(localClass1.getDeclaredMethod("getOGLTextureType", new Class[] { Graphics.class }));
+                  
+
+
+                  Java2D.getOGLTextureTypeMethod.setAccessible(true);
+                } catch (Exception localException3) {
+                  if (Java2D.DEBUG) {
+                    localException3.printStackTrace();
+                    System.err.println("Info: GL_ARB_texture_rectangle FBO support disabled");
+                  }
+                }
+                
+
+
+
+                Class localClass2 = null;
+                try {
+                  localClass2 = Class.forName("sun.java2d.opengl.CGLSurfaceData");
+                } catch (Exception localException4) {
+                  if (Java2D.DEBUG) {
+                    localException4.printStackTrace();
+                    System.err.println("Info: Unable to find class sun.java2d.opengl.CGLSurfaceData for OS X");
+                  }
+                }
+                if (localClass2 != null)
+                {
+                  Java2D.access$902(false);
+                  
+
+                  Java2D.access$1302(localClass2.getDeclaredMethod("createOGLContextOnSurface", new Class[] { Graphics.class, Long.TYPE }));
+                  
+
+
+
+                  Java2D.createOGLContextOnSurfaceMethod.setAccessible(true);
+                  
+                  Java2D.access$1402(localClass2.getDeclaredMethod("makeOGLContextCurrentOnSurface", new Class[] { Graphics.class, Long.TYPE }));
+                  
+
+
+
+                  Java2D.makeOGLContextCurrentOnSurfaceMethod.setAccessible(true);
+                  
+                  Java2D.access$1502(localClass2.getDeclaredMethod("destroyOGLContext", new Class[] { Long.TYPE }));
+                  
+
+
+                  Java2D.destroyOGLContextMethod.setAccessible(true);
+                }
+              }
+            } catch (Exception localException1) {
+              localObject = localException1;
+              if (Java2D.DEBUG) {
+                System.err.println("Info: Disabling Java2D/JOGL integration");
+              }
+              Java2D.access$202(false);
+              Java2D.access$302(false);
+            }
+            
+          }
+        }
+        catch (HeadlessException localHeadlessException) {}catch (Error localError)
+        {
+          localObject = localError;
+        }
+        
+        if (Java2D.DEBUG) {
+          if (null != localObject) {
+            localObject.printStackTrace();
+          }
+          System.err.println("JOGL/Java2D OGL Pipeline active " + Java2D.isOGLPipelineActive + ", resourceCompatible " + Java2D.isOGLPipelineResourceCompatible);
+        }
+        return null;
+      }
+    });
+  }
+  
+  public static boolean isOGLPipelineActive() {
+    return isOGLPipelineActive;
+  }
+  
+  public static boolean isOGLPipelineResourceCompatible() {
+    return isOGLPipelineResourceCompatible;
+  }
+  
+  public static boolean isFBOEnabled() {
+    return fbObjectSupportInitialized;
+  }
+  
+  public static boolean isQueueFlusherThread()
+  {
+    
+    try {
+      return ((Boolean)isQueueFlusherThreadMethod.invoke(null, (Object[])null)).booleanValue();
+    } catch (InvocationTargetException localInvocationTargetException) {
+      throw new GLException(localInvocationTargetException.getTargetException());
+    } catch (Exception localException) {
+      throw ((InternalError)new InternalError().initCause(localException));
+    }
+  }
+  
+
+
+
+  public static void invokeWithOGLContextCurrent(Graphics paramGraphics, Runnable paramRunnable)
+    throws GLException
+  {
+    
+    
+
+
+    try
+    {
+      initFBOShareContext(
+      
+        GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice());
+      
+      AWTUtil.lockToolkit();
+      try {
+        invokeWithOGLContextCurrentMethod.invoke(null, new Object[] { paramGraphics, paramRunnable });
+        
+        AWTUtil.unlockToolkit(); } finally { AWTUtil.unlockToolkit();
+      }
+      return;
+    } catch (InvocationTargetException localInvocationTargetException) { throw new GLException(localInvocationTargetException.getTargetException());
+    } catch (Exception localException) {
+      throw ((InternalError)new InternalError().initCause(localException));
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static Rectangle getOGLViewport(Graphics paramGraphics, int paramInt1, int paramInt2)
+  {
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    try
+    {
+      return (Rectangle)getOGLViewportMethod.invoke(null, new Object[] { paramGraphics, 
+        Integer.valueOf(paramInt1), 
+        Integer.valueOf(paramInt2) });
+    } catch (InvocationTargetException localInvocationTargetException) {
+      throw new GLException(localInvocationTargetException.getTargetException());
+    } catch (Exception localException) {
+      throw ((InternalError)new InternalError().initCause(localException));
+    }
+  }
+  
+
+
+
+  public static Rectangle getOGLScissorBox(Graphics paramGraphics)
+  {
+    
+    
+
+    try
+    {
+      return (Rectangle)getOGLScissorBoxMethod.invoke(null, new Object[] { paramGraphics });
+    } catch (InvocationTargetException localInvocationTargetException) {
+      throw new GLException(localInvocationTargetException.getTargetException());
+    } catch (Exception localException) {
+      throw ((InternalError)new InternalError().initCause(localException));
+    }
+  }
+  
+
+
+
+  public static Object getOGLSurfaceIdentifier(Graphics paramGraphics)
+  {
+    
+    
+
+    try
+    {
+      return getOGLSurfaceIdentifierMethod.invoke(null, new Object[] { paramGraphics });
+    } catch (InvocationTargetException localInvocationTargetException) {
+      throw new GLException(localInvocationTargetException.getTargetException());
+    } catch (Exception localException) {
+      throw ((InternalError)new InternalError().initCause(localException));
+    }
+  }
+  
+
+
+  public static int getOGLSurfaceType(Graphics paramGraphics)
+  {
+    
+    
+
+    try
+    {
+      if (!fbObjectSupportInitialized) {
+        return 0;
+      }
+      
+      return ((Integer)getOGLSurfaceTypeMethod.invoke(null, new Object[] { paramGraphics })).intValue();
+    } catch (InvocationTargetException localInvocationTargetException) {
+      throw new GLException(localInvocationTargetException.getTargetException());
+    } catch (Exception localException) {
+      throw ((InternalError)new InternalError().initCause(localException));
+    }
+  }
+  
+
+
+  public static int getOGLTextureType(Graphics paramGraphics)
+  {
+    
+    
+    if (getOGLTextureTypeMethod == null) {
+      return 3553;
+    }
+    try
+    {
+      return ((Integer)getOGLTextureTypeMethod.invoke(null, new Object[] { paramGraphics })).intValue();
+    } catch (InvocationTargetException localInvocationTargetException) {
+      throw new GLException(localInvocationTargetException.getTargetException());
+    } catch (Exception localException) {
+      throw ((InternalError)new InternalError().initCause(localException));
+    }
+  }
+  
+
+
+
+
+
+  public static GLContext filterShareContext(GLContext paramGLContext)
+  {
+    if (isHeadless) {
+      return paramGLContext;
+    }
+    
+    initFBOShareContext(
+    
+      GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice());
+    if (j2dFBOShareContext != null) {
+      return j2dFBOShareContext;
+    }
+    return paramGLContext;
+  }
+  
+
+
+
+  public static GLContext getShareContext(GraphicsDevice paramGraphicsDevice)
+  {
+    initFBOShareContext(paramGraphicsDevice);
+    
+
+    return j2dFBOShareContext;
+  }
+  
+
+
+
+  public static long createOGLContextOnSurface(Graphics paramGraphics, long paramLong)
+  {
+    
+    
+
+
+    try
+    {
+      return ((Long)createOGLContextOnSurfaceMethod.invoke(null, new Object[] { paramGraphics, Long.valueOf(paramLong) })).longValue();
+    } catch (InvocationTargetException localInvocationTargetException) {
+      throw new GLException(localInvocationTargetException.getTargetException());
+    } catch (Exception localException) {
+      throw ((InternalError)new InternalError().initCause(localException));
+    }
+  }
+  
+
+  public static boolean makeOGLContextCurrentOnSurface(Graphics paramGraphics, long paramLong)
+  {
+    
+    try
+    {
+      return ((Boolean)makeOGLContextCurrentOnSurfaceMethod.invoke(null, new Object[] { paramGraphics, Long.valueOf(paramLong) })).booleanValue();
+    } catch (InvocationTargetException localInvocationTargetException) {
+      throw new GLException(localInvocationTargetException.getTargetException());
+    } catch (Exception localException) {
+      throw ((InternalError)new InternalError().initCause(localException));
+    }
+  }
+  
+  public static void destroyOGLContext(long paramLong)
+  {
+    
+    try
+    {
+      destroyOGLContextMethod.invoke(null, new Object[] { Long.valueOf(paramLong) });
+    } catch (InvocationTargetException localInvocationTargetException) {
+      throw new GLException(localInvocationTargetException.getTargetException());
+    } catch (Exception localException) {
+      throw ((InternalError)new InternalError().initCause(localException));
+    }
+  }
+  
+
+
+
+  private static void checkActive()
+  {
+    if (!isOGLPipelineActive()) {
+      throw new GLException("Java2D OpenGL pipeline not active");
+    }
+  }
+  
+  private static void checkCompatible() {
+    if (!isOGLPipelineResourceCompatible()) {
+      throw new GLException("Java2D OpenGL pipeline not resource compatible");
+    }
+  }
+  
+  private static int getOGLUtilitiesIntField(String paramString) {
+    Integer localInteger = (Integer)AccessController.doPrivileged(new PrivilegedAction()
+    {
+      public Integer run() {
+        try {
+          Class localClass = Class.forName("sun.java2d.opengl.OGLUtilities");
+          Field localField = localClass.getField(val$name);
+          localField.setAccessible(true);
+          return (Integer)localField.get(null);
+        } catch (Exception localException) {
+          if (Java2D.DEBUG)
+            localException.printStackTrace();
+        }
+        return null;
+      }
+    });
+    
+    if (localInteger == null)
+      return 0;
+    if (DEBUG) {
+      System.err.println("OGLUtilities." + paramString + " = " + localInteger.intValue());
+    }
+    return localInteger.intValue();
+  }
+  
+
+
+
+
+
+  private static void initFBOShareContext(GraphicsDevice paramGraphicsDevice)
+  {
+    if ((isOGLPipelineResourceCompatible()) && 
+      (isFBOEnabled()) && (!initializedJ2DFBOShareContext))
+    {
+
+
+
+
+
+
+      initializedJ2DFBOShareContext = true;
+      if (DEBUG) {
+        System.err.println("Starting initialization of J2D FBO share context");
+      }
+      invokeWithOGLSharedContextCurrent(paramGraphicsDevice.getDefaultConfiguration(), new Runnable()
+      {
+        public void run() {
+          Java2D.access$1602(GLDrawableFactory.getFactory(GLProfile.getDefault(GLProfile.getDefaultDevice())).createExternalGLContext());
+        }
+      });
+      if (DEBUG) {
+        System.err.println("Ending initialization of J2D FBO share context");
+      }
+    }
+  }
+  
+  public Java2D() {}
+  
+  /* Error */
+  public static boolean invokeWithOGLSharedContextCurrent(GraphicsConfiguration paramGraphicsConfiguration, Runnable paramRunnable)
+    throws GLException
+  {
+    // Byte code:
+    //   0: invokestatic 38	jogamp/opengl/awt/Java2D:checkCompatible	()V
+    //   3: invokestatic 35	jogamp/opengl/awt/AWTUtil:lockToolkit	()V
+    //   6: getstatic 7	jogamp/opengl/awt/Java2D:invokeWithOGLSharedContextCurrentMethod	Ljava/lang/reflect/Method;
+    //   9: aconst_null
+    //   10: iconst_2
+    //   11: anewarray 36	java/lang/Object
+    //   14: dup
+    //   15: iconst_0
+    //   16: aload_0
+    //   17: aastore
+    //   18: dup
+    //   19: iconst_1
+    //   20: aload_1
+    //   21: aastore
+    //   22: invokevirtual 21	java/lang/reflect/Method:invoke	(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+    //   25: checkcast 22	java/lang/Boolean
+    //   28: invokevirtual 23	java/lang/Boolean:booleanValue	()Z
+    //   31: istore_2
+    //   32: invokestatic 37	jogamp/opengl/awt/AWTUtil:unlockToolkit	()V
+    //   35: iload_2
+    //   36: ireturn
+    //   37: astore_3
+    //   38: invokestatic 37	jogamp/opengl/awt/AWTUtil:unlockToolkit	()V
+    //   41: aload_3
+    //   42: athrow
+    //   43: astore_2
+    //   44: new 25	com/jogamp/opengl/GLException
+    //   47: dup
+    //   48: aload_2
+    //   49: invokevirtual 26	java/lang/reflect/InvocationTargetException:getTargetException	()Ljava/lang/Throwable;
+    //   52: invokespecial 27	com/jogamp/opengl/GLException:<init>	(Ljava/lang/Throwable;)V
+    //   55: athrow
+    //   56: astore_2
+    //   57: new 29	java/lang/InternalError
+    //   60: dup
+    //   61: invokespecial 30	java/lang/InternalError:<init>	()V
+    //   64: aload_2
+    //   65: invokevirtual 31	java/lang/InternalError:initCause	(Ljava/lang/Throwable;)Ljava/lang/Throwable;
+    //   68: checkcast 29	java/lang/InternalError
+    //   71: athrow
+    // Line number table:
+    //   Java source line #361	-> byte code offset #0
+    //   Java source line #364	-> byte code offset #3
+    //   Java source line #366	-> byte code offset #6
+    //   Java source line #368	-> byte code offset #32
+    //   Java source line #370	-> byte code offset #43
+    //   Java source line #371	-> byte code offset #44
+    //   Java source line #372	-> byte code offset #56
+    //   Java source line #373	-> byte code offset #57
+    // Local variable table:
+    //   start	length	slot	name	signature
+    //   0	72	0	paramGraphicsConfiguration	GraphicsConfiguration
+    //   0	72	1	paramRunnable	Runnable
+    //   43	6	2	localInvocationTargetException	InvocationTargetException
+    //   56	9	2	localException	Exception
+    //   37	5	3	localObject	Object
+    // Exception table:
+    //   from	to	target	type
+    //   6	32	37	finally
+    //   3	35	43	java/lang/reflect/InvocationTargetException
+    //   37	43	43	java/lang/reflect/InvocationTargetException
+    //   3	35	56	java/lang/Exception
+    //   37	43	56	java/lang/Exception
+  }
+}

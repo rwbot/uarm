@@ -1,0 +1,128 @@
+package com.leapmotion.leap;
+
+
+
+
+public class Config
+  extends Interface
+{
+  private long swigCPtr;
+  
+
+
+  public Config(long paramLong, boolean paramBoolean)
+  {
+    super(LeapJNI.Config_SWIGUpcast(paramLong), paramBoolean);
+    swigCPtr = paramLong;
+  }
+  
+  public static long getCPtr(Config paramConfig) {
+    return paramConfig == null ? 0L : swigCPtr;
+  }
+  
+  protected void finalize() {
+    delete();
+  }
+  
+  public synchronized void delete() {
+    if (swigCPtr != 0L) {
+      if (swigCMemOwn) {
+        swigCMemOwn = false;
+        LeapJNI.delete_Config(swigCPtr);
+      }
+      swigCPtr = 0L;
+    }
+    super.delete();
+  }
+  
+  public Config() {
+    this(LeapJNI.new_Config(), true);
+  }
+  
+  public ValueType type(String paramString) {
+    return ValueType.swigToEnum(LeapJNI.Config_type(swigCPtr, this, paramString));
+  }
+  
+  public boolean getBool(String paramString) {
+    return LeapJNI.Config_getBool(swigCPtr, this, paramString);
+  }
+  
+  public boolean setBool(String paramString, boolean paramBoolean) {
+    return LeapJNI.Config_setBool(swigCPtr, this, paramString, paramBoolean);
+  }
+  
+  public int getInt32(String paramString) {
+    return LeapJNI.Config_getInt32(swigCPtr, this, paramString);
+  }
+  
+  public boolean setInt32(String paramString, int paramInt) {
+    return LeapJNI.Config_setInt32(swigCPtr, this, paramString, paramInt);
+  }
+  
+  public float getFloat(String paramString) {
+    return LeapJNI.Config_getFloat(swigCPtr, this, paramString);
+  }
+  
+  public boolean setFloat(String paramString, float paramFloat) {
+    return LeapJNI.Config_setFloat(swigCPtr, this, paramString, paramFloat);
+  }
+  
+  public String getString(String paramString) {
+    return LeapJNI.Config_getString(swigCPtr, this, paramString);
+  }
+  
+  public boolean setString(String paramString1, String paramString2) {
+    return LeapJNI.Config_setString(swigCPtr, this, paramString1, paramString2);
+  }
+  
+  public boolean save() {
+    return LeapJNI.Config_save(swigCPtr, this);
+  }
+  
+  public static enum ValueType {
+    TYPE_UNKNOWN(0), 
+    TYPE_BOOLEAN(1), 
+    TYPE_INT32(2), 
+    TYPE_FLOAT(6), 
+    TYPE_STRING(8);
+    
+    public final int swigValue() {
+      return swigValue;
+    }
+    
+    public static ValueType swigToEnum(int paramInt) {
+      ValueType[] arrayOfValueType1 = (ValueType[])ValueType.class.getEnumConstants();
+      if ((paramInt < arrayOfValueType1.length) && (paramInt >= 0) && (swigValue == paramInt))
+        return arrayOfValueType1[paramInt];
+      for (ValueType localValueType : arrayOfValueType1)
+        if (swigValue == paramInt)
+          return localValueType;
+      throw new IllegalArgumentException("No enum " + ValueType.class + " with value " + paramInt);
+    }
+    
+    private ValueType()
+    {
+      swigValue = SwigNext.access$008();
+    }
+    
+    private ValueType(int paramInt)
+    {
+      swigValue = paramInt;
+      SwigNext.access$002(paramInt + 1);
+    }
+    
+    private ValueType(ValueType paramValueType)
+    {
+      swigValue = swigValue;
+      SwigNext.access$002(swigValue + 1);
+    }
+    
+    private final int swigValue;
+    private static class SwigNext
+    {
+      private static int next = 0;
+      
+      private SwigNext() {}
+    }
+  }
+}

@@ -1,0 +1,221 @@
+package com.jogamp.opengl;
+
+import java.nio.Buffer;
+import java.nio.FloatBuffer;
+
+public class GLUniformData
+{
+  private String name;
+  private int location;
+  private int rows;
+  private int columns;
+  private int count;
+  private Object data;
+  private boolean isMatrix;
+  
+  public GLUniformData(String paramString, int paramInt)
+  {
+    initScalar(paramString, 1, Integer.valueOf(paramInt));
+  }
+  
+
+
+
+
+
+  public GLUniformData(String paramString, float paramFloat)
+  {
+    initScalar(paramString, 1, Float.valueOf(paramFloat));
+  }
+  
+
+
+
+
+
+
+  public GLUniformData(String paramString, int paramInt, java.nio.IntBuffer paramIntBuffer)
+  {
+    initBuffer(paramString, paramInt, paramIntBuffer);
+  }
+  
+
+
+
+
+
+
+  public GLUniformData(String paramString, int paramInt, FloatBuffer paramFloatBuffer)
+  {
+    initBuffer(paramString, paramInt, paramFloatBuffer);
+  }
+  
+  private GLUniformData(int paramInt, String paramString) {
+    initBuffer(paramString, paramInt, null);
+  }
+  
+  public static GLUniformData creatEmptyVector(String paramString, int paramInt) {
+    return new GLUniformData(paramInt, paramString);
+  }
+  
+  public static GLUniformData creatEmptyMatrix(String paramString, int paramInt1, int paramInt2) {
+    return new GLUniformData(paramString, paramInt1, paramInt2, null);
+  }
+  
+
+
+
+
+
+
+
+
+
+  public GLUniformData(String paramString, int paramInt1, int paramInt2, FloatBuffer paramFloatBuffer) { initBuffer(paramString, paramInt1, paramInt2, paramFloatBuffer); }
+  
+  public GLUniformData setData(int paramInt) {
+    initScalar(Integer.valueOf(paramInt));return this; }
+  public GLUniformData setData(float paramFloat) { initScalar(Float.valueOf(paramFloat));return this; }
+  public GLUniformData setData(java.nio.IntBuffer paramIntBuffer) { initBuffer(paramIntBuffer);return this; }
+  public GLUniformData setData(FloatBuffer paramFloatBuffer) { initBuffer(paramFloatBuffer);return this; }
+  
+  public int intValue() { return ((Integer)data).intValue(); }
+  public float floatValue() { return ((Float)data).floatValue(); }
+  public java.nio.IntBuffer intBufferValue() { return (java.nio.IntBuffer)data; }
+  public FloatBuffer floatBufferValue() { return (FloatBuffer)data; }
+  
+  public StringBuilder toString(StringBuilder paramStringBuilder)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    
+
+
+
+    paramStringBuilder.append("GLUniformData[name ").append(name).append(", location ").append(location).append(", size ").append(rows).append("x").append(columns).append(", count ").append(count).append(", data ");
+    if ((isMatrix()) && ((data instanceof FloatBuffer))) {
+      paramStringBuilder.append("\n");
+      FloatBuffer localFloatBuffer = (FloatBuffer)getBuffer();
+      for (int i = 0; i < count; i++) {
+        com.jogamp.opengl.math.FloatUtil.matrixToString(paramStringBuilder, i + ": ", "%10.5f", localFloatBuffer, i * rows * columns, rows, columns, false);
+        paramStringBuilder.append(",\n");
+      }
+    } else if (isBuffer()) {
+      com.jogamp.common.nio.Buffers.toString(paramStringBuilder, null, getBuffer());
+    } else {
+      paramStringBuilder.append(data);
+    }
+    paramStringBuilder.append("]");
+    return paramStringBuilder;
+  }
+  
+  public String toString()
+  {
+    return toString(null).toString();
+  }
+  
+  private void initBuffer(String paramString, int paramInt1, int paramInt2, Buffer paramBuffer) {
+    if ((2 > paramInt1) || (paramInt1 > 4) || (2 > paramInt2) || (paramInt2 > 4)) {
+      throw new GLException("rowsXcolumns must be within [2..4]X[2..4], is: " + paramInt1 + "X" + paramInt2);
+    }
+    name = paramString;
+    rows = paramInt1;
+    columns = paramInt2;
+    isMatrix = true;
+    location = -1;
+    initBuffer(paramBuffer);
+  }
+  
+  private void initScalar(String paramString, int paramInt, Object paramObject) { if ((1 > paramInt) || (paramInt > 4)) {
+      throw new GLException("components must be within [1..4], is: " + paramInt);
+    }
+    name = paramString;
+    columns = paramInt;
+    rows = 1;
+    isMatrix = false;
+    location = -1;
+    initScalar(paramObject);
+  }
+  
+  private void initBuffer(String paramString, int paramInt, Buffer paramBuffer) { if ((1 > paramInt) || (paramInt > 4)) {
+      throw new GLException("components must be within [1..4], is: " + paramInt);
+    }
+    name = paramString;
+    columns = paramInt;
+    rows = 1;
+    isMatrix = false;
+    location = -1;
+    initBuffer(paramBuffer);
+  }
+  
+  private void initScalar(Object paramObject) {
+    if ((paramObject instanceof Buffer)) {
+      initBuffer((Buffer)paramObject);
+    } else if (null != paramObject) {
+      if (isMatrix) {
+        throw new GLException("Atom type not allowed for matrix : " + this);
+      }
+      count = 1;
+      data = paramObject;
+    } else {
+      count = 0;
+      data = paramObject;
+    }
+  }
+  
+  private void initBuffer(Buffer paramBuffer) {
+    if (null != paramBuffer) {
+      int i = rows * columns;
+      if ((paramBuffer.remaining() < i) || (0 != paramBuffer.remaining() % i)) {
+        throw new GLException("remaining data buffer size invalid: buffer: " + paramBuffer.toString() + "\n\t" + this);
+      }
+      count = (paramBuffer.remaining() / i);
+      data = paramBuffer;
+    } else {
+      count = 0;
+      data = null;
+    }
+  }
+  
+  public String getName() { return name; }
+  
+  public int getLocation() { return location; }
+  
+
+
+  public int setLocation(int paramInt)
+  {
+    location = paramInt;return paramInt;
+  }
+  
+
+
+
+
+
+
+
+
+  public int setLocation(GL2ES2 paramGL2ES2, int paramInt)
+  {
+    location = paramGL2ES2.glGetUniformLocation(paramInt, name);
+    return location;
+  }
+  
+  public Object getObject() {
+    return data;
+  }
+  
+  public Buffer getBuffer() { return (data instanceof Buffer) ? (Buffer)data : null; }
+  
+
+  public boolean isBuffer() { return data instanceof Buffer; }
+  
+  public boolean isMatrix() { return isMatrix; }
+  
+  public int count() { return count; }
+  public int components() { return rows * columns; }
+  public int rows() { return rows; }
+  public int columns() { return columns; }
+}

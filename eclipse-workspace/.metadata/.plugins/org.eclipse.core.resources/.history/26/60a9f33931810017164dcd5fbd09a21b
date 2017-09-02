@@ -1,0 +1,1445 @@
+package com.jogamp.opengl.util.glsl;
+
+import com.jogamp.common.net.Uri;
+import com.jogamp.common.net.Uri.Encoded;
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.util.IOUtil;
+import com.jogamp.common.util.VersionNumber;
+import com.jogamp.opengl.GL2ES2;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLException;
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
+import java.io.StringReader;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.Set;
+import jogamp.opengl.Debug;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ShaderCode
+{
+  public static final boolean DEBUG_CODE = Debug.isPropertyDefined("jogl.debug.GLSLCode", true);
+  
+
+  public static final String SUFFIX_VERTEX_SOURCE = "vp";
+  
+
+  public static final String SUFFIX_VERTEX_BINARY = "bvp";
+  
+
+  public static final String SUFFIX_GEOMETRY_SOURCE = "gp";
+  
+
+  public static final String SUFFIX_GEOMETRY_BINARY = "bgp";
+  
+
+  public static final String SUFFIX_COMPUTE_SOURCE = "cp";
+  
+
+  public static final String SUFFIX_COMPUTE_BINARY = "bcp";
+  
+
+  public static final String SUFFIX_TESS_CONTROL_SOURCE = "tcp";
+  
+
+  public static final String SUFFIX_TESS_CONTROL_BINARY = "btcp";
+  
+
+  public static final String SUFFIX_TESS_EVALUATION_SOURCE = "tep";
+  
+
+  public static final String SUFFIX_TESS_EVALUATION_BINARY = "btep";
+  
+
+  public static final String SUFFIX_FRAGMENT_SOURCE = "fp";
+  
+
+  public static final String SUFFIX_FRAGMENT_BINARY = "bfp";
+  
+
+  public static final String SUB_PATH_NVIDIA = "nvidia";
+  
+
+  public static final String es2_default_precision_vp = "\nprecision highp float;\nprecision highp int;\n/*precision lowp sampler2D;*/\n/*precision lowp samplerCube;*/\n";
+  
+
+  public static final String es2_default_precision_fp = "\nprecision mediump float;\nprecision mediump int;\n/*precision lowp sampler2D;*/\n/*precision lowp samplerCube;*/\n";
+  
+
+  public static final String es3_default_precision_vp = "\nprecision highp float;\nprecision highp int;\n/*precision lowp sampler2D;*/\n/*precision lowp samplerCube;*/\n";
+  
+
+  public static final String es3_default_precision_fp = "\nprecision highp float;\nprecision highp int;\n/*precision lowp sampler2D;*/\n/*precision lowp samplerCube;*/\n";
+  
+
+  public static final String gl3_default_precision_vp_gp = "\nprecision highp float;\nprecision highp int;\n";
+  
+  public static final String gl3_default_precision_fp = "\nprecision highp float;\nprecision mediump int;\n/*precision mediump sampler2D;*/\n";
+  
+  public static final String REQUIRE = "require";
+  
+  public static final String ENABLE = "enable";
+  
+  public static final String DISABLE = "disable";
+  
+  public static final String WARN = "warn";
+  
+
+  public ShaderCode(int paramInt1, int paramInt2, CharSequence[][] paramArrayOfCharSequence)
+  {
+    if (paramArrayOfCharSequence.length != paramInt2) {
+      throw new IllegalArgumentException("shader number (" + paramInt2 + ") and sourceFiles array (" + paramArrayOfCharSequence.length + ") of different lenght.");
+    }
+    switch (paramInt1) {
+    case 35632: 
+    case 35633: 
+    case 36313: 
+    case 36487: 
+    case 36488: 
+    case 37305: 
+      break;
+    default: 
+      throw new GLException("Unknown shader type: " + paramInt1);
+    }
+    shaderSource = paramArrayOfCharSequence;
+    shaderBinaryFormat = -1;
+    shaderBinary = null;
+    shaderType = paramInt1;
+    shader = Buffers.newDirectIntBuffer(paramInt2);
+    id = getNextID();
+    
+    if (DEBUG_CODE) {
+      System.out.println("Created: " + toString());
+    }
+  }
+  
+
+
+
+
+
+
+  public ShaderCode(int paramInt1, int paramInt2, int paramInt3, Buffer paramBuffer)
+  {
+    switch (paramInt1) {
+    case 35632: 
+    case 35633: 
+    case 36313: 
+    case 36487: 
+    case 36488: 
+    case 37305: 
+      break;
+    default: 
+      throw new GLException("Unknown shader type: " + paramInt1);
+    }
+    shaderSource = ((CharSequence[][])null);
+    shaderBinaryFormat = paramInt3;
+    shaderBinary = paramBuffer;
+    shaderType = paramInt1;
+    shader = Buffers.newDirectIntBuffer(paramInt2);
+    id = getNextID();
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static ShaderCode create(GL2ES2 paramGL2ES2, int paramInt1, int paramInt2, Class<?> paramClass, String[] paramArrayOfString, boolean paramBoolean)
+  {
+    if ((null != paramGL2ES2) && (!ShaderUtil.isShaderCompilerAvailable(paramGL2ES2))) {
+      return null;
+    }
+    
+    CharSequence[][] arrayOfCharSequence = (CharSequence[][])null;
+    if (null != paramArrayOfString)
+    {
+      arrayOfCharSequence = new CharSequence[paramArrayOfString.length][1];
+      for (int i = 0; i < paramArrayOfString.length; i++) {
+        try {
+          arrayOfCharSequence[i][0] = readShaderSource(paramClass, paramArrayOfString[i], paramBoolean);
+        } catch (IOException localIOException) {
+          throw new RuntimeException("readShaderSource(" + paramArrayOfString[i] + ") error: ", localIOException);
+        }
+        if (null == arrayOfCharSequence[i][0]) {
+          arrayOfCharSequence = (CharSequence[][])null;
+        }
+      }
+    }
+    if (null == arrayOfCharSequence) {
+      return null;
+    }
+    return new ShaderCode(paramInt1, paramInt2, arrayOfCharSequence);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static ShaderCode create(GL2ES2 paramGL2ES2, int paramInt1, int paramInt2, Uri[] paramArrayOfUri, boolean paramBoolean)
+  {
+    if ((null != paramGL2ES2) && (!ShaderUtil.isShaderCompilerAvailable(paramGL2ES2))) {
+      return null;
+    }
+    
+    CharSequence[][] arrayOfCharSequence = (CharSequence[][])null;
+    if (null != paramArrayOfUri)
+    {
+      arrayOfCharSequence = new CharSequence[paramArrayOfUri.length][1];
+      for (int i = 0; i < paramArrayOfUri.length; i++) {
+        try {
+          arrayOfCharSequence[i][0] = readShaderSource(paramArrayOfUri[i], paramBoolean);
+        } catch (IOException localIOException) {
+          throw new RuntimeException("readShaderSource(" + paramArrayOfUri[i] + ") error: ", localIOException);
+        }
+        if (null == arrayOfCharSequence[i][0]) {
+          arrayOfCharSequence = (CharSequence[][])null;
+        }
+      }
+    }
+    if (null == arrayOfCharSequence) {
+      return null;
+    }
+    return new ShaderCode(paramInt1, paramInt2, arrayOfCharSequence);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static ShaderCode create(int paramInt1, int paramInt2, Class<?> paramClass, int paramInt3, String paramString)
+  {
+    ByteBuffer localByteBuffer = null;
+    if ((null != paramString) && (0 <= paramInt3)) {
+      try {
+        localByteBuffer = readShaderBinary(paramClass, paramString);
+      } catch (IOException localIOException) {
+        throw new RuntimeException("readShaderBinary(" + paramString + ") error: ", localIOException);
+      }
+      if (null == localByteBuffer) {
+        paramInt3 = -1;
+      }
+    }
+    if (null == localByteBuffer) {
+      return null;
+    }
+    return new ShaderCode(paramInt1, paramInt2, paramInt3, localByteBuffer);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public static ShaderCode create(int paramInt1, int paramInt2, int paramInt3, Uri paramUri)
+  {
+    ByteBuffer localByteBuffer = null;
+    if ((null != paramUri) && (0 <= paramInt3)) {
+      try {
+        localByteBuffer = readShaderBinary(paramUri);
+      } catch (IOException localIOException) {
+        throw new RuntimeException("readShaderBinary(" + paramUri + ") error: ", localIOException);
+      }
+      if (null == localByteBuffer) {
+        paramInt3 = -1;
+      }
+    }
+    if (null == localByteBuffer) {
+      return null;
+    }
+    return new ShaderCode(paramInt1, paramInt2, paramInt3, localByteBuffer);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static String getFileSuffix(boolean paramBoolean, int paramInt)
+  {
+    switch (paramInt) {
+    case 35633: 
+      return paramBoolean ? "bvp" : "vp";
+    case 35632: 
+      return paramBoolean ? "bfp" : "fp";
+    case 36313: 
+      return paramBoolean ? "bgp" : "gp";
+    case 36488: 
+      return paramBoolean ? "btcp" : "tcp";
+    case 36487: 
+      return paramBoolean ? "btep" : "tep";
+    case 37305: 
+      return paramBoolean ? "bcp" : "cp";
+    }
+    throw new GLException("illegal shader type: " + paramInt);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static String getBinarySubPath(int paramInt)
+  {
+    switch (paramInt) {
+    case 35083: 
+      return "nvidia";
+    }
+    throw new GLException("unsupported binary format: " + paramInt);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static ShaderCode create(GL2ES2 paramGL2ES2, int paramInt1, int paramInt2, Class<?> paramClass, String paramString1, String[] paramArrayOfString, String paramString2, String paramString3, String paramString4, String paramString5, boolean paramBoolean)
+  {
+    ShaderCode localShaderCode = null;
+    
+    String str1 = null;
+    String str2 = null;
+    String[] arrayOfString;
+    Object localObject; if ((null != paramArrayOfString) && (ShaderUtil.isShaderCompilerAvailable(paramGL2ES2))) {
+      arrayOfString = new String[paramArrayOfString.length];
+      localObject = null != paramString2 ? paramString2 : getFileSuffix(false, paramInt1);
+      int i; if ((null != paramString1) && (paramString1.length() > 0)) {
+        for (i = 0; i < arrayOfString.length; i++) {
+          arrayOfString[i] = (paramString1 + '/' + paramArrayOfString[i] + "." + (String)localObject);
+        }
+      } else {
+        for (i = 0; i < arrayOfString.length; i++) {
+          arrayOfString[i] = (paramArrayOfString[i] + "." + (String)localObject);
+        }
+      }
+      localShaderCode = create(paramGL2ES2, paramInt1, paramInt2, paramClass, arrayOfString, paramBoolean);
+      if (null != localShaderCode) {
+        return localShaderCode;
+      }
+      str1 = Arrays.toString(arrayOfString);
+    } else {
+      arrayOfString = null; }
+    String str3;
+    Iterator localIterator; if (null != paramString4) {
+      localObject = ShaderUtil.getShaderBinaryFormats(paramGL2ES2);
+      str3 = null != paramString5 ? paramString5 : getFileSuffix(true, paramInt1);
+      for (localIterator = ((Set)localObject).iterator(); localIterator.hasNext();) {
+        int j = ((Integer)localIterator.next()).intValue();
+        String str4 = getBinarySubPath(j);
+        if (null != str4) {
+          str2 = paramString3 + '/' + str4 + '/' + paramString4 + "." + str3;
+          localShaderCode = create(paramInt1, paramInt2, paramClass, j, str2);
+          if (null != localShaderCode)
+            return localShaderCode;
+        }
+      }
+    }
+    throw new GLException("No shader code found (source nor binary) for src: " + str1 + ", bin: " + str2);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static ShaderCode create(GL2ES2 paramGL2ES2, int paramInt1, int paramInt2, Class<?> paramClass, String paramString1, String[] paramArrayOfString, String paramString2, String paramString3, boolean paramBoolean)
+  {
+    return create(paramGL2ES2, paramInt1, paramInt2, paramClass, paramString1, paramArrayOfString, null, paramString2, paramString3, null, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static ShaderCode create(GL2ES2 paramGL2ES2, int paramInt, Class<?> paramClass, String paramString1, String paramString2, String paramString3, String paramString4, String paramString5, boolean paramBoolean)
+  {
+    return create(paramGL2ES2, paramInt, 1, paramClass, paramString1, new String[] { paramString3 }, paramString4, paramString2, paramString3, paramString5, paramBoolean);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static ShaderCode create(GL2ES2 paramGL2ES2, int paramInt, Class<?> paramClass, String paramString1, String paramString2, String paramString3, boolean paramBoolean)
+  {
+    return create(paramGL2ES2, paramInt, paramClass, paramString1, paramString2, paramString3, null, null, paramBoolean);
+  }
+  
+
+
+
+  public int id() { return id; }
+  
+  public int shaderType() { return shaderType; }
+  public String shaderTypeStr() { return shaderTypeStr(shaderType); }
+  
+  public static String shaderTypeStr(int paramInt) {
+    switch (paramInt) {
+    case 35633: 
+      return "VERTEX_SHADER";
+    case 35632: 
+      return "FRAGMENT_SHADER";
+    case 36313: 
+      return "GEOMETRY_SHADER";
+    case 36488: 
+      return "TESS_CONTROL_SHADER";
+    case 36487: 
+      return "TESS_EVALUATION_SHADER";
+    case 37305: 
+      return "COMPUTE_SHADER";
+    }
+    return "UNKNOWN_SHADER";
+  }
+  
+  public int shaderBinaryFormat() { return shaderBinaryFormat; }
+  public Buffer shaderBinary() { return shaderBinary; }
+  public CharSequence[][] shaderSource() { return shaderSource; }
+  
+  public boolean isValid() { return valid; }
+  
+  public IntBuffer shader() { return shader; }
+  
+
+  public boolean compile(GL2ES2 paramGL2ES2) { return compile(paramGL2ES2, null); }
+  
+  public boolean compile(GL2ES2 paramGL2ES2, PrintStream paramPrintStream) {
+    if (isValid()) { return true;
+    }
+    
+    if (null != shaderSource) {
+      if (DEBUG_CODE) {
+        System.err.println("ShaderCode.compile:");
+        dumpShaderSource(System.err);
+      }
+      valid = ShaderUtil.createAndCompileShader(paramGL2ES2, shader, shaderType, shaderSource, paramPrintStream);
+    }
+    else if (null != shaderBinary) {
+      valid = ShaderUtil.createAndLoadShader(paramGL2ES2, shader, shaderType, shaderBinaryFormat, shaderBinary, paramPrintStream);
+    }
+    else {
+      throw new GLException("no code (source or binary)");
+    }
+    return valid;
+  }
+  
+  public void destroy(GL2ES2 paramGL2ES2) {
+    if (isValid()) {
+      if (null != paramGL2ES2) {
+        ShaderUtil.deleteShader(paramGL2ES2, shader());
+      }
+      valid = false;
+    }
+    if (null != shaderBinary) {
+      shaderBinary.clear();
+      shaderBinary = null;
+    }
+    shaderSource = ((CharSequence[][])null);
+    shaderBinaryFormat = -1;
+    shaderType = -1;
+    id = -1;
+  }
+  
+  public boolean equals(Object paramObject)
+  {
+    if (this == paramObject) return true;
+    if ((paramObject instanceof ShaderCode)) {
+      return id() == ((ShaderCode)paramObject).id();
+    }
+    return false;
+  }
+  
+  public int hashCode() {
+    return id;
+  }
+  
+  public String toString() {
+    StringBuilder localStringBuilder = new StringBuilder("ShaderCode[id=" + id + ", type=" + shaderTypeStr() + ", valid=" + valid + ", shader: ");
+    for (int i = 0; i < shader.remaining(); i++) {
+      localStringBuilder.append(" " + shader.get(i));
+    }
+    if (null != shaderSource) {
+      localStringBuilder.append(", source]");
+    } else if (null != shaderBinary) {
+      localStringBuilder.append(", binary " + shaderBinary + "]");
+    }
+    return localStringBuilder.toString();
+  }
+  
+  public void dumpShaderSource(PrintStream paramPrintStream) {
+    if (null == shaderSource) {
+      paramPrintStream.println("<no shader source>");
+      return;
+    }
+    int i = shaderSource.length;
+    int j = null != shader ? shader.capacity() : 0;
+    for (int k = 0; k < j; k++) {
+      paramPrintStream.println("");
+      paramPrintStream.println("Shader #" + k + "/" + j + " name " + shader.get(k));
+      paramPrintStream.println("--------------------------------------------------------------");
+      if (k >= i) {
+        paramPrintStream.println("<no shader source>");
+      } else {
+        CharSequence[] arrayOfCharSequence = shaderSource[k];
+        int m = 0;
+        
+        for (int n = 0; n < arrayOfCharSequence.length; n++) {
+          paramPrintStream.printf("%4d: // Segment %d/%d: \n", new Object[] { Integer.valueOf(m), Integer.valueOf(n), Integer.valueOf(arrayOfCharSequence.length) });
+          BufferedReader localBufferedReader = new BufferedReader(new StringReader(arrayOfCharSequence[n].toString()));
+          String str = null;
+          try {
+            while ((str = localBufferedReader.readLine()) != null) {
+              m++;
+              paramPrintStream.printf("%4d: %s\n", new Object[] { Integer.valueOf(m), str });
+            }
+          } catch (IOException localIOException) {}
+        }
+      }
+      paramPrintStream.println("--------------------------------------------------------------");
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public int insertShaderSource(int paramInt1, String paramString, int paramInt2, CharSequence paramCharSequence)
+  {
+    if (null == shaderSource) {
+      throw new IllegalStateException("no shader source");
+    }
+    int i = null != shader ? shader.capacity() : 0;
+    if ((0 > paramInt1) || (paramInt1 >= i)) {
+      throw new IndexOutOfBoundsException("shaderIdx not within shader bounds [0.." + (i - 1) + "]: " + paramInt1);
+    }
+    int j = shaderSource.length;
+    if (paramInt1 >= j) {
+      throw new IndexOutOfBoundsException("shaderIdx not within source bounds [0.." + (j - 1) + "]: " + paramInt1);
+    }
+    CharSequence[] arrayOfCharSequence = shaderSource[paramInt1];
+    int k = 0;
+    for (int m = 0; m < arrayOfCharSequence.length; m++) {
+      if (!(arrayOfCharSequence[m] instanceof StringBuilder)) {
+        throw new IllegalStateException("shader source not a mutable StringBuilder, but CharSequence of type: " + arrayOfCharSequence[m].getClass().getName());
+      }
+      StringBuilder localStringBuilder = (StringBuilder)arrayOfCharSequence[m];
+      k += localStringBuilder.length();
+      if (paramInt2 < k) {
+        int n = localStringBuilder.indexOf(paramString, paramInt2);
+        if (0 <= n) {
+          n += paramString.length();
+          int i1 = localStringBuilder.indexOf("\n", n);
+          if (0 > i1) {
+            i1 = localStringBuilder.indexOf("\r", n);
+          }
+          if (0 < i1) {
+            n = i1 + 1;
+          } else {
+            localStringBuilder.insert(n, "\n");
+            n++;
+          }
+          localStringBuilder.insert(n, paramCharSequence);
+          return n + paramCharSequence.length();
+        }
+      }
+    }
+    return -1;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public int replaceInShaderSource(String paramString1, String paramString2)
+  {
+    if (null == shaderSource) {
+      throw new IllegalStateException("no shader source");
+    }
+    if ((paramString1 == paramString2) || (paramString1.equals(paramString2))) {
+      return 0;
+    }
+    int i = paramString1.length();
+    int j = paramString2.length();
+    int k = 0;
+    int m = shaderSource.length;
+    for (int n = 0; n < m; n++) {
+      CharSequence[] arrayOfCharSequence = shaderSource[n];
+      for (int i1 = 0; i1 < arrayOfCharSequence.length; i1++) {
+        if (!(arrayOfCharSequence[i1] instanceof StringBuilder)) {
+          throw new IllegalStateException("shader source not a mutable StringBuilder, but CharSequence of type: " + arrayOfCharSequence[i1].getClass().getName());
+        }
+        StringBuilder localStringBuilder = (StringBuilder)arrayOfCharSequence[i1];
+        int i2 = 0;
+        while (i2 < localStringBuilder.length() - i + 1) {
+          int i3 = localStringBuilder.indexOf(paramString1, i2);
+          if (0 <= i3) {
+            int i4 = i3 + i;
+            localStringBuilder.replace(i3, i4, paramString2);
+            i2 = i3 + j;
+            k++;
+          } else {
+            i2 = localStringBuilder.length();
+          }
+        }
+      }
+    }
+    return k;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public int insertShaderSource(int paramInt1, int paramInt2, CharSequence paramCharSequence)
+  {
+    if (null == shaderSource) {
+      throw new IllegalStateException("no shader source");
+    }
+    int i = null != shader ? shader.capacity() : 0;
+    if ((0 > paramInt1) || (paramInt1 >= i)) {
+      throw new IndexOutOfBoundsException("shaderIdx not within shader bounds [0.." + (i - 1) + "]: " + paramInt1);
+    }
+    int j = shaderSource.length;
+    if (paramInt1 >= j) {
+      throw new IndexOutOfBoundsException("shaderIdx not within source bounds [0.." + (j - 1) + "]: " + paramInt1);
+    }
+    CharSequence[] arrayOfCharSequence = shaderSource[paramInt1];
+    int k = 0;
+    for (int m = 0; m < arrayOfCharSequence.length; m++) {
+      if (!(arrayOfCharSequence[m] instanceof StringBuilder)) {
+        throw new IllegalStateException("shader source not a mutable StringBuilder, but CharSequence of type: " + arrayOfCharSequence[m].getClass().getName());
+      }
+      StringBuilder localStringBuilder = (StringBuilder)arrayOfCharSequence[m];
+      k += localStringBuilder.length();
+      if ((0 > paramInt2) && (m == arrayOfCharSequence.length - 1)) {
+        paramInt2 = k;
+      }
+      if ((0 <= paramInt2) && (paramInt2 <= k)) {
+        localStringBuilder.insert(paramInt2, paramCharSequence);
+        return paramInt2 + paramCharSequence.length();
+      }
+    }
+    return paramInt2;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public int insertShaderSource(int paramInt1, int paramInt2, Class<?> paramClass, String paramString)
+    throws IOException
+  {
+    CharSequence localCharSequence = readShaderSource(paramClass, paramString, true);
+    if (null != localCharSequence) {
+      return insertShaderSource(paramInt1, paramInt2, localCharSequence);
+    }
+    return paramInt2;
+  }
+  
+  private static int readShaderSource(Class<?> paramClass, URLConnection paramURLConnection, StringBuilder paramStringBuilder, int paramInt) throws IOException
+  {
+    if (DEBUG_CODE) {
+      if (0 == paramInt) {
+        paramStringBuilder.append("// " + paramURLConnection.getURL().toExternalForm() + "\n");
+      } else {
+        paramStringBuilder.append("// included @ line " + paramInt + ": " + paramURLConnection.getURL().toExternalForm() + "\n");
+      }
+    }
+    BufferedReader localBufferedReader = new BufferedReader(new InputStreamReader(paramURLConnection.getInputStream()));
+    try {
+      String str1 = null;
+      while ((str1 = localBufferedReader.readLine()) != null) {
+        paramInt++;
+        if (str1.startsWith("#include ")) {
+          String str2 = str1.substring(9).trim();
+          URLConnection localURLConnection = null;
+          
+
+          Uri localUri = Uri.valueOf(paramURLConnection.getURL()).getRelativeOf(new Uri.Encoded(str2, "/!_-.~"));
+          localURLConnection = IOUtil.openURL(localUri.toURL(), "ShaderCode.relativeOf ");
+          if (localURLConnection == null)
+          {
+            localURLConnection = IOUtil.getResource(str2, paramClass.getClassLoader(), paramClass);
+          }
+          if (localURLConnection == null)
+          {
+            throw new FileNotFoundException("Can't find include file " + str2);
+          }
+          paramInt = readShaderSource(paramClass, localURLConnection, paramStringBuilder, paramInt);
+        } else {
+          paramStringBuilder.append(str1 + "\n");
+        }
+      }
+    } catch (URISyntaxException localURISyntaxException) {
+      throw new IOException(localURISyntaxException);
+    } finally {
+      IOUtil.close(localBufferedReader, false);
+    }
+    return paramInt;
+  }
+  
+
+
+
+
+
+
+  public static void readShaderSource(Class<?> paramClass, URLConnection paramURLConnection, StringBuilder paramStringBuilder)
+    throws IOException
+  {
+    readShaderSource(paramClass, paramURLConnection, paramStringBuilder, 0);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static CharSequence readShaderSource(Class<?> paramClass, String paramString, boolean paramBoolean)
+    throws IOException
+  {
+    URLConnection localURLConnection = IOUtil.getResource(paramString, paramClass.getClassLoader(), paramClass);
+    if (localURLConnection == null) {
+      return null;
+    }
+    StringBuilder localStringBuilder = new StringBuilder();
+    readShaderSource(paramClass, localURLConnection, localStringBuilder);
+    return (CharSequence)(paramBoolean ? localStringBuilder : localStringBuilder.toString());
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static CharSequence readShaderSource(Uri paramUri, boolean paramBoolean)
+    throws IOException
+  {
+    URLConnection localURLConnection = IOUtil.openURL(paramUri.toURL(), "ShaderCode ");
+    if (localURLConnection == null) {
+      return null;
+    }
+    StringBuilder localStringBuilder = new StringBuilder();
+    readShaderSource(null, localURLConnection, localStringBuilder);
+    return (CharSequence)(paramBoolean ? localStringBuilder : localStringBuilder.toString());
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  public static ByteBuffer readShaderBinary(Class<?> paramClass, String paramString)
+    throws IOException
+  {
+    URLConnection localURLConnection = IOUtil.getResource(paramString, paramClass.getClassLoader(), paramClass);
+    if (localURLConnection == null) {
+      return null;
+    }
+    BufferedInputStream localBufferedInputStream = new BufferedInputStream(localURLConnection.getInputStream());
+    try {
+      return IOUtil.copyStream2ByteBuffer(localBufferedInputStream);
+    } finally {
+      IOUtil.close(localBufferedInputStream, false);
+    }
+  }
+  
+
+
+
+
+  public static ByteBuffer readShaderBinary(Uri paramUri)
+    throws IOException
+  {
+    URLConnection localURLConnection = IOUtil.openURL(paramUri.toURL(), "ShaderCode ");
+    if (localURLConnection == null) {
+      return null;
+    }
+    BufferedInputStream localBufferedInputStream = new BufferedInputStream(localURLConnection.getInputStream());
+    try {
+      return IOUtil.copyStream2ByteBuffer(localBufferedInputStream);
+    } finally {
+      IOUtil.close(localBufferedInputStream, false);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static String createExtensionDirective(String paramString1, String paramString2)
+  {
+    return "#extension " + paramString1 + " : " + paramString2 + "\n";
+  }
+  
+
+
+
+
+
+
+
+  public final int addGLSLVersion(GL2ES2 paramGL2ES2)
+  {
+    return insertShaderSource(0, 0, paramGL2ES2.getContext().getGLSLVersionString());
+  }
+  
+
+
+
+
+
+
+  public final int addDefaultShaderPrecision(GL2ES2 paramGL2ES2, int paramInt)
+  {
+    String str;
+    
+
+
+
+
+    if (paramGL2ES2.isGLES3()) {
+      switch (shaderType) {
+      case 35633: 
+        str = "\nprecision highp float;\nprecision highp int;\n/*precision lowp sampler2D;*/\n/*precision lowp samplerCube;*/\n"; break;
+      case 35632: 
+        str = "\nprecision highp float;\nprecision highp int;\n/*precision lowp sampler2D;*/\n/*precision lowp samplerCube;*/\n"; break;
+      case 37305: 
+        str = "\nprecision highp float;\nprecision highp int;\n/*precision lowp sampler2D;*/\n/*precision lowp samplerCube;*/\n"; break;
+      default: 
+        str = null;
+        break;
+      }
+    } else if (paramGL2ES2.isGLES2()) {
+      switch (shaderType) {
+      case 35633: 
+        str = "\nprecision highp float;\nprecision highp int;\n/*precision lowp sampler2D;*/\n/*precision lowp samplerCube;*/\n"; break;
+      case 35632: 
+        str = "\nprecision mediump float;\nprecision mediump int;\n/*precision lowp sampler2D;*/\n/*precision lowp samplerCube;*/\n"; break;
+      default: 
+        str = null;
+        break;
+      }
+    } else if (requiresGL3DefaultPrecision(paramGL2ES2))
+    {
+      switch (shaderType) {
+      case 35633: 
+      case 36313: 
+      case 36487: 
+      case 36488: 
+        str = "\nprecision highp float;\nprecision highp int;\n"; break;
+      case 35632: 
+        str = "\nprecision highp float;\nprecision mediump int;\n/*precision mediump sampler2D;*/\n"; break;
+      case 37305: 
+        str = "\nprecision highp float;\nprecision mediump int;\n/*precision mediump sampler2D;*/\n"; break;
+      default: 
+        str = null;
+        break;
+      }
+    } else {
+      str = null;
+    }
+    if (null != str) {
+      paramInt = insertShaderSource(0, paramInt, str);
+    }
+    return paramInt;
+  }
+  
+  public static final boolean requiresDefaultPrecision(GL2ES2 paramGL2ES2)
+  {
+    if (paramGL2ES2.isGLES()) {
+      return true;
+    }
+    return requiresGL3DefaultPrecision(paramGL2ES2);
+  }
+  
+  public static final boolean requiresGL3DefaultPrecision(GL2ES2 paramGL2ES2)
+  {
+    if (paramGL2ES2.isGL3()) {
+      VersionNumber localVersionNumber = paramGL2ES2.getContext().getGLSLVersionNumber();
+      return (localVersionNumber.compareTo(GLContext.Version1_30) >= 0) && (localVersionNumber.compareTo(GLContext.Version1_50) < 0);
+    }
+    return false;
+  }
+  
+
+
+
+
+
+
+
+
+  public final int defaultShaderCustomization(GL2ES2 paramGL2ES2, boolean paramBoolean1, boolean paramBoolean2)
+  {
+    int i;
+    
+
+
+
+
+
+
+    if (paramBoolean1) {
+      i = addGLSLVersion(paramGL2ES2);
+    } else {
+      i = 0;
+    }
+    if (paramBoolean2) {
+      i = addDefaultShaderPrecision(paramGL2ES2, i);
+    }
+    return i;
+  }
+  
+
+
+
+
+
+
+  public final int defaultShaderCustomization(GL2ES2 paramGL2ES2, boolean paramBoolean, String paramString)
+  {
+    int i;
+    
+
+
+
+
+
+    if (paramBoolean) {
+      i = addGLSLVersion(paramGL2ES2);
+    } else {
+      i = 0;
+    }
+    if ((paramGL2ES2.isGLES()) && (null != paramString)) {
+      i = insertShaderSource(0, i, paramString);
+    } else {
+      i = addDefaultShaderPrecision(paramGL2ES2, i);
+    }
+    return i;
+  }
+  
+
+
+
+
+  protected CharSequence[][] shaderSource = (CharSequence[][])null;
+  protected Buffer shaderBinary = null;
+  protected int shaderBinaryFormat = -1;
+  protected IntBuffer shader = null;
+  protected int shaderType = -1;
+  protected int id = -1;
+  
+  protected boolean valid = false;
+  
+
+  private static synchronized int getNextID() { return nextID++; }
+  
+  protected static int nextID = 1;
+}

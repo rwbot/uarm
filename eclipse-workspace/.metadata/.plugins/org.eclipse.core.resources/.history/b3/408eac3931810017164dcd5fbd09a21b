@@ -1,0 +1,485 @@
+package de.voidplus.leapmotion;
+
+import com.leapmotion.leap.FingerList;
+import com.leapmotion.leap.ToolList;
+import com.leapmotion.leap.Vector;
+import java.util.ArrayList;
+import java.util.Iterator;
+import processing.core.PApplet;
+import processing.core.PConstants;
+import processing.core.PVector;
+
+public class Hand
+  implements PConstants, RawAccess<com.leapmotion.leap.Hand>
+{
+  protected PApplet parent;
+  protected LeapMotion leap;
+  private com.leapmotion.leap.Hand _hand;
+  protected ArrayList<Finger> fingers;
+  protected ArrayList<Finger> outstretchedFingers;
+  protected ArrayList<Finger> outstretchedFingersByAngel;
+  protected ArrayList<Tool> tools;
+  
+  public Hand(PApplet paramPApplet, LeapMotion paramLeapMotion, com.leapmotion.leap.Hand paramHand)
+  {
+    parent = paramPApplet;
+    leap = paramLeapMotion;
+    _hand = paramHand;
+    fingers = new ArrayList();
+    outstretchedFingers = new ArrayList();
+    outstretchedFingersByAngel = new ArrayList();
+    tools = new ArrayList();
+  }
+  
+  public boolean isValid()
+  {
+    return _hand.isValid();
+  }
+  
+  public com.leapmotion.leap.Hand getRaw()
+  {
+    return _hand;
+  }
+  
+  public int getId()
+  {
+    return _hand.id();
+  }
+  
+  public PVector getPosition()
+  {
+    return leap.map(_hand.palmPosition());
+  }
+  
+  public PVector getRawPosition()
+  {
+    return leap.convert(_hand.palmPosition());
+  }
+  
+  public PVector getPalmPosition()
+  {
+    return getPosition();
+  }
+  
+  public PVector getStabilizedPosition()
+  {
+    return leap.map(_hand.stabilizedPalmPosition());
+  }
+  
+  public PVector getStabilizedPalmPosition()
+  {
+    return getStabilizedPosition();
+  }
+  
+  public PVector getRawStabilizedPosition()
+  {
+    return leap.convert(_hand.stabilizedPalmPosition());
+  }
+  
+  public PVector getRawStabilizedParlmPosition()
+  {
+    return getRawStabilizedPosition();
+  }
+  
+  public PVector getDirection()
+  {
+    return new PVector(PApplet.degrees(_hand.direction().roll()), PApplet.degrees(_hand.direction().pitch()), PApplet.degrees(_hand.direction().yaw()));
+  }
+  
+  public PVector getRawDirection()
+  {
+    return leap.convert(_hand.direction());
+  }
+  
+  public float getConfidence()
+  {
+    return _hand.confidence();
+  }
+  
+  public boolean isLeft()
+  {
+    return _hand.isLeft();
+  }
+  
+  public boolean isRight()
+  {
+    return _hand.isRight();
+  }
+  
+  public float getGrabStrength()
+  {
+    return _hand.grabStrength();
+  }
+  
+  public float getPinchStrength()
+  {
+    return _hand.pinchStrength();
+  }
+  
+  public float getTimeVisible()
+  {
+    return _hand.timeVisible();
+  }
+  
+  public Finger getFrontFinger()
+  {
+    return new Finger(parent, leap, _hand.fingers().frontmost());
+  }
+  
+  public Finger getLeftFinger()
+  {
+    return new Finger(parent, leap, _hand.fingers().leftmost());
+  }
+  
+  public Finger getRightFinger()
+  {
+    return new Finger(parent, leap, _hand.fingers().rightmost());
+  }
+  
+  public Tool getFrontTool()
+  {
+    return new Tool(parent, leap, _hand.tools().frontmost());
+  }
+  
+  public Tool getLeftTool()
+  {
+    return new Tool(parent, leap, _hand.tools().leftmost());
+  }
+  
+  public Tool getRightTool()
+  {
+    return new Tool(parent, leap, _hand.tools().rightmost());
+  }
+  
+  public PVector getDynamics()
+  {
+    return new PVector(getRoll(), getPitch(), getYaw());
+  }
+  
+  public float getRoll()
+  {
+    return -PApplet.degrees(_hand.palmNormal().roll());
+  }
+  
+  public float getPitch()
+  {
+    return PApplet.degrees(_hand.direction().pitch());
+  }
+  
+  public float getYaw()
+  {
+    return PApplet.degrees(_hand.direction().yaw());
+  }
+  
+  public PVector getSpherePosition()
+  {
+    return leap.map(_hand.sphereCenter());
+  }
+  
+  public PVector getRawSpherePosition()
+  {
+    return leap.convert(_hand.sphereCenter());
+  }
+  
+  public float getSphereRadius()
+  {
+    return _hand.sphereRadius();
+  }
+  
+  public ArrayList<Finger> getFingers()
+  {
+    fingers.clear();
+    if (hasFingers())
+    {
+      Iterator localIterator = _hand.fingers().iterator();
+      while (localIterator.hasNext())
+      {
+        com.leapmotion.leap.Finger localFinger = (com.leapmotion.leap.Finger)localIterator.next();
+        fingers.add(new Finger(parent, leap, localFinger));
+      }
+    }
+    return fingers;
+  }
+  
+  public ArrayList<Finger> getOutstretchedFingers()
+  {
+    outstretchedFingers.clear();
+    if (!_hand.fingers().extended().isEmpty())
+    {
+      Iterator localIterator = _hand.fingers().extended().iterator();
+      while (localIterator.hasNext())
+      {
+        com.leapmotion.leap.Finger localFinger = (com.leapmotion.leap.Finger)localIterator.next();
+        outstretchedFingers.add(new Finger(parent, leap, localFinger));
+      }
+    }
+    return outstretchedFingers;
+  }
+  
+  public ArrayList<Finger> getOutstretchedFingers(int paramInt)
+  {
+    return getOutstretchedFingers();
+  }
+  
+  public ArrayList<Finger> getOutstretchedFingersByAngel(int paramInt)
+  {
+    outstretchedFingersByAngel.clear();
+    if (hasFingers())
+    {
+      Iterator localIterator = _hand.fingers().iterator();
+      while (localIterator.hasNext())
+      {
+        com.leapmotion.leap.Finger localFinger = (com.leapmotion.leap.Finger)localIterator.next();
+        if (localFinger.isValid())
+        {
+          Finger localFinger1 = new Finger(parent, leap, localFinger);
+          float f1 = 0.0F;
+          for (int i = 0; i < 4; i++) {
+            f1 += PVector.dist(localFinger1.getBone(i).getNextJoint(), localFinger1.getBone(i).getPrevJoint());
+          }
+          float f2 = PVector.dist(localFinger1.getBone(0).getNextJoint(), localFinger1.getBone(localFinger1.getType() != 0 ? 3 : 2).getPrevJoint());
+          if (f2 / f1 * 100.0F >= paramInt) {
+            outstretchedFingersByAngel.add(localFinger1);
+          }
+        }
+      }
+    }
+    return outstretchedFingersByAngel;
+  }
+  
+  public ArrayList<Finger> getOutstretchedFingersByAngel()
+  {
+    return getOutstretchedFingersByAngel(75);
+  }
+  
+  public ArrayList<Finger> getRawOutstrechtedFingers()
+  {
+    outstretchedFingers.clear();
+    return outstretchedFingers;
+  }
+  
+  public boolean hasFingers()
+  {
+    return (leap.isConnected()) && (!_hand.fingers().isEmpty());
+  }
+  
+  public int countFingers()
+  {
+    if (leap.isConnected()) {
+      return _hand.fingers().count();
+    }
+    return 0;
+  }
+  
+  public Finger getFinger(int paramInt)
+  {
+    Iterator localIterator = getFingers().iterator();
+    while (localIterator.hasNext())
+    {
+      Finger localFinger = (Finger)localIterator.next();
+      if (localFinger.getType() == paramInt) {
+        return localFinger;
+      }
+    }
+    return null;
+  }
+  
+  public Finger getFinger(String paramString)
+  {
+    paramString = paramString.toLowerCase();
+    if (paramString.equals("thumb")) {
+      return getFinger(0);
+    }
+    if (paramString.equals("index")) {
+      return getFinger(1);
+    }
+    if (paramString.equals("middle")) {
+      return getFinger(2);
+    }
+    if (paramString.equals("ring")) {
+      return getFinger(3);
+    }
+    if (paramString.equals("pinky")) {
+      return getFinger(4);
+    }
+    return null;
+  }
+  
+  public Finger getThumb()
+  {
+    return getFinger(0);
+  }
+  
+  public Finger getIndexFinger()
+  {
+    return getFinger(1);
+  }
+  
+  public Finger getMiddleFinger()
+  {
+    return getFinger(2);
+  }
+  
+  public Finger getRingFinger()
+  {
+    return getFinger(3);
+  }
+  
+  public Finger getPinkyFinger()
+  {
+    return getFinger(4);
+  }
+  
+  public ArrayList<Tool> getTools()
+  {
+    tools.clear();
+    if (hasTools())
+    {
+      Iterator localIterator = _hand.tools().iterator();
+      while (localIterator.hasNext())
+      {
+        com.leapmotion.leap.Tool localTool = (com.leapmotion.leap.Tool)localIterator.next();
+        tools.add(new Tool(parent, leap, localTool));
+      }
+    }
+    return tools;
+  }
+  
+  public boolean hasTools()
+  {
+    if (leap.isConnected()) {
+      return !_hand.tools().isEmpty();
+    }
+    return false;
+  }
+  
+  public int countTools()
+  {
+    if (leap.isConnected()) {
+      return _hand.tools().count();
+    }
+    return 0;
+  }
+  
+  public Arm getArm()
+  {
+    return new Arm(parent, leap, _hand.arm());
+  }
+  
+  public boolean hasArm()
+  {
+    return _hand.arm().isValid();
+  }
+  
+  public void draw(float paramFloat)
+  {
+    parent.noStroke();
+    parent.fill(0);
+    PVector localPVector1 = getPosition();
+    if (leap.is2D)
+    {
+      parent.ellipseMode(3);
+      parent.ellipse(x, y, paramFloat, paramFloat);
+    }
+    else
+    {
+      parent.pushMatrix();
+      parent.translate(x, y, z);
+      parent.sphereDetail(20);
+      parent.sphere(paramFloat);
+      parent.popMatrix();
+    }
+    if (hasArm()) {
+      getArm().draw();
+    }
+    if (hasFingers())
+    {
+      Object localObject2;
+      if (countFingers() == 5)
+      {
+        parent.stroke(0, 35.0F);
+        parent.noFill();
+        localObject1 = getThumb().getProximalBone().getPrevJoint();
+        localObject2 = getIndexFinger().getMetacarpalBone().getPrevJoint();
+        PVector localPVector2 = getMiddleFinger().getMetacarpalBone().getPrevJoint();
+        PVector localPVector3 = getRingFinger().getMetacarpalBone().getPrevJoint();
+        PVector localPVector4 = getPinkyFinger().getMetacarpalBone().getPrevJoint();
+        parent.beginShape();
+        if (leap.is2D)
+        {
+          parent.vertex(x, y);
+          parent.vertex(x, y);
+          parent.vertex(x, y);
+          parent.vertex(x, y);
+          parent.vertex(x, y);
+        }
+        else
+        {
+          parent.vertex(x, y, z);
+          parent.vertex(x, y, z);
+          parent.vertex(x, y, z);
+          parent.vertex(x, y, z);
+          parent.vertex(x, y, z);
+        }
+        parent.endShape(1);
+      }
+      localObject1 = getFingers().iterator();
+      while (((Iterator)localObject1).hasNext())
+      {
+        localObject2 = (Finger)((Iterator)localObject1).next();
+        ((Finger)localObject2).draw();
+      }
+    }
+    parent.stroke(0);
+    Object localObject1 = String.format("id: %d\nconfidence: %.2f\nhand side: %s\noutstretched fingers: %d\ntime visible: %.2f s\npinch strength: %.2f\ngrab strength: %.2f", new Object[] { Integer.valueOf(getId()), Float.valueOf(getConfidence()), isLeft() ? "left" : "right", Integer.valueOf(getOutstretchedFingers().size()), Float.valueOf(getTimeVisible()), Float.valueOf(getPinchStrength()), Float.valueOf(getGrabStrength()) });
+    if (leap.is2D) {
+      parent.text((String)localObject1, x - 30.0F, y - 150.0F);
+    } else {
+      parent.text((String)localObject1, x - 30.0F, y - 150.0F, z);
+    }
+  }
+  
+  public void draw()
+  {
+    draw(5.0F);
+  }
+  
+  public void drawFingers(int paramInt)
+  {
+    if (hasFingers())
+    {
+      Iterator localIterator = fingers.iterator();
+      while (localIterator.hasNext())
+      {
+        Finger localFinger = (Finger)localIterator.next();
+        localFinger.draw(paramInt);
+      }
+    }
+  }
+  
+  public void drawFingers()
+  {
+    drawFingers(3);
+  }
+  
+  public void drawSphere()
+  {
+    parent.stroke(0, 10.0F);
+    parent.noFill();
+    PVector localPVector = getSpherePosition();
+    float f = getSphereRadius();
+    if (leap.is2D)
+    {
+      parent.ellipseMode(3);
+      parent.ellipse(x, y, f, f);
+    }
+    else
+    {
+      parent.pushMatrix();
+      parent.translate(x, y, z);
+      parent.sphereDetail(12);
+      parent.sphere(f);
+      parent.popMatrix();
+    }
+  }
+}

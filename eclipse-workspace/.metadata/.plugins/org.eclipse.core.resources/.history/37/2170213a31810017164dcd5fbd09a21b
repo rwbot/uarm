@@ -1,0 +1,444 @@
+package jogamp.opengl;
+
+import com.jogamp.common.ExceptionUtils;
+import com.jogamp.common.util.InterruptSource.Thread;
+import com.jogamp.common.util.InterruptedRuntimeException;
+import com.jogamp.common.util.SourcedInterruptedException;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.GLRendererQuirks;
+import java.io.PrintStream;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class SharedResourceRunner
+  implements Runnable
+{
+  protected static final boolean DEBUG = GLDrawableImpl.DEBUG;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static abstract class AImplementation
+    implements SharedResourceRunner.Implementation
+  {
+    public AImplementation() {}
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private final HashMap<String, SharedResourceRunner.Resource> sharedMap = new HashMap();
+    
+    public Map<String, SharedResourceRunner.Resource> getSharedMap() {
+      return sharedMap;
+    }
+    
+    public final void clear() {
+      sharedMap.clear();
+    }
+    
+    public final SharedResourceRunner.Resource mapPut(AbstractGraphicsDevice paramAbstractGraphicsDevice, SharedResourceRunner.Resource paramResource) {
+      return (SharedResourceRunner.Resource)sharedMap.put(paramAbstractGraphicsDevice.getUniqueID(), paramResource);
+    }
+    
+    public final SharedResourceRunner.Resource mapGet(AbstractGraphicsDevice paramAbstractGraphicsDevice) {
+      return (SharedResourceRunner.Resource)sharedMap.get(paramAbstractGraphicsDevice.getUniqueID());
+    }
+    
+    public final Collection<SharedResourceRunner.Resource> mapValues() {
+      return sharedMap.values();
+    }
+  }
+  
+  final HashSet<String> devicesTried = new HashSet();
+  final Implementation impl;
+  Thread thread;
+  boolean running;
+  boolean ready;
+  boolean shouldRelease;
+  AbstractGraphicsDevice initDevice;
+  AbstractGraphicsDevice releaseDevice;
+  
+  private boolean getDeviceTried(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    return devicesTried.contains(paramAbstractGraphicsDevice.getUniqueID());
+  }
+  
+  private void addDeviceTried(AbstractGraphicsDevice paramAbstractGraphicsDevice) { devicesTried.add(paramAbstractGraphicsDevice.getUniqueID()); }
+  
+  private void removeDeviceTried(AbstractGraphicsDevice paramAbstractGraphicsDevice) {
+    devicesTried.remove(paramAbstractGraphicsDevice.getUniqueID());
+  }
+  
+  public SharedResourceRunner(Implementation paramImplementation) {
+    impl = paramImplementation;
+    resetState();
+  }
+  
+  private void resetState() {
+    devicesTried.clear();
+    thread = null;
+    ready = false;
+    running = false;
+    shouldRelease = false;
+    initDevice = null;
+    releaseDevice = null;
+  }
+  
+
+
+
+
+
+
+
+  public Thread start()
+  {
+    synchronized (this) {
+      if ((null != thread) && (!thread.isAlive()))
+      {
+        if (DEBUG) {
+          System.err.println("SharedResourceRunner.start() - dead-old-thread cleanup - " + getThreadName());
+        }
+        releaseSharedResources();
+        thread = null;
+        running = false;
+      }
+      if (null == thread) {
+        if (DEBUG) {
+          System.err.println("SharedResourceRunner.start() - start new Thread - " + getThreadName());
+        }
+        resetState();
+        thread = new InterruptSource.Thread(null, this, getThreadName() + "-SharedResourceRunner");
+        thread.setDaemon(true);
+        thread.start();
+        try {
+          while (!running) {
+            wait();
+          }
+        }
+        catch (InterruptedException localInterruptedException) {
+          shouldRelease = true;
+          notifyAll();
+          throw new InterruptedRuntimeException(localInterruptedException);
+        }
+      }
+    }
+    return thread;
+  }
+  
+  public void stop() {
+    synchronized (this) {
+      if (null != thread) {
+        if (DEBUG) {
+          System.err.println("SharedResourceRunner.stop() - " + getThreadName());
+        }
+        synchronized (this) {
+          shouldRelease = true;
+          notifyAll();
+          try {
+            while (running) {
+              wait();
+            }
+          } catch (InterruptedException localInterruptedException) {
+            throw new InterruptedRuntimeException(localInterruptedException);
+          }
+        }
+      }
+    }
+  }
+  
+  public Resource getOrCreateShared(AbstractGraphicsDevice paramAbstractGraphicsDevice) {
+    Resource localResource = null;
+    if (null != paramAbstractGraphicsDevice) {
+      synchronized (this) {
+        start();
+        localResource = impl.mapGet(paramAbstractGraphicsDevice);
+        if ((null == localResource) && 
+          (!getDeviceTried(paramAbstractGraphicsDevice))) {
+          addDeviceTried(paramAbstractGraphicsDevice);
+          if (DEBUG) {
+            System.err.println("SharedResourceRunner.getOrCreateShared() " + paramAbstractGraphicsDevice + ": trying - " + getThreadName());
+            ExceptionUtils.dumpStack(System.err);
+          }
+          if (impl.isDeviceSupported(paramAbstractGraphicsDevice)) {
+            try {
+              doAndWait(paramAbstractGraphicsDevice, null);
+            } catch (InterruptedException localInterruptedException) {
+              throw new InterruptedRuntimeException(localInterruptedException);
+            }
+            localResource = impl.mapGet(paramAbstractGraphicsDevice);
+          }
+          if (DEBUG) {
+            System.err.println("SharedResourceRunner.getOrCreateShared() " + paramAbstractGraphicsDevice + ": " + (null != localResource ? "success" : "failed") + " - " + getThreadName());
+          }
+        }
+      }
+    }
+    
+    return localResource;
+  }
+  
+  public Resource releaseShared(AbstractGraphicsDevice paramAbstractGraphicsDevice) {
+    Resource localResource = null;
+    if (null != paramAbstractGraphicsDevice) {
+      synchronized (this) {
+        localResource = impl.mapGet(paramAbstractGraphicsDevice);
+        if (null != localResource) {
+          removeDeviceTried(paramAbstractGraphicsDevice);
+          if (DEBUG) {
+            System.err.println("SharedResourceRunner.releaseShared() " + paramAbstractGraphicsDevice + ": trying - " + getThreadName());
+          }
+          try {
+            doAndWait(null, paramAbstractGraphicsDevice);
+          } catch (InterruptedException localInterruptedException) {
+            throw new InterruptedRuntimeException(localInterruptedException);
+          }
+          if (DEBUG) {
+            System.err.println("SharedResourceRunner.releaseShared() " + paramAbstractGraphicsDevice + ": done - " + getThreadName());
+          }
+        }
+      }
+    }
+    return localResource;
+  }
+  
+  private final void doAndWait(AbstractGraphicsDevice paramAbstractGraphicsDevice1, AbstractGraphicsDevice paramAbstractGraphicsDevice2) throws InterruptedException {
+    synchronized (this)
+    {
+
+      String str = getThreadName();
+      if (DEBUG) {
+        System.err.println("SharedResourceRunner.doAndWait() START init: " + paramAbstractGraphicsDevice1 + ", release: " + paramAbstractGraphicsDevice2 + " - " + str);
+      }
+      try {
+        while ((!ready) && (running)) {
+          wait();
+        }
+        if (DEBUG) {
+          System.err.println("SharedResourceRunner.doAndWait() set command: " + paramAbstractGraphicsDevice1 + ", release: " + paramAbstractGraphicsDevice2 + " - " + str);
+        }
+        initDevice = paramAbstractGraphicsDevice1;
+        releaseDevice = paramAbstractGraphicsDevice2;
+        notifyAll();
+        
+
+        while ((running) && ((!ready) || (null != initDevice) || (null != releaseDevice))) {
+          wait();
+        }
+      } catch (InterruptedException localInterruptedException1) {
+        InterruptedException localInterruptedException2 = SourcedInterruptedException.wrap(localInterruptedException1);
+        if (DEBUG) {
+          System.err.println("SharedResourceRunner.doAndWait() INTERRUPT init: " + paramAbstractGraphicsDevice1 + ", release: " + paramAbstractGraphicsDevice2 + " - " + str);
+          ExceptionUtils.dumpThrowable("", localInterruptedException2);
+        }
+        
+        AbstractGraphicsDevice localAbstractGraphicsDevice = initDevice;
+        if (null != localAbstractGraphicsDevice) {
+          if (DEBUG) {
+            System.err.println("SharedResourceRunner.doAndWait() Cleanup init: " + localAbstractGraphicsDevice + " -> release: " + releaseDevice + " - " + str);
+          }
+          releaseDevice = localAbstractGraphicsDevice;
+          initDevice = null;
+          notifyAll();
+        }
+        throw localInterruptedException2;
+      }
+      if (DEBUG) {
+        System.err.println("SharedResourceRunner.doAndWait() END init: " + paramAbstractGraphicsDevice1 + ", release: " + paramAbstractGraphicsDevice2 + " - " + str);
+      }
+    }
+  }
+  
+
+  public final void run()
+  {
+    String str = getThreadName();
+    
+    if (DEBUG) {
+      System.err.println("SharedResourceRunner.run(): STARTED - " + str);
+    }
+    
+    synchronized (this) {
+      running = true;
+      
+      while (!shouldRelease)
+      {
+        try {
+          ready = true;
+          if (DEBUG) {
+            System.err.println("SharedResourceRunner.run(): READY - " + str);
+          }
+          notifyAll();
+          while ((!shouldRelease) && (null == initDevice) && (null == releaseDevice)) {
+            wait();
+          }
+        } catch (InterruptedException localInterruptedException) {
+          shouldRelease = true;
+          ExceptionUtils.dumpThrowable("handled", SourcedInterruptedException.wrap(localInterruptedException));
+        }
+        ready = false;
+        
+        if (!shouldRelease) {
+          if (DEBUG) {
+            System.err.println("SharedResourceRunner.run(): WOKE UP for device connection init: " + initDevice + ", release: " + releaseDevice + " - " + str);
+          }
+          Resource localResource;
+          if (null != initDevice) {
+            if (DEBUG) {
+              System.err.println("SharedResourceRunner.run(): create Shared for: " + initDevice + " - " + str);
+            }
+            localResource = null;
+            try {
+              localResource = impl.createSharedResource(initDevice);
+            } catch (Exception localException1) {
+              ExceptionUtils.dumpThrowable("handled", localException1);
+            }
+            if (null != localResource) {
+              impl.mapPut(initDevice, localResource);
+            }
+          }
+          if (null != releaseDevice) {
+            if (DEBUG) {
+              System.err.println("SharedResourceRunner.run(): release Shared for: " + releaseDevice + " - " + str);
+            }
+            localResource = impl.mapGet(releaseDevice);
+            if (null != localResource) {
+              try {
+                impl.releaseSharedResource(localResource);
+              } catch (Exception localException2) {
+                ExceptionUtils.dumpThrowable("handled", localException2);
+              } finally {
+                impl.mapPut(releaseDevice, null);
+              }
+            }
+          }
+        }
+        initDevice = null;
+        releaseDevice = null;
+      }
+      
+      if (DEBUG) {
+        System.err.println("SharedResourceRunner.run(): RELEASE START - " + str);
+      }
+      
+      releaseSharedResources();
+      
+      if (DEBUG) {
+        System.err.println("SharedResourceRunner.run(): RELEASE END - " + str);
+      }
+      
+      shouldRelease = false;
+      running = false;
+      thread = null;
+      notifyAll();
+    }
+  }
+  
+  private void releaseSharedResources() {
+    devicesTried.clear();
+    Collection localCollection = impl.mapValues();
+    for (Iterator localIterator = localCollection.iterator(); localIterator.hasNext();) {
+      try {
+        impl.releaseSharedResource((Resource)localIterator.next());
+      } catch (Throwable localThrowable) {
+        ExceptionUtils.dumpThrowable("", localThrowable);
+      }
+    }
+    impl.clear();
+  }
+  
+  protected static String getThreadName() { return Thread.currentThread().getName(); }
+  
+  public static abstract interface Implementation
+  {
+    public abstract boolean isDeviceSupported(AbstractGraphicsDevice paramAbstractGraphicsDevice);
+    
+    public abstract SharedResourceRunner.Resource createSharedResource(AbstractGraphicsDevice paramAbstractGraphicsDevice);
+    
+    public abstract void releaseSharedResource(SharedResourceRunner.Resource paramResource);
+    
+    public abstract void clear();
+    
+    public abstract SharedResourceRunner.Resource mapPut(AbstractGraphicsDevice paramAbstractGraphicsDevice, SharedResourceRunner.Resource paramResource);
+    
+    public abstract SharedResourceRunner.Resource mapGet(AbstractGraphicsDevice paramAbstractGraphicsDevice);
+    
+    public abstract Collection<SharedResourceRunner.Resource> mapValues();
+  }
+  
+  public static abstract interface Resource
+  {
+    public abstract boolean isAvailable();
+    
+    public abstract AbstractGraphicsDevice getDevice();
+    
+    public abstract AbstractGraphicsScreen getScreen();
+    
+    public abstract GLDrawableImpl getDrawable();
+    
+    public abstract GLContextImpl getContext();
+    
+    public abstract GLRendererQuirks getRendererQuirks(GLProfile paramGLProfile);
+  }
+}

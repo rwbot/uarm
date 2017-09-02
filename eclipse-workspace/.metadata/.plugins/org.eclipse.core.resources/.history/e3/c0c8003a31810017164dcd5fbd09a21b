@@ -1,0 +1,904 @@
+package jogamp.graph.geom.plane;
+
+import com.jogamp.opengl.math.FloatUtil;
+import com.jogamp.opengl.math.geom.AABBox;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Crossing
+{
+  static final float DELTA = 1.0E-5F;
+  static final float ROOT_DELTA = 1.0E-10F;
+  public static final int CROSSING = 255;
+  static final int UNKNOWN = 254;
+  
+  public Crossing() {}
+  
+  public static int solveQuad(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2)
+  {
+    float f1 = paramArrayOfFloat1[2];
+    float f2 = paramArrayOfFloat1[1];
+    float f3 = paramArrayOfFloat1[0];
+    int i = 0;
+    if (f1 == 0.0D) {
+      if (f2 == 0.0D) {
+        return -1;
+      }
+      paramArrayOfFloat2[(i++)] = (-f3 / f2);
+    } else {
+      float f4 = f2 * f2 - 4.0F * f1 * f3;
+      
+      if (f4 < 0.0D) {
+        return 0;
+      }
+      f4 = FloatUtil.sqrt(f4);
+      paramArrayOfFloat2[(i++)] = ((-f2 + f4) / (f1 * 2.0F));
+      
+      if (f4 != 0.0D) {
+        paramArrayOfFloat2[(i++)] = ((-f2 - f4) / (f1 * 2.0F));
+      }
+    }
+    return fixRoots(paramArrayOfFloat2, i);
+  }
+  
+
+
+
+
+
+  public static int solveCubic(float[] paramArrayOfFloat1, float[] paramArrayOfFloat2)
+  {
+    float f1 = paramArrayOfFloat1[3];
+    if (f1 == 0.0F) {
+      return solveQuad(paramArrayOfFloat1, paramArrayOfFloat2);
+    }
+    float f2 = paramArrayOfFloat1[2] / f1;
+    float f3 = paramArrayOfFloat1[1] / f1;
+    float f4 = paramArrayOfFloat1[0] / f1;
+    int i = 0;
+    
+    float f5 = (f2 * f2 - 3.0F * f3) / 9.0F;
+    float f6 = (2.0F * f2 * f2 * f2 - 9.0F * f2 * f3 + 27.0F * f4) / 54.0F;
+    float f7 = f5 * f5 * f5;
+    float f8 = f6 * f6;
+    float f9 = -f2 / 3.0F;
+    float f10;
+    float f12; if (f8 < f7) {
+      f10 = FloatUtil.acos(f6 / FloatUtil.sqrt(f7)) / 3.0F;
+      
+      f12 = -2.0F * FloatUtil.sqrt(f5);
+      paramArrayOfFloat2[(i++)] = (f12 * FloatUtil.cos(f10) + f9);
+      paramArrayOfFloat2[(i++)] = (f12 * FloatUtil.cos(f10 + 2.0943952F) + f9);
+      paramArrayOfFloat2[(i++)] = (f12 * FloatUtil.cos(f10 - 2.0943952F) + f9);
+    }
+    else {
+      f10 = FloatUtil.pow(FloatUtil.abs(f6) + FloatUtil.sqrt(f8 - f7), 0.33333334F);
+      if (f6 > 0.0D) {
+        f10 = -f10;
+      }
+      
+      if ((-1.0E-10F < f10) && (f10 < 1.0E-10F)) {
+        paramArrayOfFloat2[(i++)] = f9;
+      } else {
+        float f11 = f5 / f10;
+        paramArrayOfFloat2[(i++)] = (f10 + f11 + f9);
+        
+        f12 = f8 - f7;
+        if ((-1.0E-10F < f12) && (f12 < 1.0E-10F)) {
+          paramArrayOfFloat2[(i++)] = (-(f10 + f11) / 2.0F + f9);
+        }
+      }
+    }
+    
+    return fixRoots(paramArrayOfFloat2, i);
+  }
+  
+
+
+
+
+
+  static int fixRoots(float[] paramArrayOfFloat, int paramInt)
+  {
+    int i = 0;
+    label52: for (int j = 0; j < paramInt; j++)
+    {
+      for (int k = j + 1; k < paramInt; k++) {
+        if (isZero(paramArrayOfFloat[j] - paramArrayOfFloat[k])) {
+          break label52;
+        }
+      }
+      paramArrayOfFloat[(i++)] = paramArrayOfFloat[j];
+    }
+    
+    return i;
+  }
+  
+  public static class QuadCurve { float ax;
+    float ay;
+    float bx;
+    float by;
+    float Ax;
+    float Ay;
+    float Bx;
+    float By;
+    
+    public QuadCurve(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6) { ax = (paramFloat5 - paramFloat1);
+      ay = (paramFloat6 - paramFloat2);
+      bx = (paramFloat3 - paramFloat1);
+      by = (paramFloat4 - paramFloat2);
+      
+      Bx = (bx + bx);
+      Ax = (ax - Bx);
+      
+      By = (by + by);
+      Ay = (ay - By);
+    }
+    
+    int cross(float[] paramArrayOfFloat, int paramInt, float paramFloat1, float paramFloat2) {
+      int i = 0;
+      
+      for (int j = 0; j < paramInt; j++) {
+        float f1 = paramArrayOfFloat[j];
+        
+
+        if ((f1 >= -1.0E-5F) && (f1 <= 1.00001F))
+        {
+
+
+          if (f1 < 1.0E-5F) {
+            if (paramFloat1 < 0.0D) { if ((bx != 0.0D ? bx : ax - bx) < 0.0D) {
+                i--;
+              }
+              
+            }
+          }
+          else if (f1 > 0.99999F)
+          {
+            if (paramFloat1 < ay) if ((ax != bx ? ax - bx : bx) > 0.0D) {
+                i++;
+              }
+          }
+          else
+          {
+            float f2 = f1 * (f1 * Ay + By);
+            
+            if (f2 > paramFloat2) {
+              float f3 = f1 * Ax + bx;
+              
+              if ((f3 <= -1.0E-5F) || (f3 >= 1.0E-5F))
+              {
+
+                i += (f3 > 0.0D ? 1 : -1); }
+            }
+          } }
+      }
+      return i;
+    }
+    
+    int solvePoint(float[] paramArrayOfFloat, float paramFloat) {
+      float[] arrayOfFloat = { -paramFloat, Bx, Ax };
+      return Crossing.solveQuad(arrayOfFloat, paramArrayOfFloat);
+    }
+    
+    int solveExtrem(float[] paramArrayOfFloat) {
+      int i = 0;
+      if (Ax != 0.0D) {
+        paramArrayOfFloat[(i++)] = (-Bx / (Ax + Ax));
+      }
+      if (Ay != 0.0D) {
+        paramArrayOfFloat[(i++)] = (-By / (Ay + Ay));
+      }
+      return i;
+    }
+    
+    int addBound(float[] paramArrayOfFloat1, int paramInt1, float[] paramArrayOfFloat2, int paramInt2, float paramFloat1, float paramFloat2, boolean paramBoolean, int paramInt3) {
+      for (int i = 0; i < paramInt2; i++) {
+        float f1 = paramArrayOfFloat2[i];
+        if ((f1 > -1.0E-5F) && (f1 < 1.00001F)) {
+          float f2 = f1 * (f1 * Ax + Bx);
+          if ((paramFloat1 <= f2) && (f2 <= paramFloat2)) {
+            paramArrayOfFloat1[(paramInt1++)] = f1;
+            paramArrayOfFloat1[(paramInt1++)] = f2;
+            paramArrayOfFloat1[(paramInt1++)] = (f1 * (f1 * Ay + By));
+            paramArrayOfFloat1[(paramInt1++)] = paramInt3;
+            if (paramBoolean) {
+              paramInt3++;
+            }
+          }
+        }
+      }
+      return paramInt1;
+    }
+  }
+  
+  public static class CubicCurve
+  {
+    float ax;
+    float ay;
+    float bx;
+    float by;
+    float cx;
+    float cy;
+    float Ax;
+    
+    public CubicCurve(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6, float paramFloat7, float paramFloat8) {
+      ax = (paramFloat7 - paramFloat1);
+      ay = (paramFloat8 - paramFloat2);
+      bx = (paramFloat3 - paramFloat1);
+      by = (paramFloat4 - paramFloat2);
+      cx = (paramFloat5 - paramFloat1);
+      cy = (paramFloat6 - paramFloat2);
+      
+      Cx = (bx + bx + bx);
+      Bx = (cx + cx + cx - Cx - Cx);
+      Ax = (ax - Bx - Cx);
+      
+      Cy = (by + by + by);
+      By = (cy + cy + cy - Cy - Cy);
+      Ay = (ay - By - Cy);
+      
+      Ax3 = (Ax + Ax + Ax);
+      Bx2 = (Bx + Bx);
+    }
+    
+    int cross(float[] paramArrayOfFloat, int paramInt, float paramFloat1, float paramFloat2) {
+      int i = 0;
+      for (int j = 0; j < paramInt; j++) {
+        float f1 = paramArrayOfFloat[j];
+        
+
+        if ((f1 >= -1.0E-5F) && (f1 <= 1.00001F))
+        {
+
+
+          if (f1 < 1.0E-5F)
+          {
+            if (paramFloat1 < 0.0D) { if ((cx != bx ? cx - bx : bx != 0.0D ? bx : ax - cx) < 0.0D) {
+                i--;
+              }
+              
+            }
+          }
+          else if (f1 > 0.99999F) {
+            if (paramFloat1 < ay) if ((cx != bx ? cx - bx : ax != cx ? ax - cx : bx) > 0.0D) {
+                i++;
+              }
+          }
+          else
+          {
+            float f2 = f1 * (f1 * (f1 * Ay + By) + Cy);
+            
+            if (f2 > paramFloat2) {
+              float f3 = f1 * (f1 * Ax3 + Bx2) + Cx;
+              
+              if ((f3 > -1.0E-5F) && (f3 < 1.0E-5F)) {
+                f3 = f1 * (Ax3 + Ax3) + Bx2;
+                
+                if ((f3 >= -1.0E-5F) && (f3 <= 1.0E-5F))
+                {
+
+
+                  f3 = ax; }
+              } else {
+                i += (f3 > 0.0D ? 1 : -1);
+              }
+            }
+          } } }
+      return i;
+    }
+    
+    int solvePoint(float[] paramArrayOfFloat, float paramFloat) {
+      float[] arrayOfFloat = { -paramFloat, Cx, Bx, Ax };
+      return Crossing.solveCubic(arrayOfFloat, paramArrayOfFloat);
+    }
+    
+    int solveExtremX(float[] paramArrayOfFloat) {
+      float[] arrayOfFloat = { Cx, Bx2, Ax3 };
+      return Crossing.solveQuad(arrayOfFloat, paramArrayOfFloat);
+    }
+    
+    int solveExtremY(float[] paramArrayOfFloat) {
+      float[] arrayOfFloat = { Cy, By + By, Ay + Ay + Ay };
+      return Crossing.solveQuad(arrayOfFloat, paramArrayOfFloat);
+    }
+    
+    int addBound(float[] paramArrayOfFloat1, int paramInt1, float[] paramArrayOfFloat2, int paramInt2, float paramFloat1, float paramFloat2, boolean paramBoolean, int paramInt3) {
+      for (int i = 0; i < paramInt2; i++) {
+        float f1 = paramArrayOfFloat2[i];
+        if ((f1 > -1.0E-5F) && (f1 < 1.00001F)) {
+          float f2 = f1 * (f1 * (f1 * Ax + Bx) + Cx);
+          if ((paramFloat1 <= f2) && (f2 <= paramFloat2)) {
+            paramArrayOfFloat1[(paramInt1++)] = f1;
+            paramArrayOfFloat1[(paramInt1++)] = f2;
+            paramArrayOfFloat1[(paramInt1++)] = (f1 * (f1 * (f1 * Ay + By) + Cy));
+            paramArrayOfFloat1[(paramInt1++)] = paramInt3;
+            if (paramBoolean) {
+              paramInt3++;
+            }
+          }
+        }
+      }
+      return paramInt1;
+    }
+    
+    float Ay;
+    float Bx;
+    float By;
+    float Cx;
+    float Cy;
+    float Ax3;
+    float Bx2; }
+  
+  public static int crossLine(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6) { if (((paramFloat5 < paramFloat1) && (paramFloat5 < paramFloat3)) || ((paramFloat5 > paramFloat1) && (paramFloat5 > paramFloat3)) || ((paramFloat6 > paramFloat2) && (paramFloat6 > paramFloat4)) || (paramFloat1 == paramFloat3))
+    {
+
+
+
+      return 0;
+    }
+    
+
+    if ((paramFloat6 >= paramFloat2) || (paramFloat6 >= paramFloat4))
+    {
+
+      if ((paramFloat4 - paramFloat2) * (paramFloat5 - paramFloat1) / (paramFloat3 - paramFloat1) <= paramFloat6 - paramFloat2)
+      {
+        return 0;
+      }
+    }
+    
+
+    if (paramFloat5 == paramFloat1) {
+      return paramFloat1 < paramFloat3 ? 0 : -1;
+    }
+    
+
+    if (paramFloat5 == paramFloat3) {
+      return paramFloat1 < paramFloat3 ? 1 : 0;
+    }
+    
+
+    return paramFloat1 < paramFloat3 ? 1 : -1;
+  }
+  
+
+
+
+
+  public static int crossQuad(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6, float paramFloat7, float paramFloat8)
+  {
+    if (((paramFloat7 < paramFloat1) && (paramFloat7 < paramFloat3) && (paramFloat7 < paramFloat5)) || ((paramFloat7 > paramFloat1) && (paramFloat7 > paramFloat3) && (paramFloat7 > paramFloat5)) || ((paramFloat8 > paramFloat2) && (paramFloat8 > paramFloat4) && (paramFloat8 > paramFloat6)) || ((paramFloat1 == paramFloat3) && (paramFloat3 == paramFloat5)))
+    {
+
+
+
+      return 0;
+    }
+    
+
+    if ((paramFloat8 < paramFloat2) && (paramFloat8 < paramFloat4) && (paramFloat8 < paramFloat6) && (paramFloat7 != paramFloat1) && (paramFloat7 != paramFloat5)) {
+      if (paramFloat1 < paramFloat5) {
+        return (paramFloat1 < paramFloat7) && (paramFloat7 < paramFloat5) ? 1 : 0;
+      }
+      return (paramFloat5 < paramFloat7) && (paramFloat7 < paramFloat1) ? -1 : 0;
+    }
+    
+
+    QuadCurve localQuadCurve = new QuadCurve(paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramFloat5, paramFloat6);
+    float f1 = paramFloat7 - paramFloat1;
+    float f2 = paramFloat8 - paramFloat2;
+    float[] arrayOfFloat = new float[3];
+    int i = localQuadCurve.solvePoint(arrayOfFloat, f1);
+    
+    return localQuadCurve.cross(arrayOfFloat, i, f2, f2);
+  }
+  
+
+
+
+
+  public static int crossCubic(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6, float paramFloat7, float paramFloat8, float paramFloat9, float paramFloat10)
+  {
+    if (((paramFloat9 < paramFloat1) && (paramFloat9 < paramFloat3) && (paramFloat9 < paramFloat5) && (paramFloat9 < paramFloat7)) || ((paramFloat9 > paramFloat1) && (paramFloat9 > paramFloat3) && (paramFloat9 > paramFloat5) && (paramFloat9 > paramFloat7)) || ((paramFloat10 > paramFloat2) && (paramFloat10 > paramFloat4) && (paramFloat10 > paramFloat6) && (paramFloat10 > paramFloat8)) || ((paramFloat1 == paramFloat3) && (paramFloat3 == paramFloat5) && (paramFloat5 == paramFloat7)))
+    {
+
+
+
+      return 0;
+    }
+    
+
+    if ((paramFloat10 < paramFloat2) && (paramFloat10 < paramFloat4) && (paramFloat10 < paramFloat6) && (paramFloat10 < paramFloat8) && (paramFloat9 != paramFloat1) && (paramFloat9 != paramFloat7)) {
+      if (paramFloat1 < paramFloat7) {
+        return (paramFloat1 < paramFloat9) && (paramFloat9 < paramFloat7) ? 1 : 0;
+      }
+      return (paramFloat7 < paramFloat9) && (paramFloat9 < paramFloat1) ? -1 : 0;
+    }
+    
+
+    CubicCurve localCubicCurve = new CubicCurve(paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramFloat5, paramFloat6, paramFloat7, paramFloat8);
+    float f1 = paramFloat9 - paramFloat1;
+    float f2 = paramFloat10 - paramFloat2;
+    float[] arrayOfFloat = new float[3];
+    int i = localCubicCurve.solvePoint(arrayOfFloat, f1);
+    return localCubicCurve.cross(arrayOfFloat, i, f2, f2);
+  }
+  
+
+
+  public static int crossPath(PathIterator paramPathIterator, float paramFloat1, float paramFloat2)
+  {
+    int i = 0;
+    float f4;
+    float f3; float f2; float f1 = f2 = f3 = f4 = 0.0F;
+    float[] arrayOfFloat = new float[6];
+    
+    while (!paramPathIterator.isDone()) {
+      int j = paramPathIterator.currentSegment(arrayOfFloat);
+      switch (j) {
+      case 0: 
+        if ((f3 != f1) || (f4 != f2)) {
+          i += crossLine(f3, f4, f1, f2, paramFloat1, paramFloat2);
+        }
+        f1 = f3 = arrayOfFloat[0];
+        f2 = f4 = arrayOfFloat[1];
+        break;
+      case 1: 
+        i += crossLine(f3, f4, f3 = arrayOfFloat[0], f4 = arrayOfFloat[1], paramFloat1, paramFloat2);
+        break;
+      case 2: 
+        i += crossQuad(f3, f4, arrayOfFloat[0], arrayOfFloat[1], f3 = arrayOfFloat[2], f4 = arrayOfFloat[3], paramFloat1, paramFloat2);
+        break;
+      case 3: 
+        i += crossCubic(f3, f4, arrayOfFloat[0], arrayOfFloat[1], arrayOfFloat[2], arrayOfFloat[3], f3 = arrayOfFloat[4], f4 = arrayOfFloat[5], paramFloat1, paramFloat2);
+        break;
+      case 4: 
+        if ((f4 != f2) || (f3 != f1)) {
+          i += crossLine(f3, f4, f3 = f1, f4 = f2, paramFloat1, paramFloat2);
+        }
+        break;
+      default: 
+        throw new IllegalArgumentException("Unhandled Segment Type: " + j);
+      }
+      
+      
+      if ((paramFloat1 == f3) && (paramFloat2 == f4)) {
+        i = 0;
+        f4 = f2;
+        break;
+      }
+      paramPathIterator.next();
+    }
+    if (f4 != f2) {
+      i += crossLine(f3, f4, f1, f2, paramFloat1, paramFloat2);
+    }
+    return i;
+  }
+  
+
+
+  public static int crossShape(Path2D paramPath2D, float paramFloat1, float paramFloat2)
+  {
+    if (!paramPath2D.getBounds2D().contains(paramFloat1, paramFloat2)) {
+      return 0;
+    }
+    return crossPath(paramPath2D.iterator(null), paramFloat1, paramFloat2);
+  }
+  
+
+
+  public static boolean isZero(float paramFloat)
+  {
+    return (-1.0E-5F < paramFloat) && (paramFloat < 1.0E-5F);
+  }
+  
+
+
+  static void sortBound(float[] paramArrayOfFloat, int paramInt)
+  {
+    for (int i = 0; i < paramInt - 4; i += 4) {
+      int j = i;
+      for (int k = i + 4; k < paramInt; k += 4) {
+        if (paramArrayOfFloat[j] > paramArrayOfFloat[k]) {
+          j = k;
+        }
+      }
+      if (j != i) {
+        float f = paramArrayOfFloat[i];
+        paramArrayOfFloat[i] = paramArrayOfFloat[j];
+        paramArrayOfFloat[j] = f;
+        f = paramArrayOfFloat[(i + 1)];
+        paramArrayOfFloat[(i + 1)] = paramArrayOfFloat[(j + 1)];
+        paramArrayOfFloat[(j + 1)] = f;
+        f = paramArrayOfFloat[(i + 2)];
+        paramArrayOfFloat[(i + 2)] = paramArrayOfFloat[(j + 2)];
+        paramArrayOfFloat[(j + 2)] = f;
+        f = paramArrayOfFloat[(i + 3)];
+        paramArrayOfFloat[(i + 3)] = paramArrayOfFloat[(j + 3)];
+        paramArrayOfFloat[(j + 3)] = f;
+      }
+    }
+  }
+  
+
+
+
+
+  static int crossBound(float[] paramArrayOfFloat, int paramInt, float paramFloat1, float paramFloat2)
+  {
+    if (paramInt == 0) {
+      return 0;
+    }
+    
+
+    int i = 0;
+    int j = 0;
+    for (int k = 2; k < paramInt; k += 4) {
+      if (paramArrayOfFloat[k] < paramFloat1) {
+        i++;
+
+      }
+      else if (paramArrayOfFloat[k] > paramFloat2) {
+        j++;
+      }
+      else {
+        return 255;
+      }
+    }
+    
+    if (j == 0) {
+      return 0;
+    }
+    
+    if (i != 0)
+    {
+      sortBound(paramArrayOfFloat, paramInt);
+      k = paramArrayOfFloat[2] > paramFloat2 ? 1 : 0;
+      for (int m = 6; m < paramInt; m += 4) {
+        int n = paramArrayOfFloat[m] > paramFloat2 ? 1 : 0;
+        if ((k != n) && (paramArrayOfFloat[(m + 1)] != paramArrayOfFloat[(m - 3)])) {
+          return 255;
+        }
+        k = n;
+      }
+    }
+    return 254;
+  }
+  
+
+
+
+
+  public static int intersectLine(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6, float paramFloat7, float paramFloat8)
+  {
+    if (((paramFloat7 < paramFloat1) && (paramFloat7 < paramFloat3)) || ((paramFloat5 > paramFloat1) && (paramFloat5 > paramFloat3)) || ((paramFloat6 > paramFloat2) && (paramFloat6 > paramFloat4)))
+    {
+
+
+      return 0;
+    }
+    
+
+    if ((paramFloat8 >= paramFloat2) || (paramFloat8 >= paramFloat4))
+    {
+
+
+      if (paramFloat1 == paramFloat3) {
+        return 255;
+      }
+      
+      float f1;
+      float f2;
+      if (paramFloat1 < paramFloat3) {
+        f1 = paramFloat1 < paramFloat5 ? paramFloat5 : paramFloat1;
+        f2 = paramFloat3 < paramFloat7 ? paramFloat3 : paramFloat7;
+      } else {
+        f1 = paramFloat3 < paramFloat5 ? paramFloat5 : paramFloat3;
+        f2 = paramFloat1 < paramFloat7 ? paramFloat1 : paramFloat7;
+      }
+      float f3 = (paramFloat4 - paramFloat2) / (paramFloat3 - paramFloat1);
+      float f4 = f3 * (f1 - paramFloat1) + paramFloat2;
+      float f5 = f3 * (f2 - paramFloat1) + paramFloat2;
+      
+
+      if ((f4 < paramFloat6) && (f5 < paramFloat6)) {
+        return 0;
+      }
+      
+
+      if ((f4 <= paramFloat8) || (f5 <= paramFloat8))
+      {
+        return 255;
+      }
+    }
+    
+
+    if (paramFloat1 == paramFloat3) {
+      return 0;
+    }
+    
+
+    if (paramFloat5 == paramFloat1) {
+      return paramFloat1 < paramFloat3 ? 0 : -1;
+    }
+    
+
+    if (paramFloat5 == paramFloat3) {
+      return paramFloat1 < paramFloat3 ? 1 : 0;
+    }
+    
+    if (paramFloat1 < paramFloat3) {
+      return (paramFloat1 < paramFloat5) && (paramFloat5 < paramFloat3) ? 1 : 0;
+    }
+    return (paramFloat3 < paramFloat5) && (paramFloat5 < paramFloat1) ? -1 : 0;
+  }
+  
+
+
+
+
+
+  public static int intersectQuad(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6, float paramFloat7, float paramFloat8, float paramFloat9, float paramFloat10)
+  {
+    if (((paramFloat9 < paramFloat1) && (paramFloat9 < paramFloat3) && (paramFloat9 < paramFloat5)) || ((paramFloat7 > paramFloat1) && (paramFloat7 > paramFloat3) && (paramFloat7 > paramFloat5)) || ((paramFloat8 > paramFloat2) && (paramFloat8 > paramFloat4) && (paramFloat8 > paramFloat6)))
+    {
+
+
+      return 0;
+    }
+    
+
+    if ((paramFloat10 < paramFloat2) && (paramFloat10 < paramFloat4) && (paramFloat10 < paramFloat6) && (paramFloat7 != paramFloat1) && (paramFloat7 != paramFloat5)) {
+      if (paramFloat1 < paramFloat5) {
+        return (paramFloat1 < paramFloat7) && (paramFloat7 < paramFloat5) ? 1 : 0;
+      }
+      return (paramFloat5 < paramFloat7) && (paramFloat7 < paramFloat1) ? -1 : 0;
+    }
+    
+
+    QuadCurve localQuadCurve = new QuadCurve(paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramFloat5, paramFloat6);
+    float f1 = paramFloat7 - paramFloat1;
+    float f2 = paramFloat8 - paramFloat2;
+    float f3 = paramFloat9 - paramFloat1;
+    float f4 = paramFloat10 - paramFloat2;
+    
+    float[] arrayOfFloat1 = new float[3];
+    float[] arrayOfFloat2 = new float[3];
+    int i = localQuadCurve.solvePoint(arrayOfFloat1, f1);
+    int j = localQuadCurve.solvePoint(arrayOfFloat2, f3);
+    
+
+    if ((i == 0) && (j == 0)) {
+      return 0;
+    }
+    
+
+    float f5 = f1 - 1.0E-5F;
+    float f6 = f3 + 1.0E-5F;
+    float[] arrayOfFloat3 = new float[28];
+    int k = 0;
+    
+    k = localQuadCurve.addBound(arrayOfFloat3, k, arrayOfFloat1, i, f5, f6, false, 0);
+    k = localQuadCurve.addBound(arrayOfFloat3, k, arrayOfFloat2, j, f5, f6, false, 1);
+    
+    j = localQuadCurve.solveExtrem(arrayOfFloat2);
+    k = localQuadCurve.addBound(arrayOfFloat3, k, arrayOfFloat2, j, f5, f6, true, 2);
+    
+    if ((paramFloat7 < paramFloat1) && (paramFloat1 < paramFloat9)) {
+      arrayOfFloat3[(k++)] = 0.0F;
+      arrayOfFloat3[(k++)] = 0.0F;
+      arrayOfFloat3[(k++)] = 0.0F;
+      arrayOfFloat3[(k++)] = 4.0F;
+    }
+    if ((paramFloat7 < paramFloat5) && (paramFloat5 < paramFloat9)) {
+      arrayOfFloat3[(k++)] = 1.0F;
+      arrayOfFloat3[(k++)] = ax;
+      arrayOfFloat3[(k++)] = ay;
+      arrayOfFloat3[(k++)] = 5.0F;
+    }
+    
+
+    int m = crossBound(arrayOfFloat3, k, f2, f4);
+    if (m != 254) {
+      return m;
+    }
+    return localQuadCurve.cross(arrayOfFloat1, i, f2, f4);
+  }
+  
+
+
+
+
+  public static int intersectCubic(float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4, float paramFloat5, float paramFloat6, float paramFloat7, float paramFloat8, float paramFloat9, float paramFloat10, float paramFloat11, float paramFloat12)
+  {
+    if (((paramFloat11 < paramFloat1) && (paramFloat11 < paramFloat3) && (paramFloat11 < paramFloat5) && (paramFloat11 < paramFloat7)) || ((paramFloat9 > paramFloat1) && (paramFloat9 > paramFloat3) && (paramFloat9 > paramFloat5) && (paramFloat9 > paramFloat7)) || ((paramFloat10 > paramFloat2) && (paramFloat10 > paramFloat4) && (paramFloat10 > paramFloat6) && (paramFloat10 > paramFloat8)))
+    {
+
+
+      return 0;
+    }
+    
+
+    if ((paramFloat12 < paramFloat2) && (paramFloat12 < paramFloat4) && (paramFloat12 < paramFloat6) && (paramFloat12 < paramFloat8) && (paramFloat9 != paramFloat1) && (paramFloat9 != paramFloat7)) {
+      if (paramFloat1 < paramFloat7) {
+        return (paramFloat1 < paramFloat9) && (paramFloat9 < paramFloat7) ? 1 : 0;
+      }
+      return (paramFloat7 < paramFloat9) && (paramFloat9 < paramFloat1) ? -1 : 0;
+    }
+    
+
+    CubicCurve localCubicCurve = new CubicCurve(paramFloat1, paramFloat2, paramFloat3, paramFloat4, paramFloat5, paramFloat6, paramFloat7, paramFloat8);
+    float f1 = paramFloat9 - paramFloat1;
+    float f2 = paramFloat10 - paramFloat2;
+    float f3 = paramFloat11 - paramFloat1;
+    float f4 = paramFloat12 - paramFloat2;
+    
+    float[] arrayOfFloat1 = new float[3];
+    float[] arrayOfFloat2 = new float[3];
+    int i = localCubicCurve.solvePoint(arrayOfFloat1, f1);
+    int j = localCubicCurve.solvePoint(arrayOfFloat2, f3);
+    
+
+    if ((i == 0) && (j == 0)) {
+      return 0;
+    }
+    
+    float f5 = f1 - 1.0E-5F;
+    float f6 = f3 + 1.0E-5F;
+    
+
+    float[] arrayOfFloat3 = new float[40];
+    int k = 0;
+    
+    k = localCubicCurve.addBound(arrayOfFloat3, k, arrayOfFloat1, i, f5, f6, false, 0);
+    k = localCubicCurve.addBound(arrayOfFloat3, k, arrayOfFloat2, j, f5, f6, false, 1);
+    
+    j = localCubicCurve.solveExtremX(arrayOfFloat2);
+    k = localCubicCurve.addBound(arrayOfFloat3, k, arrayOfFloat2, j, f5, f6, true, 2);
+    j = localCubicCurve.solveExtremY(arrayOfFloat2);
+    k = localCubicCurve.addBound(arrayOfFloat3, k, arrayOfFloat2, j, f5, f6, true, 4);
+    
+    if ((paramFloat9 < paramFloat1) && (paramFloat1 < paramFloat11)) {
+      arrayOfFloat3[(k++)] = 0.0F;
+      arrayOfFloat3[(k++)] = 0.0F;
+      arrayOfFloat3[(k++)] = 0.0F;
+      arrayOfFloat3[(k++)] = 6.0F;
+    }
+    if ((paramFloat9 < paramFloat7) && (paramFloat7 < paramFloat11)) {
+      arrayOfFloat3[(k++)] = 1.0F;
+      arrayOfFloat3[(k++)] = ax;
+      arrayOfFloat3[(k++)] = ay;
+      arrayOfFloat3[(k++)] = 7.0F;
+    }
+    
+
+    int m = crossBound(arrayOfFloat3, k, f2, f4);
+    if (m != 254) {
+      return m;
+    }
+    return localCubicCurve.cross(arrayOfFloat1, i, f2, f4);
+  }
+  
+
+
+
+  public static int intersectPath(PathIterator paramPathIterator, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    int i = 0;
+    float f4;
+    float f3;
+    float f2; float f1 = f2 = f3 = f4 = 0.0F;
+    float[] arrayOfFloat = new float[6];
+    
+    float f5 = paramFloat1;
+    float f6 = paramFloat2;
+    float f7 = paramFloat1 + paramFloat3;
+    float f8 = paramFloat2 + paramFloat4;
+    int j;
+    while (!paramPathIterator.isDone()) {
+      j = 0;
+      int k = paramPathIterator.currentSegment(arrayOfFloat);
+      switch (k) {
+      case 0: 
+        if ((f3 != f1) || (f4 != f2)) {
+          j = intersectLine(f3, f4, f1, f2, f5, f6, f7, f8);
+        }
+        f1 = f3 = arrayOfFloat[0];
+        f2 = f4 = arrayOfFloat[1];
+        break;
+      case 1: 
+        j = intersectLine(f3, f4, f3 = arrayOfFloat[0], f4 = arrayOfFloat[1], f5, f6, f7, f8);
+        break;
+      case 2: 
+        j = intersectQuad(f3, f4, arrayOfFloat[0], arrayOfFloat[1], f3 = arrayOfFloat[2], f4 = arrayOfFloat[3], f5, f6, f7, f8);
+        break;
+      case 3: 
+        j = intersectCubic(f3, f4, arrayOfFloat[0], arrayOfFloat[1], arrayOfFloat[2], arrayOfFloat[3], f3 = arrayOfFloat[4], f4 = arrayOfFloat[5], f5, f6, f7, f8);
+        break;
+      case 4: 
+        if ((f4 != f2) || (f3 != f1)) {
+          j = intersectLine(f3, f4, f1, f2, f5, f6, f7, f8);
+        }
+        f3 = f1;
+        f4 = f2;
+        break;
+      default: 
+        throw new IllegalArgumentException("Unhandled Segment Type: " + k);
+      }
+      if (j == 255) {
+        return 255;
+      }
+      i += j;
+      paramPathIterator.next();
+    }
+    if (f4 != f2) {
+      j = intersectLine(f3, f4, f1, f2, f5, f6, f7, f8);
+      if (j == 255) {
+        return 255;
+      }
+      i += j;
+    }
+    return i;
+  }
+  
+
+
+  public static int intersectShape(Path2D paramPath2D, float paramFloat1, float paramFloat2, float paramFloat3, float paramFloat4)
+  {
+    if (!paramPath2D.getBounds2D().intersects2DRegion(paramFloat1, paramFloat2, paramFloat3, paramFloat4)) {
+      return 0;
+    }
+    return intersectPath(paramPath2D.iterator(null), paramFloat1, paramFloat2, paramFloat3, paramFloat4);
+  }
+  
+
+
+  public static boolean isInsideNonZero(int paramInt)
+  {
+    return paramInt != 0;
+  }
+  
+
+
+  public static boolean isInsideEvenOdd(int paramInt)
+  {
+    return (paramInt & 0x1) != 0;
+  }
+}

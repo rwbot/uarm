@@ -1,0 +1,90 @@
+package jogamp.nativewindow.x11;
+
+import com.jogamp.nativewindow.Capabilities;
+import com.jogamp.nativewindow.NativeWindowException;
+import com.jogamp.nativewindow.VisualIDHolder.VIDType;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class X11Capabilities
+  extends Capabilities
+{
+  private final XVisualInfo xVisualInfo;
+  
+  public X11Capabilities(XVisualInfo paramXVisualInfo)
+  {
+    xVisualInfo = paramXVisualInfo;
+  }
+  
+  public Object cloneMutable()
+  {
+    return clone();
+  }
+  
+  public Object clone()
+  {
+    try {
+      return super.clone();
+    } catch (RuntimeException localRuntimeException) {
+      throw new NativeWindowException(localRuntimeException);
+    }
+  }
+  
+  public final XVisualInfo getXVisualInfo() { return xVisualInfo; }
+  public final int getXVisualID() { return null != xVisualInfo ? (int)xVisualInfo.getVisualid() : 0; }
+  public final boolean hasXVisualInfo() { return null != xVisualInfo; }
+  
+  public final int getVisualID(VisualIDHolder.VIDType paramVIDType) throws NativeWindowException
+  {
+    switch (1.$SwitchMap$com$jogamp$nativewindow$VisualIDHolder$VIDType[paramVIDType.ordinal()])
+    {
+    case 1: 
+    case 2: 
+    case 3: 
+      return getXVisualID();
+    case 4: 
+      return 0;
+    }
+    throw new NativeWindowException("Invalid type <" + paramVIDType + ">");
+  }
+  
+
+  public StringBuilder toString(StringBuilder paramStringBuilder)
+  {
+    if (null == paramStringBuilder) {
+      paramStringBuilder = new StringBuilder();
+    }
+    paramStringBuilder.append("x11 vid ");
+    if (hasXVisualInfo()) {
+      paramStringBuilder.append("0x").append(Long.toHexString(xVisualInfo.getVisualid()));
+    } else {
+      paramStringBuilder.append("----");
+    }
+    paramStringBuilder.append(": ");
+    return super.toString(paramStringBuilder);
+  }
+}

@@ -1,0 +1,407 @@
+package com.jogamp.common.util;
+
+import java.io.PrintStream;
+import java.lang.reflect.Array;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class SyncedRingbuffer<T>
+  implements Ringbuffer<T>
+{
+  private final Object syncGlobal = new Object();
+  private T[] array;
+  private int capacity;
+  private int readPos;
+  private int writePos;
+  private int size;
+  
+  public final String toString()
+  {
+    return "SyncedRingbuffer<?>[filled " + size + " / " + capacity + ", writePos " + writePos + ", readPos " + readPos + "]";
+  }
+  
+  public final void dump(PrintStream paramPrintStream, String paramString)
+  {
+    paramPrintStream.println(paramString + " " + toString() + " {");
+    for (int i = 0; i < capacity; i++) {
+      paramPrintStream.println("\t[" + i + "]: " + array[i]);
+    }
+    paramPrintStream.println("}");
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public SyncedRingbuffer(T[] paramArrayOfT)
+    throws IllegalArgumentException
+  {
+    capacity = paramArrayOfT.length;
+    array = ((Object[])newArray(paramArrayOfT.getClass(), capacity));
+    resetImpl(true, paramArrayOfT);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public SyncedRingbuffer(Class<? extends T[]> paramClass, int paramInt)
+  {
+    capacity = paramInt;
+    array = newArray(paramClass, paramInt);
+    resetImpl(false, null);
+  }
+  
+  public final int capacity() {
+    return capacity;
+  }
+  
+
+
+
+
+
+  public final void clear()
+  {
+    synchronized (syncGlobal) {
+      resetImpl(false, null);
+      for (int i = 0; i < capacity; i++) {
+        array[i] = null;
+      }
+    }
+  }
+  
+  public final void resetFull(T[] paramArrayOfT) throws IllegalArgumentException
+  {
+    resetImpl(true, paramArrayOfT);
+  }
+  
+  private final void resetImpl(boolean paramBoolean, T[] paramArrayOfT) throws IllegalArgumentException {
+    synchronized (syncGlobal) {
+      if (null != paramArrayOfT) {
+        if (paramArrayOfT.length != capacity()) {
+          throw new IllegalArgumentException("copyFrom array length " + paramArrayOfT.length + " != capacity " + this);
+        }
+        System.arraycopy(paramArrayOfT, 0, array, 0, paramArrayOfT.length);
+      } else if (paramBoolean) {
+        throw new IllegalArgumentException("copyFrom array is null");
+      }
+      readPos = 0;
+      writePos = 0;
+      size = (paramBoolean ? capacity : 0);
+    }
+  }
+  
+  public final int size()
+  {
+    synchronized (syncGlobal) {
+      return size;
+    }
+  }
+  
+  public final int getFreeSlots()
+  {
+    synchronized (syncGlobal) {
+      return capacity - size;
+    }
+  }
+  
+  public final boolean isEmpty()
+  {
+    synchronized (syncGlobal) {
+      return 0 == size;
+    }
+  }
+  
+  public final boolean isFull()
+  {
+    synchronized (syncGlobal) {
+      return capacity == size;
+    }
+  }
+  
+
+
+
+
+
+  public final T get()
+  {
+    try
+    {
+      return getImpl(false, false);
+    } catch (InterruptedException localInterruptedException) { throw new RuntimeException(localInterruptedException);
+    }
+  }
+  
+
+
+
+
+  public final T getBlocking()
+    throws InterruptedException
+  {
+    return getImpl(true, false);
+  }
+  
+  public final T peek()
+  {
+    try {
+      return getImpl(false, true);
+    } catch (InterruptedException localInterruptedException) { throw new RuntimeException(localInterruptedException);
+    }
+  }
+  
+  public final T peekBlocking() throws InterruptedException { return getImpl(true, true); }
+  
+  private final T getImpl(boolean paramBoolean1, boolean paramBoolean2) throws InterruptedException
+  {
+    synchronized (syncGlobal) {
+      if (0 == size) {
+        if (paramBoolean1) {
+          while (0 == size) {
+            syncGlobal.wait();
+          }
+        }
+        return null;
+      }
+      
+      int i = readPos;
+      Object localObject1 = array[i];
+      if (!paramBoolean2) {
+        array[i] = null;
+        size -= 1;
+        readPos = ((i + 1) % capacity);
+        syncGlobal.notifyAll();
+      }
+      return localObject1;
+    }
+  }
+  
+
+
+
+
+
+  public final boolean put(T paramT)
+  {
+    try
+    {
+      return putImpl(paramT, false, false);
+    } catch (InterruptedException localInterruptedException) { throw new RuntimeException(localInterruptedException);
+    }
+  }
+  
+
+
+
+
+  public final void putBlocking(T paramT)
+    throws InterruptedException
+  {
+    if (!putImpl(paramT, false, true)) {
+      throw new InternalError("Blocking put failed: " + this);
+    }
+  }
+  
+
+
+
+
+
+  public final boolean putSame(boolean paramBoolean)
+    throws InterruptedException
+  {
+    return putImpl(null, true, paramBoolean);
+  }
+  
+  private final boolean putImpl(T paramT, boolean paramBoolean1, boolean paramBoolean2) throws InterruptedException {
+    synchronized (syncGlobal) {
+      if (capacity == size) {
+        if (paramBoolean2) {
+          while (capacity == size) {
+            syncGlobal.wait();
+          }
+        }
+        return false;
+      }
+      
+      int i = writePos;
+      if (!paramBoolean1) {
+        array[i] = paramT;
+      }
+      size += 1;
+      writePos = ((i + 1) % capacity);
+      syncGlobal.notifyAll();
+      return true;
+    }
+  }
+  
+  public final void waitForFreeSlots(int paramInt) throws InterruptedException
+  {
+    synchronized (syncGlobal) {
+      if (capacity - size < paramInt) {
+        while (capacity - size < paramInt) {
+          syncGlobal.wait();
+        }
+      }
+    }
+  }
+  
+  public final void growEmptyBuffer(T[] paramArrayOfT)
+    throws IllegalStateException, IllegalArgumentException
+  {
+    synchronized (syncGlobal) {
+      if (null == paramArrayOfT) {
+        throw new IllegalArgumentException("newElements is null");
+      }
+      
+      Class localClass1 = array.getClass();
+      
+      Class localClass2 = paramArrayOfT.getClass();
+      if (localClass1 != localClass2) {
+        throw new IllegalArgumentException("newElements array-type mismatch, internal " + localClass1 + ", newElements " + localClass2);
+      }
+      if (0 != size) {
+        throw new IllegalStateException("Buffer is not empty: " + this);
+      }
+      if (readPos != writePos) {
+        throw new InternalError("R/W pos not equal: " + this);
+      }
+      
+      int i = paramArrayOfT.length;
+      int j = capacity + i;
+      Object[] arrayOfObject1 = array;
+      Object[] arrayOfObject2 = newArray(localClass1, j);
+      
+
+      writePos += i;
+      
+      if (readPos > 0) {
+        System.arraycopy(arrayOfObject1, 0, arrayOfObject2, 0, readPos);
+      }
+      if (i > 0) {
+        System.arraycopy(paramArrayOfT, 0, arrayOfObject2, readPos, i);
+      }
+      int k = capacity - readPos;
+      if (k > 0) {
+        System.arraycopy(arrayOfObject1, readPos, arrayOfObject2, writePos, k);
+      }
+      size = i;
+      
+      capacity = j;
+      array = arrayOfObject2;
+    }
+  }
+  
+  public final void growFullBuffer(int paramInt) throws IllegalStateException, IllegalArgumentException
+  {
+    synchronized (syncGlobal) {
+      if (0 > paramInt) {
+        throw new IllegalArgumentException("amount " + paramInt + " < 0 ");
+      }
+      if (capacity != size) {
+        throw new IllegalStateException("Buffer is not full: " + this);
+      }
+      if (readPos != writePos) {
+        throw new InternalError("R/W pos not equal: " + this);
+      }
+      
+      Class localClass = array.getClass();
+      
+      int i = capacity + paramInt;
+      Object[] arrayOfObject1 = array;
+      Object[] arrayOfObject2 = newArray(localClass, i);
+      
+
+      readPos += paramInt;
+      
+      if (writePos > 0) {
+        System.arraycopy(arrayOfObject1, 0, arrayOfObject2, 0, writePos);
+      }
+      int j = capacity - writePos;
+      if (j > 0) {
+        System.arraycopy(arrayOfObject1, writePos, arrayOfObject2, readPos, j);
+      }
+      
+      capacity = i;
+      array = arrayOfObject2;
+    }
+  }
+  
+
+
+  private static <T> T[] newArray(Class<? extends T[]> paramClass, int paramInt)
+  {
+    return paramClass == [Ljava.lang.Object.class ? (Object[])new Object[paramInt] : (Object[])Array.newInstance(paramClass.getComponentType(), paramInt);
+  }
+}

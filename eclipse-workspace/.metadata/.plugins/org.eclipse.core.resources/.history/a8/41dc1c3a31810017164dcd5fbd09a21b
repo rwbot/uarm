@@ -1,0 +1,204 @@
+package jogamp.newt.driver.windows;
+
+import com.jogamp.common.util.ArrayHashSet;
+import com.jogamp.nativewindow.DefaultGraphicsScreen;
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.Rectangle;
+import com.jogamp.nativewindow.util.SurfaceSize;
+import com.jogamp.newt.Display;
+import com.jogamp.newt.MonitorDevice;
+import com.jogamp.newt.MonitorMode;
+import com.jogamp.newt.Screen;
+import jogamp.newt.MonitorModeProps;
+import jogamp.newt.MonitorModeProps.Cache;
+import jogamp.newt.ScreenImpl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class ScreenDriver
+  extends ScreenImpl
+{
+  static
+  {
+    
+    if (Screen.DEBUG) {
+      dumpMonitorInfo0();
+    }
+  }
+  
+
+
+
+  protected void createNativeImpl()
+  {
+    aScreen = new DefaultGraphicsScreen(getDisplay().getGraphicsDevice(), screen_idx);
+  }
+  
+
+
+
+  private final String getAdapterName(int paramInt)
+  {
+    return getAdapterName0(paramInt);
+  }
+  
+  private final String getMonitorName(String paramString, int paramInt, boolean paramBoolean) { return getMonitorName0(paramString, paramInt, paramBoolean); }
+  
+  private final MonitorMode getMonitorModeImpl(MonitorModeProps.Cache paramCache, String paramString, int paramInt)
+  {
+    if (null == paramString) {
+      return null;
+    }
+    int[] arrayOfInt = getMonitorMode0(paramString, paramInt);
+    if ((null == arrayOfInt) || (0 >= arrayOfInt.length)) {
+      return null;
+    }
+    return MonitorModeProps.streamInMonitorMode(null, paramCache, arrayOfInt, 0);
+  }
+  
+  private static final int getMonitorId(int paramInt1, int paramInt2) {
+    if (paramInt1 > 255) {
+      throw new InternalError("Unsupported adapter idx > 0xff: " + paramInt1);
+    }
+    if (paramInt2 > 255) {
+      throw new InternalError("Unsupported monitor idx > 0xff: " + paramInt2);
+    }
+    return (paramInt1 & 0xFF) << 8 | paramInt2 & 0xFF;
+  }
+  
+  private static final int getAdapterIndex(int paramInt) { return paramInt >>> 8 & 0xFF; }
+  
+  private static final int getMonitorIndex(int paramInt) {
+    return paramInt & 0xFF;
+  }
+  
+  protected void collectNativeMonitorModesAndDevicesImpl(MonitorModeProps.Cache paramCache)
+  {
+    ArrayHashSet localArrayHashSet = new ArrayHashSet(false, 16, 0.75F);
+    
+    String str;
+    for (int i = 0; null != (str = getAdapterName(i)); i++) {
+      for (int j = 0; null != getMonitorName(str, j, true); j++) {
+        int k = 0;
+        MonitorMode localMonitorMode1;
+        do {
+          localMonitorMode1 = getMonitorModeImpl(paramCache, str, k);
+          if (null != localMonitorMode1) {
+            localArrayHashSet.getOrAdd(localMonitorMode1);
+            
+            k++;
+          }
+        } while (null != localMonitorMode1);
+        if (0 < k)
+        {
+          MonitorMode localMonitorMode2 = getMonitorModeImpl(paramCache, str, -1);
+          if (null != localMonitorMode2) {
+            int[] arrayOfInt = getMonitorDevice0(i, j, getMonitorId(i, j));
+            
+            MonitorModeProps.streamInMonitorDevice(paramCache, this, localMonitorMode2, null, localArrayHashSet, arrayOfInt, 0, null);
+            
+
+            localArrayHashSet = new ArrayHashSet(false, 16, 0.75F);
+          }
+        }
+      }
+    }
+  }
+  
+  protected boolean updateNativeMonitorDeviceViewportImpl(MonitorDevice paramMonitorDevice, float[] paramArrayOfFloat, Rectangle paramRectangle1, Rectangle paramRectangle2)
+  {
+    int i = paramMonitorDevice.getId();
+    int j = getAdapterIndex(i);
+    int k = getMonitorIndex(i);
+    String str = getAdapterName(j);
+    if ((null != str) && 
+      (null != getMonitorName(str, k, true))) {
+      int[] arrayOfInt = getMonitorDevice0(j, k, getMonitorId(j, k));
+      int m = 6;
+      paramRectangle1.set(arrayOfInt[(m++)], arrayOfInt[(m++)], arrayOfInt[(m++)], arrayOfInt[(m++)]);
+      paramRectangle2.set(arrayOfInt[(m++)], arrayOfInt[(m++)], arrayOfInt[(m++)], arrayOfInt[(m++)]);
+      return true;
+    }
+    
+    return false;
+  }
+  
+  protected MonitorMode queryCurrentMonitorModeImpl(MonitorDevice paramMonitorDevice)
+  {
+    return getMonitorModeImpl(null, getAdapterName(getAdapterIndex(paramMonitorDevice.getId())), -1);
+  }
+  
+  protected boolean setCurrentMonitorModeImpl(MonitorDevice paramMonitorDevice, MonitorMode paramMonitorMode)
+  {
+    return setMonitorMode0(getAdapterIndex(paramMonitorDevice.getId()), -1, -1, paramMonitorMode
+    
+      .getSurfaceSize().getResolution().getWidth(), paramMonitorMode
+      .getSurfaceSize().getResolution().getHeight(), paramMonitorMode
+      .getSurfaceSize().getBitsPerPixel(), 
+      (int)paramMonitorMode.getRefreshRate(), paramMonitorMode
+      .getFlags(), paramMonitorMode
+      .getRotation());
+  }
+  
+  protected int validateScreenIndex(int paramInt)
+  {
+    return 0;
+  }
+  
+  protected void calcVirtualScreenOriginAndSize(Rectangle paramRectangle1, Rectangle paramRectangle2)
+  {
+    paramRectangle1.set(getVirtualOriginX0(), getVirtualOriginY0(), getVirtualWidthImpl0(), getVirtualHeightImpl0());
+    paramRectangle2.set(paramRectangle1);
+  }
+  
+  public ScreenDriver() {}
+  
+  protected void closeNativeImpl() {}
+  
+  private native int getVirtualOriginX0();
+  
+  private native int getVirtualOriginY0();
+  
+  private native int getVirtualWidthImpl0();
+  
+  private native int getVirtualHeightImpl0();
+  
+  private static native void dumpMonitorInfo0();
+  
+  private native String getAdapterName0(int paramInt);
+  
+  private native String getMonitorName0(String paramString, int paramInt, boolean paramBoolean);
+  
+  private native int[] getMonitorMode0(String paramString, int paramInt);
+  
+  private native int[] getMonitorDevice0(int paramInt1, int paramInt2, int paramInt3);
+  
+  private native boolean setMonitorMode0(int paramInt1, int paramInt2, int paramInt3, int paramInt4, int paramInt5, int paramInt6, int paramInt7, int paramInt8, int paramInt9);
+}

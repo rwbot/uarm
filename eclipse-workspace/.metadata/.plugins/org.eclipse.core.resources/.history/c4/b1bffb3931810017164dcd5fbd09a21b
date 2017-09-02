@@ -1,0 +1,117 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class DirectoryEntry
+  implements Cloneable
+{
+  private final int _tag;
+  private final int _checksum;
+  private final int _offset;
+  private final int _length;
+  
+  protected DirectoryEntry(DataInput paramDataInput)
+    throws IOException
+  {
+    _tag = paramDataInput.readInt();
+    _checksum = paramDataInput.readInt();
+    _offset = paramDataInput.readInt();
+    _length = paramDataInput.readInt();
+  }
+  
+  public Object clone()
+  {
+    try {
+      return super.clone();
+    } catch (CloneNotSupportedException localCloneNotSupportedException) {}
+    return null;
+  }
+  
+  public int getChecksum()
+  {
+    return _checksum;
+  }
+  
+  public int getLength() {
+    return _length;
+  }
+  
+  public int getOffset() {
+    return _offset;
+  }
+  
+  public int getTag() {
+    return _tag;
+  }
+  
+
+
+
+
+  public String getTagAsString()
+  {
+    return (char)(_tag >> 24 & 0xFF) + (char)(_tag >> 16 & 0xFF) + (char)(_tag >> 8 & 0xFF) + (char)(_tag & 0xFF);
+  }
+  
+
+
+
+
+
+  public String toString()
+  {
+    return "'" + getTagAsString() + "' - chksm = 0x" + Integer.toHexString(_checksum) + ", off = 0x" + Integer.toHexString(_offset) + ", len = " + _length;
+  }
+}

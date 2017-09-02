@@ -1,0 +1,491 @@
+package jogamp.newt;
+
+import com.jogamp.common.util.ArrayHashSet;
+import com.jogamp.nativewindow.util.Dimension;
+import com.jogamp.nativewindow.util.DimensionImmutable;
+import com.jogamp.nativewindow.util.Rectangle;
+import com.jogamp.nativewindow.util.RectangleImmutable;
+import com.jogamp.nativewindow.util.SurfaceSize;
+import com.jogamp.newt.MonitorDevice;
+import com.jogamp.newt.MonitorMode;
+import com.jogamp.newt.MonitorMode.SizeAndRRate;
+import com.jogamp.newt.Screen;
+import com.jogamp.opengl.math.FloatUtil;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.List;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class MonitorModeProps
+{
+  public static final int NUM_RESOLUTION_PROPERTIES = 2;
+  public static final int NUM_SURFACE_SIZE_PROPERTIES = 1;
+  public static final int NUM_SIZEANDRATE_PROPERTIES = 2;
+  public static final int NUM_MONITOR_MODE_PROPERTIES = 2;
+  public static final int NUM_MONITOR_MODE_PROPERTIES_ALL = 8;
+  public static final int IDX_MONITOR_MODE_BPP = 3;
+  public static final int IDX_MONITOR_MODE_ROT = 7;
+  public static final int MIN_MONITOR_DEVICE_PROPERTIES = 17;
+  public static final int IDX_MONITOR_DEVICE_VIEWPORT = 6;
+  public MonitorModeProps() {}
+  
+  public static class Cache
+  {
+    public Cache() {}
+    
+    public final ArrayHashSet<DimensionImmutable> resolutions = new ArrayHashSet(false, 16, 0.75F);
+    public final ArrayHashSet<SurfaceSize> surfaceSizes = new ArrayHashSet(false, 16, 0.75F);
+    public final ArrayHashSet<MonitorMode.SizeAndRRate> sizeAndRates = new ArrayHashSet(false, 16, 0.75F);
+    public final ArrayHashSet<MonitorMode> monitorModes = new ArrayHashSet(false, 16, 0.75F);
+    public final ArrayHashSet<MonitorDevice> monitorDevices = new ArrayHashSet(false, 16, 0.75F);
+    
+    public final void setPrimary(MonitorDevice paramMonitorDevice) { primary = paramMonitorDevice; }
+    public final MonitorDevice getPrimary() { return primary; }
+    private MonitorDevice primary = null;
+  }
+  
+  private static DimensionImmutable streamInResolution(int[] paramArrayOfInt, int paramInt)
+  {
+    Dimension localDimension = new Dimension(paramArrayOfInt[(paramInt++)], paramArrayOfInt[(paramInt++)]);
+    return localDimension;
+  }
+  
+  private static SurfaceSize streamInSurfaceSize(DimensionImmutable paramDimensionImmutable, int[] paramArrayOfInt, int paramInt)
+  {
+    return new SurfaceSize(paramDimensionImmutable, paramArrayOfInt[paramInt]);
+  }
+  
+  private static MonitorMode.SizeAndRRate streamInSizeAndRRate(SurfaceSize paramSurfaceSize, int[] paramArrayOfInt, int paramInt)
+  {
+    float f = paramArrayOfInt[(paramInt++)] / 100.0F;
+    int i = paramArrayOfInt[(paramInt++)];
+    return new MonitorMode.SizeAndRRate(paramSurfaceSize, f, i);
+  }
+  
+  private static MonitorMode streamInMonitorMode0(MonitorMode.SizeAndRRate paramSizeAndRRate, int[] paramArrayOfInt, int paramInt)
+  {
+    int i = paramArrayOfInt[(paramInt++)];
+    int j = paramArrayOfInt[(paramInt++)];
+    return new MonitorMode(i, paramSizeAndRRate, j);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public static MonitorMode streamInMonitorMode(int[] paramArrayOfInt1, Cache paramCache, int[] paramArrayOfInt2, int paramInt)
+  {
+    int i = paramArrayOfInt2[paramInt];
+    if (8 != i) {
+      throw new RuntimeException("property count should be 8, but is " + i + ", len " + (paramArrayOfInt2.length - paramInt));
+    }
+    if (8 > paramArrayOfInt2.length - paramInt) {
+      throw new RuntimeException("properties array too short, should be >= 8, is " + (paramArrayOfInt2.length - paramInt));
+    }
+    paramInt++;
+    DimensionImmutable localDimensionImmutable = streamInResolution(paramArrayOfInt2, paramInt);
+    paramInt += 2;
+    if (null != paramCache) {
+      localDimensionImmutable = (DimensionImmutable)resolutions.getOrAdd(localDimensionImmutable);
+    }
+    
+    SurfaceSize localSurfaceSize = streamInSurfaceSize(localDimensionImmutable, paramArrayOfInt2, paramInt);
+    paramInt++;
+    if (null != paramCache) {
+      localSurfaceSize = (SurfaceSize)surfaceSizes.getOrAdd(localSurfaceSize);
+    }
+    
+    MonitorMode.SizeAndRRate localSizeAndRRate = streamInSizeAndRRate(localSurfaceSize, paramArrayOfInt2, paramInt);
+    paramInt += 2;
+    if (null != paramCache) {
+      localSizeAndRRate = (MonitorMode.SizeAndRRate)sizeAndRates.getOrAdd(localSizeAndRRate);
+    }
+    
+    MonitorMode localMonitorMode = streamInMonitorMode0(localSizeAndRRate, paramArrayOfInt2, paramInt);
+    if (null != paramCache) {
+      localMonitorMode = (MonitorMode)monitorModes.getOrAdd(localMonitorMode);
+    }
+    if ((null != paramArrayOfInt1) && (null != paramCache)) {
+      int j = monitorModes.indexOf(localMonitorMode);
+      if (0 > j) {
+        throw new InternalError("Invalid index of current unified mode " + localMonitorMode);
+      }
+      paramArrayOfInt1[0] = j;
+    }
+    return localMonitorMode;
+  }
+  
+  public static int[] streamOutMonitorMode(MonitorMode paramMonitorMode)
+  {
+    int[] arrayOfInt = new int[8];
+    int i = 0;
+    arrayOfInt[(i++)] = 8;
+    arrayOfInt[(i++)] = paramMonitorMode.getSurfaceSize().getResolution().getWidth();
+    arrayOfInt[(i++)] = paramMonitorMode.getSurfaceSize().getResolution().getHeight();
+    arrayOfInt[(i++)] = paramMonitorMode.getSurfaceSize().getBitsPerPixel();
+    arrayOfInt[(i++)] = ((int)(paramMonitorMode.getRefreshRate() * 100.0F));
+    arrayOfInt[(i++)] = paramMonitorMode.getFlags();
+    arrayOfInt[(i++)] = paramMonitorMode.getId();
+    arrayOfInt[(i++)] = paramMonitorMode.getRotation();
+    if (8 != i) {
+      throw new InternalError("wrong number of attributes: got " + i + " != should " + 8);
+    }
+    return arrayOfInt;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static MonitorDevice streamInMonitorDevice(Cache paramCache, ScreenImpl paramScreenImpl, float[] paramArrayOfFloat, int[] paramArrayOfInt1, int paramInt, int[] paramArrayOfInt2)
+  {
+    int i = paramArrayOfInt1[paramInt];
+    if (17 > i) {
+      throw new RuntimeException("property count should be >= 17, but is " + i + ", len " + (paramArrayOfInt1.length - paramInt));
+    }
+    if (17 > paramArrayOfInt1.length - paramInt) {
+      throw new RuntimeException("properties array too short (min), should be >= 17, is " + (paramArrayOfInt1.length - paramInt));
+    }
+    if (i > paramArrayOfInt1.length - paramInt) {
+      throw new RuntimeException("properties array too short (count), should be >= " + i + ", is " + (paramArrayOfInt1.length - paramInt));
+    }
+    int j = paramInt + i;
+    paramInt++;
+    ArrayList localArrayList = monitorModes.getData();
+    int k = paramArrayOfInt1[(paramInt++)];
+    boolean bool1 = 0 != paramArrayOfInt1[(paramInt++)];
+    boolean bool2 = 0 != paramArrayOfInt1[(paramInt++)];
+    DimensionImmutable localDimensionImmutable = streamInResolution(paramArrayOfInt1, paramInt);paramInt += 2;
+    Rectangle localRectangle1 = new Rectangle(paramArrayOfInt1[(paramInt++)], paramArrayOfInt1[(paramInt++)], paramArrayOfInt1[(paramInt++)], paramArrayOfInt1[(paramInt++)]);
+    Rectangle localRectangle2 = new Rectangle(paramArrayOfInt1[(paramInt++)], paramArrayOfInt1[(paramInt++)], paramArrayOfInt1[(paramInt++)], paramArrayOfInt1[(paramInt++)]);
+    
+
+    int m = paramArrayOfInt1[(paramInt++)];
+    int n = paramArrayOfInt1[(paramInt++)];
+    MonitorMode localMonitorMode1 = getByNativeIdAndRotation(localArrayList, m, n);
+    
+    ArrayHashSet localArrayHashSet = new ArrayHashSet(false, 16, 0.75F);
+    int i1; while (paramInt < j) {
+      n = paramArrayOfInt1[(paramInt++)];
+      for (i1 = 0; i1 < localArrayList.size(); i1++) {
+        MonitorMode localMonitorMode2 = (MonitorMode)localArrayList.get(i1);
+        if (localMonitorMode2.getId() == n) {
+          localArrayHashSet.add(localMonitorMode2);
+        }
+      }
+    }
+    Object localObject = new MonitorDeviceImpl(paramScreenImpl, k, bool1, bool2, localDimensionImmutable, localMonitorMode1, paramArrayOfFloat, localRectangle1, localRectangle2, localArrayHashSet);
+    
+
+    if (null != paramCache) {
+      localObject = (MonitorDevice)monitorDevices.getOrAdd(localObject);
+      if (((MonitorDevice)localObject).isPrimary()) {
+        paramCache.setPrimary((MonitorDevice)localObject);
+      }
+    }
+    if (null != paramArrayOfInt2) {
+      i1 = monitorDevices.indexOf(localObject);
+      if (0 > i1) {
+        throw new InternalError("Invalid index of current unified mode " + localObject);
+      }
+      paramArrayOfInt2[0] = i1;
+    }
+    return localObject;
+  }
+  
+  private static MonitorMode getByNativeIdAndRotation(List<MonitorMode> paramList, int paramInt1, int paramInt2) { if ((null != paramList) && (paramList.size() > 0)) {
+      for (int i = 0; i < paramList.size(); i++) {
+        MonitorMode localMonitorMode = (MonitorMode)paramList.get(i);
+        if ((localMonitorMode.getId() == paramInt1) && (localMonitorMode.getRotation() == paramInt2)) {
+          return localMonitorMode;
+        }
+      }
+    }
+    return null;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public static MonitorDevice streamInMonitorDevice(Cache paramCache, ScreenImpl paramScreenImpl, MonitorMode paramMonitorMode, float[] paramArrayOfFloat, ArrayHashSet<MonitorMode> paramArrayHashSet, int[] paramArrayOfInt1, int paramInt, int[] paramArrayOfInt2)
+  {
+    int i = paramArrayOfInt1[paramInt];
+    if (14 != i) {
+      throw new RuntimeException("property count should be == 14, but is " + i + ", len " + (paramArrayOfInt1.length - paramInt));
+    }
+    if (14 > paramArrayOfInt1.length - paramInt) {
+      throw new RuntimeException("properties array too short (min), should be >= 14, is " + (paramArrayOfInt1.length - paramInt));
+    }
+    if (i > paramArrayOfInt1.length - paramInt) {
+      throw new RuntimeException("properties array too short (count), should be >= " + i + ", is " + (paramArrayOfInt1.length - paramInt));
+    }
+    paramInt++;
+    int j = paramArrayOfInt1[(paramInt++)];
+    boolean bool1 = 0 != paramArrayOfInt1[(paramInt++)];
+    boolean bool2 = 0 != paramArrayOfInt1[(paramInt++)];
+    DimensionImmutable localDimensionImmutable = streamInResolution(paramArrayOfInt1, paramInt);paramInt += 2;
+    Rectangle localRectangle1 = new Rectangle(paramArrayOfInt1[(paramInt++)], paramArrayOfInt1[(paramInt++)], paramArrayOfInt1[(paramInt++)], paramArrayOfInt1[(paramInt++)]);
+    Rectangle localRectangle2 = new Rectangle(paramArrayOfInt1[(paramInt++)], paramArrayOfInt1[(paramInt++)], paramArrayOfInt1[(paramInt++)], paramArrayOfInt1[(paramInt++)]);
+    Object localObject = new MonitorDeviceImpl(paramScreenImpl, j, bool1, bool2, localDimensionImmutable, paramMonitorMode, paramArrayOfFloat, localRectangle1, localRectangle2, paramArrayHashSet);
+    
+
+    if (null != paramCache) {
+      localObject = (MonitorDevice)monitorDevices.getOrAdd(localObject);
+      if (((MonitorDevice)localObject).isPrimary()) {
+        paramCache.setPrimary((MonitorDevice)localObject);
+      }
+    }
+    if (null != paramArrayOfInt2) {
+      int k = monitorDevices.indexOf(localObject);
+      if (0 > k) {
+        throw new InternalError("Invalid index of current unified mode " + localObject);
+      }
+      paramArrayOfInt2[0] = k;
+    }
+    return localObject;
+  }
+  
+
+  public static int[] streamOutMonitorDevice(MonitorDevice paramMonitorDevice)
+  {
+    int i = paramMonitorDevice.getSupportedModes().size();
+    if (0 == i) {
+      throw new RuntimeException("no supported modes: " + paramMonitorDevice);
+    }
+    int[] arrayOfInt = new int[17 + i - 1];
+    int j = 0;
+    arrayOfInt[(j++)] = arrayOfInt.length;
+    arrayOfInt[(j++)] = paramMonitorDevice.getId();
+    arrayOfInt[(j++)] = (paramMonitorDevice.isClone() ? 1 : 0);
+    arrayOfInt[(j++)] = (paramMonitorDevice.isPrimary() ? 1 : 0);
+    arrayOfInt[(j++)] = paramMonitorDevice.getSizeMM().getWidth();
+    arrayOfInt[(j++)] = paramMonitorDevice.getSizeMM().getHeight();
+    arrayOfInt[(j++)] = paramMonitorDevice.getViewport().getX();
+    arrayOfInt[(j++)] = paramMonitorDevice.getViewport().getY();
+    arrayOfInt[(j++)] = paramMonitorDevice.getViewport().getWidth();
+    arrayOfInt[(j++)] = paramMonitorDevice.getViewport().getHeight();
+    arrayOfInt[(j++)] = paramMonitorDevice.getViewportInWindowUnits().getX();
+    arrayOfInt[(j++)] = paramMonitorDevice.getViewportInWindowUnits().getY();
+    arrayOfInt[(j++)] = paramMonitorDevice.getViewportInWindowUnits().getWidth();
+    arrayOfInt[(j++)] = paramMonitorDevice.getViewportInWindowUnits().getHeight();
+    arrayOfInt[(j++)] = paramMonitorDevice.getCurrentMode().getId();
+    arrayOfInt[(j++)] = paramMonitorDevice.getCurrentMode().getRotation();
+    List localList = paramMonitorDevice.getSupportedModes();
+    for (int k = 0; k < localList.size(); k++) {
+      arrayOfInt[(j++)] = ((MonitorMode)localList.get(k)).getId();
+    }
+    if (arrayOfInt.length != j) {
+      throw new InternalError("wrong number of attributes: got " + j + " != should " + arrayOfInt.length);
+    }
+    return arrayOfInt;
+  }
+  
+
+
+
+
+
+  static void identifyMonitorDevices(Cache paramCache)
+  {
+    ArrayList localArrayList = monitorDevices.toArrayList();
+    int i = localArrayList.size();
+    for (int j = 0; j < i; j++) {
+      MonitorDevice localMonitorDevice1 = (MonitorDevice)localArrayList.get(j);
+      if (!localMonitorDevice1.isClone()) {
+        for (int k = j + 1; k < i; k++) {
+          MonitorDevice localMonitorDevice2 = (MonitorDevice)localArrayList.get(k);
+          if (!localMonitorDevice2.isClone()) {
+            float f = localMonitorDevice2.getViewport().coverage(localMonitorDevice1.getViewport());
+            if (FloatUtil.isZero(1.0F - f, 1.1920929E-7F)) {
+              ((MonitorDeviceImpl)localMonitorDevice2).setIsClone(true);
+              if (Screen.DEBUG) {
+                System.err.printf("MonitorCloneTest[%d of %d]: %f -> _is_ covered%n", new Object[] { Integer.valueOf(k), Integer.valueOf(j), Float.valueOf(f) });
+                System.err.printf("  Monitor[%d] %s%n", new Object[] { Integer.valueOf(k), localMonitorDevice2.toString() });
+                System.err.printf("  Monitor[%d] %s%n", new Object[] { Integer.valueOf(j), localMonitorDevice1.toString() });
+              }
+            } else if (Screen.DEBUG) {
+              System.err.printf("MonitorDevice-CloneTest[%d of %d]: %f -> not covered%n", new Object[] { Integer.valueOf(k), Integer.valueOf(j), Float.valueOf(f) });
+              System.err.printf("  Monitor[%d] %s%n", new Object[] { Integer.valueOf(k), localMonitorDevice2.toString() });
+              System.err.printf("  Monitor[%d] %s%n", new Object[] { Integer.valueOf(j), localMonitorDevice1.toString() });
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  public static final void swapRotatePair(int paramInt1, int[] paramArrayOfInt, int paramInt2, int paramInt3) {
+    if ((0 == paramInt1) || (180 == paramInt1))
+    {
+      return;
+    }
+    for (int i = 0; i < paramInt3; paramInt2 += 2) {
+      int j = paramArrayOfInt[paramInt2];
+      paramArrayOfInt[paramInt2] = paramArrayOfInt[(paramInt2 + 1)];
+      paramArrayOfInt[(paramInt2 + 1)] = j;i++;
+    }
+  }
+}

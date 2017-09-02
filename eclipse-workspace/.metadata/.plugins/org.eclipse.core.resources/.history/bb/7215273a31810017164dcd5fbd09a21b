@@ -1,0 +1,122 @@
+package jogamp.opengl.glu.nurbs;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Maplist
+{
+  private Mapdesc maps;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public Maplist() {}
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public void initialize()
+  {
+    maps = null;
+  }
+  
+
+
+
+
+
+
+  public void define(int paramInt1, int paramInt2, int paramInt3)
+  {
+    Mapdesc localMapdesc = locate(paramInt1);
+    assert ((localMapdesc == null) || ((isrational == paramInt2) && (ncoords == paramInt3)));
+    add(paramInt1, paramInt2, paramInt3);
+  }
+  
+
+
+
+
+
+
+
+  private void add(int paramInt1, int paramInt2, int paramInt3)
+  {
+    Mapdesc localMapdesc = new Mapdesc(paramInt1, paramInt2, paramInt3);
+    if (maps == null) {
+      maps = localMapdesc;
+    } else {
+      next = maps;
+      maps = localMapdesc;
+    }
+  }
+  
+
+
+
+
+
+  public Mapdesc locate(int paramInt)
+  {
+    Mapdesc localMapdesc = null;
+    for (localMapdesc = maps; (localMapdesc != null) && 
+          (localMapdesc.getType() != paramInt); localMapdesc = next) {}
+    
+
+    return localMapdesc;
+  }
+  
+
+
+
+
+  public Mapdesc find(int paramInt)
+  {
+    return locate(paramInt);
+  }
+}

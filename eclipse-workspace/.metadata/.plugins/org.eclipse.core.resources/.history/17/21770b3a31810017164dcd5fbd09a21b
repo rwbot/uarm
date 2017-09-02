@@ -1,0 +1,93 @@
+package jogamp.nativewindow;
+
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.SurfaceUpdatedListener;
+import java.util.ArrayList;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class SurfaceUpdatedHelper
+  implements SurfaceUpdatedListener
+{
+  private final Object surfaceUpdatedListenersLock = new Object();
+  private final ArrayList<SurfaceUpdatedListener> surfaceUpdatedListeners = new ArrayList();
+  private volatile boolean isEmpty = true;
+  
+
+  public SurfaceUpdatedHelper() {}
+  
+  public final int size() { return surfaceUpdatedListeners.size(); }
+  public final SurfaceUpdatedListener get(int paramInt) { return (SurfaceUpdatedListener)surfaceUpdatedListeners.get(paramInt); }
+  
+
+
+
+  public final void addSurfaceUpdatedListener(SurfaceUpdatedListener paramSurfaceUpdatedListener)
+  {
+    addSurfaceUpdatedListener(-1, paramSurfaceUpdatedListener);
+  }
+  
+  public final void addSurfaceUpdatedListener(int paramInt, SurfaceUpdatedListener paramSurfaceUpdatedListener)
+    throws IndexOutOfBoundsException
+  {
+    if (paramSurfaceUpdatedListener == null) {
+      return;
+    }
+    synchronized (surfaceUpdatedListenersLock) {
+      if (0 > paramInt) {
+        paramInt = surfaceUpdatedListeners.size();
+      }
+      surfaceUpdatedListeners.add(paramInt, paramSurfaceUpdatedListener);
+      isEmpty = false;
+    }
+  }
+  
+  public final boolean removeSurfaceUpdatedListener(SurfaceUpdatedListener paramSurfaceUpdatedListener) {
+    if (paramSurfaceUpdatedListener == null) {
+      return false;
+    }
+    synchronized (surfaceUpdatedListenersLock) {
+      boolean bool = surfaceUpdatedListeners.remove(paramSurfaceUpdatedListener);
+      isEmpty = (0 == surfaceUpdatedListeners.size());
+      return bool;
+    }
+  }
+  
+  public final void surfaceUpdated(Object paramObject, NativeSurface paramNativeSurface, long paramLong)
+  {
+    if (isEmpty) {
+      return;
+    }
+    synchronized (surfaceUpdatedListenersLock) {
+      for (int i = 0; i < surfaceUpdatedListeners.size(); i++) {
+        SurfaceUpdatedListener localSurfaceUpdatedListener = (SurfaceUpdatedListener)surfaceUpdatedListeners.get(i);
+        localSurfaceUpdatedListener.surfaceUpdated(paramObject, paramNativeSurface, paramLong);
+      }
+    }
+  }
+}

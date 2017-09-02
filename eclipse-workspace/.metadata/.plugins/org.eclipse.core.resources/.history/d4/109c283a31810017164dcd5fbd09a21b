@@ -1,0 +1,647 @@
+package jogamp.opengl.glu.tessellator;
+
+import com.jogamp.opengl.glu.GLUtessellator;
+import com.jogamp.opengl.glu.GLUtessellatorCallback;
+import com.jogamp.opengl.glu.GLUtessellatorCallbackAdapter;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GLUtessellatorImpl
+  implements GLUtessellator
+{
+  public static final int TESS_MAX_CACHE = 100;
+  private int state;
+  private GLUhalfEdge lastEdge;
+  GLUmesh mesh;
+  double[] normal = new double[3];
+  double[] sUnit = new double[3];
+  double[] tUnit = new double[3];
+  
+
+  private double relTolerance;
+  
+
+  int windingRule;
+  
+
+  boolean fatalError;
+  
+  Dict dict;
+  
+  PriorityQ pq;
+  
+  GLUvertex event;
+  
+  boolean flagBoundary;
+  
+  boolean boundaryOnly;
+  
+  boolean avoidDegenerateTris;
+  
+  GLUface lonelyTriList;
+  
+  private boolean flushCacheOnNextVertex;
+  
+  int cacheCount;
+  
+  CachedVertex[] cache = new CachedVertex[100];
+  
+  private Object polygonData;
+  
+  private GLUtessellatorCallback callBegin;
+  
+  private GLUtessellatorCallback callEdgeFlag;
+  
+  private GLUtessellatorCallback callVertex;
+  
+  private GLUtessellatorCallback callEnd;
+  
+  private GLUtessellatorCallback callError;
+  
+  private GLUtessellatorCallback callCombine;
+  
+  private GLUtessellatorCallback callBeginData;
+  private GLUtessellatorCallback callEdgeFlagData;
+  private GLUtessellatorCallback callVertexData;
+  private GLUtessellatorCallback callEndData;
+  private GLUtessellatorCallback callErrorData;
+  private GLUtessellatorCallback callCombineData;
+  private static final double GLU_TESS_DEFAULT_TOLERANCE = 0.0D;
+  private static GLUtessellatorCallback NULL_CB = new GLUtessellatorCallbackAdapter();
+  
+
+
+  private GLUtessellatorImpl()
+  {
+    state = 0;
+    
+    normal[0] = 0.0D;
+    normal[1] = 0.0D;
+    normal[2] = 0.0D;
+    
+    relTolerance = 0.0D;
+    windingRule = 100130;
+    flagBoundary = false;
+    boundaryOnly = false;
+    
+    callBegin = NULL_CB;
+    callEdgeFlag = NULL_CB;
+    callVertex = NULL_CB;
+    callEnd = NULL_CB;
+    callError = NULL_CB;
+    callCombine = NULL_CB;
+    
+
+    callBeginData = NULL_CB;
+    callEdgeFlagData = NULL_CB;
+    callVertexData = NULL_CB;
+    callEndData = NULL_CB;
+    callErrorData = NULL_CB;
+    callCombineData = NULL_CB;
+    
+    polygonData = null;
+    
+    for (int i = 0; i < cache.length; i++) {
+      cache[i] = new CachedVertex();
+    }
+  }
+  
+  public static GLUtessellator gluNewTess()
+  {
+    return new GLUtessellatorImpl();
+  }
+  
+
+
+  private void makeDormant()
+  {
+    if (mesh != null) {
+      Mesh.__gl_meshDeleteMesh(mesh);
+    }
+    state = 0;
+    lastEdge = null;
+    mesh = null;
+  }
+  
+  private void requireState(int paramInt) {
+    if (state != paramInt) gotoState(paramInt);
+  }
+  
+  private void gotoState(int paramInt) {
+    while (state != paramInt)
+    {
+
+
+      if (state < paramInt) {
+        if (state == 0) {
+          callErrorOrErrorData(100151);
+          gluTessBeginPolygon(null);
+        } else if (state == 1) {
+          callErrorOrErrorData(100152);
+          gluTessBeginContour();
+        }
+      }
+      else if (state == 2) {
+        callErrorOrErrorData(100154);
+        gluTessEndContour();
+      } else if (state == 1) {
+        callErrorOrErrorData(100153);
+        
+        makeDormant();
+      }
+    }
+  }
+  
+  public void gluDeleteTess()
+  {
+    requireState(0);
+  }
+  
+  public void gluTessProperty(int paramInt, double paramDouble) {
+    switch (paramInt) {
+    case 100142: 
+      if ((paramDouble >= 0.0D) && (paramDouble <= 1.0D)) {
+        relTolerance = paramDouble; return;
+      }
+      break;
+    case 100140: 
+      int i = (int)paramDouble;
+      if (i == paramDouble)
+      {
+        switch (i) {
+        case 100130: 
+        case 100131: 
+        case 100132: 
+        case 100133: 
+        case 100134: 
+          windingRule = i; return;
+        }
+        
+      }
+      
+      break;
+    case 100141: 
+      boundaryOnly = (paramDouble != 0.0D);
+      return;
+    
+    case 100149: 
+      avoidDegenerateTris = (paramDouble != 0.0D);
+      return;
+    case 100143: case 100144: case 100145: case 100146: 
+    case 100147: case 100148: default: 
+      callErrorOrErrorData(100900);
+      return;
+    }
+    callErrorOrErrorData(100901);
+  }
+  
+  public void gluGetTessProperty(int paramInt1, double[] paramArrayOfDouble, int paramInt2)
+  {
+    switch (paramInt1)
+    {
+    case 100142: 
+      assert ((0.0D <= relTolerance) && (relTolerance <= 1.0D));
+      paramArrayOfDouble[paramInt2] = relTolerance;
+      break;
+    case 100140: 
+      assert ((windingRule == 100130) || (windingRule == 100131) || (windingRule == 100132) || (windingRule == 100133) || (windingRule == 100134));
+      
+
+
+
+      paramArrayOfDouble[paramInt2] = windingRule;
+      break;
+    case 100141: 
+      assert ((boundaryOnly == true) || (!boundaryOnly));
+      paramArrayOfDouble[paramInt2] = (boundaryOnly ? 1.0D : 0.0D);
+      break;
+    case 100149: 
+      paramArrayOfDouble[paramInt2] = (avoidDegenerateTris ? 1.0D : 0.0D);
+      break;
+    case 100143: case 100144: case 100145: case 100146: case 100147: case 100148: default: 
+      paramArrayOfDouble[paramInt2] = 0.0D;
+      callErrorOrErrorData(100900);
+    }
+  }
+  
+  public void gluTessNormal(double paramDouble1, double paramDouble2, double paramDouble3)
+  {
+    normal[0] = paramDouble1;
+    normal[1] = paramDouble2;
+    normal[2] = paramDouble3;
+  }
+  
+  public void gluTessCallback(int paramInt, GLUtessellatorCallback paramGLUtessellatorCallback) {
+    switch (paramInt) {
+    case 100100: 
+      callBegin = (paramGLUtessellatorCallback == null ? NULL_CB : paramGLUtessellatorCallback);
+      return;
+    case 100106: 
+      callBeginData = (paramGLUtessellatorCallback == null ? NULL_CB : paramGLUtessellatorCallback);
+      return;
+    case 100104: 
+      callEdgeFlag = (paramGLUtessellatorCallback == null ? NULL_CB : paramGLUtessellatorCallback);
+      
+
+
+      flagBoundary = (paramGLUtessellatorCallback != null);
+      return;
+    case 100110: 
+      callEdgeFlagData = (this.callBegin = paramGLUtessellatorCallback == null ? NULL_CB : paramGLUtessellatorCallback);
+      
+
+
+      flagBoundary = (paramGLUtessellatorCallback != null);
+      return;
+    case 100101: 
+      callVertex = (paramGLUtessellatorCallback == null ? NULL_CB : paramGLUtessellatorCallback);
+      return;
+    case 100107: 
+      callVertexData = (paramGLUtessellatorCallback == null ? NULL_CB : paramGLUtessellatorCallback);
+      return;
+    case 100102: 
+      callEnd = (paramGLUtessellatorCallback == null ? NULL_CB : paramGLUtessellatorCallback);
+      return;
+    case 100108: 
+      callEndData = (paramGLUtessellatorCallback == null ? NULL_CB : paramGLUtessellatorCallback);
+      return;
+    case 100103: 
+      callError = (paramGLUtessellatorCallback == null ? NULL_CB : paramGLUtessellatorCallback);
+      return;
+    case 100109: 
+      callErrorData = (paramGLUtessellatorCallback == null ? NULL_CB : paramGLUtessellatorCallback);
+      return;
+    case 100105: 
+      callCombine = (paramGLUtessellatorCallback == null ? NULL_CB : paramGLUtessellatorCallback);
+      return;
+    case 100111: 
+      callCombineData = (paramGLUtessellatorCallback == null ? NULL_CB : paramGLUtessellatorCallback);
+      return;
+    }
+    
+    
+
+    callErrorOrErrorData(100900);
+  }
+  
+
+
+
+  private boolean addVertex(double[] paramArrayOfDouble, Object paramObject)
+  {
+    GLUhalfEdge localGLUhalfEdge = lastEdge;
+    if (localGLUhalfEdge == null)
+    {
+
+      localGLUhalfEdge = Mesh.__gl_meshMakeEdge(mesh);
+      if (localGLUhalfEdge == null) return false;
+      if (!Mesh.__gl_meshSplice(localGLUhalfEdge, Sym)) { return false;
+      }
+    }
+    else
+    {
+      Mesh.__gl_meshSplitEdge(localGLUhalfEdge);
+      localGLUhalfEdge = Lnext;
+    }
+    
+
+    Org.data = paramObject;
+    Org.coords[0] = paramArrayOfDouble[0];
+    Org.coords[1] = paramArrayOfDouble[1];
+    Org.coords[2] = paramArrayOfDouble[2];
+    
+
+
+
+
+
+    winding = 1;
+    Sym.winding = -1;
+    
+    lastEdge = localGLUhalfEdge;
+    
+    return true;
+  }
+  
+  private void cacheVertex(double[] paramArrayOfDouble, Object paramObject) {
+    if (cache[cacheCount] == null) {
+      cache[cacheCount] = new CachedVertex();
+    }
+    
+    CachedVertex localCachedVertex = cache[cacheCount];
+    
+    data = paramObject;
+    coords[0] = paramArrayOfDouble[0];
+    coords[1] = paramArrayOfDouble[1];
+    coords[2] = paramArrayOfDouble[2];
+    cacheCount += 1;
+  }
+  
+  private boolean flushCache()
+  {
+    CachedVertex[] arrayOfCachedVertex = cache;
+    
+    mesh = Mesh.__gl_meshNewMesh();
+    
+    for (int i = 0; i < cacheCount; i++) {
+      CachedVertex localCachedVertex = arrayOfCachedVertex[i];
+      if (!addVertex(coords, data)) {
+        return false;
+      }
+    }
+    cacheCount = 0;
+    flushCacheOnNextVertex = false;
+    
+    return true;
+  }
+  
+  public void gluTessVertex(double[] paramArrayOfDouble, int paramInt, Object paramObject)
+  {
+    int j = 0;
+    
+    double[] arrayOfDouble = new double[3];
+    
+    requireState(2);
+    
+    if (flushCacheOnNextVertex) {
+      if (!flushCache()) {
+        callErrorOrErrorData(100902);
+        return;
+      }
+      lastEdge = null;
+    }
+    for (int i = 0; i < 3; i++) {
+      double d = paramArrayOfDouble[(i + paramInt)];
+      if (d < -1.0E150D) {
+        d = -1.0E150D;
+        j = 1;
+      }
+      if (d > 1.0E150D) {
+        d = 1.0E150D;
+        j = 1;
+      }
+      arrayOfDouble[i] = d;
+    }
+    if (j != 0) {
+      callErrorOrErrorData(100155);
+    }
+    
+    if (mesh == null) {
+      if (cacheCount < 100) {
+        cacheVertex(arrayOfDouble, paramObject);
+        return;
+      }
+      if (!flushCache()) {
+        callErrorOrErrorData(100902);
+        return;
+      }
+    }
+    
+    if (!addVertex(arrayOfDouble, paramObject)) {
+      callErrorOrErrorData(100902);
+    }
+  }
+  
+  public void gluTessBeginPolygon(Object paramObject)
+  {
+    requireState(0);
+    
+    state = 1;
+    cacheCount = 0;
+    flushCacheOnNextVertex = false;
+    mesh = null;
+    
+    polygonData = paramObject;
+  }
+  
+  public void gluTessBeginContour()
+  {
+    requireState(1);
+    
+    state = 2;
+    lastEdge = null;
+    if (cacheCount > 0)
+    {
+
+
+
+      flushCacheOnNextVertex = true;
+    }
+  }
+  
+  public void gluTessEndContour()
+  {
+    requireState(2);
+    state = 1;
+  }
+  
+  public void gluTessEndPolygon()
+  {
+    try
+    {
+      requireState(1);
+      state = 0;
+      
+      if (mesh == null) {
+        if (!flagBoundary)
+        {
+
+
+
+
+
+          if (Render.__gl_renderCache(this)) {
+            polygonData = null;
+            return;
+          }
+        }
+        if (!flushCache()) { throw new RuntimeException();
+        }
+      }
+      
+
+
+      Normal.__gl_projectPolygon(this);
+      
+
+
+
+
+
+
+      if (!Sweep.__gl_computeInterior(this)) {
+        throw new RuntimeException();
+      }
+      
+      GLUmesh localGLUmesh = mesh;
+      if (!fatalError) {
+        boolean bool = true;
+        
+
+
+
+
+        if (boundaryOnly) {
+          bool = TessMono.__gl_meshSetWindingNumber(localGLUmesh, 1, true);
+        } else {
+          bool = TessMono.__gl_meshTessellateInterior(localGLUmesh, avoidDegenerateTris);
+        }
+        if (!bool) { throw new RuntimeException();
+        }
+        Mesh.__gl_meshCheckMesh(localGLUmesh);
+        
+        if ((callBegin != NULL_CB) || (callEnd != NULL_CB) || (callVertex != NULL_CB) || (callEdgeFlag != NULL_CB) || (callBeginData != NULL_CB) || (callEndData != NULL_CB) || (callVertexData != NULL_CB) || (callEdgeFlagData != NULL_CB))
+        {
+
+
+
+
+          if (boundaryOnly) {
+            Render.__gl_renderBoundary(this, localGLUmesh);
+          } else {
+            Render.__gl_renderMesh(this, localGLUmesh);
+          }
+        }
+      }
+      
+
+
+
+
+
+
+
+
+
+
+
+
+
+      Mesh.__gl_meshDeleteMesh(localGLUmesh);
+      polygonData = null;
+      localGLUmesh = null;
+    } catch (Exception localException) {
+      localException.printStackTrace();
+      callErrorOrErrorData(100902);
+    }
+  }
+  
+
+
+
+  public void gluBeginPolygon()
+  {
+    gluTessBeginPolygon(null);
+    gluTessBeginContour();
+  }
+  
+
+  public void gluNextContour(int paramInt)
+  {
+    gluTessEndContour();
+    gluTessBeginContour();
+  }
+  
+  public void gluEndPolygon()
+  {
+    gluTessEndContour();
+    gluTessEndPolygon();
+  }
+  
+  void callBeginOrBeginData(int paramInt) {
+    if (callBeginData != NULL_CB) {
+      callBeginData.beginData(paramInt, polygonData);
+    } else
+      callBegin.begin(paramInt);
+  }
+  
+  void callVertexOrVertexData(Object paramObject) {
+    if (callVertexData != NULL_CB) {
+      callVertexData.vertexData(paramObject, polygonData);
+    } else
+      callVertex.vertex(paramObject);
+  }
+  
+  void callEdgeFlagOrEdgeFlagData(boolean paramBoolean) {
+    if (callEdgeFlagData != NULL_CB) {
+      callEdgeFlagData.edgeFlagData(paramBoolean, polygonData);
+    } else
+      callEdgeFlag.edgeFlag(paramBoolean);
+  }
+  
+  void callEndOrEndData() {
+    if (callEndData != NULL_CB) {
+      callEndData.endData(polygonData);
+    } else
+      callEnd.end();
+  }
+  
+  void callCombineOrCombineData(double[] paramArrayOfDouble, Object[] paramArrayOfObject1, float[] paramArrayOfFloat, Object[] paramArrayOfObject2) {
+    if (callCombineData != NULL_CB) {
+      callCombineData.combineData(paramArrayOfDouble, paramArrayOfObject1, paramArrayOfFloat, paramArrayOfObject2, polygonData);
+    } else
+      callCombine.combine(paramArrayOfDouble, paramArrayOfObject1, paramArrayOfFloat, paramArrayOfObject2);
+  }
+  
+  void callErrorOrErrorData(int paramInt) {
+    if (callErrorData != NULL_CB) {
+      callErrorData.errorData(paramInt, polygonData);
+    } else {
+      callError.error(paramInt);
+    }
+  }
+}

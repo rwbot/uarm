@@ -1,0 +1,96 @@
+package com.leapmotion.leap;
+
+import java.util.Iterator;
+
+
+
+public class PointableList
+  extends Interface
+  implements Iterable<Pointable>
+{
+  private long swigCPtr;
+  
+  public PointableList(long paramLong, boolean paramBoolean)
+  {
+    super(LeapJNI.PointableList_SWIGUpcast(paramLong), paramBoolean);
+    swigCPtr = paramLong;
+  }
+  
+  public static long getCPtr(PointableList paramPointableList) {
+    return paramPointableList == null ? 0L : swigCPtr;
+  }
+  
+  protected void finalize() {
+    delete();
+  }
+  
+  public synchronized void delete() {
+    if (swigCPtr != 0L) {
+      if (swigCMemOwn) {
+        swigCMemOwn = false;
+        LeapJNI.delete_PointableList(swigCPtr);
+      }
+      swigCPtr = 0L;
+    }
+    super.delete(); }
+  
+  public class PointableListIterator implements Iterator<Pointable> { public PointableListIterator() {}
+    
+    int index = 0;
+    
+    public boolean hasNext() { return index < count(); }
+    
+    public Pointable next() {
+      return get(index++);
+    }
+    
+    public void remove() {}
+  }
+  
+  public Iterator<Pointable> iterator() { return new PointableListIterator(); }
+  
+  public PointableList()
+  {
+    this(LeapJNI.new_PointableList(), true);
+  }
+  
+  public int count() {
+    return LeapJNI.PointableList_count(swigCPtr, this);
+  }
+  
+  public boolean isEmpty() {
+    return LeapJNI.PointableList_isEmpty(swigCPtr, this);
+  }
+  
+  public Pointable get(int paramInt) {
+    return new Pointable(LeapJNI.PointableList_get(swigCPtr, this, paramInt), true);
+  }
+  
+  public PointableList append(PointableList paramPointableList) {
+    return new PointableList(LeapJNI.PointableList_append__SWIG_0(swigCPtr, this, getCPtr(paramPointableList), paramPointableList), false);
+  }
+  
+  public PointableList append(FingerList paramFingerList) {
+    return new PointableList(LeapJNI.PointableList_append__SWIG_1(swigCPtr, this, FingerList.getCPtr(paramFingerList), paramFingerList), false);
+  }
+  
+  public PointableList append(ToolList paramToolList) {
+    return new PointableList(LeapJNI.PointableList_append__SWIG_2(swigCPtr, this, ToolList.getCPtr(paramToolList), paramToolList), false);
+  }
+  
+  public Pointable leftmost() {
+    return new Pointable(LeapJNI.PointableList_leftmost(swigCPtr, this), true);
+  }
+  
+  public Pointable rightmost() {
+    return new Pointable(LeapJNI.PointableList_rightmost(swigCPtr, this), true);
+  }
+  
+  public Pointable frontmost() {
+    return new Pointable(LeapJNI.PointableList_frontmost(swigCPtr, this), true);
+  }
+  
+  public PointableList extended() {
+    return new PointableList(LeapJNI.PointableList_extended(swigCPtr, this), true);
+  }
+}

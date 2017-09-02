@@ -1,0 +1,137 @@
+package processing.opengl;
+
+import processing.core.PGraphics;
+import processing.core.PMatrix3D;
+import processing.core.PShape;
+import processing.core.PShapeOBJ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class PGraphics3D
+  extends PGraphicsOpenGL
+{
+  public PGraphics3D() {}
+  
+  public boolean is2D()
+  {
+    return false;
+  }
+  
+
+  public boolean is3D()
+  {
+    return true;
+  }
+  
+
+
+
+
+
+
+  protected void defaultPerspective()
+  {
+    perspective();
+  }
+  
+
+
+
+
+
+
+  protected void defaultCamera()
+  {
+    camera();
+  }
+  
+
+
+
+
+
+
+  protected void begin2D()
+  {
+    pushProjection();
+    ortho(-width / 2.0F, width / 2.0F, -height / 2.0F, height / 2.0F);
+    pushMatrix();
+    
+
+    float centerX = width / 2.0F;
+    float centerY = height / 2.0F;
+    modelview.reset();
+    modelview.translate(-centerX, -centerY);
+    
+    modelviewInv.set(modelview);
+    modelviewInv.invert();
+    
+    camera.set(modelview);
+    cameraInv.set(modelviewInv);
+    
+    updateProjmodelview();
+  }
+  
+
+  protected void end2D()
+  {
+    popMatrix();
+    popProjection();
+  }
+  
+
+
+
+
+
+
+  protected static boolean isSupportedExtension(String extension)
+  {
+    return extension.equals("obj");
+  }
+  
+
+  protected static PShape loadShapeImpl(PGraphics pg, String filename, String extension)
+  {
+    PShapeOBJ obj = null;
+    
+    if (extension.equals("obj")) {
+      obj = new PShapeOBJ(parent, filename);
+      int prevTextureMode = textureMode;
+      textureMode = 1;
+      PShapeOpenGL p3d = PShapeOpenGL.createShape((PGraphicsOpenGL)pg, obj);
+      textureMode = prevTextureMode;
+      return p3d;
+    }
+    return null;
+  }
+}

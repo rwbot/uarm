@@ -1,0 +1,135 @@
+package com.leapmotion.leap;
+
+
+
+
+public class Bone
+  extends Interface
+{
+  private long swigCPtr;
+  
+
+
+  public Bone(long paramLong, boolean paramBoolean)
+  {
+    super(LeapJNI.Bone_SWIGUpcast(paramLong), paramBoolean);
+    swigCPtr = paramLong;
+  }
+  
+  public static long getCPtr(Bone paramBone) {
+    return paramBone == null ? 0L : swigCPtr;
+  }
+  
+  protected void finalize() {
+    delete();
+  }
+  
+  public synchronized void delete() {
+    if (swigCPtr != 0L) {
+      if (swigCMemOwn) {
+        swigCMemOwn = false;
+        LeapJNI.delete_Bone(swigCPtr);
+      }
+      swigCPtr = 0L;
+    }
+    super.delete();
+  }
+  
+  public Bone() {
+    this(LeapJNI.new_Bone(), true);
+  }
+  
+  public Vector prevJoint() {
+    return new Vector(LeapJNI.Bone_prevJoint(swigCPtr, this), true);
+  }
+  
+  public Vector nextJoint() {
+    return new Vector(LeapJNI.Bone_nextJoint(swigCPtr, this), true);
+  }
+  
+  public Vector center() {
+    return new Vector(LeapJNI.Bone_center(swigCPtr, this), true);
+  }
+  
+  public Vector direction() {
+    return new Vector(LeapJNI.Bone_direction(swigCPtr, this), true);
+  }
+  
+  public float length() {
+    return LeapJNI.Bone_length(swigCPtr, this);
+  }
+  
+  public float width() {
+    return LeapJNI.Bone_width(swigCPtr, this);
+  }
+  
+  public Type type() {
+    return Type.swigToEnum(LeapJNI.Bone_type(swigCPtr, this));
+  }
+  
+  public Matrix basis() {
+    return new Matrix(LeapJNI.Bone_basis(swigCPtr, this), true);
+  }
+  
+  public boolean isValid() {
+    return LeapJNI.Bone_isValid(swigCPtr, this);
+  }
+  
+  public static Bone invalid() {
+    return new Bone(LeapJNI.Bone_invalid(), false);
+  }
+  
+  public boolean equals(Bone paramBone) {
+    return LeapJNI.Bone_equals(swigCPtr, this, getCPtr(paramBone), paramBone);
+  }
+  
+  public String toString() {
+    return LeapJNI.Bone_toString(swigCPtr, this);
+  }
+  
+  public static enum Type {
+    TYPE_METACARPAL(0), 
+    TYPE_PROXIMAL(1), 
+    TYPE_INTERMEDIATE(2), 
+    TYPE_DISTAL(3);
+    
+    public final int swigValue() {
+      return swigValue;
+    }
+    
+    public static Type swigToEnum(int paramInt) {
+      Type[] arrayOfType1 = (Type[])Type.class.getEnumConstants();
+      if ((paramInt < arrayOfType1.length) && (paramInt >= 0) && (swigValue == paramInt))
+        return arrayOfType1[paramInt];
+      for (Type localType : arrayOfType1)
+        if (swigValue == paramInt)
+          return localType;
+      throw new IllegalArgumentException("No enum " + Type.class + " with value " + paramInt);
+    }
+    
+    private Type()
+    {
+      swigValue = SwigNext.access$008();
+    }
+    
+    private Type(int paramInt)
+    {
+      swigValue = paramInt;
+      SwigNext.access$002(paramInt + 1);
+    }
+    
+    private Type(Type paramType)
+    {
+      swigValue = swigValue;
+      SwigNext.access$002(swigValue + 1);
+    }
+    
+    private final int swigValue;
+    private static class SwigNext
+    {
+      private static int next = 0;
+      
+      private SwigNext() {}
+    }
+  }
+}

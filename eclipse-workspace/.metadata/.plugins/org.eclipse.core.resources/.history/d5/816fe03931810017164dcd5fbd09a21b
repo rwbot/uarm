@@ -1,0 +1,129 @@
+package com.jogamp.graph.geom;
+
+import com.jogamp.opengl.math.VectorUtil;
+import jogamp.graph.geom.plane.AffineTransform;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class Triangle
+{
+  private final Vertex[] vertices = new Vertex[3];
+  private final boolean[] boundaryEdges = new boolean[3];
+  private boolean[] boundaryVertices = null;
+  private int id;
+  
+  public Triangle(Vertex paramVertex1, Vertex paramVertex2, Vertex paramVertex3, boolean[] paramArrayOfBoolean) {
+    id = Integer.MAX_VALUE;
+    vertices[0] = paramVertex1;
+    vertices[1] = paramVertex2;
+    vertices[2] = paramVertex3;
+    boundaryVertices = paramArrayOfBoolean;
+  }
+  
+  public Triangle(Triangle paramTriangle) {
+    id = id;
+    vertices[0] = vertices[0].clone();
+    vertices[1] = vertices[1].clone();
+    vertices[2] = vertices[2].clone();
+    System.arraycopy(boundaryEdges, 0, boundaryEdges, 0, 3);
+    boundaryVertices = new boolean[3];
+    System.arraycopy(boundaryVertices, 0, boundaryVertices, 0, 3);
+  }
+  
+  private Triangle(int paramInt, boolean[] paramArrayOfBoolean1, boolean[] paramArrayOfBoolean2) {
+    id = paramInt;
+    System.arraycopy(paramArrayOfBoolean1, 0, boundaryEdges, 0, 3);
+    boundaryVertices = new boolean[3];
+    System.arraycopy(paramArrayOfBoolean2, 0, boundaryVertices, 0, 3);
+  }
+  
+
+
+  public Triangle transform(AffineTransform paramAffineTransform, Vertex.Factory<? extends Vertex> paramFactory)
+  {
+    Triangle localTriangle = new Triangle(id, boundaryEdges, boundaryVertices);
+    vertices[0] = paramAffineTransform.transform(vertices[0], paramFactory.create());
+    vertices[1] = paramAffineTransform.transform(vertices[1], paramFactory.create());
+    vertices[2] = paramAffineTransform.transform(vertices[2], paramFactory.create());
+    return localTriangle;
+  }
+  
+
+
+  public final boolean isOnCurve()
+  {
+    return (vertices[0].isOnCurve()) && (vertices[1].isOnCurve()) && (vertices[2].isOnCurve());
+  }
+  
+
+
+
+
+  public final boolean isLine()
+  {
+    return (VectorUtil.isVec2Zero(vertices[0].getTexCoord(), 0)) && (VectorUtil.isVec2Zero(vertices[1].getTexCoord(), 0)) && (VectorUtil.isVec2Zero(vertices[2].getTexCoord(), 0));
+  }
+  
+  public int getId() {
+    return id;
+  }
+  
+  public void setId(int paramInt) {
+    id = paramInt;
+  }
+  
+  public Vertex[] getVertices()
+  {
+    return vertices;
+  }
+  
+  public boolean isEdgesBoundary() {
+    return (boundaryEdges[0] != 0) || (boundaryEdges[1] != 0) || (boundaryEdges[2] != 0);
+  }
+  
+  public boolean isVerticesBoundary() {
+    return (boundaryVertices[0] != 0) || (boundaryVertices[1] != 0) || (boundaryVertices[2] != 0);
+  }
+  
+  public boolean[] getEdgeBoundary() {
+    return boundaryEdges;
+  }
+  
+  public boolean[] getVerticesBoundary() {
+    return boundaryVertices;
+  }
+  
+  public void setVerticesBoundary(boolean[] paramArrayOfBoolean) {
+    boundaryVertices = paramArrayOfBoolean;
+  }
+  
+  public String toString()
+  {
+    return "Tri ID: " + id + ", onCurve " + isOnCurve() + "\n\t" + vertices[0] + ", bound " + boundaryVertices[0] + "\n\t" + vertices[1] + ", bound " + boundaryVertices[1] + "\n\t" + vertices[2] + ", bound " + boundaryVertices[2];
+  }
+}

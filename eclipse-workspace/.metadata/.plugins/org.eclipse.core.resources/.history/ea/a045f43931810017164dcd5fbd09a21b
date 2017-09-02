@@ -1,0 +1,155 @@
+package com.jogamp.opengl.util.glsl.sdk;
+
+import com.jogamp.common.util.IOUtil;
+import com.jogamp.common.util.IOUtil.StreamMonitor;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.util.glsl.ShaderCode;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
+import java.io.UnsupportedEncodingException;
+import java.io.Writer;
+import java.net.URL;
+import java.net.URLConnection;
+
+
+
+
+public abstract class CompileShader
+{
+  public CompileShader() {}
+  
+  public abstract int getBinaryFormat();
+  
+  public abstract File getSDKCompilerDir();
+  
+  public abstract String getVertexShaderCompiler();
+  
+  public abstract String getFragmentShaderCompiler();
+  
+  public void processOneShader(String paramString)
+    throws IOException, UnsupportedEncodingException, InterruptedException
+  {
+    int i = -1;
+    String str1 = null;
+    int j = -1;
+    if (paramString.endsWith(ShaderCode.getFileSuffix(false, 35632))) {
+      j = 2;
+      i = 35632;
+    } else if (paramString.endsWith(".frag")) {
+      j = 4;
+      i = 35632;
+    } else if (paramString.endsWith(ShaderCode.getFileSuffix(false, 35633))) {
+      j = 2;
+      i = 35633;
+    } else if (paramString.endsWith(".vert")) {
+      j = 4;
+      i = 35633;
+    }
+    String str2 = basename(paramString);
+    
+    str1 = str2.substring(0, str2.length() - j) + ShaderCode.getFileSuffix(true, i);
+    URL localURL = IOUtil.getResource(paramString, getClass().getClassLoader(), null).getURL();
+    String str3 = dirname(localURL.getPath());
+    
+
+    str1 = str3 + File.separator + "bin" + File.separator + ShaderCode.getBinarySubPath(getBinaryFormat()) + File.separator + str1;
+    
+    processOneShader(paramString, str1, i);
+  }
+  
+  public void processOneShader(String paramString1, String paramString2, int paramInt)
+    throws IOException, UnsupportedEncodingException, InterruptedException
+  {
+    URL localURL = IOUtil.getResource(paramString1, getClass().getClassLoader(), null).getURL();
+    String str1 = dirname(localURL.getPath());
+    
+    CharSequence localCharSequence = ShaderCode.readShaderSource(null, paramString1, false);
+    if (null == localCharSequence) {
+      System.err.println("Can't find shader source " + paramString1 + " - ignored");
+      return;
+    }
+    System.err.println("Preprocessing: " + paramString1 + ", in dir: " + str1);
+    String str2 = basename(paramString1);
+    String str3;
+    switch (paramInt) {
+    case 35633: 
+      str3 = getVertexShaderCompiler();
+      break;
+    case 35632: 
+      str3 = getFragmentShaderCompiler();
+      break;
+    default: 
+      throw new GLException("Unknown shader type: " + paramInt);
+    }
+    File localFile1 = new File(paramString2);
+    
+
+    File localFile2 = new File(str1 + File.separator + "tmp");
+    localFile2.mkdirs();
+    File localFile3 = new File(localFile2, str2);
+    BufferedWriter localBufferedWriter = new BufferedWriter(new FileWriter(localFile3));
+    localBufferedWriter.write(localCharSequence.toString(), 0, localCharSequence.length());
+    localBufferedWriter.flush();
+    localBufferedWriter.close();
+    System.err.println("Preprocessed: " + localFile3.getAbsolutePath());
+    
+    File localFile4 = getSDKCompilerDir();
+    
+    System.err.println("SDK: " + localFile4.getAbsolutePath() + ", compiler: " + str3);
+    
+    System.err.println("Output: " + localFile1.getAbsolutePath());
+    
+
+    Process localProcess = Runtime.getRuntime().exec(new String[] {localFile4
+      .getAbsolutePath() + File.separator + str3, localFile3
+      .getAbsolutePath(), localFile1
+      .getAbsolutePath() });
+    
+    new IOUtil.StreamMonitor(new InputStream[] { localProcess.getInputStream(), localProcess.getErrorStream() }, System.out, null);
+    localProcess.waitFor();
+  }
+  
+
+  protected static String basename(String paramString)
+  {
+    int i = paramString.lastIndexOf("/");
+    if (i < 0) {
+      i = paramString.lastIndexOf("\\");
+    }
+    String str;
+    if (i < 0) {
+      str = paramString;
+    } else {
+      str = paramString.substring(i + 1);
+    }
+    return str;
+  }
+  
+  protected static String dirname(String paramString) {
+    int i = paramString.lastIndexOf("/");
+    if (i < 0) {
+      i = paramString.lastIndexOf("\\");
+    }
+    String str;
+    if (i < 0) {
+      str = "";
+    } else {
+      str = paramString.substring(0, i + 1);
+    }
+    return str;
+  }
+  
+  public void run(String[] paramArrayOfString) {
+    try {
+      for (int i = 0; i < paramArrayOfString.length; i++) {
+        processOneShader(paramArrayOfString[i]);
+      }
+    } catch (Exception localException) {
+      localException.printStackTrace();
+    }
+  }
+}

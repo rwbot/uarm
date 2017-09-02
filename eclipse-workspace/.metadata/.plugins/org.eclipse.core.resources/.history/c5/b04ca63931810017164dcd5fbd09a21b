@@ -1,0 +1,491 @@
+package processing.data;
+
+import java.io.BufferedReader;
+import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.util.HashMap;
+import java.util.Iterator;
+import processing.core.PApplet;
+
+
+
+
+
+
+
+
+
+
+
+
+public class StringDict
+{
+  protected int count;
+  protected String[] keys;
+  protected String[] values;
+  private HashMap<String, Integer> indices = new HashMap();
+  
+  public StringDict()
+  {
+    count = 0;
+    keys = new String[10];
+    values = new String[10];
+  }
+  
+
+
+
+
+
+
+
+  public StringDict(int length)
+  {
+    count = 0;
+    keys = new String[length];
+    values = new String[length];
+  }
+  
+
+
+
+
+
+
+  public StringDict(BufferedReader reader)
+  {
+    String[] lines = PApplet.loadStrings(reader);
+    keys = new String[lines.length];
+    values = new String[lines.length];
+    
+    for (int i = 0; i < lines.length; i++) {
+      String[] pieces = PApplet.split(lines[i], '\t');
+      if (pieces.length == 2) {
+        keys[count] = pieces[0];
+        values[count] = pieces[1];
+        indices.put(keys[count], Integer.valueOf(count));
+        count += 1;
+      }
+    }
+  }
+  
+
+
+
+  public StringDict(String[] keys, String[] values)
+  {
+    if (keys.length != values.length) {
+      throw new IllegalArgumentException("key and value arrays must be the same length");
+    }
+    this.keys = keys;
+    this.values = values;
+    count = keys.length;
+    for (int i = 0; i < count; i++) {
+      indices.put(keys[i], Integer.valueOf(i));
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public StringDict(String[][] pairs)
+  {
+    count = pairs.length;
+    keys = new String[count];
+    values = new String[count];
+    for (int i = 0; i < count; i++) {
+      keys[i] = pairs[i][0];
+      values[i] = pairs[i][1];
+      indices.put(keys[i], Integer.valueOf(i));
+    }
+  }
+  
+
+
+
+
+  public int size()
+  {
+    return count;
+  }
+  
+
+
+
+
+
+
+  public void clear()
+  {
+    count = 0;
+    indices = new HashMap();
+  }
+  
+  public String key(int index)
+  {
+    return keys[index];
+  }
+  
+  protected void crop()
+  {
+    if (count != keys.length) {
+      keys = PApplet.subset(keys, 0, count);
+      values = PApplet.subset(values, 0, count);
+    }
+  }
+  
+  public Iterable<String> keys()
+  {
+    new Iterable()
+    {
+      public Iterator<String> iterator()
+      {
+        return keyIterator();
+      }
+    };
+  }
+  
+
+  public Iterator<String> keyIterator()
+  {
+    new Iterator() {
+      int index = -1;
+      
+      public void remove() {
+        removeIndex(index);
+        index -= 1;
+      }
+      
+      public String next() {
+        return key(++index);
+      }
+      
+      public boolean hasNext() {
+        return index + 1 < size();
+      }
+    };
+  }
+  
+
+
+
+
+
+
+  public String[] keyArray()
+  {
+    crop();
+    return keyArray(null);
+  }
+  
+  public String[] keyArray(String[] outgoing)
+  {
+    if ((outgoing == null) || (outgoing.length != count)) {
+      outgoing = new String[count];
+    }
+    System.arraycopy(keys, 0, outgoing, 0, count);
+    return outgoing;
+  }
+  
+  public String value(int index)
+  {
+    return values[index];
+  }
+  
+
+
+
+  public Iterable<String> values()
+  {
+    new Iterable()
+    {
+      public Iterator<String> iterator()
+      {
+        return valueIterator();
+      }
+    };
+  }
+  
+  public Iterator<String> valueIterator()
+  {
+    new Iterator() {
+      int index = -1;
+      
+      public void remove() {
+        removeIndex(index);
+        index -= 1;
+      }
+      
+      public String next() {
+        return value(++index);
+      }
+      
+      public boolean hasNext() {
+        return index + 1 < size();
+      }
+    };
+  }
+  
+
+
+
+
+
+
+  public String[] valueArray()
+  {
+    crop();
+    return valueArray(null);
+  }
+  
+
+
+
+
+
+  public String[] valueArray(String[] array)
+  {
+    if ((array == null) || (array.length != size())) {
+      array = new String[count];
+    }
+    System.arraycopy(values, 0, array, 0, count);
+    return array;
+  }
+  
+
+
+
+
+
+
+  public String get(String key)
+  {
+    int index = index(key);
+    if (index == -1) return null;
+    return values[index];
+  }
+  
+  public String get(String key, String alternate)
+  {
+    int index = index(key);
+    if (index == -1) return alternate;
+    return values[index];
+  }
+  
+
+
+
+
+  public void set(String key, String value)
+  {
+    int index = index(key);
+    if (index == -1) {
+      create(key, value);
+    } else {
+      values[index] = value;
+    }
+  }
+  
+  public int index(String what)
+  {
+    Integer found = (Integer)indices.get(what);
+    return found == null ? -1 : found.intValue();
+  }
+  
+
+
+
+  public boolean hasKey(String key)
+  {
+    return index(key) != -1;
+  }
+  
+  protected void create(String key, String value)
+  {
+    if (count == keys.length) {
+      keys = PApplet.expand(keys);
+      values = PApplet.expand(values);
+    }
+    indices.put(key, Integer.valueOf(count));
+    keys[count] = key;
+    values[count] = value;
+    count += 1;
+  }
+  
+
+
+
+  public int remove(String key)
+  {
+    int index = index(key);
+    if (index != -1) {
+      removeIndex(index);
+    }
+    return index;
+  }
+  
+  public String removeIndex(int index)
+  {
+    if ((index < 0) || (index >= count)) {
+      throw new ArrayIndexOutOfBoundsException(index);
+    }
+    
+    String key = keys[index];
+    indices.remove(key);
+    for (int i = index; i < count - 1; i++) {
+      keys[i] = keys[(i + 1)];
+      values[i] = values[(i + 1)];
+      indices.put(keys[i], Integer.valueOf(i));
+    }
+    count -= 1;
+    keys[count] = null;
+    values[count] = null;
+    return key;
+  }
+  
+  public void swap(int a, int b)
+  {
+    String tkey = keys[a];
+    String tvalue = values[a];
+    keys[a] = keys[b];
+    values[a] = values[b];
+    keys[b] = tkey;
+    values[b] = tvalue;
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public void sortKeys()
+  {
+    sortImpl(true, false);
+  }
+  
+
+
+
+  public void sortKeysReverse()
+  {
+    sortImpl(true, true);
+  }
+  
+
+
+
+
+
+
+  public void sortValues()
+  {
+    sortImpl(false, false);
+  }
+  
+
+
+
+
+  public void sortValuesReverse()
+  {
+    sortImpl(false, true);
+  }
+  
+  protected void sortImpl(final boolean useKeys, final boolean reverse)
+  {
+    Sort s = new Sort()
+    {
+      public int size() {
+        return count;
+      }
+      
+      public float compare(int a, int b)
+      {
+        int diff = 0;
+        if (useKeys) {
+          diff = keys[a].compareToIgnoreCase(keys[b]);
+          if (diff == 0) {
+            diff = values[a].compareToIgnoreCase(values[b]);
+          }
+        } else {
+          diff = values[a].compareToIgnoreCase(values[b]);
+          if (diff == 0) {
+            diff = keys[a].compareToIgnoreCase(keys[b]);
+          }
+        }
+        return reverse ? -diff : diff;
+      }
+      
+      public void swap(int a, int b)
+      {
+        StringDict.this.swap(a, b);
+      }
+    };
+    s.run();
+    
+
+    indices = new HashMap();
+    for (int i = 0; i < count; i++) {
+      indices.put(keys[i], Integer.valueOf(i));
+    }
+  }
+  
+
+  public StringDict copy()
+  {
+    StringDict outgoing = new StringDict(count);
+    System.arraycopy(keys, 0, keys, 0, count);
+    System.arraycopy(values, 0, values, 0, count);
+    for (int i = 0; i < count; i++) {
+      indices.put(keys[i], Integer.valueOf(i));
+    }
+    count = count;
+    return outgoing;
+  }
+  
+  public void print()
+  {
+    for (int i = 0; i < size(); i++) {
+      System.out.println(keys[i] + " = " + values[i]);
+    }
+  }
+  
+
+
+
+
+  public void write(PrintWriter writer)
+  {
+    for (int i = 0; i < count; i++) {
+      writer.println(keys[i] + "\t" + values[i]);
+    }
+    writer.flush();
+  }
+  
+
+  public String toString()
+  {
+    StringBuilder sb = new StringBuilder();
+    sb.append(getClass().getSimpleName() + " size=" + size() + " { ");
+    for (int i = 0; i < size(); i++) {
+      if (i != 0) {
+        sb.append(", ");
+      }
+      sb.append("\"" + keys[i] + "\": \"" + values[i] + "\"");
+    }
+    sb.append(" }");
+    return sb.toString();
+  }
+}

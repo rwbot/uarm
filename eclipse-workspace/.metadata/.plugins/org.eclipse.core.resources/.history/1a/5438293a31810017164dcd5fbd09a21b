@@ -1,0 +1,487 @@
+package jogamp.opengl.macosx.cgl;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.util.ReflectionUtil;
+import com.jogamp.nativewindow.AbstractGraphicsDevice;
+import com.jogamp.nativewindow.AbstractGraphicsScreen;
+import com.jogamp.nativewindow.DefaultGraphicsScreen;
+import com.jogamp.nativewindow.GenericUpstreamSurfacelessHook;
+import com.jogamp.nativewindow.MutableGraphicsConfiguration;
+import com.jogamp.nativewindow.NativeSurface;
+import com.jogamp.nativewindow.ProxySurface;
+import com.jogamp.nativewindow.UpstreamSurfaceHook;
+import com.jogamp.nativewindow.macosx.MacOSXGraphicsDevice;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLCapabilitiesChooser;
+import com.jogamp.opengl.GLCapabilitiesImmutable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLDrawable;
+import com.jogamp.opengl.GLException;
+import com.jogamp.opengl.GLProfile;
+import com.jogamp.opengl.GLRendererQuirks;
+import java.io.PrintStream;
+import java.nio.Buffer;
+import java.nio.FloatBuffer;
+import java.nio.ShortBuffer;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import jogamp.nativewindow.WrappedSurface;
+import jogamp.nativewindow.macosx.OSXDummyUpstreamSurfaceHook;
+import jogamp.opengl.DesktopGLDynamicLookupHelper;
+import jogamp.opengl.GLContextImpl;
+import jogamp.opengl.GLDrawableFactoryImpl;
+import jogamp.opengl.GLDrawableFactoryImpl.DeviceScreenID;
+import jogamp.opengl.GLDrawableImpl;
+import jogamp.opengl.GLDynamicLookupHelper;
+import jogamp.opengl.GLGraphicsConfigurationUtil;
+import jogamp.opengl.SharedResourceRunner.Resource;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class MacOSXCGLDrawableFactory
+  extends GLDrawableFactoryImpl
+{
+  private static final boolean DEBUG_SHAREDCTX = (DEBUG) || (GLContext.DEBUG);
+  
+  private static DesktopGLDynamicLookupHelper macOSXCGLDynamicLookupHelper = null;
+  
+
+  public MacOSXCGLDrawableFactory()
+  {
+    synchronized (MacOSXCGLDrawableFactory.class) {
+      if (null == macOSXCGLDynamicLookupHelper) {
+        DesktopGLDynamicLookupHelper localDesktopGLDynamicLookupHelper = null;
+        try {
+          localDesktopGLDynamicLookupHelper = new DesktopGLDynamicLookupHelper(new MacOSXCGLDynamicLibraryBundleInfo());
+        } catch (GLException localGLException) {
+          if (DEBUG) {
+            localGLException.printStackTrace();
+          }
+        }
+        if ((null != localDesktopGLDynamicLookupHelper) && (localDesktopGLDynamicLookupHelper.isLibComplete())) {
+          macOSXCGLDynamicLookupHelper = localDesktopGLDynamicLookupHelper;
+        }
+      }
+    }
+    
+
+
+
+    defaultDevice = new MacOSXGraphicsDevice(0);
+    
+    if (null != macOSXCGLDynamicLookupHelper)
+    {
+
+      MacOSXCGLGraphicsConfigurationFactory.registerFactory();
+      if (GLProfile.isAWTAvailable()) {
+        try {
+          ReflectionUtil.callStaticMethod("jogamp.opengl.macosx.cgl.awt.MacOSXAWTCGLGraphicsConfigurationFactory", "registerFactory", null, null, 
+            getClass().getClassLoader());
+        }
+        catch (Exception localException) {}
+      }
+      sharedMap = new HashMap();
+    }
+  }
+  
+  protected final boolean isComplete()
+  {
+    return null != macOSXCGLDynamicLookupHelper;
+  }
+  
+  protected final void shutdownImpl()
+  {
+    if (DEBUG) {
+      System.err.println("MacOSXCGLDrawableFactory.shutdown");
+    }
+    if (null != sharedMap) {
+      sharedMap.clear();
+      sharedMap = null;
+    }
+    defaultDevice = null;
+    
+
+
+
+
+    macOSXCGLDynamicLookupHelper = null;
+  }
+  
+  public final GLDynamicLookupHelper getGLDynamicLookupHelper(int paramInt1, int paramInt2)
+  {
+    return macOSXCGLDynamicLookupHelper;
+  }
+  
+  private HashMap<String, SharedResource> sharedMap = new HashMap();
+  
+  private MacOSXGraphicsDevice defaultDevice;
+  
+
+  static class SharedResource
+    implements SharedResourceRunner.Resource
+  {
+    private final GLRendererQuirks glRendererQuirks;
+    
+    MacOSXGraphicsDevice device;
+    boolean valid;
+    boolean hasNPOTTextures;
+    boolean hasRECTTextures;
+    boolean hasAppleFloatPixels;
+    
+    SharedResource(MacOSXGraphicsDevice paramMacOSXGraphicsDevice, boolean paramBoolean1, boolean paramBoolean2, boolean paramBoolean3, boolean paramBoolean4, GLRendererQuirks paramGLRendererQuirks)
+    {
+      glRendererQuirks = paramGLRendererQuirks;
+      device = paramMacOSXGraphicsDevice;
+      valid = paramBoolean1;
+      hasNPOTTextures = paramBoolean2;
+      hasRECTTextures = paramBoolean3;
+      hasAppleFloatPixels = paramBoolean4;
+    }
+    
+    public final boolean isAvailable() {
+      return valid;
+    }
+    
+    public final MacOSXGraphicsDevice getDevice() { return device; }
+    
+    final boolean isNPOTTextureAvailable() { return hasNPOTTextures; }
+    final boolean isRECTTextureAvailable() { return hasRECTTextures; }
+    final boolean isAppleFloatPixelsAvailable() { return hasAppleFloatPixels; }
+    
+    public final AbstractGraphicsScreen getScreen() {
+      return null;
+    }
+    
+    public final GLDrawableImpl getDrawable() {
+      return null;
+    }
+    
+    public GLContextImpl getContext() {
+      return null;
+    }
+    
+    public GLRendererQuirks getRendererQuirks(GLProfile paramGLProfile) {
+      return glRendererQuirks;
+    }
+  }
+  
+  public final AbstractGraphicsDevice getDefaultDevice()
+  {
+    return defaultDevice;
+  }
+  
+  public final boolean getIsDeviceCompatible(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    if ((null != macOSXCGLDynamicLookupHelper) && ((paramAbstractGraphicsDevice instanceof MacOSXGraphicsDevice))) {
+      return true;
+    }
+    return false;
+  }
+  
+  private final HashSet<String> devicesTried = new HashSet();
+  private static final int GAMMA_RAMP_LENGTH = 256;
+  
+  private boolean getDeviceTried(String paramString) { synchronized (devicesTried) {
+      return devicesTried.contains(paramString);
+    }
+  }
+  
+  private void addDeviceTried(String paramString) { synchronized (devicesTried) {
+      devicesTried.add(paramString);
+    }
+  }
+  
+  private void removeDeviceTried(String paramString) { synchronized (devicesTried) {
+      devicesTried.remove(paramString);
+    }
+  }
+  
+  protected final SharedResource getOrCreateSharedResourceImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    String str = paramAbstractGraphicsDevice.getConnection();
+    SharedResource localSharedResource;
+    synchronized (sharedMap) {
+      localSharedResource = (SharedResource)sharedMap.get(str);
+    }
+    if ((null == localSharedResource) && (!getDeviceTried(str))) {
+      addDeviceTried(str);
+      ??? = new MacOSXGraphicsDevice(paramAbstractGraphicsDevice.getUnitID());
+      GLDrawableImpl localGLDrawableImpl = null;
+      GLDrawable localGLDrawable = null;
+      MacOSXCGLContext localMacOSXCGLContext = null;
+      boolean bool1 = false;
+      ((MacOSXGraphicsDevice)???).lock();
+      try {
+        GLProfile localGLProfile = GLProfile.get((AbstractGraphicsDevice)???, GLProfile.GL_PROFILE_LIST_MIN_DESKTOP, false);
+        if (null == localGLProfile) {
+          throw new GLException("Couldn't get default GLProfile for device: " + ???);
+        }
+        GLCapabilities localGLCapabilities = new GLCapabilities(localGLProfile);
+        localGLDrawableImpl = createOnscreenDrawableImpl(createDummySurfaceImpl((AbstractGraphicsDevice)???, false, localGLCapabilities, localGLCapabilities, null, 64, 64));
+        localGLDrawableImpl.setRealized(true);
+        
+        localMacOSXCGLContext = (MacOSXCGLContext)localGLDrawableImpl.createContext(null);
+        if (null == localMacOSXCGLContext) {
+          throw new GLException("Couldn't create shared context for drawable: " + localGLDrawableImpl);
+        }
+        bool1 = 0 != localMacOSXCGLContext.makeCurrent();
+        
+        boolean bool2;
+        boolean bool3;
+        boolean bool4;
+        boolean bool5;
+        GLRendererQuirks localGLRendererQuirks;
+        if (bool1)
+        {
+
+
+          if (probeSurfacelessCtx(localMacOSXCGLContext, false)) {
+            bool2 = true;
+            localGLDrawable = localMacOSXCGLContext.getGLDrawable();
+          } else {
+            bool2 = false;
+          }
+          GL localGL = localMacOSXCGLContext.getGL();
+          bool3 = localGL.isNPOTTextureAvailable();
+          bool4 = localGL.isExtensionAvailable("GL_EXT_texture_rectangle");
+          bool5 = localGL.isExtensionAvailable("GL_APPLE_float_pixels");
+          localGLRendererQuirks = localMacOSXCGLContext.getRendererQuirks();
+        } else {
+          bool2 = false;
+          bool3 = false;
+          bool4 = false;
+          bool5 = false;
+          localGLRendererQuirks = null;
+        }
+        localSharedResource = new SharedResource((MacOSXGraphicsDevice)???, bool1, bool3, bool4, bool5, localGLRendererQuirks);
+        if (DEBUG_SHAREDCTX) {
+          System.err.println("SharedDevice:  " + ???);
+          System.err.println("SharedContext: " + localMacOSXCGLContext + ", madeCurrent " + bool1);
+          System.err.println("  NPOT " + bool3 + ", RECT " + bool4 + ", FloatPixels " + bool5);
+          System.err.println("  allowsSurfacelessCtx " + bool2);
+          System.err.println("  glRendererQuirks " + localGLRendererQuirks);
+        }
+        synchronized (sharedMap) {
+          sharedMap.put(str, localSharedResource);
+        }
+      } catch (Throwable localThrowable) {
+        throw new GLException("MacOSXCGLDrawableFactory - Could not initialize shared resources for " + paramAbstractGraphicsDevice, localThrowable);
+      } finally {
+        if (null != localMacOSXCGLContext) {
+          try {
+            localMacOSXCGLContext.destroy();
+          } catch (GLException localGLException2) {
+            if (DEBUG_SHAREDCTX) {
+              System.err.println("MacOSXCGLDrawableFactory.createShared: INFO: destroy caught exception:");
+              localGLException2.printStackTrace();
+            }
+          }
+        }
+        if (null != localGLDrawable) {
+          localGLDrawable.setRealized(false);
+        }
+        if (null != localGLDrawableImpl) {
+          localGLDrawableImpl.setRealized(false);
+        }
+        ((MacOSXGraphicsDevice)???).unlock();
+        removeDeviceTried(str);
+      }
+    }
+    return localSharedResource;
+  }
+  
+  protected final Thread getSharedResourceThread()
+  {
+    return null;
+  }
+  
+
+
+
+
+
+  public final boolean hasOpenGLDesktopSupport()
+  {
+    return true;
+  }
+  
+
+
+
+
+  public final boolean hasOpenGLESSupport()
+  {
+    return false;
+  }
+  
+
+
+
+
+  public final boolean hasMajorMinorCreateContextARB()
+  {
+    return true;
+  }
+  
+  protected List<GLCapabilitiesImmutable> getAvailableCapabilitiesImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice) {
+    return MacOSXCGLGraphicsConfiguration.getAvailableCapabilities(this, paramAbstractGraphicsDevice);
+  }
+  
+  protected GLDrawableImpl createOnscreenDrawableImpl(NativeSurface paramNativeSurface)
+  {
+    if (paramNativeSurface == null) {
+      throw new IllegalArgumentException("Null target");
+    }
+    return new MacOSXOnscreenCGLDrawable(this, paramNativeSurface);
+  }
+  
+  protected GLDrawableImpl createOffscreenDrawableImpl(NativeSurface paramNativeSurface)
+  {
+    MutableGraphicsConfiguration localMutableGraphicsConfiguration = (MutableGraphicsConfiguration)paramNativeSurface.getGraphicsConfiguration();
+    GLCapabilitiesImmutable localGLCapabilitiesImmutable = (GLCapabilitiesImmutable)localMutableGraphicsConfiguration.getChosenCapabilities();
+    if (!localGLCapabilitiesImmutable.isPBuffer())
+    {
+      GLCapabilities localGLCapabilities = (GLCapabilities)localGLCapabilitiesImmutable.cloneMutable();
+      localGLCapabilities.setPBuffer(true);
+      localGLCapabilities.setBitmap(false);
+      localMutableGraphicsConfiguration.setChosenCapabilities(localGLCapabilities);
+      return new MacOSXOffscreenCGLDrawable(this, paramNativeSurface);
+    }
+    return new MacOSXPbufferCGLDrawable(this, paramNativeSurface);
+  }
+  
+  public boolean canCreateGLPbuffer(AbstractGraphicsDevice paramAbstractGraphicsDevice, GLProfile paramGLProfile)
+  {
+    if (paramGLProfile.isGL2())
+    {
+      return true;
+    }
+    return false;
+  }
+  
+
+
+  protected ProxySurface createMutableSurfaceImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean, GLCapabilitiesImmutable paramGLCapabilitiesImmutable1, GLCapabilitiesImmutable paramGLCapabilitiesImmutable2, GLCapabilitiesChooser paramGLCapabilitiesChooser, UpstreamSurfaceHook paramUpstreamSurfaceHook)
+  {
+    MacOSXGraphicsDevice localMacOSXGraphicsDevice;
+    
+    if ((paramBoolean) || (!(paramAbstractGraphicsDevice instanceof MacOSXGraphicsDevice))) {
+      localMacOSXGraphicsDevice = new MacOSXGraphicsDevice(paramAbstractGraphicsDevice.getUnitID());
+    } else {
+      localMacOSXGraphicsDevice = (MacOSXGraphicsDevice)paramAbstractGraphicsDevice;
+    }
+    DefaultGraphicsScreen localDefaultGraphicsScreen = new DefaultGraphicsScreen(localMacOSXGraphicsDevice, 0);
+    MacOSXCGLGraphicsConfiguration localMacOSXCGLGraphicsConfiguration = MacOSXCGLGraphicsConfigurationFactory.chooseGraphicsConfigurationStatic(paramGLCapabilitiesImmutable1, paramGLCapabilitiesImmutable2, paramGLCapabilitiesChooser, localDefaultGraphicsScreen, true);
+    if (null == localMacOSXCGLGraphicsConfiguration) {
+      throw new GLException("Choosing GraphicsConfiguration failed w/ " + paramGLCapabilitiesImmutable1 + " on " + localDefaultGraphicsScreen);
+    }
+    return new WrappedSurface(localMacOSXCGLGraphicsConfiguration, 0L, paramUpstreamSurfaceHook, paramBoolean);
+  }
+  
+
+  public final ProxySurface createDummySurfaceImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean, GLCapabilitiesImmutable paramGLCapabilitiesImmutable1, GLCapabilitiesImmutable paramGLCapabilitiesImmutable2, GLCapabilitiesChooser paramGLCapabilitiesChooser, int paramInt1, int paramInt2)
+  {
+    paramGLCapabilitiesImmutable1 = GLGraphicsConfigurationUtil.fixOnscreenGLCapabilities(paramGLCapabilitiesImmutable1);
+    return createMutableSurfaceImpl(paramAbstractGraphicsDevice, paramBoolean, paramGLCapabilitiesImmutable1, paramGLCapabilitiesImmutable2, paramGLCapabilitiesChooser, new OSXDummyUpstreamSurfaceHook(paramInt1, paramInt2));
+  }
+  
+
+
+  public final ProxySurface createSurfacelessImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice, boolean paramBoolean, GLCapabilitiesImmutable paramGLCapabilitiesImmutable1, GLCapabilitiesImmutable paramGLCapabilitiesImmutable2, GLCapabilitiesChooser paramGLCapabilitiesChooser, int paramInt1, int paramInt2)
+  {
+    paramGLCapabilitiesImmutable1 = GLGraphicsConfigurationUtil.fixOnscreenGLCapabilities(paramGLCapabilitiesImmutable1);
+    return createMutableSurfaceImpl(paramAbstractGraphicsDevice, paramBoolean, paramGLCapabilitiesImmutable1, paramGLCapabilitiesImmutable2, paramGLCapabilitiesChooser, new GenericUpstreamSurfacelessHook(paramInt1, paramInt2));
+  }
+  
+  protected ProxySurface createProxySurfaceImpl(AbstractGraphicsDevice paramAbstractGraphicsDevice, int paramInt, long paramLong, GLCapabilitiesImmutable paramGLCapabilitiesImmutable, GLCapabilitiesChooser paramGLCapabilitiesChooser, UpstreamSurfaceHook paramUpstreamSurfaceHook)
+  {
+    MacOSXGraphicsDevice localMacOSXGraphicsDevice = new MacOSXGraphicsDevice(paramAbstractGraphicsDevice.getUnitID());
+    DefaultGraphicsScreen localDefaultGraphicsScreen = new DefaultGraphicsScreen(localMacOSXGraphicsDevice, paramInt);
+    MacOSXCGLGraphicsConfiguration localMacOSXCGLGraphicsConfiguration = MacOSXCGLGraphicsConfigurationFactory.chooseGraphicsConfigurationStatic(paramGLCapabilitiesImmutable, paramGLCapabilitiesImmutable, paramGLCapabilitiesChooser, localDefaultGraphicsScreen, true);
+    return new WrappedSurface(localMacOSXCGLGraphicsConfiguration, paramLong, paramUpstreamSurfaceHook, true);
+  }
+  
+  protected GLContext createExternalGLContextImpl()
+  {
+    return MacOSXExternalCGLContext.create(this);
+  }
+  
+  public boolean canCreateExternalGLDrawable(AbstractGraphicsDevice paramAbstractGraphicsDevice)
+  {
+    return false;
+  }
+  
+
+  protected GLDrawable createExternalGLDrawableImpl()
+  {
+    throw new GLException("Not yet implemented");
+  }
+  
+
+
+
+
+
+
+
+
+  protected int getGammaRampLength(NativeSurface paramNativeSurface)
+  {
+    return 256;
+  }
+  
+  protected boolean setGammaRamp(NativeSurface paramNativeSurface, float[] paramArrayOfFloat)
+  {
+    FloatBuffer localFloatBuffer = Buffers.newDirectFloatBuffer(paramArrayOfFloat);
+    return CGL.setGammaRamp(paramArrayOfFloat.length, localFloatBuffer, localFloatBuffer, localFloatBuffer);
+  }
+  
+  protected Buffer getGammaRamp(NativeSurface paramNativeSurface)
+  {
+    return ShortBuffer.allocate(0);
+  }
+  
+  protected void resetGammaRamp(NativeSurface paramNativeSurface, Buffer paramBuffer) {}
+  
+  protected final void resetGammaRamp(GLDrawableFactoryImpl.DeviceScreenID paramDeviceScreenID, Buffer paramBuffer) {}
+}

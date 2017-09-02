@@ -1,0 +1,351 @@
+package com.jogamp.common.nio;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileChannel.MapMode;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class MappedByteBufferOutputStream
+  extends OutputStream
+{
+  private final MappedByteBufferInputStream parent;
+  
+  MappedByteBufferOutputStream(MappedByteBufferInputStream paramMappedByteBufferInputStream, MappedByteBufferInputStream.FileResizeOp paramFileResizeOp)
+    throws IOException
+  {
+    if (FileChannel.MapMode.READ_ONLY == paramMappedByteBufferInputStream.getMapMode()) {
+      throw new IOException("FileChannel map-mode is read-only");
+    }
+    parent = paramMappedByteBufferInputStream;
+    parent.setFileResizeOp(paramFileResizeOp);
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  public MappedByteBufferOutputStream(FileChannel paramFileChannel, FileChannel.MapMode paramMapMode, MappedByteBufferInputStream.CacheMode paramCacheMode, int paramInt, MappedByteBufferInputStream.FileResizeOp paramFileResizeOp)
+    throws IOException
+  {
+    this(new MappedByteBufferInputStream(paramFileChannel, paramMapMode, paramCacheMode, paramInt, paramFileChannel.size(), 0), paramFileResizeOp);
+  }
+  
+
+
+  public final synchronized void setSynchronous(boolean paramBoolean)
+  {
+    parent.setSynchronous(paramBoolean);
+  }
+  
+
+  public final synchronized boolean getSynchronous()
+  {
+    return parent.getSynchronous();
+  }
+  
+
+  public final synchronized void setLength(long paramLong)
+    throws IOException
+  {
+    parent.setLength(paramLong);
+  }
+  
+
+  public final synchronized void notifyLengthChange(long paramLong)
+    throws IOException
+  {
+    parent.notifyLengthChange(paramLong);
+  }
+  
+
+
+  public final synchronized long length()
+  {
+    return parent.length();
+  }
+  
+
+  public final synchronized long remaining()
+    throws IOException
+  {
+    return parent.remaining();
+  }
+  
+
+  public final synchronized long position()
+    throws IOException
+  {
+    return parent.position();
+  }
+  
+
+  public final synchronized MappedByteBufferInputStream position(long paramLong)
+    throws IOException
+  {
+    return parent.position(paramLong);
+  }
+  
+
+  public final synchronized long skip(long paramLong)
+    throws IOException
+  {
+    return parent.skip(paramLong);
+  }
+  
+  public final synchronized void flush() throws IOException
+  {
+    parent.flush(true);
+  }
+  
+
+
+  public final synchronized void flush(boolean paramBoolean)
+    throws IOException
+  {
+    parent.flush(paramBoolean);
+  }
+  
+  public final synchronized void close() throws IOException
+  {
+    parent.close();
+  }
+  
+  public final synchronized void write(int paramInt) throws IOException
+  {
+    parent.checkOpen();
+    long l = parent.remaining();
+    if (l < 1L) {
+      parent.setLength(parent.length() + 1L);
+    }
+    ByteBuffer localByteBuffer = parent.currentSlice();
+    int i = localByteBuffer.remaining();
+    if ((0 == i) && 
+      (null == (localByteBuffer = parent.nextSlice()))) {
+      if (MappedByteBufferInputStream.DEBUG) {
+        System.err.println("EOT write: " + parent.currentSlice());
+        parent.dbgDump("EOT write:", System.err);
+      }
+      throw new IOException("EOT");
+    }
+    
+    localByteBuffer.put((byte)(paramInt & 0xFF));
+    
+
+    if (null != localByteBuffer) {
+      parent.syncSlice(localByteBuffer);
+    }
+  }
+  
+  public final synchronized void write(byte[] paramArrayOfByte, int paramInt1, int paramInt2) throws IOException
+  {
+    parent.checkOpen();
+    if (paramArrayOfByte == null)
+      throw new NullPointerException();
+    if ((paramInt1 < 0) || (paramInt2 < 0) || (paramInt1 > paramArrayOfByte.length) || (paramInt1 + paramInt2 > paramArrayOfByte.length) || (paramInt1 + paramInt2 < 0))
+    {
+
+
+
+
+      throw new IndexOutOfBoundsException("offset " + paramInt1 + ", length " + paramInt2 + ", b.length " + paramArrayOfByte.length); }
+    if (0 == paramInt2) {
+      return;
+    }
+    long l = parent.remaining();
+    if (l < paramInt2) {
+      parent.setLength(parent.length() + paramInt2 - l);
+    }
+    int i = 0;
+    ByteBuffer localByteBuffer = null;
+    while (i < paramInt2) {
+      localByteBuffer = parent.currentSlice();
+      int j = localByteBuffer.remaining();
+      if (0 == j) {
+        if (null == (localByteBuffer = parent.nextSlice())) {
+          if (MappedByteBufferInputStream.DEBUG) {
+            System.err.println("EOT write: offset " + paramInt1 + ", length " + paramInt2 + ", b.length " + paramArrayOfByte.length);
+            System.err.println("EOT write: written " + i + " / " + paramInt2 + ", currRem " + j);
+            System.err.println("EOT write: " + parent.currentSlice());
+            parent.dbgDump("EOT write:", System.err);
+          }
+          throw new InternalError("EOT");
+        }
+        j = localByteBuffer.remaining();
+      }
+      int k = Math.min(paramInt2 - i, j);
+      localByteBuffer.put(paramArrayOfByte, paramInt1 + i, k);
+      i += k;
+    }
+    
+    if (null != localByteBuffer) {
+      parent.syncSlice(localByteBuffer);
+    }
+  }
+  
+
+
+
+
+
+
+  public final synchronized void write(ByteBuffer paramByteBuffer, int paramInt)
+    throws IOException
+  {
+    parent.checkOpen();
+    if (paramByteBuffer == null)
+      throw new NullPointerException();
+    if ((paramInt < 0) || (paramInt > paramByteBuffer.remaining()))
+      throw new IndexOutOfBoundsException("length " + paramInt + ", b " + paramByteBuffer);
+    if (0 == paramInt) {
+      return;
+    }
+    long l = parent.remaining();
+    if (l < paramInt) {
+      parent.setLength(parent.length() + paramInt - l);
+    }
+    int i = 0;
+    ByteBuffer localByteBuffer = null;
+    while (i < paramInt) {
+      localByteBuffer = parent.currentSlice();
+      int j = localByteBuffer.remaining();
+      if (0 == j) {
+        if (null == (localByteBuffer = parent.nextSlice())) {
+          if (MappedByteBufferInputStream.DEBUG) {
+            System.err.println("EOT write: length " + paramInt + ", b " + paramByteBuffer);
+            System.err.println("EOT write: written " + i + " / " + paramInt + ", currRem " + j);
+            System.err.println("EOT write: " + parent.currentSlice());
+            parent.dbgDump("EOT write:", System.err);
+          }
+          throw new InternalError("EOT");
+        }
+        j = localByteBuffer.remaining();
+      }
+      int k = Math.min(paramInt - i, j);
+      
+      if ((localByteBuffer.hasArray()) && (paramByteBuffer.hasArray())) {
+        System.arraycopy(paramByteBuffer.array(), paramByteBuffer.arrayOffset() + paramByteBuffer.position(), localByteBuffer
+          .array(), localByteBuffer.arrayOffset() + localByteBuffer.position(), k);
+        
+        paramByteBuffer.position(paramByteBuffer.position() + k);
+        localByteBuffer.position(localByteBuffer.position() + k);
+      } else if (k == j) {
+        localByteBuffer.put(paramByteBuffer);
+      } else {
+        int m = paramByteBuffer.limit();
+        paramByteBuffer.limit(k);
+        try {
+          localByteBuffer.put(paramByteBuffer);
+        } finally {
+          paramByteBuffer.limit(m);
+        }
+      }
+      i += k;
+    }
+    
+    if (null != localByteBuffer) {
+      parent.syncSlice(localByteBuffer);
+    }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+  public final synchronized void write(MappedByteBufferInputStream paramMappedByteBufferInputStream, long paramLong)
+    throws IOException
+  {
+    parent.checkOpen();
+    if (paramMappedByteBufferInputStream == null)
+      throw new NullPointerException();
+    if ((paramLong < 0L) || (paramLong > paramMappedByteBufferInputStream.remaining()))
+      throw new IndexOutOfBoundsException("length " + paramLong + ", b " + paramMappedByteBufferInputStream);
+    if (0L == paramLong) {
+      return;
+    }
+    long l1 = parent.remaining();
+    if (l1 < paramLong) {
+      parent.setLength(parent.length() + paramLong - l1);
+    }
+    long l2 = 0L;
+    ByteBuffer localByteBuffer = null;
+    while (l2 < paramLong) {
+      localByteBuffer = parent.currentSlice();
+      int i = localByteBuffer.remaining();
+      if (0 == i) {
+        if (null == (localByteBuffer = parent.nextSlice())) {
+          if (MappedByteBufferInputStream.DEBUG) {
+            System.err.println("EOT write: length " + paramLong + ", b " + paramMappedByteBufferInputStream);
+            System.err.println("EOT write: written " + l2 + " / " + paramLong + ", currRem " + i);
+            System.err.println("EOT write: " + parent.currentSlice());
+            parent.dbgDump("EOT write:", System.err);
+          }
+          throw new InternalError("EOT");
+        }
+        i = localByteBuffer.remaining();
+      }
+      int j = paramMappedByteBufferInputStream.read(localByteBuffer, (int)Math.min(paramLong - l2, i));
+      if (0 > j) {
+        throw new InternalError("Unexpected InputStream EOT");
+      }
+      l2 += j;
+    }
+    
+    if (null != localByteBuffer) {
+      parent.syncSlice(localByteBuffer);
+    }
+  }
+}

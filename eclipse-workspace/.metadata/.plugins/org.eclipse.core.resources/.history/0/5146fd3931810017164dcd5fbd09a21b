@@ -1,0 +1,48 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInput;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public abstract class KernSubtable
+{
+  protected KernSubtable() {}
+  
+  public abstract int getKerningPairCount();
+  
+  public abstract KerningPair getKerningPair(int paramInt);
+  
+  public static KernSubtable read(DataInput paramDataInput)
+    throws IOException
+  {
+    Object localObject = null;
+    paramDataInput.readUnsignedShort();
+    paramDataInput.readUnsignedShort();
+    int i = paramDataInput.readUnsignedShort();
+    int j = i >> 8;
+    
+    switch (j) {
+    case 0: 
+      localObject = new KernSubtableFormat0(paramDataInput);
+      break;
+    case 2: 
+      localObject = new KernSubtableFormat2(paramDataInput);
+      break;
+    }
+    
+    
+    return localObject;
+  }
+}

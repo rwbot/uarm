@@ -1,0 +1,428 @@
+package jogamp.nativewindow.windows;
+
+import com.jogamp.common.nio.Buffers;
+import com.jogamp.common.nio.PointerBuffer;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class GDI
+{
+  public static final int DWMWA_NCRENDERING_ENABLED = 1;
+  public static final int DWMWA_NCRENDERING_POLICY = 2;
+  public static final int DWMWA_TRANSITIONS_FORCEDISABLED = 3;
+  public static final int DWMWA_ALLOW_NCPAINT = 4;
+  public static final int DWMWA_CAPTION_BUTTON_BOUNDS = 5;
+  public static final int DWMWA_NONCLIENT_RTL_LAYOUT = 6;
+  public static final int DWMWA_FORCE_ICONIC_REPRESENTATION = 7;
+  public static final int DWMWA_FLIP3D_POLICY = 8;
+  public static final int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
+  public static final int DWMWA_HAS_ICONIC_BITMAP = 10;
+  public static final int DWMWA_DISALLOW_PEEK = 11;
+  public static final int DWMWA_EXCLUDED_FROM_PEEK = 12;
+  public static final int DWMWA_CLOAK = 13;
+  public static final int DWMWA_CLOAKED = 14;
+  public static final int DWMWA_FREEZE_REPRESENTATION = 15;
+  public static final int DWMWA_LAST = 16;
+  public static final int ACCENT_DISABLED = 0;
+  public static final int ACCENT_ENABLE_GRADIENT = 1;
+  public static final int ACCENT_ENABLE_TRANSPARENTGRADIENT = 2;
+  public static final int ACCENT_ENABLE_BLURBEHIND = 3;
+  public static final int ACCENT_INVALID_STATE = 4;
+  public static final int DWMNCRP_USEWINDOWSTYLE = 0;
+  public static final int DWMNCRP_DISABLED = 1;
+  public static final int DWMNCRP_ENABLED = 2;
+  public static final int DWMNCRP_LAST = 3;
+  public static final int OBJ_METADC = 4;
+  public static final int SW_SHOW = 5;
+  public static final int SW_SHOWDEFAULT = 10;
+  public static final int PFD_STEREO = 2;
+  public static final int PFD_SUPPORT_DIRECTDRAW = 8192;
+  public static final int DIB_PAL_COLORS = 1;
+  public static final int BI_RLE8 = 1;
+  public static final int PFD_GENERIC_ACCELERATED = 4096;
+  public static final int BI_RLE4 = 2;
+  public static final int OBJ_ENHMETAFILE = 13;
+  public static final int SW_FORCEMINIMIZE = 11;
+  public static final int ERROR_SUCCESS = 0;
+  public static final int ERROR_INVALID_DATA = 13;
+  public static final int PFD_UNDERLAY_PLANE = -1;
+  public static final int DWM_EC_ENABLECOMPOSITION = 1;
+  public static final int DWM_BB_BLURREGION = 2;
+  public static final int SW_NORMAL = 1;
+  public static final int ERROR_INVALID_WINDOW_HANDLE = 1400;
+  public static final int DIB_RGB_COLORS = 0;
+  public static final int ERROR_NO_SYSTEM_RESOURCES = 1450;
+  public static final int BI_BITFIELDS = 3;
+  public static final int PFD_MAIN_PLANE = 0;
+  public static final int DWM_EC_DISABLECOMPOSITION = 0;
+  public static final int OBJ_BRUSH = 2;
+  public static final int PFD_DEPTH_DONTCARE = 536870912;
+  public static final int PFD_SUPPORT_GDI = 16;
+  public static final long PFD_STEREO_DONTCARE = 2147483648L;
+  public static final int OBJ_BITMAP = 7;
+  public static final int SW_SHOWMINNOACTIVE = 7;
+  public static final int OBJ_COLORSPACE = 14;
+  public static final int SW_MINIMIZE = 6;
+  public static final int OBJ_MEMDC = 10;
+  public static final int PFD_SWAP_COPY = 1024;
+  public static final int PFD_TYPE_COLORINDEX = 1;
+  public static final int SW_SHOWNORMAL = 1;
+  public static final int PFD_NEED_SYSTEM_PALETTE = 256;
+  public static final int SW_MAXIMIZE = 3;
+  public static final int SW_RESTORE = 9;
+  public static final int PFD_SUPPORT_OPENGL = 32;
+  public static final int SW_HIDE = 0;
+  public static final int OBJ_FONT = 6;
+  public static final int PFD_SWAP_EXCHANGE = 512;
+  public static final int SW_SHOWNA = 8;
+  public static final int PFD_DRAW_TO_BITMAP = 8;
+  public static final int OBJ_EXTPEN = 11;
+  public static final int PFD_NEED_PALETTE = 128;
+  public static final int ERROR_PROC_NOT_FOUND = 127;
+  public static final int OBJ_METAFILE = 9;
+  public static final int PFD_SWAP_LAYER_BUFFERS = 2048;
+  public static final int PFD_DOUBLEBUFFER = 1;
+  public static final int PFD_DRAW_TO_WINDOW = 4;
+  public static final int SW_SHOWNOACTIVATE = 4;
+  public static final int OBJ_ENHMETADC = 12;
+  public static final int BI_RGB = 0;
+  public static final int DWM_BB_TRANSITIONONMAXIMIZED = 4;
+  public static final int SW_SHOWMINIMIZED = 2;
+  public static final int PFD_DOUBLEBUFFER_DONTCARE = 1073741824;
+  public static final int OBJ_REGION = 8;
+  public static final int SW_MAX = 11;
+  public static final int OBJ_DC = 3;
+  public static final int PFD_OVERLAY_PLANE = 1;
+  public static final int PFD_GENERIC_FORMAT = 64;
+  public static final int OBJ_PAL = 5;
+  public static final int ERROR_INVALID_PIXEL_FORMAT = 2000;
+  public static final int OBJ_PEN = 1;
+  public static final int SW_SHOWMAXIMIZED = 3;
+  public static final int PFD_TYPE_RGBA = 0;
+  public static final int DWM_BB_ENABLE = 1;
+  
+  public GDI() {}
+  
+  public static native int GetLastError();
+  
+  public static int ChoosePixelFormat(long paramLong, PIXELFORMATDESCRIPTOR paramPIXELFORMATDESCRIPTOR)
+  {
+    return ChoosePixelFormat1(paramLong, paramPIXELFORMATDESCRIPTOR == null ? null : paramPIXELFORMATDESCRIPTOR.getBuffer());
+  }
+  
+
+  private static native int ChoosePixelFormat1(long paramLong, ByteBuffer paramByteBuffer);
+  
+
+  public static int DescribePixelFormat(long paramLong, int paramInt1, int paramInt2, PIXELFORMATDESCRIPTOR paramPIXELFORMATDESCRIPTOR)
+  {
+    return DescribePixelFormat1(paramLong, paramInt1, paramInt2, paramPIXELFORMATDESCRIPTOR == null ? null : paramPIXELFORMATDESCRIPTOR.getBuffer());
+  }
+  
+
+  private static native int DescribePixelFormat1(long paramLong, int paramInt1, int paramInt2, ByteBuffer paramByteBuffer);
+  
+
+  public static native int GetPixelFormat(long paramLong);
+  
+
+  public static boolean SetPixelFormat(long paramLong, int paramInt, PIXELFORMATDESCRIPTOR paramPIXELFORMATDESCRIPTOR)
+  {
+    return SetPixelFormat1(paramLong, paramInt, paramPIXELFORMATDESCRIPTOR == null ? null : paramPIXELFORMATDESCRIPTOR.getBuffer());
+  }
+  
+
+
+  private static native boolean SetPixelFormat1(long paramLong, int paramInt, ByteBuffer paramByteBuffer);
+  
+
+  public static native boolean SwapBuffers(long paramLong);
+  
+
+  public static native long CreateCompatibleDC(long paramLong);
+  
+
+  public static long CreateDIBSection(long paramLong1, BITMAPINFO paramBITMAPINFO, int paramInt1, PointerBuffer paramPointerBuffer, long paramLong2, int paramInt2)
+  {
+    boolean bool = Buffers.isDirect(paramPointerBuffer);
+    return CreateDIBSection1(paramLong1, paramBITMAPINFO == null ? null : paramBITMAPINFO.getBuffer(), paramInt1, bool ? null : paramPointerBuffer != null ? paramPointerBuffer.getBuffer() : Buffers.getArray(paramPointerBuffer), bool ? Buffers.getDirectBufferByteOffset(paramPointerBuffer) : Buffers.getIndirectBufferByteOffset(paramPointerBuffer), bool, paramLong2, paramInt2);
+  }
+  
+
+
+  private static native long CreateDIBSection1(long paramLong1, ByteBuffer paramByteBuffer, int paramInt1, Object paramObject, int paramInt2, boolean paramBoolean, long paramLong2, int paramInt3);
+  
+
+  public static native boolean DeleteDC(long paramLong);
+  
+
+  public static native boolean DeleteObject(long paramLong);
+  
+
+  public static native long SelectObject(long paramLong1, long paramLong2);
+  
+
+  public static native long GetApplicationHandle();
+  
+
+  public static native boolean ShowWindow(long paramLong, int paramInt);
+  
+
+  public static native long GetDC(long paramLong);
+  
+
+  public static native int ReleaseDC(long paramLong1, long paramLong2);
+  
+
+  public static native long WindowFromDC(long paramLong);
+  
+
+  public static boolean GetClientRect(long paramLong, RECT paramRECT)
+  {
+    return GetClientRect1(paramLong, paramRECT == null ? null : paramRECT.getBuffer());
+  }
+  
+
+
+  private static native boolean GetClientRect1(long paramLong, ByteBuffer paramByteBuffer);
+  
+
+
+  public static native boolean DestroyWindow(long paramLong);
+  
+
+  public static native int GetObjectType(long paramLong);
+  
+
+  public static native boolean IsWindowVisible(long paramLong);
+  
+
+  public static native boolean IsWindow(long paramLong);
+  
+
+  public static native long GetParent(long paramLong);
+  
+
+  public static native long SetParent(long paramLong1, long paramLong2);
+  
+
+  public static native long GetCurrentProcess();
+  
+
+  public static native long GetCurrentThread();
+  
+
+  public static boolean GetProcessAffinityMask(long paramLong, PointerBuffer paramPointerBuffer1, PointerBuffer paramPointerBuffer2)
+  {
+    boolean bool1 = Buffers.isDirect(paramPointerBuffer1);
+    boolean bool2 = Buffers.isDirect(paramPointerBuffer2);
+    return GetProcessAffinityMask1(paramLong, bool1 ? null : paramPointerBuffer1 != null ? paramPointerBuffer1.getBuffer() : Buffers.getArray(paramPointerBuffer1), bool1 ? Buffers.getDirectBufferByteOffset(paramPointerBuffer1) : Buffers.getIndirectBufferByteOffset(paramPointerBuffer1), bool1, bool2 ? null : paramPointerBuffer2 != null ? paramPointerBuffer2.getBuffer() : Buffers.getArray(paramPointerBuffer2), bool2 ? Buffers.getDirectBufferByteOffset(paramPointerBuffer2) : Buffers.getIndirectBufferByteOffset(paramPointerBuffer2), bool2);
+  }
+  
+
+
+  private static native boolean GetProcessAffinityMask1(long paramLong, Object paramObject1, int paramInt1, boolean paramBoolean1, Object paramObject2, int paramInt2, boolean paramBoolean2);
+  
+
+
+  public static native boolean SetProcessAffinityMask(long paramLong1, long paramLong2);
+  
+
+
+  public static native long SetThreadAffinityMask(long paramLong1, long paramLong2);
+  
+
+  public static boolean GetDeviceGammaRamp(long paramLong, Buffer paramBuffer)
+  {
+    boolean bool = Buffers.isDirect(paramBuffer);
+    return GetDeviceGammaRamp1(paramLong, bool ? paramBuffer : Buffers.getArray(paramBuffer), bool ? Buffers.getDirectBufferByteOffset(paramBuffer) : Buffers.getIndirectBufferByteOffset(paramBuffer), bool);
+  }
+  
+
+
+  private static native boolean GetDeviceGammaRamp1(long paramLong, Object paramObject, int paramInt, boolean paramBoolean);
+  
+
+
+  public static boolean SetDeviceGammaRamp(long paramLong, Buffer paramBuffer)
+  {
+    boolean bool = Buffers.isDirect(paramBuffer);
+    return SetDeviceGammaRamp1(paramLong, bool ? paramBuffer : Buffers.getArray(paramBuffer), bool ? Buffers.getDirectBufferByteOffset(paramBuffer) : Buffers.getIndirectBufferByteOffset(paramBuffer), bool);
+  }
+  
+
+
+  private static native boolean SetDeviceGammaRamp1(long paramLong, Object paramObject, int paramInt, boolean paramBoolean);
+  
+
+  public static native boolean DwmIsExtensionAvailable();
+  
+
+  public static native boolean DwmIsCompositionEnabled();
+  
+
+  public static native boolean DwmEnableComposition(int paramInt);
+  
+
+  public static boolean DwmEnableBlurBehindWindow(long paramLong, DWM_BLURBEHIND paramDWM_BLURBEHIND)
+  {
+    return DwmEnableBlurBehindWindow0(paramLong, paramDWM_BLURBEHIND == null ? null : paramDWM_BLURBEHIND.getBuffer());
+  }
+  
+
+  private static native boolean DwmEnableBlurBehindWindow0(long paramLong, ByteBuffer paramByteBuffer);
+  
+
+  public static boolean DwmExtendFrameIntoClientArea(long paramLong, MARGINS paramMARGINS)
+  {
+    return DwmExtendFrameIntoClientArea0(paramLong, paramMARGINS == null ? null : paramMARGINS.getBuffer());
+  }
+  
+
+
+  private static native boolean DwmExtendFrameIntoClientArea0(long paramLong, ByteBuffer paramByteBuffer);
+  
+
+  public static int DwmGetWindowAttribute(long paramLong, int paramInt1, Buffer paramBuffer, int paramInt2)
+  {
+    if (!Buffers.isDirect(paramBuffer))
+      throw new RuntimeException("Argument \"pvAttribute\" is not a direct buffer");
+    return DwmGetWindowAttribute0(paramLong, paramInt1, paramBuffer, Buffers.getDirectBufferByteOffset(paramBuffer), paramInt2);
+  }
+  
+
+
+  private static native int DwmGetWindowAttribute0(long paramLong, int paramInt1, Object paramObject, int paramInt2, int paramInt3);
+  
+
+
+  public static int DwmSetWindowAttribute(long paramLong, int paramInt1, Buffer paramBuffer, int paramInt2)
+  {
+    if (!Buffers.isDirect(paramBuffer))
+      throw new RuntimeException("Argument \"pvAttribute\" is not a direct buffer");
+    return DwmSetWindowAttribute0(paramLong, paramInt1, paramBuffer, Buffers.getDirectBufferByteOffset(paramBuffer), paramInt2);
+  }
+  
+
+
+  private static native int DwmSetWindowAttribute0(long paramLong, int paramInt1, Object paramObject, int paramInt2, int paramInt3);
+  
+
+  public static native boolean IsWindowCompositionExtensionAvailable();
+  
+
+  public static boolean GetWindowCompositionAccentPolicy(long paramLong, AccentPolicy paramAccentPolicy)
+  {
+    return GetWindowCompositionAccentPolicy0(paramLong, paramAccentPolicy == null ? null : paramAccentPolicy.getBuffer());
+  }
+  
+
+  private static native boolean GetWindowCompositionAccentPolicy0(long paramLong, ByteBuffer paramByteBuffer);
+  
+
+  public static boolean SetWindowCompositionAccentPolicy(long paramLong, AccentPolicy paramAccentPolicy)
+  {
+    return SetWindowCompositionAccentPolicy0(paramLong, paramAccentPolicy == null ? null : paramAccentPolicy.getBuffer());
+  }
+  
+  private static native boolean SetWindowCompositionAccentPolicy0(long paramLong, ByteBuffer paramByteBuffer);
+}

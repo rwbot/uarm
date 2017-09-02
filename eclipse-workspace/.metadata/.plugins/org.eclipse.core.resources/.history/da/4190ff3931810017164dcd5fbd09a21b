@@ -1,0 +1,94 @@
+package jogamp.graph.font.typecast.ot.table;
+
+import java.io.DataInputStream;
+import java.io.IOException;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+public class SingleSubstFormat1
+  extends SingleSubst
+{
+  private final int _coverageOffset;
+  private final short _deltaGlyphID;
+  private final Coverage _coverage;
+  
+  protected SingleSubstFormat1(DataInputStream paramDataInputStream, int paramInt)
+    throws IOException
+  {
+    _coverageOffset = paramDataInputStream.readUnsignedShort();
+    _deltaGlyphID = paramDataInputStream.readShort();
+    paramDataInputStream.reset();
+    paramDataInputStream.skipBytes(paramInt + _coverageOffset);
+    _coverage = Coverage.read(paramDataInputStream);
+  }
+  
+  public int getFormat()
+  {
+    return 1;
+  }
+  
+  public int substitute(int paramInt)
+  {
+    int i = _coverage.findGlyph(paramInt);
+    if (i > -1) {
+      return paramInt + _deltaGlyphID;
+    }
+    return paramInt;
+  }
+  
+  public String getTypeAsString()
+  {
+    return "SingleSubstFormat1";
+  }
+}

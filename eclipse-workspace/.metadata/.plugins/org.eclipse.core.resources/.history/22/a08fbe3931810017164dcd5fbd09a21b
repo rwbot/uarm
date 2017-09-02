@@ -1,0 +1,210 @@
+package g4p_controls;
+
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedList;
+import processing.core.PApplet;
+import processing.core.PMatrix;
+import processing.core.PMatrix3D;
+import processing.event.KeyEvent;
+import processing.event.MouseEvent;
+
+public class GWindowImpl
+  implements GConstants, GConstantsInternal
+{
+  public LinkedList<GAbstractControl> windowControls = new LinkedList();
+  public LinkedList<GAbstractControl> toRemove = new LinkedList();
+  public LinkedList<GAbstractControl> toAdd = new LinkedList();
+  PApplet app;
+  PMatrix orgMatrix = null;
+  
+  public GWindowImpl(PApplet paramPApplet)
+  {
+    app = paramPApplet;
+    PMatrix localPMatrix = paramPApplet.getMatrix();
+    if ((localPMatrix instanceof PMatrix3D)) {
+      orgMatrix = localPMatrix;
+    }
+    registerMethods();
+  }
+  
+  protected void registerMethods()
+  {
+    app.registerMethod("pre", this);
+    app.registerMethod("draw", this);
+    app.registerMethod("post", this);
+    app.registerMethod("mouseEvent", this);
+    app.registerMethod("keyEvent", this);
+  }
+  
+  protected void unregisterMethods()
+  {
+    app.unregisterMethod("pre", this);
+    app.unregisterMethod("draw", this);
+    app.unregisterMethod("post", this);
+    app.unregisterMethod("mouseEvent", this);
+    app.unregisterMethod("keyEvent", this);
+  }
+  
+  protected void addToWindow(GAbstractControl paramGAbstractControl)
+  {
+    if ((!toAdd.contains(paramGAbstractControl)) && (!windowControls.contains(paramGAbstractControl))) {
+      toAdd.add(paramGAbstractControl);
+    }
+  }
+  
+  protected void removeFromWindow(GAbstractControl paramGAbstractControl)
+  {
+    toRemove.add(paramGAbstractControl);
+  }
+  
+  void invalidateBuffers()
+  {
+    Iterator localIterator = windowControls.iterator();
+    while (localIterator.hasNext())
+    {
+      GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+      bufferInvalid = true;
+    }
+  }
+  
+  void setColorScheme(int paramInt)
+  {
+    Iterator localIterator = windowControls.iterator();
+    while (localIterator.hasNext())
+    {
+      GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+      localGAbstractControl.setLocalColorScheme(paramInt);
+    }
+  }
+  
+  void setAlpha(int paramInt)
+  {
+    Iterator localIterator = windowControls.iterator();
+    while (localIterator.hasNext())
+    {
+      GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+      localGAbstractControl.setAlpha(paramInt);
+    }
+  }
+  
+  public void draw()
+  {
+    app.pushMatrix();
+    if (orgMatrix != null) {
+      app.setMatrix(orgMatrix);
+    }
+    Iterator localIterator = windowControls.iterator();
+    while (localIterator.hasNext())
+    {
+      GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+      if ((registeredMethods & 0x1) == 1) {
+        localGAbstractControl.draw();
+      }
+    }
+    app.popMatrix();
+  }
+  
+  public void mouseEvent(MouseEvent paramMouseEvent)
+  {
+    Iterator localIterator = windowControls.iterator();
+    while (localIterator.hasNext())
+    {
+      GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+      if ((registeredMethods & 0x2) == 2) {
+        localGAbstractControl.mouseEvent(paramMouseEvent);
+      }
+    }
+  }
+  
+  public void keyEvent(KeyEvent paramKeyEvent)
+  {
+    Iterator localIterator = windowControls.iterator();
+    while (localIterator.hasNext())
+    {
+      GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+      if ((registeredMethods & 0x8) == 8) {
+        localGAbstractControl.keyEvent(paramKeyEvent);
+      }
+    }
+  }
+  
+  public void pre()
+  {
+    if ((GAbstractControl.controlToTakeFocus != null) && (GAbstractControl.controlToTakeFocus.getPApplet() == app))
+    {
+      GAbstractControl.controlToTakeFocus.setFocus(true);
+      GAbstractControl.controlToTakeFocus = null;
+    }
+    Iterator localIterator = windowControls.iterator();
+    while (localIterator.hasNext())
+    {
+      GAbstractControl localGAbstractControl = (GAbstractControl)localIterator.next();
+      if ((registeredMethods & 0x4) == 4) {
+        localGAbstractControl.pre();
+      }
+    }
+  }
+  
+  public void post()
+  {
+    if (G4P.cursorChangeEnabled) {
+      if ((GAbstractControl.cursorIsOver != null) && (GAbstractControl.cursorIsOver.getPApplet() == app)) {
+        app.cursor(cursorIsOvercursorOver);
+      } else {
+        app.cursor(G4P.mouseOff);
+      }
+    }
+    Iterator localIterator = windowControls.iterator();
+    Object localObject1;
+    while (localIterator.hasNext())
+    {
+      localObject1 = (GAbstractControl)localIterator.next();
+      if ((registeredMethods & 0x10) == 16) {
+        ((GAbstractControl)localObject1).post();
+      }
+    }
+    synchronized (this)
+    {
+      GAbstractControl localGAbstractControl;
+      if (!toRemove.isEmpty())
+      {
+        localObject1 = toRemove.iterator();
+        while (((Iterator)localObject1).hasNext())
+        {
+          localGAbstractControl = (GAbstractControl)((Iterator)localObject1).next();
+          if (GAbstractControl.focusIsWith == localGAbstractControl) {
+            localGAbstractControl.loseFocus(null);
+          }
+          buffer = null;
+          if (parent != null)
+          {
+            parent.children.remove(localGAbstractControl);
+            parent = null;
+          }
+          if (children != null) {
+            children.clear();
+          }
+          palette = null;
+          eventHandlerObject = null;
+          eventHandlerMethod = null;
+          winApp = null;
+          windowControls.remove(localGAbstractControl);
+          System.gc();
+        }
+        toRemove.clear();
+      }
+      if (!toAdd.isEmpty())
+      {
+        localObject1 = toAdd.iterator();
+        while (((Iterator)localObject1).hasNext())
+        {
+          localGAbstractControl = (GAbstractControl)((Iterator)localObject1).next();
+          windowControls.add(localGAbstractControl);
+        }
+        toAdd.clear();
+        Collections.sort(windowControls, G4P.zorder);
+      }
+    }
+  }
+}
